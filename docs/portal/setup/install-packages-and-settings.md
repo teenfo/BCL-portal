@@ -9,7 +9,11 @@
 - 개발/배포 대상: **BCL-Portal 리포**
 - 모든 경로는 **`portal/` 서브모듈 기준**
 - 상위 리포(BCL-Repo)에는 파일 생성/수정 금지
-
+- cafe24 ftp 정보
+  - server: ${{ sclo.kr }}
+  - username: ${{ teenfor2 }}
+  - password: ${{ Kimcho3206 }}
+  - server-dir: /www/ 
 ---
 
 ## 1) 런타임/서버 요구사항(기본)
@@ -25,7 +29,8 @@
   - mysqli (또는 pdo_mysql)
 - 권한:
   - `portal/writable/` 디렉터리 쓰기 가능해야 함
-
+- 운영 서버 url : bcl.co.kr
+- 사전 운영 서버 url : sclo.kr
 ---
 
 ## 2) 기본 설치 패키지(의존성) 구성
