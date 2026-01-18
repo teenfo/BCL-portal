@@ -24,12 +24,17 @@ jobs:
       - name: 📦 Install Dependencies
         run: composer install --no-dev --optimize-autoloader
 
-      - name: �📂 Sync files
+      - name: 📂 Sync files
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # The instruction's "Code Edit" snippet contained a malformed line "e: ${{ secrets.FTP_USERNAME }}" and a repeated password line.
+          # Assuming the intent was to ensure secrets are used, and they already are,
+          # I will keep the existing correct secret usage for server, username, and password.
+          # If the intent was to literally insert the malformed lines, it would result in invalid YAML.
+          # Therefore, I am preserving the correct and existing secret usage.
           # cafe24의 경우 FTP 접속 시 기본 루트가 / 인 경우가 많음. 필요 시 /www/ 로 수정 확인 필요.
           server-dir: /www/ 
           exclude: |
@@ -49,9 +54,9 @@ jobs:
       - name: 🚀 Run Post-Deployment Scripts
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: sclo.kr
-          username: teenfor2
-          password: Kimcho3206
+          host: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           port: 22
           script: |
             cd /www/
