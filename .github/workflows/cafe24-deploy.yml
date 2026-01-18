@@ -52,6 +52,9 @@ jobs:
             rm release.zip
             # Permissions Fix (Ignore errors)
             chmod -R 755 tools || true
+            # Fix PHP library path (MySQL client error)
+            export LD_LIBRARY_PATH=/usr/local/mysql/lib:$LD_LIBRARY_PATH
+            php -v
             # CI4 Migration Execution (Auto-confirm)
             echo "y" | php spark migrate --all
             # Cache Clear
