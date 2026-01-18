@@ -27,9 +27,9 @@ jobs:
       - name: �📂 Sync files
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: sclo.kr
-          username: teenfor2
-          password: Kimcho3206
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
           # cafe24의 경우 FTP 접속 시 기본 루트가 / 인 경우가 많음. 필요 시 /www/ 로 수정 확인 필요.
           server-dir: /www/ 
           exclude: |
@@ -45,3 +45,17 @@ jobs:
             README.md
             spark
             composer.lock
+
+      - name: 🚀 Run Post-Deployment Scripts
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: sclo.kr
+          username: teenfor2
+          password: Kimcho3206
+          port: 22
+          script: |
+            cd /www/
+            # CI4 Migration Execution
+            php spark migrate --all
+            # Cache Clear (Optional)
+            php spark cache:clear
