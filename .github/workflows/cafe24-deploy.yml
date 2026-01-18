@@ -10,6 +10,7 @@ jobs:
   web-deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    environment: 'CAFE24'
     steps:
       - name: 🚚 Get latest code
         uses: actions/checkout@v4
@@ -30,9 +31,9 @@ jobs:
 
       - name: 🚀 Upload Artifact
         uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
+        with: 
+          host: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           source: "release.zip"
@@ -41,8 +42,8 @@ jobs:
       - name: ♻️ Extract & Migrate
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
+          host: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
