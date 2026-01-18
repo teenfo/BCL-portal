@@ -27,7 +27,7 @@ jobs:
 
 
       - name: 📦 Archive Release
-        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock" "spark"
+        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock"
 
       - name: 🚀 Upload Artifact
         uses: appleboy/scp-action@v0.1.7
