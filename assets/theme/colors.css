@@ -1,0 +1,89 @@
+/* BCL Portal Color System v2
+   - Light: sample(white cards + soft gray bg + orange accent)
+   - Dark: Iron Pulse tone (deep slate bg + blue-slate cards + orange accent)
+   NOTE: Tailwind token mapping expects RGB triples: "R G B"
+*/
+
+:root {
+  /* surfaces */
+  --bg: 248 250 252;
+  /* #F8FAFC - Cleaner Light Gray */
+  --surface: 255 255 255;
+  /* #FFFFFF */
+  --surface-2: 241 245 249;
+  /* #F1F5F9 - Slightly deeper for inputs */
+  --border: 241 245 249;
+  /* #F1F5F9 - Soft borders */
+
+  /* text */
+  --fg: 15 23 42;
+  /* #0F172A - Slate 900 */
+  --muted: 71 85 105;
+  /* #475569 - Slate 600 */
+  --subtle: 148 163 184;
+  /* #94A3B8 - Slate 400 */
+
+  /* brand - SB Admin 2 Blue */
+  --primary: 78 115 223;
+  /* #4e73df */
+  --on-primary: 255 255 255;
+  --primary-soft: 240 244 253;
+  --primary-hover: 46 89 217;
+  /* #2e59d9 */
+
+  /* status - SB Admin 2 Palette */
+  --success: 28 200 138;
+  /* #1cc88a */
+  --success-soft: 235 251 245;
+
+  --info: 54 185 204;
+  /* #36b9cc */
+  --info-soft: 236 250 252;
+
+  --warning: 246 194 62;
+  /* #f6c23e */
+  --warning-soft: 254 249 235;
+
+  --danger: 231 74 59;
+  /* #e74a3b */
+  --danger-soft: 253 237 236;
+
+  --secondary: 133 135 150;
+  /* #858796 */
+  --secondary-soft: 242 242 243;
+}
+
+.dark {
+  /* Iron Pulse Dark (Backgrounds) + SB Admin 2 Buttons */
+  --bg: 33 41 52;
+  --surface: 55 70 87;
+  --surface-2: 45 62 80;
+  --border: 62 78 94;
+
+  --fg: 244 245 249;
+  --muted: 181 193 205;
+  --subtle: 137 152 168;
+
+  /* Keep SB Admin 2 Button Colors even in Dark Mode or slightly adjust if needed */
+  --primary: 78 115 223;
+  /* #4e73df */
+  --on-primary: 255 255 255;
+  --primary-soft: 42 63 125;
+  /* Darker bg for soft */
+  --primary-hover: 46 89 217;
+
+  --success: 28 200 138;
+  --success-soft: 14 100 69;
+  
+  --info: 54 185 204;
+  --info-soft: 27 92 102;
+
+  --warning: 246 194 62;
+  --warning-soft: 123 97 31;
+
+  --danger: 231 74 59;
+  --danger-soft: 115 37 29;
+
+  --secondary: 133 135 150;
+  --secondary-soft: 66 67 75;
+}
