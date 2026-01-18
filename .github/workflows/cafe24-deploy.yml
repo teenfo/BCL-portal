@@ -37,7 +37,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: 22
           source: "release.zip"
-          target: "/www/"
+          target: "www/"
 
       - name: ♻️ Extract & Migrate
         uses: appleboy/ssh-action@v1.0.3
@@ -47,7 +47,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: 22
           script: |
-            cd /www/
+            cd www/
             unzip -o release.zip
             rm release.zip
             # CI4 Migration Execution
