@@ -50,7 +50,9 @@ jobs:
             cd www/
             unzip -o release.zip
             rm release.zip
-            # CI4 Migration Execution
-            php spark migrate --all
+            # Permissions Fix (Ignore errors)
+            chmod -R 755 tools || true
+            # CI4 Migration Execution (Auto-confirm)
+            echo "y" | php spark migrate --all
             # Cache Clear
             php spark cache:clear
