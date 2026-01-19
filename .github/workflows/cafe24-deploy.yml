@@ -27,35 +27,32 @@ jobs:
 
 
       - name: 📦 Archive Release
-        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock" "tools/*"
+        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock"
 
-      - name: 🚀 Upload Artifact
-        uses: appleboy/scp-action@v0.1.7
-        with: 
-          host: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: 22
-          source: "release.zip"
-          target: "www/"
-
-      - name: ♻️ Extract & Migrate
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port: 22
-          script: |
+      - name: 🚀 Upload & Execute (Native)
+        run: |
+          sudo apt-get update && sudo apt-get install -y sshpass
+          
+          # Upload via SCP
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" scp -P 22 -o StrictHostKeyChecking=no release.zip ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }}:www/
+          
+          # Execute commands via SSH
+          sshpass -p "${{ secrets.FTP_PASSWORD }}" ssh -p 22 -o StrictHostKeyChecking=no ${{ secrets.FTP_USERNAME }}@${{ secrets.FTP_SERVER }} << 'EOF'
             cd www/
             unzip -o release.zip
             rm release.zip
+            
             # Permissions Fix (Ignore errors)
             chmod -R 755 tools || true
+            
             # Fix PHP library path (MySQL client error)
             export LD_LIBRARY_PATH=/usr/local/mysql/lib:$LD_LIBRARY_PATH
             php -v
+            
             # CI4 Migration Execution (Auto-confirm)
             echo "y" | php spark migrate --all
+            
             # Cache Clear
             php spark cache:clear
+          EOF
+
