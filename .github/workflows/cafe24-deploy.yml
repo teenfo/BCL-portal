@@ -27,7 +27,7 @@ jobs:
 
 
       - name: 📦 Archive Release
-        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock"
+        run: zip -r release.zip . -x "*.git*" ".github/*" "tests/*" "writable/cache/*" "writable/logs/*" "writable/session/*" ".gitignore" "README.md" "composer.lock" "tools/*"
 
       - name: 🚀 Upload & Execute (Native)
         run: |
