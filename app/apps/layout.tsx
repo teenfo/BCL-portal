@@ -8,8 +8,10 @@ import {
     QrCode,
     MapPin,
     User,
-    Bell
+    Bell,
+    Loader2
 } from "lucide-react";
+import { useUser } from "@/assets/theme/hooks/user-context";
 
 export default function AppsLayout({
     children,
@@ -17,6 +19,7 @@ export default function AppsLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const { user, loading } = useUser();
 
     const navItems = [
         { name: "Home", icon: Home, href: "/apps/dashboard" },
@@ -36,15 +39,24 @@ export default function AppsLayout({
                     </div>
                     <h1 className="text-lg font-bold tracking-tight">BCL</h1>
                 </div>
-                <button className="relative p-2 text-muted hover:text-fg transition-colors">
-                    <Bell size={20} />
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
-                </button>
+                <div className="flex items-center gap-4">
+                    <button className="relative p-2 text-muted hover:text-fg transition-colors">
+                        <Bell size={20} />
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
+                    </button>
+                    <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold border border-primary/10">
+                        {user?.email?.charAt(0).toUpperCase() || "U"}
+                    </div>
+                </div>
             </header>
 
             {/* Content Area */}
             <main className="flex-1 w-full max-w-lg mx-auto p-5 overflow-x-hidden">
-                {children}
+                {loading ? (
+                    <div className="min-h-[50vh] flex items-center justify-center">
+                        <Loader2 className="animate-spin text-primary" size={32} />
+                    </div>
+                ) : children}
             </main>
 
             {/* Mobile Bottom Tab Navigation */}
@@ -81,8 +93,8 @@ export default function AppsLayout({
                             href={item.href}
                             title={item.name}
                             className={`p-3 rounded-2xl transition-all ${isActive
-                                    ? "bg-primary text-on-primary shadow-lg shadow-primary/20 scale-110"
-                                    : "text-muted hover:bg-surface2 hover:text-fg"
+                                ? "bg-primary text-on-primary shadow-lg shadow-primary/20 scale-110"
+                                : "text-muted hover:bg-surface2 hover:text-fg"
                                 }`}
                         >
                             <Icon size={22} />

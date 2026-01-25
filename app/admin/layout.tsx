@@ -20,6 +20,7 @@ import {
     Building2,
     FileText
 } from "lucide-react";
+import { useUser } from "@/assets/theme/hooks/user-context";
 
 export default function AdminLayout({
     children,
@@ -27,6 +28,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
+    const { user } = useUser();
 
     const navItems = [
         { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
@@ -58,8 +60,8 @@ export default function AdminLayout({
                                 key={item.name}
                                 href={item.href}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${isActive
-                                        ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
-                                        : "text-muted hover:bg-surface2 hover:text-fg"
+                                    ? "bg-primary text-on-primary shadow-lg shadow-primary/20"
+                                    : "text-muted hover:bg-surface2 hover:text-fg"
                                     }`}
                             >
                                 <Icon size={18} />
@@ -88,10 +90,12 @@ export default function AdminLayout({
                     </h2>
                     <div className="flex items-center gap-3">
                         <div className="text-right hidden sm:block">
-                            <p className="text-xs font-bold">Admin User</p>
-                            <p className="text-[10px] text-muted">Super Admin</p>
+                            <p className="text-xs font-bold">{user?.email?.split('@')[0] || "Admin User"}</p>
+                            <p className="text-[10px] text-muted">{user?.email || "Super Admin"}</p>
                         </div>
-                        <div className="w-9 h-9 rounded-full bg-surface2 border border-border"></div>
+                        <div className="w-9 h-9 rounded-full bg-surface2 border border-border flex items-center justify-center text-[10px] font-bold">
+                            {user?.email?.charAt(0).toUpperCase() || "A"}
+                        </div>
                     </div>
                 </header>
                 <main className="flex-1 p-6 lg:p-10">
