@@ -17,18 +17,15 @@ export default function AppsLoginPage() {
         setLoading(true);
         setError(null);
 
-        console.log("Attempting app login for:", email);
-        const { data, error } = await supabase.auth.signInWithPassword({
+        const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
         if (error) {
-            console.error("App login error:", error.message, error.status);
             setError(error.message);
             setLoading(false);
         } else {
-            console.log("App login success:", data.user?.email);
             router.refresh();
             router.push("/apps/dashboard");
         }
