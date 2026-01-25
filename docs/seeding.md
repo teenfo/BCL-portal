@@ -4,17 +4,26 @@ This document contains the initial seed data used to populate the BCL Portal dat
 
 ## Login Information (Auth)
 
-Two default accounts have been created for testing.
+> [!CAUTION]
+> Due to Supabase security restrictions, Auth users cannot be reliably created via SQL injection. Manual creation via the Dashboard is **required** to prevent 500 Database Errors.
+
+### Instructions:
+1. Go to your **Supabase Dashboard** -> **Authentication** -> **Users**.
+2. Click **Add User** -> **Create new user**.
+3. Create the following accounts:
+   - **Member**: `alice@test.com` (Password: `1234`)
+   - **Admin**: `admin@bcl.com` (Password: `1234`)
+4. Ensure "Confirm Email" is toggled **OFF** or manually confirm them from the Dashboard.
 
 | Role | Email | Password |
 | :--- | :--- | :--- |
-| **Member** | `alice@test.com` | `3206#@KimCHO` |
-| **Admin** | `admin@bcl.com` | `3206#@KimCHO` |
+| **Member** | `alice@test.com` | `1234` |
+| **Admin** | `admin@bcl.com` | `1234` |
 
-> [!NOTE]
-> These users are created directly in the `auth.users` table with pre-hashed passwords using the `pgcrypto` extension.
+---
 
 ## Core Tables & Mock Data
+*Note: These tables are seeded automatically via the MCP tool.*
 
 ### 1. Facilities
 Initial branch information.
@@ -54,4 +63,5 @@ INSERT INTO public.sessions (title, coach_name, start_time, end_time, intensity,
 To reset and re-seed your local or production database, you can execute the compiled SQL script via the Supabase Dashboard SQL Editor or using the MCP tool.
 
 > [!IMPORTANT]
-> Ensure that `auth.users` references are handled correctly if you link members to actual authentication accounts.
+> To link a created user to the `public.members` table, run:
+> `UPDATE public.members SET user_id = (SELECT id FROM auth.users WHERE email = 'alice@test.com') WHERE email = 'alice@test.com';`
