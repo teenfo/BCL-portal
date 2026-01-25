@@ -273,3 +273,38 @@
 - facilities: admin.settings.facility → apps.facilities (RO)
 - notices: admin.content.notices → apps.notices (RO)
 - coaches: admin.coaches → apps.coaches (RO)
+
+---
+
+# 부록 E) Antigravity MD Generator YAML
+
+```yaml
+version: 1
+output:
+  format: md
+  root: .docs/generated
+files:
+  - path: sitemap.md
+    source: .docs/sitemap/bcl-portal-sitemap.md
+
+  - path: agent-rules.md
+    sections:
+      - title: Project Assumptions
+        ref: agent.rules
+      - title: Routing Rules
+        ref: routing
+
+  - path: supabase-schema.md
+    sections:
+      - title: Tables
+        ref: supabase.tables
+      - title: RLS Policy
+        ref: supabase.rls
+
+  - path: ux-guidelines.md
+    sections:
+      - title: User UX
+        ref: ux.user
+      - title: Admin UX
+        ref: ux.admin
+```
