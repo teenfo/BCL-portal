@@ -40,10 +40,10 @@ export default function AppsLayout({
                     <h1 className="text-lg font-bold tracking-tight">BCL</h1>
                 </div>
                 <div className="flex items-center gap-4">
-                    <button className="relative p-2 text-muted hover:text-fg transition-colors">
+                    <Link href="/apps/notifications" className="relative p-2 text-muted hover:text-fg transition-colors">
                         <Bell size={20} />
                         <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
-                    </button>
+                    </Link>
                     <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold border border-primary/10">
                         {user?.email?.charAt(0).toUpperCase() || "U"}
                     </div>
