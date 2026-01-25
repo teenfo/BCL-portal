@@ -43,5 +43,5 @@ You must add these variables in the **Environment Variables** section during set
 3. Once finished, you will get a `*.pages.dev` URL.
 
 ## Troubleshooting
-- **"Error: No Output Directory found"**: Ensure you set Output Directory to `.vercel/output/static`.
+- **"Error: No Output Directory found"**: Ensure you set Output Directory to `.cloudflare_build`.
 - **"Error: missing dependency"**: We installed `@cloudflare/next-on-pages`. Ensure `package.json` is committed.
