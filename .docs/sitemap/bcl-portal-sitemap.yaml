@@ -1,0 +1,139 @@
+# BCL Portal Sitemap v0.6
+# Cloudflare Pages + Supabase (CSR)
+# SSOT (Single Source of Truth)
+# Location: .docs/sitemap/bcl-portal-sitemap.yaml
+
+meta:
+  project: BCL Portal
+  version: v0.6
+  rendering: CSR
+  hosting: Cloudflare Pages
+  backend:
+    auth: Supabase Auth
+    db: Supabase Postgres
+  note: |
+    This sitemap is the single source of truth.
+    Any UI, route, or feature must be defined here first.
+
+routing:
+  user_prefix: /apps
+  admin_prefix: /admin
+
+auth:
+  user:
+    - /apps/auth/login
+    - /apps/auth/callback
+  admin:
+    - /admin/auth/login
+    - /admin/auth/callback
+  logout:
+    - /auth/logout
+
+apps:
+  navigation: bottom-tab
+  tabs:
+    - home
+    - schedule
+    - checkin
+    - facilities
+    - profile
+
+  pages:
+    - path: /apps/dashboard
+      name: Dashboard
+
+    - path: /apps/schedule
+      name: Schedule
+
+    - path: /apps/schedule/[sessionId]
+      name: Session Detail
+
+    - path: /apps/bookings
+      name: Bookings
+
+    - path: /apps/bookings/new/[sessionId]
+      name: New Booking
+
+    - path: /apps/checkin
+      name: Check-in
+
+    - path: /apps/checkin/history
+      name: Check-in History
+
+    - path: /apps/facilities
+      name: Facilities
+
+    - path: /apps/facilities/[id]
+      name: Facility Detail
+      source: admin.settings.facility
+
+    - path: /apps/notices
+      name: Notices
+      source: admin.content.notices
+
+    - path: /apps/notices/[id]
+      name: Notice Detail
+
+    - path: /apps/membership
+      name: Membership
+
+    - path: /apps/membership/plans
+      name: Membership Plans
+
+    - path: /apps/billing/payments
+      name: Payments
+
+    - path: /apps/notifications
+      name: Notifications
+
+    - path: /apps/profile
+      name: Profile
+
+    - path: /apps/settings
+      name: User Settings
+
+    - path: /apps/support
+      name: Support
+
+admin:
+  navigation: sidebar
+
+  pages:
+    - path: /admin/dashboard
+      name: Admin Dashboard
+
+    - path: /admin/members
+      name: Members
+
+    - path: /admin/members/[id]
+      name: Member Detail
+
+    - path: /admin/coaches
+      name: Coaches
+
+    - path: /admin/sessions/schedule
+      name: Session Schedule
+
+    - path: /admin/attendance
+      name: Attendance
+
+    - path: /admin/reports/attendance
+      name: Attendance Reports
+
+    - path: /admin/checkin/live
+      name: Live Check-in
+
+    - path: /admin/checkin/qr
+      name: QR Check-in
+
+    - path: /admin/billing/payments
+      name: Billing & Payments
+
+    - path: /admin/content/notices
+      name: Notices Management
+
+    - path: /admin/settings/facility
+      name: Facility Settings
+
+    - path: /admin/settings/memberships
+      name: Membership Settings
