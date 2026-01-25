@@ -17,8 +17,8 @@ This document contains the initial seed data used to populate the BCL Portal dat
 
 | Role | Email | Password |
 | :--- | :--- | :--- |
-| **Member** | `alice@test.com` | `1234` |
-| **Admin** | `admin@bcl.com` | `1234` |
+| **Member** | `alice@bcl.com` | `123456` |
+| **Admin** | `admin@bcl.com` | `123456` |
 
 ---
 
