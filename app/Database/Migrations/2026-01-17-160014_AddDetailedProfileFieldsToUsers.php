@@ -17,7 +17,9 @@ class AddDetailedProfileFieldsToUsers extends Migration
             'join_source' => ['type' => 'VARCHAR', 'constraint' => 100, 'null' => true],
         ];
 
-        $this->forge->addColumn('users', $fields);
+        if (!$this->db->columnExists('address', 'users')) {
+            $this->forge->addColumn('users', $fields);
+        }
     }
 
     public function down()

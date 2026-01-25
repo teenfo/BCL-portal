@@ -40,7 +40,7 @@ class CreateNotificationTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('notification_templates');
+        $this->forge->createTable('notification_templates', true);
 
         // 2. Notification Logs
         $this->forge->addField([
@@ -70,7 +70,7 @@ class CreateNotificationTables extends Migration
             'response' => ['type' => 'TEXT', 'null' => true], // API response
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('notification_logs');
+        $this->forge->createTable('notification_logs', true);
     }
 
     public function down()

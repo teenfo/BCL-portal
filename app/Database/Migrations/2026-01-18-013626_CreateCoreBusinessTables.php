@@ -49,7 +49,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('membership_plans');
+        $this->forge->createTable('membership_plans', true);
 
         // 2. Sessions (Classes)
         $this->forge->addField([
@@ -85,7 +85,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('sessions');
+        $this->forge->createTable('sessions', true);
 
         // 3. Bookings
         $this->forge->addField([
@@ -119,7 +119,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('bookings');
+        $this->forge->createTable('bookings', true);
 
         // 4. Attendance Logs
         $this->forge->addField([
@@ -153,7 +153,7 @@ class CreateCoreBusinessTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('attendance_logs');
+        $this->forge->createTable('attendance_logs', true);
 
         // 5. Payments
         $this->forge->addField([
@@ -195,7 +195,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('payments');
+        $this->forge->createTable('payments', true);
 
         // 6. Refunds
         $this->forge->addField([
@@ -230,7 +230,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('refunds');
+        $this->forge->createTable('refunds', true);
 
         // 7. Coach Details
         $this->forge->addField([
@@ -266,7 +266,7 @@ class CreateCoreBusinessTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('coach_details');
+        $this->forge->createTable('coach_details', true);
     }
 
     public function down()

@@ -21,7 +21,9 @@ class AddProfileFieldsToUsers extends Migration
             'last_visit_at' => ['type' => 'DATETIME', 'null' => true],
         ];
 
-        $this->forge->addColumn('users', $fields);
+        if (!$this->db->columnExists('phone', 'users')) {
+            $this->forge->addColumn('users', $fields);
+        }
     }
 
     public function down()

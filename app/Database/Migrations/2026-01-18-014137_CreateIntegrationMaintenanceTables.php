@@ -40,7 +40,7 @@ class CreateIntegrationMaintenanceTables extends Migration
             'created_at' => ['type' => 'DATETIME'],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('audit_logs');
+        $this->forge->createTable('audit_logs', true);
 
         // 2. Error Logs
         $this->forge->addField([
@@ -57,7 +57,7 @@ class CreateIntegrationMaintenanceTables extends Migration
             'created_at' => ['type' => 'DATETIME'],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('error_logs');
+        $this->forge->createTable('error_logs', true);
 
         // 3. API Keys
         $this->forge->addField([
@@ -74,7 +74,7 @@ class CreateIntegrationMaintenanceTables extends Migration
             'created_at' => ['type' => 'DATETIME'],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('api_keys');
+        $this->forge->createTable('api_keys', true);
     }
 
     public function down()

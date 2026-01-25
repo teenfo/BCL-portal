@@ -59,7 +59,7 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('facilities');
+        $this->forge->createTable('facilities', true);
 
         // 2. Operating Policies
         $this->forge->addField([
@@ -87,7 +87,7 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('policy_key', true);
-        $this->forge->createTable('operating_policies');
+        $this->forge->createTable('operating_policies', true);
 
         // 3. Policy Histories
         $this->forge->addField([
@@ -120,7 +120,7 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('policy_histories');
+        $this->forge->createTable('policy_histories', true);
 
         // 4. Membership Global Policies
         $this->forge->addField([
@@ -139,7 +139,7 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('policy_key', true);
-        $this->forge->createTable('membership_global_policies');
+        $this->forge->createTable('membership_global_policies', true);
 
         // 5. Membership Hold Logs
         $this->forge->addField([
@@ -170,7 +170,7 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('membership_hold_logs');
+        $this->forge->createTable('membership_hold_logs', true);
 
         // 6. Security Policies
         $this->forge->addField([
@@ -199,47 +199,53 @@ class CreateSettingsTables extends Migration
             ],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('security_policies');
+        $this->forge->createTable('security_policies', true);
 
         // Insert default facility
-        $this->db->table('facilities')->insert([
-            'name' => 'BCL Pilates 센터',
-            'business_number' => '123-45-67890',
-            'phone' => '02-123-4567',
-            'address' => '서울특별시 서초구 서초대로 123',
-            'operating_hours' => json_encode([
-                'weekdays' => '09:00 - 22:00',
-                'saturday' => '10:00 - 18:00',
-                'sunday' => 'Closed'
-            ]),
-            'created_at' => date('Y-m-d H:i:s'),
-            'updated_at' => date('Y-m-d H:i:s'),
-        ]);
+        // Insert default facility if none exists
+        if ($this->db->table('facilities')->countAllResults() === 0) {
+            $this->db->table('facilities')->insert([
+                'name' => 'BCL Pilates 센터',
+                'business_number' => '123-45-67890',
+                'phone' => '02-123-4567',
+                'address' => '서울특별시 서초구 서초대로 123',
+                'operating_hours' => json_encode([
+                    'weekdays' => '09:00 - 22:00',
+                    'saturday' => '10:00 - 18:00',
+                    'sunday' => 'Closed'
+                ]),
+                'created_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s'),
+            ]);
+        }
 
         // Insert default operating policies
-        $this->db->table('operating_policies')->insertBatch([
-            [
-                'policy_key' => 'CANCEL_TIME_LIMIT',
-                'policy_value' => '6',
-                'unit' => 'Hours',
-                'description' => '수업 시작 몇 시간 전까지 취소가 가능한지 설정합니다.',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ],
-            [
-                'policy_key' => 'REFUND_FEE_RATE',
-                'policy_value' => '10',
-                'unit' => 'Percent',
-                'description' => '환불 시 발생하는 위약금 비율입니다.',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ],
-            [
-                'policy_key' => 'NOSHOW_PENALTY',
-                'policy_value' => '1',
-                'unit' => 'Count',
-                'description' => '출석하지 않았을 때 차감되는 횟수입니다.',
-                'updated_at' => date('Y-m-d H:i:s'),
-            ],
-        ]);
+        // Insert default operating policies if none exist
+        if ($this->db->table('operating_policies')->countAllResults() === 0) {
+            $this->db->table('operating_policies')->insertBatch([
+                [
+                    'policy_key' => 'CANCEL_TIME_LIMIT',
+                    'policy_value' => '6',
+                    'unit' => 'Hours',
+                    'description' => '수업 시작 몇 시간 전까지 취소가 가능한지 설정합니다.',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ],
+                [
+                    'policy_key' => 'REFUND_FEE_RATE',
+                    'policy_value' => '10',
+                    'unit' => 'Percent',
+                    'description' => '환불 시 발생하는 위약금 비율입니다.',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ],
+                [
+                    'policy_key' => 'NOSHOW_PENALTY',
+                    'policy_value' => '1',
+                    'unit' => 'Count',
+                    'description' => '출석하지 않았을 때 차감되는 횟수입니다.',
+                    'updated_at' => date('Y-m-d H:i:s'),
+                ],
+            ]);
+        }
     }
 
     public function down()

@@ -45,7 +45,7 @@ class CreateContentTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('notices');
+        $this->forge->createTable('notices', true);
 
         // 2. Banners
         $this->forge->addField([
@@ -85,7 +85,7 @@ class CreateContentTables extends Migration
             'end_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('banners');
+        $this->forge->createTable('banners', true);
 
         // 3. Posts (Community)
         $this->forge->addField([
@@ -118,7 +118,7 @@ class CreateContentTables extends Migration
             'updated_at' => ['type' => 'DATETIME', 'null' => true],
         ]);
         $this->forge->addKey('id', true);
-        $this->forge->createTable('posts');
+        $this->forge->createTable('posts', true);
     }
 
     public function down()
