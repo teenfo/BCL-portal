@@ -11,7 +11,10 @@ import {
     Bell,
     LogOut,
     Building2,
-    FileText
+    FileText,
+    History,
+    Zap,
+    Shield
 } from "lucide-react";
 import { useUser } from "@/assets/theme/hooks/user-context";
 
@@ -26,9 +29,11 @@ export default function AdminLayout({
     const navItems = [
         { name: "Dashboard", icon: LayoutDashboard, href: "/admin/dashboard" },
         { name: "Members", icon: Users, href: "/admin/members" },
-        { name: "Sessions", icon: Calendar, href: "/admin/sessions/schedule" },
+        { name: "Coaches", icon: Shield, href: "/admin/coaches" },
+        { name: "Attendance", icon: History, href: "/admin/attendance" },
+        { name: "Schedule", icon: Calendar, href: "/admin/sessions/schedule" },
         { name: "Billing", icon: CreditCard, href: "/admin/billing/payments" },
-        { name: "Notices", icon: FileText, href: "/admin/content/notices" },
+        { name: "Check-in", icon: Zap, href: "/admin/checkin/live" },
         { name: "Settings", icon: Settings, href: "/admin/settings/facility" },
     ];
 
