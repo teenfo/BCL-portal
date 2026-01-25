@@ -13,12 +13,20 @@ Cloudflare will detect Next.js. **However**, for full SSR support (Supabase), us
 - **Framework Preset**: `Next.js`
 - **Build Command**: `npm run pages:build`
   - *This uses `@cloudflare/next-on-pages` which we installed.*
-- **Build Output Directory**: `.vercel/output/static`
-  - *IMPORTANT: Do not use the default `.next`. `next-on-pages` outputs to `.vercel/output/static`.*
+- **Build Output Directory**: `.cloudflare_build`
+  - *Optimized for Cloudflare Pages.*
 - **Root Directory**: `portal`
   - *Since your Next.js app is inside the `/portal` folder, you MUST set this.*
 
-## 3. Environment Variables (Critical)
+### 3. Wrangler Configuration (`wrangler.toml`)
+We explicitly set the build output directory to `.cloudflare_build`.
+
+```toml
+# wrangler.toml
+pages_build_output_dir = ".cloudflare_build"
+```
+
+## 4. Environment Variables (Critical)
 You must add these variables in the **Environment Variables** section during setup (or in Settings > Environment Variables after creation).
 
 | Variable Name | Value (Copy from your `.env.local`) |
@@ -29,7 +37,7 @@ You must add these variables in the **Environment Variables** section during set
 | `KAKAO_CLIENT_SECRET` | (Your Kakao Secret, if used on server) |
 | `NODE_VERSION` | `20` (Recommended) |
 
-## 4. Deploy
+## 5. Deploy
 1. Click **Save and Deploy**.
 2. Cloudflare will clone, install dependencies, and run `npm run pages:build`.
 3. Once finished, you will get a `*.pages.dev` URL.
