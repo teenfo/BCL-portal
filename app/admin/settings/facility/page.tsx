@@ -1,156 +1,104 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/assets/theme/hooks/supabase";
+import { Building2, MapPin, Clock, Phone, Globe, Save, Upload, Plus, Trash2 } from "lucide-react";
+import { useState } from "react";
 
-interface Facility {
-    id: string;
-    name: string;
-    address: string;
-    operating_hours: string;
-    created_at: string;
-}
-
-export default function FacilitySettingsPage() {
-    const [facilities, setFacilities] = useState<Facility[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isEditing, setIsEditing] = useState(false);
-    const [currentFacility, setCurrentFacility] = useState<Partial<Facility>>({});
-
-    const supabase = createClient();
-
-    const fetchFacilities = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from("facilities")
-            .select("*")
-            .order("created_at", { ascending: false });
-
-        if (error) {
-            console.error("Error fetching facilities:", error.message);
-        } else {
-            setFacilities(data || []);
-        }
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        fetchFacilities();
-    }, []);
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-
-        const { error } = await supabase
-            .from("facilities")
-            .upsert({
-                ...currentFacility,
-                updated_at: new Date().toISOString(),
-            });
-
-        if (error) {
-            alert("Error saving: " + error.message);
-        } else {
-            setIsEditing(false);
-            setCurrentFacility({});
-            fetchFacilities();
-        }
-        setLoading(false);
-    };
+export default function AdminFacilitySettingsPage() {
+    const [facility, setFacility] = useState({
+        name: "Central Branch",
+        address: "123 Fitness Ave, Seoul, Korea",
+        hours: "06:00 AM - 11:00 PM",
+        phone: "02-1234-5678",
+        email: "central@bcl.com",
+        manager: "Mark Wilson"
+    });
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold">Facility Management</h1>
-                <button
-                    onClick={() => {
-                        setCurrentFacility({});
-                        setIsEditing(true);
-                    }}
-                    className="bg-primary text-on-primary px-4 py-2 rounded-xl text-sm font-bold shadow-card"
-                >
-                    Add New Branch
+        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+            <div className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight">Facility Settings</h1>
+                    <p className="text-muted text-sm font-medium mt-1">Update branch Information, operating hours, and contact details.</p>
+                </div>
+                <button className="bg-primary text-on-primary px-6 py-3 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 flex items-center gap-2 active:scale-95 transition-all">
+                    <Save size={18} />
+                    Save Changes
                 </button>
             </div>
 
-            {isEditing ? (
-                <div className="bg-surface p-6 rounded-2xl border border-border shadow-card animate-in fade-in slide-in-from-bottom-2">
-                    <h3 className="font-bold mb-4">{currentFacility.id ? "Edit Branch" : "New Branch"}</h3>
-                    <form onSubmit={handleSave} className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-muted mb-1">Branch Name</label>
-                                <input
-                                    type="text"
-                                    value={currentFacility.name || ""}
-                                    onChange={(e) => setCurrentFacility({ ...currentFacility, name: e.target.value })}
-                                    className="w-full bg-surface2 p-3 rounded-xl border border-border outline-none focus:ring-2 focus:ring-primary/20"
-                                    required
-                                />
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                    <section className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-soft space-y-6">
+                        <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                            <Building2 size={18} className="text-primary" />
+                            General Information
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-muted tracking-widest pl-1">Branch Name</label>
+                                <input type="text" value={facility.name} className="w-full bg-surface2 border border-border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
-                            <div>
-                                <label className="block text-xs font-bold uppercase text-muted mb-1">Operating Hours</label>
-                                <input
-                                    type="text"
-                                    value={currentFacility.operating_hours || ""}
-                                    onChange={(e) => setCurrentFacility({ ...currentFacility, operating_hours: e.target.value })}
-                                    className="w-full bg-surface2 p-3 rounded-xl border border-border outline-none focus:ring-2 focus:ring-primary/20"
-                                    placeholder="e.g., 06:00 - 23:00"
-                                />
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-muted tracking-widest pl-1">Branch Manager</label>
+                                <input type="text" value={facility.manager} className="w-full bg-surface2 border border-border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20" />
                             </div>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-muted mb-1">Address</label>
-                            <textarea
-                                value={currentFacility.address || ""}
-                                onChange={(e) => setCurrentFacility({ ...currentFacility, address: e.target.value })}
-                                className="w-full bg-surface2 p-3 rounded-xl border border-border outline-none focus:ring-2 focus:ring-primary/20"
-                                rows={3}
-                                required
-                            ></textarea>
-                        </div>
-                        <div className="flex gap-2 pt-2">
-                            <button type="submit" disabled={loading} className="flex-1 bg-primary text-on-primary py-3 rounded-xl font-bold">Save Changes</button>
-                            <button type="button" onClick={() => setIsEditing(false)} className="flex-1 bg-surface2 text-fg py-3 rounded-xl font-bold">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {loading ? (
-                        <div className="col-span-full py-12 text-center text-muted animate-pulse">Loading branches...</div>
-                    ) : facilities.length === 0 ? (
-                        <div className="col-span-full py-12 bg-surface rounded-2xl border border-dashed border-border text-center text-muted">
-                            No branches registered yet.
-                        </div>
-                    ) : (
-                        facilities.map((f) => (
-                            <div key={f.id} className="bg-surface p-6 rounded-2xl border border-border shadow-card flex flex-col">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-lg">{f.name}</h3>
-                                        <p className="text-xs text-muted mt-1">{f.address}</p>
-                                    </div>
-                                    <button
-                                        onClick={() => {
-                                            setCurrentFacility(f);
-                                            setIsEditing(true);
-                                        }}
-                                        className="text-primary text-xs font-bold p-2 hover:bg-primary/5 rounded-lg"
-                                    >
-                                        Edit
-                                    </button>
-                                </div>
-                                <div className="mt-auto pt-4 border-t border-border flex justify-between items-center text-sm">
-                                    <span className="text-muted">Status</span>
-                                    <span className="text-success font-medium">Active</span>
+                            <div className="md:col-span-2 space-y-2">
+                                <label className="text-[10px] font-black uppercase text-muted tracking-widest pl-1">Address</label>
+                                <div className="relative">
+                                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
+                                    <input type="text" value={facility.address} className="w-full bg-surface2 border border-border pl-12 pr-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20" />
                                 </div>
                             </div>
-                        ))
-                    )}
+                        </div>
+                    </section>
+
+                    <section className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-soft space-y-6">
+                        <h3 className="text-sm font-bold flex items-center gap-2 mb-4">
+                            <Clock size={18} className="text-primary" />
+                            Business Hours
+                        </h3>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-muted tracking-widest pl-1">Operating Hours</label>
+                                <input type="text" value={facility.hours} className="w-full bg-surface2 border border-border rounded-xl px-4 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-primary/20" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black uppercase text-muted tracking-widest pl-1">Peak Status Tracking</label>
+                                <div className="flex items-center gap-3 p-3 bg-success/10 rounded-xl border border-success/10">
+                                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+                                    <span className="text-[10px] font-black text-success uppercase">Active</span>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-            )}
+
+                <div className="space-y-6">
+                    <section className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-soft text-center space-y-6">
+                        <div className="w-20 h-20 bg-surface2 rounded-[2rem] border border-dashed border-border flex items-center justify-center mx-auto mb-4 cursor-pointer hover:bg-surface2/50 transition-colors">
+                            <Upload size={24} className="text-muted" />
+                        </div>
+                        <p className="text-[10px] font-black uppercase text-muted tracking-widest">Branch Photo</p>
+                        <button className="text-[10px] font-black text-primary uppercase border border-primary/20 px-4 py-2 rounded-xl hover:bg-primary/5">Replace Image</button>
+                    </section>
+
+                    <section className="bg-surface p-8 rounded-[2.5rem] border border-border shadow-soft space-y-4">
+                        <h3 className="text-sm font-bold mb-4">Zones & Studios</h3>
+                        {['Studio A', 'Matrix Room', 'Locker Room'].map(z => (
+                            <div key={z} className="flex justify-between items-center p-3 bg-surface2/50 rounded-xl group">
+                                <span className="text-xs font-bold">{z}</span>
+                                <button className="text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
+                            </div>
+                        ))}
+                        <button className="w-full py-3 rounded-xl border border-dashed border-border text-[10px] font-black uppercase text-muted hover:border-primary/50 hover:text-primary transition-all flex items-center justify-center gap-2 mt-4">
+                            <Plus size={14} />
+                            Add Zone
+                        </button>
+                    </section>
+                </div>
+            </div>
         </div>
     );
 }
