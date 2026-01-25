@@ -16,6 +16,7 @@ export default function AdminLayout({ children }) {
             <li><a href="/admin/members">Members</a></li>
             <li><a href="/admin/coaches">Coaches</a></li>
             <li><a href="/admin/sessions/schedule">Schedule</a></li>
+            <li><a href="/admin/attendance">Attendance</a></li>
             <li><a href="/admin/content/notices">Notices</a></li>
             <li><a href="/admin/settings/facility">Settings</a></li>
           </ul>
