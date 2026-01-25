@@ -1,10 +1,3 @@
-import type { Metadata } from "next";
-
-export const metadata: Metadata = {
-    title: "Admin Portal | BCL",
-    description: "BCL Management Portal",
-};
-
 "use client";
 
 import Link from "next/link";

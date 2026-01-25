@@ -45,7 +45,8 @@
 - CSR + Supabase RLS
 - 서버 없는 자동화(Cron / Edge Functions)
 - 명확한 역할 분리(User vs Admin)
-- Supabase Auth Password : 3206#@Kim
+- Supabase Auth Password : 3206#@KimCHO
+
 ---
 
 ## 6) Agent에게 기대하는 역할

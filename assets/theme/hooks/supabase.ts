@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
 /**
  * Creates a Supabase client for Client-Side Rendering (CSR).
@@ -10,8 +10,10 @@ export const createClient = () => {
 
     if (!url || !anonKey) {
         console.warn("Supabase credentials missing. Using placeholder client.");
-        // Return a mock-like structure if needed, or simple direct client
     }
 
-    return createClientComponentClient();
+    return createBrowserClient(
+        url!,
+        anonKey!
+    );
 };

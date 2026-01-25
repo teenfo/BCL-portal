@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
-import { CheckCircle2, Calendar, MapPin, ArrowRight, Home } from "lucide-react";
+import { CheckCircle2, Calendar, MapPin, ArrowRight, Home, Zap } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
