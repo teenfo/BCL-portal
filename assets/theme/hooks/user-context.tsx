@@ -20,6 +20,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const supabase = createClient();
 
     useEffect(() => {
+        if (!supabase) {
+            setLoading(false);
+            return;
+        }
+
         const getInitialSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             setSession(session);
