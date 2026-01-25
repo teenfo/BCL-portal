@@ -1,31 +1,33 @@
 import '../globals.css';
 
 export const metadata = {
-    title: 'BCL Portal Admin',
-    description: 'Management Portal for BCL Portal',
+  title: 'BCL Portal Admin',
+  description: 'Management Portal for BCL Portal',
 };
 
 export default function AdminLayout({ children }) {
-    return (
-        <div className="admin-container">
-            <aside className="sidebar">
-                <div className="logo">BCL Admin</div>
-                <nav>
-                    <ul>
-                        <li><a href="/admin/dashboard">Dashboard</a></li>
-                        <li><a href="/admin/members">Members</a></li>
-                        <li><a href="/admin/sessions/schedule">Schedule</a></li>
-                        <li><a href="/admin/settings/facility">Settings</a></li>
-                    </ul>
-                </nav>
-                <div className="footer">
-                    <a href="/auth/logout">Logout</a>
-                </div>
-            </aside>
-            <main className="content">
-                {children}
-            </main>
-            <style jsx>{`
+  return (
+    <div className="admin-container">
+      <aside className="sidebar">
+        <div className="logo">BCL Admin</div>
+        <nav>
+          <ul>
+            <li><a href="/admin/dashboard">Dashboard</a></li>
+            <li><a href="/admin/members">Members</a></li>
+            <li><a href="/admin/coaches">Coaches</a></li>
+            <li><a href="/admin/sessions/schedule">Schedule</a></li>
+            <li><a href="/admin/content/notices">Notices</a></li>
+            <li><a href="/admin/settings/facility">Settings</a></li>
+          </ul>
+        </nav>
+        <div className="footer">
+          <a href="/auth/logout">Logout</a>
+        </div>
+      </aside>
+      <main className="content">
+        {children}
+      </main>
+      <style jsx>{`
         .admin-container {
           display: flex;
           min-height: 100vh;
@@ -73,6 +75,6 @@ export default function AdminLayout({ children }) {
           padding: 2rem;
         }
       `}</style>
-        </div>
-    );
+    </div>
+  );
 }
