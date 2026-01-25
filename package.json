@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx @cloudflare/next-on-pages --outdir .cloudflare_build",
+    "build": "next build && npx @cloudflare/next-on-pages --outdir .cloudflare_build --skip-build",
     "start": "next start",
     "lint": "eslint",
-    "pages:build": "npx @cloudflare/next-on-pages --outdir .cloudflare_build"
+    "pages:build": "next build && npx @cloudflare/next-on-pages --outdir .cloudflare_build --skip-build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
