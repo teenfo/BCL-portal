@@ -23,7 +23,7 @@ export default function BookingConfirmationPage() {
                 </div>
                 <h1 className="text-3xl font-black tracking-tighter mb-2">Booking Confirmed!</h1>
                 <p className="text-muted text-sm font-medium mb-12 max-w-xs mx-auto">
-                    You're all set for the HIIT Cardio Elite. We've added it to your schedule.
+                    You&apos;re all set for the HIIT Cardio Elite. We&apos;ve added it to your schedule.
                 </p>
 
                 <div className="w-full space-y-4">
@@ -42,7 +42,7 @@ export default function BookingConfirmationPage() {
         <div className="space-y-8 animate-in fade-in duration-500">
             <header>
                 <h1 className="text-2xl font-black tracking-tight">Confirm Booking</h1>
-                <p className="text-muted text-sm font-medium">Review your session details</p>
+                <p className="text-muted mt-1">Confirm your spot in the instructor&apos;s class.</p>
             </header>
 
             <div className="bg-surface rounded-3xl border border-border shadow-soft overflow-hidden">

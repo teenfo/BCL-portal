@@ -55,7 +55,7 @@ export default function AdminSessionSchedulePage() {
                 <div className="flex justify-between items-center px-2">
                     <h3 className="text-sm font-bold flex items-center gap-2">
                         <Clock size={16} className="text-primary" />
-                        Today's Agenda
+                        Today&apos;s Agenda
                     </h3>
                     <button className="p-2 border border-border rounded-lg text-muted"><Filter size={16} /></button>
                 </div>
@@ -83,7 +83,7 @@ export default function AdminSessionSchedulePage() {
 
                         <div className="flex items-center gap-4">
                             <div className="text-right">
-                                <p className="text-[10px] text-muted font-bold uppercase tracking-widest">Instructor</p>
+                                <p className="text-muted text-sm">Select dates to view scheduled classes or click &quot;Add Session&quot; to create a new one.</p>
                                 <p className="text-xs font-black">{session.coach}</p>
                             </div>
                             <button className="p-2 text-muted hover:bg-surface2 rounded-xl transition-colors">

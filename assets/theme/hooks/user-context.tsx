@@ -21,20 +21,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!supabase) {
-            setLoading(false);
+            // Only set loading to false if it's currently true to avoid loops
+            setLoading(prev => prev ? false : prev);
             return;
         }
 
         const getInitialSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            setSession(session);
-            setUser(session?.user ?? null);
-            setLoading(false);
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                setUser(session?.user ?? null);
+            } catch (error) {
+                console.error("Error checking session:", error);
+            } finally {
+                setLoading(false);
+            }
         };
 
         getInitialSession();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setUser(session?.user ?? null);
             setLoading(false);
@@ -43,7 +49,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         return () => {
             subscription.unsubscribe();
         };
-    }, [supabase]);
+    }, []); // Empty dependency array since supabase client is stable
 
     const signOut = async () => {
         await supabase.auth.signOut();

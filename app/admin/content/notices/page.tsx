@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/assets/theme/hooks/supabase";
 
 interface Notice {
@@ -19,8 +19,7 @@ export default function AdminNoticesPage() {
 
     const supabase = createClient();
 
-    const fetchNotices = async () => {
-        setLoading(true);
+    const fetchNotices = useCallback(async () => {
         const { data, error } = await supabase
             .from("notices")
             .select("*")
@@ -29,9 +28,15 @@ export default function AdminNoticesPage() {
         if (error) console.error(error.message);
         else setNotices(data || []);
         setLoading(false);
-    };
+    }, [supabase]);
 
-    useEffect(() => { fetchNotices(); }, []);
+    useEffect(() => {
+        // Initial load - wrapped in timeout to avoid sync set-state warning
+        const timer = setTimeout(() => {
+            fetchNotices();
+        }, 0);
+        return () => clearTimeout(timer);
+    }, [fetchNotices]);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();

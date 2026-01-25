@@ -3,7 +3,14 @@
 import { Moon, Bell, Shield, Smartphone, ChevronRight, Globe } from "lucide-react";
 
 export default function SettingsPage() {
-    const sections = [
+    interface SettingItem {
+        label: string;
+        icon: React.ElementType;
+        value?: string;
+        active?: boolean;
+    }
+
+    const sections: { title: string; items: SettingItem[] }[] = [
         {
             title: "Preferences", items: [
                 { label: "Dark Mode", icon: Moon, value: "System", active: true },

@@ -14,7 +14,7 @@ export default function SupportPage() {
         <div className="space-y-8 animate-in fade-in duration-500">
             <header>
                 <h1 className="text-2xl font-black tracking-tight">Support Center</h1>
-                <p className="text-muted text-sm font-medium">We're here to help you stay focused.</p>
+                <p className="text-muted text-sm font-medium">We&apos;re here to help you stay focused.</p>
             </header>
 
             <div className="relative">

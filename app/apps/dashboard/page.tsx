@@ -8,7 +8,7 @@ export default function AppsDashboard() {
                 <section className="bg-primary rounded-[2rem] p-6 text-on-primary shadow-lg overflow-hidden relative transition-transform active:scale-[0.98]">
                     <div className="relative z-10">
                         <h2 className="text-sm font-medium opacity-80">Good Morning,</h2>
-                        <p className="text-2xl font-black">Member</p>
+                        <h2 className="text-xl font-bold mb-4">Today&apos;s Schedule</h2>
                         <div className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
                             <span className="p-1 px-3 rounded-full bg-white/20 backdrop-blur-sm">Monthly Plan</span>
                             <span className="opacity-80">12 Days Left</span>
@@ -20,7 +20,7 @@ export default function AppsDashboard() {
 
             <section className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                    <h3 className="text-lg font-black tracking-tight">Today's Session</h3>
+                    <h3 className="text-lg font-black tracking-tight">Today&apos;s Session</h3>
                     <Link href="/apps/schedule" className="text-[10px] font-black uppercase text-primary tracking-widest">View All</Link>
                 </div>
                 <div className="bg-surface p-4 rounded-3xl border border-border shadow-soft flex items-center gap-4">

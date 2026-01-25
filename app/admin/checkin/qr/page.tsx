@@ -29,7 +29,7 @@ export default function AdminQRScannerPage() {
                         </div>
                         <div>
                             <h2 className="text-3xl font-black tracking-tighter">Ready to Scan</h2>
-                            <p className="text-surface2 opacity-50 text-sm font-medium mt-2">Position the member's QR code within the frame</p>
+                            <p className="text-surface2 opacity-50 text-sm font-medium mt-2">Position the member&apos;s QR code within the frame</p>
                         </div>
 
                         <button

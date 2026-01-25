@@ -74,7 +74,7 @@ export default function FacilityDetailPage() {
             <section className="bg-primary/5 rounded-[2.5rem] p-8 border border-primary/10">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-3">About this location</h3>
                 <p className="text-sm text-fg font-medium leading-relaxed italic opacity-80">
-                    "{facility.description}"
+                    &quot;{facility.description}&quot;
                 </p>
                 <button className="mt-8 w-full bg-primary text-on-primary py-4 rounded-2xl font-black text-sm shadow-xl shadow-primary/30 flex items-center justify-center gap-3 active:scale-95 transition-all">
                     View Class Schedule
