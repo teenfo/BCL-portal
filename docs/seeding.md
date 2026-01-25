@@ -11,8 +11,8 @@ This document contains the initial seed data used to populate the BCL Portal dat
 1. Go to your **Supabase Dashboard** -> **Authentication** -> **Users**.
 2. Click **Add User** -> **Create new user**.
 3. Create the following accounts:
-   - **Member**: `alice@test.com` (Password: `1234`)
-   - **Admin**: `admin@bcl.com` (Password: `1234`)
+   - **Member**: `alice@bcl.com` (Password: `123456`)
+   - **Admin**: `admin@bcl.com` (Password: `123456`)
 4. Ensure "Confirm Email" is toggled **OFF** or manually confirm them from the Dashboard.
 
 | Role | Email | Password |
