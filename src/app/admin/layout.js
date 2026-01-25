@@ -17,6 +17,7 @@ export default function AdminLayout({ children }) {
             <li><a href="/admin/coaches">Coaches</a></li>
             <li><a href="/admin/sessions/schedule">Schedule</a></li>
             <li><a href="/admin/attendance">Attendance</a></li>
+            <li><a href="/admin/checkin/scanner">QR Scanner</a></li>
             <li><a href="/admin/billing/plans">Billing & Plans</a></li>
             <li><a href="/admin/content/notices">Notices</a></li>
             <li><a href="/admin/support">Support Tickets</a></li>
