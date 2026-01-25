@@ -37,7 +37,7 @@ trigger: always_on
 
 ## 2) Sitemap = Single Source of Truth (SSOT)
 - 정본 Sitemap 파일:
-  - `portal/docs/sitemap/bcl-portal-sitemap.md`
+  - `portal/.docs/sitemap/bcl-portal-sitemap.yaml`
 - Agent 규칙:
   - 새로운 화면/라우트/메뉴는 **반드시 sitemap을 먼저 수정**
   - sitemap에 없는 기능을 코드로 생성하면 안 된다
