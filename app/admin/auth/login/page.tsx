@@ -17,15 +17,19 @@ export default function AdminLoginPage() {
         setLoading(true);
         setError(null);
 
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log("Attempting admin login for:", email);
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
 
         if (error) {
+            console.error("Admin login error:", error.message, error.status);
             setError(error.message);
             setLoading(false);
         } else {
+            console.log("Admin login success:", data.user?.email);
+            router.refresh();
             router.push("/admin/dashboard");
         }
     };

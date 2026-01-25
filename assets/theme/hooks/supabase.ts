@@ -9,8 +9,12 @@ export const createClient = () => {
     const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (!url || !anonKey || url.includes("your-supabase-url")) {
-        console.warn("Supabase credentials missing or invalid. Auth will be disabled.");
-        return null as any;
+        console.warn("Supabase credentials missing or invalid. Auth will be limited.");
+        // We still create the client but it will fail on actual calls, which is better than a null pointer crash
+        return createBrowserClient(
+            url || 'https://placeholder.supabase.co',
+            anonKey || 'placeholder'
+        );
     }
 
     return createBrowserClient(
