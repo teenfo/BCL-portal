@@ -1,65 +1,39 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/assets/theme/hooks/supabase";
+import { Bell, Info, AlertTriangle, ChevronRight } from "lucide-react";
 
-interface Notice {
-    id: string;
-    title: string;
-    content: string;
-    type: string;
-    created_at: string;
-}
-
-export default function NoticesPage() {
-    const [notices, setNotices] = useState<Notice[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const supabase = createClient();
-
-    useEffect(() => {
-        const fetchNotices = async () => {
-            setLoading(true);
-            const { data, error } = await supabase
-                .from("notices")
-                .select("*")
-                .order("created_at", { ascending: false });
-
-            if (error) console.error(error.message);
-            else setNotices(data || []);
-            setLoading(false);
-        };
-        fetchNotices();
-    }, [supabase]);
-
+export default function UserNoticesPage() {
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
             <header>
-                <h1 className="text-2xl font-bold">Notices</h1>
-                <p className="text-muted text-sm">Stay updated with our latest news</p>
+                <h1 className="text-2xl font-black tracking-tight">Announcements</h1>
+                <p className="text-muted text-sm font-medium mt-1">News and updates from BCL.</p>
             </header>
 
-            {loading ? (
-                <div className="space-y-4 animate-pulse">
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="h-24 bg-surface2 rounded-2xl"></div>
-                    ))}
-                </div>
-            ) : (
-                <ul className="space-y-4">
-                    {notices.map((n) => (
-                        <li key={n.id} className="bg-surface p-5 rounded-2xl border border-border shadow-sm hover:shadow-card transition-shadow">
-                            <div className="flex justify-between items-start mb-2">
-                                <span className="text-[10px] font-bold text-primary bg-primary-soft px-2 py-0.5 rounded-full uppercase italic tracking-wider">{n.type}</span>
-                                <span className="text-[10px] text-muted font-medium italic">{new Date(n.created_at).toLocaleDateString()}</span>
-                            </div>
-                            <h3 className="font-bold text-base leading-tight">{n.title}</h3>
-                            <p className="text-xs text-muted mt-2 line-clamp-2 leading-relaxed opacity-80">{n.content}</p>
-                            <button className="mt-4 text-primary text-[10px] font-bold uppercase tracking-widest hover:underline">Read Full Notice →</button>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <div className="space-y-4">
+                {[
+                    { title: "Holiday Operation Hours", date: "Jan 24", type: "Urgent", icon: AlertTriangle, color: "text-warning" },
+                    { title: "New Yoga Class Added", date: "Jan 22", type: "Info", icon: Info, color: "text-primary" },
+                    { title: "System Maintenance", date: "Jan 20", type: "System", icon: Bell, color: "text-muted" },
+                ].map((notice, i) => (
+                    <div key={i} className="bg-surface rounded-3xl p-6 border border-border shadow-soft relative overflow-hidden group active:scale-[0.99] transition-all cursor-pointer">
+                        <div className="flex justify-between items-start mb-3">
+                            <span className={`px-2 py-1 rounded-lg bg-surface2 text-[10px] font-black uppercase tracking-widest ${notice.color}`}>
+                                {notice.type}
+                            </span>
+                            <span className="text-[10px] font-bold text-muted">{notice.date}</span>
+                        </div>
+                        <h3 className="font-extrabold text-base tracking-tight mb-2 pr-8">{notice.title}</h3>
+                        <p className="text-sm text-muted line-clamp-2">
+                            This is a summary of the announcement. Tap to read the full details about the upcoming schedule changes and facility updates.
+                        </p>
+
+                        <div className="absolute bottom-4 right-4 text-muted group-hover:text-primary transition-colors">
+                            <ChevronRight size={18} />
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

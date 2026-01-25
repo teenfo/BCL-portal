@@ -1,61 +1,39 @@
 "use client";
 
-import { CheckCircle2, QrCode, ArrowLeft, History } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle2, Cloud, Clock } from "lucide-react";
 
-export default function CheckinHistoryPage() {
-    const history = [
-        { id: 1, facility: "Central Branch", date: "Jan 25, 2026", time: "09:12 AM", status: "Success" },
-        { id: 2, facility: "Central Branch", date: "Jan 23, 2026", time: "18:30 PM", status: "Success" },
-        { id: 3, facility: "West Side Lab", date: "Jan 21, 2026", time: "07:05 AM", status: "Success" },
-        { id: 4, facility: "Central Branch", date: "Jan 19, 2026", time: "17:45 PM", status: "Success" },
-    ];
-
+export default function UserCheckinHistoryPage() {
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-            <header className="flex items-center gap-4">
-                <Link href="/apps/checkin" className="p-2 bg-surface2 rounded-xl text-muted hover:text-fg transition-colors">
-                    <ArrowLeft size={20} />
-                </Link>
-                <div>
-                    <h1 className="text-2xl font-black tracking-tight">Access History</h1>
-                    <p className="text-muted text-sm font-medium">Your recent entries across all branches</p>
-                </div>
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+            <header>
+                <h1 className="text-2xl font-black tracking-tight">Visit History</h1>
+                <p className="text-muted text-sm font-medium mt-1">Your past gym entries.</p>
             </header>
 
-            <div className="bg-surface rounded-[2rem] border border-border shadow-soft overflow-hidden">
-                <div className="p-6 border-b border-border bg-surface2/30 flex items-center gap-4">
-                    <div className="w-12 h-12 bg-primary-soft rounded-2xl flex items-center justify-center text-primary">
-                        <History size={24} />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-widest text-muted">Summary</p>
-                        <p className="text-lg font-black">{history.length} Entries <span className="text-muted text-xs font-bold">This Month</span></p>
-                    </div>
-                </div>
-
-                <div className="divide-y divide-border">
-                    {history.map((item) => (
-                        <div key={item.id} className="p-5 flex items-center justify-between hover:bg-surface2/50 transition-colors">
-                            <div className="flex items-center gap-4">
-                                <div className="w-1.5 h-10 bg-success rounded-full"></div>
-                                <div>
-                                    <h3 className="text-sm font-bold tracking-tight">{item.facility}</h3>
-                                    <p className="text-[10px] text-muted font-bold uppercase">{item.date} • {item.time}</p>
+            <div className="space-y-4">
+                {[
+                    { date: "Today", time: "09:30 AM", place: "Central Branch" },
+                    { date: "Jan 23", time: "18:45 PM", place: "Gangnam Studio" },
+                    { date: "Jan 21", time: "07:15 AM", place: "Central Branch" },
+                    { date: "Jan 19", time: "19:20 PM", place: "Central Branch" },
+                ].map((visit, i) => (
+                    <div key={i} className="bg-surface rounded-2xl p-5 border border-border shadow-soft flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-surface2 border border-border/50">
+                                <span className="text-[10px] font-bold text-muted uppercase">{visit.date.split(' ')[0]}</span>
+                                <span className="text-sm font-black text-fg">{visit.date.split(' ')[1] || 'Today'}</span>
+                            </div>
+                            <div>
+                                <p className="font-bold text-sm">{visit.place}</p>
+                                <div className="flex items-center gap-1.5 text-muted mt-0.5">
+                                    <Clock size={12} />
+                                    <span className="text-[10px] font-bold">{visit.time}</span>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end">
-                                <span className="text-[10px] font-black uppercase text-success bg-success/10 px-2 py-0.5 rounded-md">Verified</span>
-                            </div>
                         </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="p-6 text-center">
-                <button className="text-muted text-xs font-bold uppercase tracking-widest hover:text-primary transition-colors">
-                    Load More History
-                </button>
+                        <CheckCircle2 size={18} className="text-success opacity-50" />
+                    </div>
+                ))}
             </div>
         </div>
     );

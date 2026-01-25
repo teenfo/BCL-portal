@@ -1,72 +1,73 @@
 "use client";
 
+import { Calendar, Clock, MapPin, XCircle, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
-import { Calendar, Clock, MapPin, ChevronRight, XCircle } from "lucide-react";
-import Link from "next/link";
 
-export default function MyBookingsPage() {
-    const [bookings, setBookings] = useState([
-        { id: '1', title: 'HIIT Cardio Elite', date: 'Jan 25, 2026', time: '09:00 AM', branch: 'Central Branch', status: 'Upcoming' },
-        { id: '2', title: 'Vinyasa Flow', date: 'Jan 23, 2026', time: '11:00 AM', branch: 'Central Branch', status: 'Attended' },
-        { id: '3', title: 'Power Lifting', date: 'Jan 21, 2026', time: '18:00 PM', branch: 'West Side Lab', status: 'Cancelled' },
-    ]);
+export default function UserBookingsPage() {
+    const [filter, setFilter] = useState('Upcoming');
+
+    const bookings = [
+        { id: 1, title: 'HIIT Cardio', date: 'Tomorrow', time: '09:00', status: 'Confirmed', statusColor: 'text-success' },
+        { id: 2, title: 'Yoga Flow', date: 'Jan 28', time: '18:00', status: 'Waitlist', statusColor: 'text-warning' },
+        { id: 3, title: 'Strength Pro', date: 'Jan 22', time: '14:30', status: 'Completed', statusColor: 'text-muted' },
+    ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
-            <header>
-                <h1 className="text-2xl font-black tracking-tight">My Bookings</h1>
-                <p className="text-muted text-sm font-medium">Manage your upcoming and past sessions.</p>
+        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+            <header className="flex justify-between items-end">
+                <div>
+                    <h1 className="text-2xl font-black tracking-tight">My Bookings</h1>
+                    <p className="text-muted text-sm font-medium mt-1">Manage your class schedule.</p>
+                </div>
             </header>
 
-            {/* Filter Tabs Placeholder */}
-            <div className="flex gap-2 p-1 bg-surface2 rounded-2xl border border-border">
-                <button className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white shadow-sm">Upcoming</button>
-                <button className="flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-muted">History</button>
-            </div>
-
-            <div className="space-y-4">
-                {bookings.map((booking) => (
-                    <div key={booking.id} className="bg-surface rounded-3xl border border-border shadow-soft overflow-hidden group">
-                        <div className="p-5 flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-1.5 h-12 rounded-full ${booking.status === 'Upcoming' ? 'bg-primary' :
-                                        booking.status === 'Attended' ? 'bg-success' : 'bg-muted/50'
-                                    }`}></div>
-                                <div>
-                                    <h3 className="font-exrabold text-sm tracking-tight">{booking.title}</h3>
-                                    <p className="text-[10px] text-muted font-bold uppercase tracking-widest">{booking.date} • {booking.time}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full ${booking.status === 'Upcoming' ? 'bg-primary/10 text-primary' :
-                                        booking.status === 'Attended' ? 'bg-success/10 text-success' : 'bg-surface2 text-muted'
-                                    }`}>
-                                    {booking.status}
-                                </span>
-                            </div>
-                        </div>
-
-                        <div className="p-4 bg-surface2/30 border-t border-border flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-muted">
-                                <MapPin size={12} />
-                                <span className="text-[10px] font-bold">{booking.branch}</span>
-                            </div>
-                            {booking.status === 'Upcoming' && (
-                                <button className="flex items-center gap-1.5 text-[10px] font-black text-danger uppercase hover:underline">
-                                    <XCircle size={12} />
-                                    Cancel
-                                </button>
-                            )}
-                        </div>
-                    </div>
+            <div className="flex p-1 bg-surface2/50 rounded-xl">
+                {['Upcoming', 'History'].map(f => (
+                    <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${filter === f ? 'bg-surface shadow-soft text-fg' : 'text-muted hover:text-fg'}`}
+                    >
+                        {f}
+                    </button>
                 ))}
             </div>
 
-            <div className="p-10 text-center">
-                <Link href="/apps/schedule" className="inline-flex items-center gap-2 bg-primary text-on-primary px-8 py-4 rounded-[1.5rem] font-black text-sm shadow-xl shadow-primary/20 hover:scale-105 transition-transform active:scale-95">
-                    Book New Session
-                    <ChevronRight size={18} />
-                </Link>
+            <div className="space-y-4">
+                {bookings.map((b) => (
+                    <div key={b.id} className="bg-surface rounded-3xl p-5 border border-border shadow-soft group active:scale-[0.98] transition-all">
+                        <div className="flex justify-between items-start mb-4">
+                            <span className={`px-2.5 py-1 rounded-lg bg-surface2 text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${b.statusColor}`}>
+                                {b.status === 'Confirmed' && <CheckCircle2 size={10} />}
+                                {b.status}
+                            </span>
+                            <div className="flex items-center gap-1 text-muted text-xs font-bold">
+                                <Calendar size={12} />
+                                {b.date}
+                            </div>
+                        </div>
+
+                        <h3 className="font-extrabold text-lg tracking-tight">{b.title}</h3>
+
+                        <div className="flex items-center gap-4 mt-2 text-muted">
+                            <div className="flex items-center gap-1.5">
+                                <Clock size={14} className="text-primary" />
+                                <span className="text-xs font-medium">{b.time}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <MapPin size={14} />
+                                <span className="text-xs font-medium">Studio A</span>
+                            </div>
+                        </div>
+
+                        {filter === 'Upcoming' && (
+                            <button className="w-full mt-5 py-3 rounded-xl border border-danger/20 text-danger text-[10px] font-black uppercase hover:bg-danger/5 transition-colors flex items-center justify-center gap-2">
+                                <XCircle size={14} />
+                                Cancel Booking
+                            </button>
+                        )}
+                    </div>
+                ))}
             </div>
         </div>
     );

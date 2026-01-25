@@ -2,15 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-    Home,
-    Calendar,
-    QrCode,
-    MapPin,
-    User,
-    Bell,
-    Loader2
-} from "lucide-react";
+import { Home, Calendar, QrCode, MapPin, User, Bell, Menu } from "lucide-react";
 import { useUser } from "@/assets/theme/hooks/user-context";
 
 export default function AppsLayout({
@@ -19,8 +11,9 @@ export default function AppsLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const { user, loading } = useUser();
+    const { user } = useUser();
 
+    // Bottom Tab Items (Mobile First)
     const navItems = [
         { name: "Home", icon: Home, href: "/apps/dashboard" },
         { name: "Schedule", icon: Calendar, href: "/apps/schedule" },
@@ -29,79 +22,64 @@ export default function AppsLayout({
         { name: "Profile", icon: User, href: "/apps/profile" },
     ];
 
+    // Hide layout on auth pages if needed, but sitemap implies strictly /apps/* structure.
+    const isAuthPage = pathname.includes('/auth/');
+
+    if (isAuthPage) return <>{children}</>;
+
     return (
-        <div className="flex flex-col min-h-screen bg-bg text-fg font-sans pb-20 md:pb-0 md:pl-20">
-            {/* Header */}
-            <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-6 sticky top-0 z-30">
+        <div className="flex flex-col min-h-screen bg-bg text-fg font-sans pb-20 md:pb-0">
+            {/* Mobile Header */}
+            <header className="md:hidden h-14 bg-surface/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 sticky top-0 z-20">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary">
-                        <span className="text-sm font-black italic">B</span>
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-on-primary font-black">
+                        B
                     </div>
-                    <h1 className="text-lg font-bold tracking-tight">BCL</h1>
+                    <span className="font-black tracking-tight text-sm">BCL Portal</span>
                 </div>
-                <div className="flex items-center gap-4">
-                    <Link href="/apps/notifications" className="relative p-2 text-muted hover:text-fg transition-colors">
+                <div className="flex items-center gap-3">
+                    <Link href="/apps/notifications" className="relative p-2 text-muted hover:text-fg">
                         <Bell size={20} />
-                        <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border-2 border-surface"></span>
+                        <span className="absolute top-2 right-2 w-2 h-2 bg-danger rounded-full border border-surface"></span>
                     </Link>
-                    <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center text-xs font-bold border border-primary/10">
-                        {user?.email?.charAt(0).toUpperCase() || "U"}
-                    </div>
                 </div>
             </header>
 
-            {/* Content Area */}
-            <main className="flex-1 w-full max-w-lg mx-auto p-5 overflow-x-hidden">
-                {loading ? (
-                    <div className="min-h-[50vh] flex items-center justify-center">
-                        <Loader2 className="animate-spin text-primary" size={32} />
-                    </div>
-                ) : children}
+            {/* Main Content */}
+            <main className="flex-1 p-4 md:p-8 max-w-2xl mx-auto w-full">
+                {children}
             </main>
 
-            {/* Mobile Bottom Tab Navigation */}
-            <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface/80 backdrop-blur-lg border-t border-border flex items-center justify-around px-2 z-40 md:hidden">
-                {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const Icon = item.icon;
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-all ${isActive ? "text-primary" : "text-muted hover:text-subtle"
-                                }`}
-                        >
-                            <div className={`p-1.5 rounded-xl transition-all ${isActive ? "bg-primary/10" : ""}`}>
-                                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                            </div>
-                            <span className={`text-[10px] font-bold ${isActive ? "opacity-100" : "opacity-60"}`}>
-                                {item.name}
-                            </span>
-                        </Link>
-                    );
-                })}
+            {/* Bottom Navigation (Mobile) */}
+            <nav className="md:hidden fixed bottom-0 inset-x-0 bg-surface border-t border-border z-30 pb-safe">
+                <div className="flex justify-around items-center h-16">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.href || (item.href !== '/apps/dashboard' && pathname.startsWith(item.href));
+                        const Icon = item.icon;
+                        return (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className={`flex flex-col items-center justify-center w-full h-full gap-1 transition-all ${isActive ? "text-primary" : "text-muted hover:text-fg"
+                                    }`}
+                            >
+                                <div className={`relative p-1 rounded-xl transition-all ${isActive ? "bg-primary/10 -translate-y-1" : ""}`}>
+                                    <Icon size={isActive ? 22 : 20} strokeWidth={isActive ? 2.5 : 2} />
+                                </div>
+                                <span className={`text-[10px] font-bold tracking-tight ${isActive ? "opacity-100" : "opacity-60"}`}>
+                                    {item.name}
+                                </span>
+                            </Link>
+                        );
+                    })}
+                </div>
             </nav>
 
-            {/* Desktop Sidebar Tab for Apps */}
-            <nav className="hidden md:flex fixed left-0 top-16 bottom-0 w-20 bg-surface border-r border-border flex-col items-center py-6 gap-6 z-40">
-                {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const Icon = item.icon;
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
-                            title={item.name}
-                            className={`p-3 rounded-2xl transition-all ${isActive
-                                ? "bg-primary text-on-primary shadow-lg shadow-primary/20 scale-110"
-                                : "text-muted hover:bg-surface2 hover:text-fg"
-                                }`}
-                        >
-                            <Icon size={22} />
-                        </Link>
-                    );
-                })}
-            </nav>
+            {/* Desktop Message (Responsive Guard) */}
+            <div className="hidden md:flex fixed top-4 right-4 items-center gap-2 bg-surface2 px-4 py-2 rounded-full opacity-50 hover:opacity-100 transition-opacity">
+                <span className="w-2 h-2 bg-success rounded-full animate-pulse"></span>
+                <span className="text-xs font-bold text-muted uppercase">Desktop View (Admin Preferred)</span>
+            </div>
         </div>
     );
 }

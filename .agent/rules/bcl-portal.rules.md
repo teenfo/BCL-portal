@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # BCL Portal Agent Rules v1.0
 (CSR / Next.js / Cloudflare / Supabase)
 
@@ -13,8 +17,8 @@
 - Frontend: **Next.js**
 - Hosting: **Cloudflare Pages / Workers**
 - Backend DB/Auth: **Supabase**
-- CI4는 더 이상 신규 개발의 기준이 아니다.
-
+- 모든 커밋이 완료 되면 github의 action 확인 하고 에러 사항이 있다면 다시 수정 하여 커밋 한다.
+- 커밋 코멘트는 자동으로 생성 한다
 ---
 
 ## 1) 리포지토리 & 경로 규칙 (절대)
@@ -27,6 +31,7 @@
   - 다른 리포(BCL-Repo 등)에 파일 생성
   - 임의의 루트 구조 변경
   - `apps`와 `admin`을 혼합한 라우트 생성
+ 
 
 ---
 

@@ -27,7 +27,7 @@ export default function SettingsPage() {
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-8 animate-in fade-in duration-500 pb-20">
             <header>
                 <h1 className="text-2xl font-black tracking-tight">Preferences</h1>
                 <p className="text-muted text-sm font-medium">Tailor your BCL experience.</p>
