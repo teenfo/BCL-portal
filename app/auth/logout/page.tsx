@@ -1,3 +1,5 @@
+"use client";
+
 import { useEffect } from "react";
 import { createClient } from "@/assets/theme/hooks/supabase";
 import { useRouter } from "next/navigation";
