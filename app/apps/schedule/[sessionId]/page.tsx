@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Clock, Users, Shield, Star, CheckCircle2 } from "lucide-react";
 import Link from "next/link";

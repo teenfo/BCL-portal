@@ -35,11 +35,10 @@ jobs:
       - name: Run Lint
         run: npm run lint
 
-      # 5. Run Build
-      # Compiles the Next.js application to verify it builds without errors
-      # This catches type errors and build-time configuration issues
-      - name: Run Build
-        run: npm run build
+      # 5. Run Cloudflare Build
+      # Verifies the full deployment chain including next-on-pages adapter
+      - name: Run Pages Build
+        run: npm run pages:build
         env:
           # We need these environment variables for the build to pass
           # even if we aren't connecting to the real DB during build

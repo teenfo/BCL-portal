@@ -1,5 +1,7 @@
 "use client";
 
+export const runtime = "edge";
+
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Mail, Phone, Calendar, Shield, CreditCard, Clock, CheckCircle2 } from "lucide-react";
 

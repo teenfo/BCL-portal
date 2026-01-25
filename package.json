@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && npx @cloudflare/next-on-pages && rm -rf .cloudflare_build && mv .vercel/output/static .cloudflare_build && rm -rf .vercel",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "pages:build": "npx @cloudflare/next-on-pages"
+    "pages:build": "npx @cloudflare/next-on-pages && rm -rf .cloudflare_build && mv .vercel/output/static .cloudflare_build && rm -rf .vercel"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
