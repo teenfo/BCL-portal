@@ -74,6 +74,39 @@ export default function AppsLoginPage() {
                     >
                         {loading ? "Signing in..." : "Sign In"}
                     </button>
+
+                    <div className="relative my-6">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-border"></div>
+                        </div>
+                        <div className="relative flex justify-center text-xs uppercase">
+                            <span className="bg-surface px-2 text-muted">Or continue with</span>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={async () => {
+                            setLoading(true);
+                            const { error } = await supabase.auth.signInWithOAuth({
+                                provider: 'kakao',
+                                options: {
+                                    redirectTo: `${window.location.origin}/auth/callback`,
+                                },
+                            });
+                            if (error) {
+                                setError(error.message);
+                                setLoading(false);
+                            }
+                        }}
+                        disabled={loading}
+                        className="w-full bg-[#FEE500] text-black p-3 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 3C6.48 3 2 6.48 2 10.76C2 13.62 3.96 16.14 6.9 17.53L5.94 21.12C5.87 21.37 6.16 21.57 6.37 21.43L10.74 18.52C11.15 18.56 11.57 18.58 12 18.58C17.52 18.58 22 15.1 22 10.76C22 6.48 17.52 3 12 3Z" />
+                        </svg>
+                        Login with Kakao
+                    </button>
                 </form>
 
                 <div className="mt-6 text-center text-xs text-muted">
