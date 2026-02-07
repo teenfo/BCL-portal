@@ -62,8 +62,11 @@ export default function AdminLayout({ children }) {
                         ))}
                     </nav>
 
-                    <div style={{ marginTop: "auto", padding: "16px 8px", borderTop: "1px solid var(--border-subtle)" }}>
-                        <a href="/auth/logout?from=admin" style={{ color: "var(--status-error)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div style={{ marginTop: "auto", padding: "16px 8px", borderTop: "1px solid var(--border-subtle)", display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <a href="/apps/dashboard" style={{ color: "var(--brand-primary)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
+                            📱 사용자 앱으로 전환
+                        </a>
+                        <a href="/auth/logout?from=admin" style={{ color: "var(--status-error)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px", textDecoration: "none" }}>
                             🚪 로그아웃
                         </a>
                     </div>
