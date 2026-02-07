@@ -9,10 +9,11 @@ export default function LogoutPage() {
     useEffect(() => {
         const handleLogout = async () => {
             await supabase.auth.signOut();
-            router.push("/");
+            // Force a full reload to the root which will handle subsequent redirection
+            window.location.href = "/";
         };
         handleLogout();
-    }, [router]);
+    }, []);
 
     return (
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
