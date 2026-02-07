@@ -51,7 +51,7 @@ export default function CheckinView() {
                 <p style={{ fontSize: "1.1rem", fontWeight: "700", marginBottom: "8px" }}>{profile?.full_name || "사용자"}</p>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "20px" }}>회원번호: {profile?.id?.slice(0, 8)}</p>
 
-                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderRadius: "99px", background: "rgba(59, 130, 246, 0.1)", color: "var(--brand-primary)", fontWeight: "600" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", padding: "8px 16px", borderRadius: "99px", background: "rgba(255, 107, 0, 0.1)", color: "var(--brand-primary)", fontWeight: "600" }}>
                     <span style={{ fontSize: "0.9rem" }}>⏱ {formatTime(timeLeft)} 남음</span>
                 </div>
             </div>
