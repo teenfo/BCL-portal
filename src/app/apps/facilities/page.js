@@ -12,8 +12,12 @@ export default function FacilitiesView() {
 
     const fetchFacilities = async () => {
         setLoading(true);
-        const { data, error } = await supabase.from("facilities").select("*");
-        if (!error) setFacilities(data);
+        // Fetching from facility_settings which we used in Admin
+        const { data, error } = await supabase.from("facility_settings").select("*");
+        if (!error && data) {
+            // Ensure data is array
+            setFacilities(Array.isArray(data) ? data : [data]);
+        }
         setLoading(false);
     };
 
@@ -26,33 +30,47 @@ export default function FacilitiesView() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                 {loading ? (
-                    <p>로딩 중...</p>
+                    <p style={{ color: "var(--text-secondary)" }}>로딩 중...</p>
+                ) : facilities.length === 0 ? (
+                    <div className="premium-card" style={{ padding: "40px", textAlign: "center" }}>
+                        <p style={{ color: "var(--text-secondary)" }}>등록된 지점이 없습니다.</p>
+                    </div>
                 ) : (
                     facilities.map((facility) => (
-                        <div key={facility.id} className="premium-card" style={{ padding: "0", overflow: "hidden" }}>
-                            <div style={{ height: "160px", background: "var(--bg-tertiary)", position: "relative" }}>
+                        <div key={facility.id} className="premium-card" style={{ padding: "0", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                            <div style={{ height: "180px", background: "var(--bg-tertiary)", position: "relative" }}>
+                                {/* Image Placeholder or Real Image */}
+                                {facility.image_url ? (
+                                    <img src={facility.image_url} alt={facility.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                ) : (
+                                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-secondary)" }}>
+                                        이미지 없음
+                                    </div>
+                                )}
                                 <div style={{
                                     position: "absolute",
                                     bottom: "16px",
                                     left: "16px",
                                     background: "rgba(0,0,0,0.6)",
-                                    padding: "4px 12px",
+                                    padding: "6px 14px",
                                     borderRadius: "20px",
-                                    fontSize: "0.75rem",
+                                    fontSize: "0.8rem",
                                     fontWeight: "600",
-                                    backdropFilter: "blur(4px)"
+                                    backdropFilter: "blur(4px)",
+                                    color: "white"
                                 }}>
-                                    {facility.operating_hours || "운영시간 미등록"}
+                                    {facility.open_time} - {facility.close_time}
                                 </div>
                             </div>
                             <div style={{ padding: "20px" }}>
-                                <h3 style={{ fontSize: "1.1rem", marginBottom: "8px" }}>{facility.name}</h3>
-                                <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "16px", lineHeight: "1.4" }}>
-                                    {facility.address}
+                                <h3 style={{ fontSize: "1.2rem", marginBottom: "10px", fontWeight: "700" }}>{facility.name}</h3>
+                                <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "16px", lineHeight: "1.5" }}>
+                                    {facility.address} <br />
+                                    <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>{facility.phone}</span>
                                 </p>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                     <span className="badge badge-success">운영 중</span>
-                                    <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem" }}>지도 보기</button>
+                                    <a href={`/apps/facilities/${facility.id}`} className="btn-secondary" style={{ padding: "8px 16px", fontSize: "0.9rem", textDecoration: "none" }}>상세 보기</a>
                                 </div>
                             </div>
                         </div>
