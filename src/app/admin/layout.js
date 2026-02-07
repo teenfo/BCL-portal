@@ -63,7 +63,7 @@ export default function AdminLayout({ children }) {
                     </nav>
 
                     <div style={{ marginTop: "auto", padding: "16px 8px", borderTop: "1px solid var(--border-subtle)" }}>
-                        <a href="/auth/logout" style={{ color: "var(--status-error)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <a href="/auth/logout?from=admin" style={{ color: "var(--status-error)", fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "8px" }}>
                             🚪 로그아웃
                         </a>
                     </div>

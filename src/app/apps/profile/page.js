@@ -73,7 +73,7 @@ export default function ProfileView() {
                         </div>
 
                         <button
-                            onClick={() => window.location.href = '/auth/logout'}
+                            onClick={() => window.location.href = '/auth/logout?from=apps'}
                             style={{
                                 marginTop: "16px",
                                 padding: "16px",
