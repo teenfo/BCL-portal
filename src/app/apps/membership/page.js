@@ -1,78 +1,65 @@
-'use client';
-import { supabase } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
-export default function UserMembership() {
-    const [membership, setMembership] = useState(null);
+export default function MembershipView() {
     const [plans, setPlans] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchData();
+        fetchPlans();
     }, []);
 
-    const fetchData = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const { data: memData } = await supabase
-                .from('memberships')
-                .select('*, membership_plans(name)')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-            setMembership(memData);
-        }
-
-        const { data: planData } = await supabase.from('membership_plans').select('*');
-        setPlans(planData);
+    const fetchPlans = async () => {
+        setLoading(true);
+        const { data, error } = await supabase.from("membership_plans").select("*");
+        if (!error) setPlans(data);
         setLoading(false);
     };
 
     return (
-        <div>
-            <h2 style={{ marginBottom: '1.5rem' }}>Membership</h2>
+        <div className="animate-fade-in">
+            <header style={{ marginBottom: "24px" }}>
+                <h2 style={{ fontSize: "1.5rem", marginBottom: "4px" }}>멤버십 플랜</h2>
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>나에게 맞는 최적의 플랜을 선택하세요.</p>
+            </header>
 
-            {loading ? <p>Loading...</p> : (
-                <>
-                    {membership ? (
-                        <div className="card" style={{ marginBottom: '2rem', borderLeft: '4px solid var(--primary)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                <span style={{ fontSize: '0.875rem', color: 'var(--text-dim)' }}>Current Plan</span>
-                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', background: 'var(--accent)', color: 'var(--primary)', fontWeight: 'bold' }}>{membership.status.toUpperCase()}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                {loading ? (
+                    <p>로딩 중...</p>
+                ) : (
+                    plans.map((plan) => (
+                        <div key={plan.id} className="premium-card" style={{
+                            background: plan.name.includes('무제한') ? "linear-gradient(135deg, var(--bg-secondary), #1e293b)" : "var(--bg-secondary)",
+                            border: plan.name.includes('무제한') ? "1px solid var(--brand-primary)" : "1px solid var(--border-subtle)"
+                        }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                                <h3 style={{ fontSize: "1.2rem" }}>{plan.name}</h3>
+                                {plan.name.includes('무제한') && <span className="badge badge-success">추천</span>}
                             </div>
-                            <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>{membership.membership_plans?.name}</h3>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
-                                <span>Remaining Credits</span>
-                                <span style={{ fontWeight: 'bold', fontSize: '1.125rem' }}>{membership.remaining_credits}</span>
+                            <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "20px", lineHeight: "1.5" }}>
+                                {plan.description}
+                            </p>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "24px" }}>
+                                <p style={{ fontSize: "1.6rem", fontWeight: "700" }}>
+                                    {plan.price.toLocaleString()}원
+                                </p>
+                                <span style={{ fontSize: "0.9rem", color: "var(--text-secondary)" }}>/ {plan.period}</span>
                             </div>
-                            <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)', marginTop: '0.5rem' }}>Expires on: {membership.end_date}</p>
+                            <button className={plan.name.includes('무제한') ? "btn-primary" : "btn-secondary"} style={{ width: "100%" }}>
+                                플랜 선택하기
+                            </button>
                         </div>
-                    ) : (
-                        <div className="card" style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                            <p>You don't have an active membership.</p>
-                        </div>
-                    )}
+                    ))
+                )}
+            </div>
 
-                    <h3 style={{ marginBottom: '1rem' }}>Available Plans</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {plans.map(plan => (
-                            <div key={plan.id} className="card" style={{ padding: '1rem' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <h4 style={{ fontSize: '1rem' }}>{plan.name}</h4>
-                                        <p style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>{plan.credits} Credits • {plan.duration_days} Days</p>
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <p style={{ fontWeight: 'bold' }}>₩{Number(plan.price).toLocaleString()}</p>
-                                        <button className="btn-primary" style={{ fontSize: '0.75rem', padding: '0.4rem 0.8rem', marginTop: '0.5rem' }}>Buy Now</button>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </>
-            )}
+            <div className="premium-card" style={{ marginTop: "32px", background: "rgba(59, 130, 246, 0.05)", border: "1px dashed var(--brand-primary)" }}>
+                <h3 style={{ fontSize: "0.95rem", marginBottom: "8px" }}>💡 기업 제휴 할인</h3>
+                <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+                    BCL과 제휴된 기업의 임직원이라면 추가 10% 할인을 받으실 수 있습니다. 자세한 내용은 고객 지원으로 문의해주세요.
+                </p>
+            </div>
         </div>
     );
 }

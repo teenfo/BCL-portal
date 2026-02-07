@@ -1,19 +1,26 @@
-'use client';
-import { useEffect } from 'react';
-import { supabase } from '@/lib/supabase/client';
+"use client";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function AuthCallback() {
+    const router = useRouter();
+
     useEffect(() => {
-        const handleCallback = async () => {
+        const handleAuth = async () => {
             const { data, error } = await supabase.auth.getSession();
             if (data?.session) {
-                window.location.href = '/apps/dashboard';
+                router.push("/apps/dashboard");
             } else {
-                window.location.href = '/apps/auth/login';
+                router.push("/apps/auth/login");
             }
         };
-        handleCallback();
-    }, []);
+        handleAuth();
+    }, [router]);
 
-    return <div>Loading authentication...</div>;
+    return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <p style={{ color: "var(--text-secondary)" }}>인증 확인 중...</p>
+        </div>
+    );
 }

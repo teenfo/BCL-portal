@@ -1,22 +1,57 @@
-export default function UserDashboard() {
+"use client";
+
+export default function AppsDashboard() {
+    const quickActions = [
+        { name: "수업 예약", icon: "📅", path: "/apps/schedule" },
+        { name: "QR 체크인", icon: "QR", path: "/apps/checkin" },
+        { name: "나의 멤버십", icon: "💳", path: "/apps/profile" },
+        { name: "공지사항", icon: "📣", path: "/apps/notices" },
+    ];
+
     return (
-        <div>
-            <div className="card" style={{ marginBottom: '1rem' }}>
-                <h2>Welcome back!</h2>
-                <p>You have no bookings for today.</p>
+        <div className="animate-fade-in">
+            <header style={{ marginBottom: "24px" }}>
+                <h2 style={{ fontSize: "1.5rem", marginBottom: "4px" }}>안녕하세요! 👋</h2>
+                <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>오늘도 즐거운 운동 되세요.</p>
+            </header>
+
+            {/* Quick Actions */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "16px", marginBottom: "32px" }}>
+                {quickActions.map((action) => (
+                    <a key={action.name} href={action.path} className="premium-card" style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "20px"
+                    }}>
+                        <span style={{ fontSize: "2rem" }}>{action.icon}</span>
+                        <span style={{ fontSize: "0.9rem", fontWeight: "600" }}>{action.name}</span>
+                    </a>
+                ))}
             </div>
 
-            <h3>Quick Actions</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '0.5rem' }}>
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px' }}>
-                    <span>📅</span>
-                    <span>Book Class</span>
-                </div>
-                <div className="card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100px' }}>
-                    <span>🏢</span>
-                    <span>Facilities</span>
+            {/* Next Session */}
+            <div className="premium-card" style={{ marginBottom: "32px", background: "linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary))" }}>
+                <h3 style={{ fontSize: "1rem", marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <span>🔔</span> 다음 수업 안내
+                </h3>
+                <div style={{ padding: "12px", borderLeft: "4px solid var(--brand-primary)", background: "rgba(255,255,255,0.03)", borderRadius: "0 8px 8px 0" }}>
+                    <p style={{ fontWeight: "600", marginBottom: "4px" }}>고강도 인터벌 트레이닝 (HIIT)</p>
+                    <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>오늘 오후 7:30 • 메인 스튜디오</p>
                 </div>
             </div>
+
+            {/* Announcements */}
+            <section>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ fontSize: "1.1rem" }}>공지사항</h3>
+                    <a href="/apps/notices" style={{ fontSize: "0.85rem", color: "var(--brand-primary)" }}>전체보기</a>
+                </div>
+                <div className="premium-card" style={{ padding: "16px" }}>
+                    <p style={{ fontSize: "0.9rem", color: "var(--text-secondary)", textAlign: "center" }}>새로운 공지사항이 없습니다.</p>
+                </div>
+            </section>
         </div>
     );
 }

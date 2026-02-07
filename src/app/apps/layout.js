@@ -1,96 +1,81 @@
-import '../globals.css';
+"use client";
+import { usePathname } from "next/navigation";
 
-export const metadata = {
-    title: 'BCL Portal',
-    description: 'Experience the best facilities',
-};
+export default function AppsLayout({ children }) {
+    const pathname = usePathname();
 
-export default function UserLayout({ children }) {
+    const navItems = [
+        { name: "홈", path: "/apps/dashboard", icon: "🏠" },
+        { name: "일정", path: "/apps/schedule", icon: "📅" },
+        { name: "체크인", path: "/apps/checkin", icon: "QR" },
+        { name: "시설", path: "/apps/facilities", icon: "🏢" },
+        { name: "프로필", path: "/apps/profile", icon: "👤" },
+    ];
+
+    // Auth pages should not show the bottom nav
+    const isAuthPage = pathname.includes("/auth/");
+
+    if (isAuthPage) return <>{children}</>;
+
     return (
-        <div className="apps-container">
-            <header className="apps-header">
-                <div className="app-title">BCL Portal</div>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-primary)" }}>
+            {/* Header */}
+            <header className="glass-effect" style={{
+                height: "var(--header-height)",
+                display: "flex",
+                alignItems: "center",
+                padding: "0 20px",
+                position: "sticky",
+                top: 0,
+                zIndex: 100,
+                borderBottom: "1px solid var(--border-subtle)"
+            }}>
+                <h1 style={{ fontSize: "1.1rem", fontWeight: "700", background: "linear-gradient(135deg, #fff, #888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                    BCL PORTAL
+                </h1>
             </header>
-            <main className="apps-content">
-                {children}
+
+            {/* Content */}
+            <main style={{ flex: 1, padding: "20px", paddingBottom: "calc(var(--bottom-nav-height) + 20px)" }}>
+                <div style={{ maxWidth: "600px", margin: "0 auto" }}>
+                    {children}
+                </div>
             </main>
-            <nav className="bottom-nav">
-                <a href="/apps/dashboard" className="nav-item">
-                    <span className="icon">🏠</span>
-                    <span className="label">Home</span>
-                </a>
-                <a href="/apps/schedule" className="nav-item">
-                    <span className="icon">📅</span>
-                    <span className="label">Schedule</span>
-                </a>
-                <a href="/apps/checkin" className="nav-item">
-                    <span className="icon">QR</span>
-                    <span className="label">Check-in</span>
-                </a>
-                <a href="/apps/facilities" className="nav-item">
-                    <span className="icon">🏢</span>
-                    <span className="label">Facilities</span>
-                </a>
-                <a href="/apps/profile" className="nav-item">
-                    <span className="icon">👤</span>
-                    <span className="label">Profile</span>
-                </a>
+
+            {/* Bottom Nav */}
+            <nav className="glass-effect" style={{
+                height: "var(--bottom-nav-height)",
+                position: "fixed",
+                bottom: 0,
+                left: 0,
+                right: 0,
+                display: "flex",
+                justifyContent: "space-around",
+                alignItems: "center",
+                borderTop: "1px solid var(--border-subtle)",
+                zIndex: 100,
+                paddingBottom: "env(safe-area-inset-bottom)"
+            }}>
+                {navItems.map((item) => (
+                    <a
+                        key={item.path}
+                        href={item.path}
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: "4px",
+                            color: pathname === item.path ? "var(--brand-primary)" : "var(--text-secondary)",
+                            fontSize: "0.7rem",
+                            fontWeight: pathname === item.path ? "600" : "400",
+                            transition: "all 0.2s ease"
+                        }}
+                    >
+                        <span style={{ fontSize: "1.2rem" }}>{item.icon}</span>
+                        {item.name}
+                    </a>
+                ))}
             </nav>
-            <style jsx>{`
-        .apps-container {
-          padding-bottom: var(--bottom-nav-height);
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-        .apps-header {
-          height: var(--header-height);
-          background: var(--card-bg);
-          border-bottom: 1px solid var(--border-color);
-          display: flex;
-          align-items: center;
-          padding: 0 1rem;
-          position: sticky;
-          top: 0;
-          z-index: 10;
-        }
-        .app-title {
-          font-weight: bold;
-          font-size: 1.25rem;
-        }
-        .apps-content {
-          flex: 1;
-          padding: 1rem;
-        }
-        .bottom-nav {
-          height: var(--bottom-nav-height);
-          background: var(--card-bg);
-          border-top: 1px solid var(--border-color);
-          position: fixed;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          display: flex;
-          justify-content: space-around;
-          align-items: center;
-          z-index: 10;
-        }
-        .nav-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          font-size: 0.75rem;
-          color: var(--text-dim);
-          flex: 1;
-        }
-        .nav-item .icon {
-          font-size: 1.5rem;
-          margin-bottom: 2px;
-        }
-        .nav-item:hover {
-          color: var(--primary);
-        }
-      `}</style>
         </div>
     );
 }

@@ -1,6 +1,6 @@
-'use client';
-import { supabase } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function CoachManagement() {
     const [coaches, setCoaches] = useState([]);
@@ -11,57 +11,66 @@ export default function CoachManagement() {
     }, []);
 
     const fetchCoaches = async () => {
-        // Joining with profiles to get name and avatar
+        setLoading(true);
         const { data, error } = await supabase
-            .from('coaches')
+            .from("coaches")
             .select(`
-        id,
-        bio,
-        specialties,
-        profiles (
-          full_name,
-          avatar_url
-        )
+        *,
+        profiles:profile_id (full_name, avatar_url)
       `);
         if (!error) setCoaches(data);
         setLoading(false);
     };
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1>Coach Management</h1>
-                <button className="btn-primary" onClick={() => alert('Add Coach UI coming soon')}>
-                    + Add Coach
-                </button>
-            </div>
+        <div className="animate-fade-in">
+            <header style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                    <h1 style={{ fontSize: "1.75rem", marginBottom: "8px" }}>코치 관리</h1>
+                    <p style={{ color: "var(--text-secondary)" }}>전문 코치진 프로필 및 활동 정보를 관리합니다.</p>
+                </div>
+                <button className="btn-primary">+ 코치 등록</button>
+            </header>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                {loading ? <p>Loading...</p> : (
-                    coaches.length === 0 ? (
-                        <div className="card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
-                            <p style={{ color: 'var(--text-dim)' }}>No coaches registered yet.</p>
-                        </div>
-                    ) : (
-                        coaches.map(coach => (
-                            <div key={coach.id} className="card" style={{ display: 'flex', gap: '1rem', alignItems: 'start' }}>
-                                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-                                    {coach.profiles?.avatar_url ? <img src={coach.profiles.avatar_url} alt="" style={{ width: '100%', borderRadius: '50%' }} /> : '👤'}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "24px" }}>
+                {loading ? (
+                    <p>로딩 중...</p>
+                ) : coaches.length === 0 ? (
+                    <div className="premium-card" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "48px" }}>
+                        <p style={{ color: "var(--text-secondary)" }}>등록된 코치가 없습니다.</p>
+                    </div>
+                ) : (
+                    coaches.map((coach) => (
+                        <div key={coach.id} className="premium-card">
+                            <div style={{ display: "flex", gap: "16px", marginBottom: "20px" }}>
+                                <div style={{
+                                    width: "64px",
+                                    height: "64px",
+                                    borderRadius: "50%",
+                                    background: "var(--bg-tertiary)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "1.5rem"
+                                }}>
+                                    {coach.profiles?.avatar_url ? (
+                                        <img src={coach.profiles.avatar_url} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%" }} />
+                                    ) : "👤"}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <h3 style={{ marginBottom: '0.25rem' }}>{coach.profiles?.full_name || 'Unknown Name'}</h3>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--text-dim)', marginBottom: '0.5rem' }}>{coach.specialties?.join(', ') || 'General'}</p>
-                                    <p style={{ fontSize: '0.875rem', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical' }}>
-                                        {coach.bio}
-                                    </p>
-                                    <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                                        <button style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem', background: 'var(--accent)', color: 'var(--primary)', borderRadius: '4px' }}>Edit</button>
-                                        <button style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem', background: 'var(--accent)', color: 'var(--danger)', borderRadius: '4px' }}>Remove</button>
-                                    </div>
+                                <div>
+                                    <h3 style={{ fontSize: "1.1rem" }}>{coach.profiles?.full_name || "이름 없음"}</h3>
+                                    <p style={{ color: "var(--brand-primary)", fontSize: "0.85rem", fontWeight: "600" }}>{coach.specialty}</p>
                                 </div>
                             </div>
-                        ))
-                    )
+                            <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem", marginBottom: "20px", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                {coach.bio}
+                            </p>
+                            <div style={{ display: "flex", gap: "10px" }}>
+                                <button className="btn-secondary" style={{ flex: 1, fontSize: "0.85rem" }}>상세보기</button>
+                                <button className="btn-secondary" style={{ flex: 1, fontSize: "0.85rem" }}>일정관리</button>
+                            </div>
+                        </div>
+                    ))
                 )}
             </div>
         </div>

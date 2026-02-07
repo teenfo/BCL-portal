@@ -1,67 +1,79 @@
-'use client';
-import { supabase } from '@/lib/supabase/client';
-import { useEffect, useState } from 'react';
+"use client";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function AttendanceLog() {
-    const [logs, setLogs] = useState([]);
+    const [checkins, setCheckins] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchLogs();
+        fetchCheckins();
     }, []);
 
-    const fetchLogs = async () => {
+    const fetchCheckins = async () => {
+        setLoading(true);
         const { data, error } = await supabase
-            .from('checkins')
-            .select('*, profiles(full_name), facilities(name)')
-            .order('checkin_time', { ascending: false });
-        if (!error) setLogs(data);
+            .from("checkins")
+            .select(`
+        *,
+        profiles:profile_id (full_name),
+        facilities:facility_id (name)
+      `)
+            .order("checkin_time", { ascending: false });
+        if (!error) setCheckins(data);
         setLoading(false);
     };
 
     return (
-        <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                <h1>Attendance & Check-in Logs</h1>
-            </div>
+        <div className="animate-fade-in">
+            <header style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                    <h1 style={{ fontSize: "1.75rem", marginBottom: "8px" }}>출석 기록</h1>
+                    <p style={{ color: "var(--text-secondary)" }}>시설 이용 및 수업 출석 내역을 실시간으로 확인합니다.</p>
+                </div>
+                <button className="btn-primary" onClick={() => window.location.href = '/admin/checkin/scanner'}>QR 스캐너 열기</button>
+            </header>
 
-            <div className="card">
-                {loading ? <p>Loading...</p> : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-dim)' }}>
-                                <th style={{ textAlign: 'left', padding: '1rem' }}>Member</th>
-                                <th style={{ textAlign: 'left', padding: '1rem' }}>Facility</th>
-                                <th style={{ textAlign: 'left', padding: '1rem' }}>Check-in Type</th>
-                                <th style={{ textAlign: 'left', padding: '1rem' }}>Time</th>
-                                <th style={{ textAlign: 'left', padding: '1rem' }}>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {logs.length === 0 ? (
-                                <tr>
-                                    <td colSpan="5" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-dim)' }}>
-                                        No check-in logs found.
+            <div className="premium-card" style={{ padding: 0, overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left" }}>
+                    <thead>
+                        <tr style={{ borderBottom: "1px solid var(--border-subtle)", background: "rgba(255,255,255,0.02)" }}>
+                            <th style={{ padding: "16px 24px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>체크인 시간</th>
+                            <th style={{ padding: "16px 24px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>회원명</th>
+                            <th style={{ padding: "16px 24px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>시설</th>
+                            <th style={{ padding: "16px 24px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>구분</th>
+                            <th style={{ padding: "16px 24px", fontSize: "0.85rem", color: "var(--text-secondary)" }}>상태</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading ? (
+                            <tr><td colSpan="5" style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)" }}>로딩 중...</td></tr>
+                        ) : checkins.length === 0 ? (
+                            <tr><td colSpan="5" style={{ padding: "40px", textAlign: "center", color: "var(--text-secondary)" }}>기록이 없습니다.</td></tr>
+                        ) : (
+                            checkins.map((checkin) => (
+                                <tr key={checkin.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                                    <td style={{ padding: "16px 24px" }}>
+                                        <div style={{ fontSize: "0.9rem", fontWeight: "600" }}>
+                                            {new Date(checkin.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
+                                            {new Date(checkin.checkin_time).toLocaleDateString()}
+                                        </div>
+                                    </td>
+                                    <td style={{ padding: "16px 24px", fontWeight: "500" }}>{checkin.profiles?.full_name}</td>
+                                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{checkin.facilities?.name}</td>
+                                    <td style={{ padding: "16px 24px" }}>
+                                        <span className="badge badge-info">{checkin.type === 'facility' ? '시설 이용' : '수업 출석'}</span>
+                                    </td>
+                                    <td style={{ padding: "16px 24px" }}>
+                                        <span className="badge badge-success">완료</span>
                                     </td>
                                 </tr>
-                            ) : (
-                                logs.map(log => (
-                                    <tr key={log.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                        <td style={{ padding: '1rem' }}>{log.profiles?.full_name}</td>
-                                        <td style={{ padding: '1rem' }}>{log.facilities?.name}</td>
-                                        <td style={{ padding: '1rem' }}>{log.session_id ? 'Session' : 'General'}</td>
-                                        <td style={{ padding: '1rem' }}>{new Date(log.checkin_time).toLocaleString()}</td>
-                                        <td style={{ padding: '1rem' }}>
-                                            <span style={{ padding: '0.25rem 0.5rem', borderRadius: '4px', background: 'var(--accent)', color: 'var(--primary)', fontSize: '0.75rem' }}>
-                                                {log.status}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                )}
+                            ))
+                        )}
+                    </tbody>
+                </table>
             </div>
         </div>
     );
