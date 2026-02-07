@@ -15,9 +15,9 @@ export default function AuthGuard({ children, requiredRole }) {
                 const { data: { session } } = await supabase.auth.getSession();
 
                 if (!session) {
-                    const loginPath = pathname.startsWith("/admin")
-                        ? "/admin/auth/login"
-                        : "/apps/auth/login";
+                    let loginPath = "/apps/auth/login";
+                    if (pathname.startsWith("/admin")) loginPath = "/admin/auth/login";
+                    if (pathname.startsWith("/coach")) loginPath = "/coach/auth/login";
 
                     // Prevent infinite redirect if already on login page
                     if (!pathname.includes("/auth/login")) {

@@ -134,6 +134,15 @@ export default function AdminLoginPage() {
                     </button>
                 </form>
 
+                <div style={{ marginTop: "24px", display: "flex", flexDirection: "column", gap: "12px", textAlign: "center" }}>
+                    <a href="/apps/dashboard" style={{ fontSize: "0.85rem", color: "var(--text-secondary)", textDecoration: "none" }}>
+                        일반 회원이신가요? <span style={{ color: "var(--brand-primary)" }}>사용자 앱으로 이동</span>
+                    </a>
+                    <a href="/coach/dashboard" style={{ fontSize: "0.85rem", color: "var(--text-secondary)", textDecoration: "none" }}>
+                        코치님이신가요? <span style={{ color: "var(--brand-primary)" }}>코치 앱으로 이동</span>
+                    </a>
+                </div>
+
                 {message && (
                     <p style={{
                         marginTop: "16px",

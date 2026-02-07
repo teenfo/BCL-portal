@@ -12,3 +12,13 @@ services:
     restart: unless-stopped
     env_file:
       - .env.local
+    depends_on:
+      - race-service
+
+  race-service:
+    build:
+      context: ./race
+    image: bcl-race-server:latest
+    container_name: bcl-race-server
+    restart: unless-stopped
+    # Internal port 8000

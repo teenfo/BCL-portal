@@ -1,4 +1,8 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## 📚 Documentation
+전체 시스템 설계 및 가이드는 **[.docs/README.md](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/README.md)**를 참조하십시오.
+- [**어드민 포털 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/admin/_index.md)
+- [**사용자 앱 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/userApps/_index.md)
+- [**코치 전용 앱 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/coach/_index.md)
 
 ## Getting Started
 

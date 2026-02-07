@@ -4,9 +4,13 @@
 
 ## 📂 문서 목차
 
-### 1. 시스템 설계 및 구조
+### 1. 코어 포털 가이드 (Core Portals)
+- [**관리자 포털 (Admin Portal)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/admin/_index.md): 센터 운영 및 마스터 데이터 관리
+- [**회원전용 앱 (User App)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/userApps/_index.md): 예약/체크인 및 회원 서비스
+- [**코치전용 앱 (Coach App)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/coach/_index.md): 수업 관리 및 회원 코칭 케어
+
+### 2. 시스템 설계 및 구조
 - **[사이트맵 (Sitemap)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/sitemap/bcl-portal-sitemap.md)**: 전체 메뉴 트리 및 라우트 정의
-- **[기능 상세 설계 (Functional Design)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/sitemap/pages)**: 관리자 포털 각 모듈별 상세 기능 명세
 - **[데이터베이스 (Database)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/database.md)**: 테이블 스키마 및 관계 정의
 
 ### 2. 브랜드 및 보안 가이드

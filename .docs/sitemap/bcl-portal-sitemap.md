@@ -13,6 +13,8 @@
 
 - **User(Apps)**: `apps/*` → URL Prefix: `/apps/*`
   - 예: `/apps/dashboard`, `/apps/schedule`
+- **Coach**: `coach/*` → URL Prefix: `/coach/*`
+  - 예: `/coach/dashboard`, `/coach/schedule`
 - **Admin**: `admin/*` → URL Prefix: `/admin/*`
 
 - **인증(Auth) 라우팅**
@@ -24,8 +26,10 @@
   - 관리자: `/admin/auth/*`
     - `/admin/auth/login`
     - `/admin/auth/callback`
-    - `/admin/auth/reset-password` (선택)
-  - 공통 로그아웃(권장): `/auth/logout` (앱/관리자에서 동일 처리)
+  - 코치: `/coach/auth/*`
+    - `/coach/auth/login`
+    - `/coach/auth/callback`
+  - 공통 로그아웃(권장): `/auth/logout` (앱/관리자/코치에서 동일 처리)
 
 ---
 
@@ -93,15 +97,40 @@
 - **문의/지원** (`/apps/support`)
 - **문의 상세** (`/apps/support/:ticketId`)
 
-#### (선택/추후)
-- **커뮤니티/게시판** (`/apps/community`)
-  - 운영 정책에 따라 활성화(현재는 MVP에서 선택)
-- **코치 소개** (`/apps/coaches`)
-  - 코치 프로필 열람(관리자가 등록한 정보 기반)
+### 3) 코치 앱 (Coach App) Sitemap
+
+#### A) Coach Navigation (권장: Bottom Tab)
+- **Home** → `/coach/dashboard`
+- **My Schedule** → `/coach/schedule`
+- **Member Care** → `/coach/members`
+- **Race** → `/coach/race`
+- **Profile** → `/coach/profile`
+
+#### 1) 홈/대시보드
+- **내 대시보드** (`/coach/dashboard`)
+  - 오늘 내 수업 리스트, 금일 출석 현황 요약, 센터 공지사항
+
+#### 2) 스케줄 관리
+- **내 수업 일정** (`/coach/schedule`)
+  - 배정된 수업 캘린더, 세션별 예약 인원 확인, 출결 체크 전용 화면 진입
+- **출결 처리** (`/coach/attendance/:sessionId`)
+  - 실시간 리스트 기반 출석/결석/지각 태깅
+
+#### 3) 회원 케어
+- **회원 상담/노트** (`/coach/members`)
+  - 담당 회원 리스트, 회원별 건강기록/피드백(코칭노트) 작성
+- **회원 상세** (`/coach/members/:memberId`)
+  - 과거 운동 이력, 특이사항(부상 등) 공유
+
+#### 4) 레이스 제어 (Race Integration)
+- **레이스 대시보드** (`/coach/race`)
+  - PM5 기기 연결 상태 확인, 레인 배정, 레이스 시작/중단 제어
+- **실시간 리더보드** (`/coach/race/live`)
+  - 대형 스크린용 실시간 레이스 중계 화면
 
 ---
 
-## 2) Admin Sitemap (기존 유지: v0.4)
+## 4) Admin Sitemap (기존 유지: v0.4)
 
 ### A) Admin Navigation (권장: Sidebar)
 - Sidebar는 **Sitemap과 1:1 매핑**
