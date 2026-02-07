@@ -82,6 +82,25 @@ export default function AdminLoginPage() {
                     <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%" }}>
                         {loading ? "로그인 중..." : "로그인"}
                     </button>
+
+                    <button
+                        type="button"
+                        onClick={() => router.push("/apps/auth/login")}
+                        className="btn-secondary"
+                        style={{
+                            width: "100%",
+                            marginTop: "8px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            background: "rgba(255, 107, 0, 0.05)",
+                            border: "1px solid rgba(255, 107, 0, 0.2)",
+                            color: "var(--brand-primary)"
+                        }}
+                    >
+                        📱 사용자 앱으로 이동
+                    </button>
                 </form>
 
                 {message && (
