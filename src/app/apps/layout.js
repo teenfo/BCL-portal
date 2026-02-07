@@ -30,7 +30,7 @@ export default function AppsLayout({ children }) {
                 zIndex: 100,
                 borderBottom: "1px solid var(--border-subtle)"
             }}>
-                <h1 style={{ fontSize: "1.1rem", fontWeight: "700", background: "linear-gradient(135deg, #fff, #888)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                <h1 style={{ fontSize: "1.1rem", fontWeight: "700", background: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                     BCL PORTAL
                 </h1>
             </header>

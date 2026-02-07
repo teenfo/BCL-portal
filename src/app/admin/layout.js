@@ -45,7 +45,7 @@ export default function AdminLayout({ children }) {
                                 padding: "12px",
                                 borderRadius: "10px",
                                 color: pathname === item.path ? "white" : "var(--text-secondary)",
-                                background: pathname === item.path ? "rgba(59, 130, 246, 0.1)" : "transparent",
+                                background: pathname === item.path ? "rgba(255, 107, 0, 0.1)" : "transparent",
                                 fontSize: "0.95rem",
                                 fontWeight: pathname === item.path ? "600" : "400",
                                 transition: "all 0.2s ease"

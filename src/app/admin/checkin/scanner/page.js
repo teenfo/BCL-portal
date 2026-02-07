@@ -59,7 +59,7 @@ export default function CheckinScanner() {
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    background: "rgba(59, 130, 246, 0.05)",
+                    background: "rgba(255, 107, 0, 0.05)",
                     position: "relative",
                     overflow: "hidden"
                 }}>

@@ -30,7 +30,7 @@ export default function MembershipView() {
                 ) : (
                     plans.map((plan) => (
                         <div key={plan.id} className="premium-card" style={{
-                            background: plan.name.includes('무제한') ? "linear-gradient(135deg, var(--bg-secondary), #1e293b)" : "var(--bg-secondary)",
+                            background: plan.name.includes('무제한') ? "linear-gradient(135deg, var(--bg-secondary), rgba(255, 107, 0, 0.15))" : "var(--bg-secondary)",
                             border: plan.name.includes('무제한') ? "1px solid var(--brand-primary)" : "1px solid var(--border-subtle)"
                         }}>
                             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
@@ -54,7 +54,7 @@ export default function MembershipView() {
                 )}
             </div>
 
-            <div className="premium-card" style={{ marginTop: "32px", background: "rgba(59, 130, 246, 0.05)", border: "1px dashed var(--brand-primary)" }}>
+            <div className="premium-card" style={{ marginTop: "32px", background: "rgba(255, 107, 0, 0.05)", border: "1px dashed var(--brand-primary)" }}>
                 <h3 style={{ fontSize: "0.95rem", marginBottom: "8px" }}>💡 기업 제휴 할인</h3>
                 <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>
                     BCL과 제휴된 기업의 임직원이라면 추가 10% 할인을 받으실 수 있습니다. 자세한 내용은 고객 지원으로 문의해주세요.
