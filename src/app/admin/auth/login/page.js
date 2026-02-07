@@ -83,6 +83,37 @@ export default function AdminLoginPage() {
                         {loading ? "로그인 중..." : "로그인"}
                     </button>
 
+                    <div style={{ position: "relative", margin: "16px 0", textAlign: "center" }}>
+                        <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: "1px", background: "var(--border-subtle)", zIndex: 0 }}></div>
+                        <span style={{ position: "relative", background: "var(--bg-secondary)", padding: "0 12px", fontSize: "0.8rem", color: "var(--text-secondary)" }}>또는</span>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => supabase.auth.signInWithOAuth({
+                            provider: 'kakao',
+                            options: { redirectTo: `${window.location.origin}/admin/auth/callback` }
+                        })}
+                        style={{
+                            width: "100%",
+                            padding: "12px",
+                            borderRadius: "8px",
+                            border: "none",
+                            background: "#FEE500",
+                            color: "#000000",
+                            fontWeight: "600",
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "8px",
+                            cursor: "pointer",
+                            transition: "opacity 0.2s"
+                        }}
+                    >
+                        <span>🟡</span> 카카오로 로그인
+                    </button>
+
                     <button
                         type="button"
                         onClick={() => router.push("/apps/auth/login")}
