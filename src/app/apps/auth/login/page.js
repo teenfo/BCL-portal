@@ -1,28 +1,29 @@
 "use client";
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function UserLoginPage() {
     const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
+    const router = useRouter();
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         setMessage("");
 
-        const { error } = await supabase.auth.signInWithOtp({
+        const { error } = await supabase.auth.signInWithPassword({
             email,
-            options: {
-                emailRedirectTo: `${window.location.origin}/apps/auth/callback`,
-            },
+            password,
         });
 
         if (error) {
             setMessage(`에러: ${error.message}`);
         } else {
-            setMessage("매직 링크가 발송되었습니다. 이메일을 확인해주세요.");
+            router.push("/apps/dashboard");
         }
         setLoading(false);
     };
@@ -38,7 +39,7 @@ export default function UserLoginPage() {
             <div className="premium-card animate-fade-in" style={{ width: "100%", maxWidth: "400px" }}>
                 <h1 style={{ marginBottom: "8px", fontSize: "1.5rem" }}>BCL 포털 로그인</h1>
                 <p style={{ color: "var(--text-secondary)", marginBottom: "24px", fontSize: "0.9rem" }}>
-                    이메일을 입력하면 로그인 링크를 보내드립니다.
+                    이메일과 비밀번호를 입력하여 로그인하세요.
                 </p>
 
                 <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -61,8 +62,27 @@ export default function UserLoginPage() {
                         />
                     </div>
 
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                        <label style={{ fontSize: "0.85rem", fontWeight: "500", color: "var(--text-secondary)" }}>비밀번호</label>
+                        <input
+                            type="password"
+                            placeholder="••••••••"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required
+                            style={{
+                                padding: "12px",
+                                borderRadius: "8px",
+                                border: "1px solid var(--border-subtle)",
+                                background: "var(--bg-tertiary)",
+                                color: "white",
+                                outline: "none"
+                            }}
+                        />
+                    </div>
+
                     <button type="submit" disabled={loading} className="btn-primary" style={{ width: "100%" }}>
-                        {loading ? "발송 중..." : "매직 링크 발송"}
+                        {loading ? "로그인 중..." : "로그인"}
                     </button>
                 </form>
 
@@ -71,7 +91,7 @@ export default function UserLoginPage() {
                         marginTop: "16px",
                         fontSize: "0.85rem",
                         textAlign: "center",
-                        color: message.startsWith("에러") ? "var(--status-error)" : "var(--status-success)"
+                        color: "var(--status-error)"
                     }}>
                         {message}
                     </p>
