@@ -1,3 +1,7 @@
+---
+trigger: always_on
+---
+
 # BCL Portal – UI Rules (Agent)
 
 이 문서는 Agent가 UI/UX를 설계하거나 제안할 때 반드시 지켜야 할 규칙이다.
@@ -17,7 +21,7 @@
   - 예약
   - 체크인
   - 결제 확인
-
+s
 ---
 
 ## 2) 관리자 화면 (admin)
