@@ -11,6 +11,7 @@
 
 ### 2. 브랜드 및 보안 가이드
 - **[보안 및 인증 (Security & Auth)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/security-auth.md)**: AuthGuard, 세션 관리 및 경로 보안 정책
+- **[DB 트러블슈팅 (DB Troubleshooting)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/troubleshooting-db.md)**: 데이터베이스 연결 및 환경 변수 문제 해결 가이드
 - **[브랜딩 및 UI/UX (Branding & Design)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/branding-ui.md)**: BCL Orange 테마, 디자인 토큰 및 UI 컴포넌트 원칙
 
 ### 3. 운영 및 개발 환경
