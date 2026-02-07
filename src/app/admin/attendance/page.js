@@ -16,10 +16,9 @@ export default function AttendanceLog() {
             .from("checkins")
             .select(`
         *,
-        profiles:profile_id (full_name),
-        facilities:facility_id (name)
+        member:member_id (name)
       `)
-            .order("checkin_time", { ascending: false });
+            .order("time", { ascending: false });
         if (!error) setCheckins(data);
         setLoading(false);
     };
@@ -55,19 +54,19 @@ export default function AttendanceLog() {
                                 <tr key={checkin.id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                                     <td style={{ padding: "16px 24px" }}>
                                         <div style={{ fontSize: "0.9rem", fontWeight: "600" }}>
-                                            {new Date(checkin.checkin_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            {new Date(checkin.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                         <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)" }}>
-                                            {new Date(checkin.checkin_time).toLocaleDateString()}
+                                            {new Date(checkin.time).toLocaleDateString()}
                                         </div>
                                     </td>
-                                    <td style={{ padding: "16px 24px", fontWeight: "500" }}>{checkin.profiles?.full_name}</td>
-                                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{checkin.facilities?.name}</td>
+                                    <td style={{ padding: "16px 24px", fontWeight: "500" }}>{checkin.member?.name || checkin.member_name}</td>
+                                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{checkin.facility}</td>
                                     <td style={{ padding: "16px 24px" }}>
-                                        <span className="badge badge-info">{checkin.type === 'facility' ? '시설 이용' : '수업 출석'}</span>
+                                        <span className="badge badge-info">{checkin.status === 'Present' ? '시설 이용' : '수업 출석'}</span>
                                     </td>
                                     <td style={{ padding: "16px 24px" }}>
-                                        <span className="badge badge-success">완료</span>
+                                        <span className="badge badge-success">{checkin.status}</span>
                                     </td>
                                 </tr>
                             ))

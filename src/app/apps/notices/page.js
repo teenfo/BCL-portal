@@ -15,7 +15,6 @@ export default function NoticesView() {
         const { data, error } = await supabase
             .from("notices")
             .select("*")
-            .eq("is_published", true)
             .order("created_at", { ascending: false });
         if (!error) setNotices(data);
         setLoading(false);

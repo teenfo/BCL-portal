@@ -12,7 +12,7 @@ export default function MemberManagement() {
 
     const fetchMembers = async () => {
         setLoading(true);
-        const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
+        const { data, error } = await supabase.from("members").select("*").order("created_at", { ascending: false });
         if (!error) setMembers(data);
         setLoading(false);
     };
@@ -64,9 +64,9 @@ export default function MemberManagement() {
                                     <td style={{ padding: "16px 24px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                                             <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "var(--bg-tertiary)", display: "flex", alignItems: "center", justifyItems: "center", fontSize: "0.8rem" }}>
-                                                {member.avatar_url ? <img src={member.avatar_url} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%" }} /> : "👤"}
+                                                {"👤"}
                                             </div>
-                                            <span style={{ fontWeight: "500" }}>{member.full_name || "이름 없음"}</span>
+                                            <span style={{ fontWeight: "500" }}>{member.name || "이름 없음"}</span>
                                         </div>
                                     </td>
                                     <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{member.email || "정보 없음"}</td>
@@ -74,7 +74,7 @@ export default function MemberManagement() {
                                         {new Date(member.created_at).toLocaleDateString()}
                                     </td>
                                     <td style={{ padding: "16px 24px" }}>
-                                        <span className="badge badge-success">활성</span>
+                                        <span className={`badge ${member.status === 'Active' ? 'badge-success' : 'badge-secondary'}`}>{member.status}</span>
                                     </td>
                                     <td style={{ padding: "16px 24px", textAlign: "right" }}>
                                         <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem" }}>관리</button>

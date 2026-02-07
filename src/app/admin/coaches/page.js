@@ -14,10 +14,7 @@ export default function CoachManagement() {
         setLoading(true);
         const { data, error } = await supabase
             .from("coaches")
-            .select(`
-        *,
-        profiles:profile_id (full_name, avatar_url)
-      `);
+            .select("*");
         if (!error) setCoaches(data);
         setLoading(false);
     };
@@ -53,12 +50,10 @@ export default function CoachManagement() {
                                     justifyContent: "center",
                                     fontSize: "1.5rem"
                                 }}>
-                                    {coach.profiles?.avatar_url ? (
-                                        <img src={coach.profiles.avatar_url} alt="" style={{ width: "100%", height: "100%", borderRadius: "50%" }} />
-                                    ) : "👤"}
+                                    {"👤"}
                                 </div>
                                 <div>
-                                    <h3 style={{ fontSize: "1.1rem" }}>{coach.profiles?.full_name || "이름 없음"}</h3>
+                                    <h3 style={{ fontSize: "1.1rem" }}>{coach.name || "이름 없음"}</h3>
                                     <p style={{ color: "var(--brand-primary)", fontSize: "0.85rem", fontWeight: "600" }}>{coach.specialty}</p>
                                 </div>
                             </div>

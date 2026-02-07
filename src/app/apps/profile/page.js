@@ -15,7 +15,7 @@ export default function ProfileView() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
             const { data } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-            setProfile(data);
+            setProfile({ ...data, email: user.email });
         }
         setLoading(false);
     };

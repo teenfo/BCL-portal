@@ -42,7 +42,7 @@ export default function FacilitiesView() {
                                     fontWeight: "600",
                                     backdropFilter: "blur(4px)"
                                 }}>
-                                    {facility.phone}
+                                    {facility.operating_hours || "운영시간 미등록"}
                                 </div>
                             </div>
                             <div style={{ padding: "20px" }}>
@@ -59,6 +59,6 @@ export default function FacilitiesView() {
                     ))
                 )}
             </div>
-        </div>
+        </div >
     );
 }

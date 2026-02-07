@@ -14,11 +14,7 @@ export default function ScheduleView() {
         setLoading(true);
         const { data, error } = await supabase
             .from("sessions")
-            .select(`
-        *,
-        coaches:coach_id (profiles:profile_id (full_name)),
-        facilities:facility_id (name)
-      `)
+            .select("*")
             .order("start_time", { ascending: true });
         if (!error) setSessions(data);
         setLoading(false);
@@ -46,29 +42,29 @@ export default function ScheduleView() {
                                     {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                                 <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                                    {session.current_capacity}/{session.max_capacity}명
+                                    {session.enrolled}/{session.capacity}명
                                 </span>
                             </div>
                             <h3 style={{ fontSize: "1.1rem", marginBottom: "4px" }}>{session.title}</h3>
                             <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", marginBottom: "16px" }}>
-                                {session.facilities?.name} • {session.coaches?.profiles?.full_name} 코치
+                                {session.intensity} • {session.coach_name} 코치
                             </p>
 
                             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                                 <div style={{ flex: 1, height: "4px", background: "var(--bg-tertiary)", borderRadius: "2px" }}>
                                     <div style={{
-                                        width: `${(session.current_capacity / session.max_capacity) * 100}%`,
+                                        width: `${(session.enrolled / session.capacity) * 100}%`,
                                         height: "100%",
-                                        background: session.current_capacity >= session.max_capacity ? "var(--status-error)" : "var(--brand-primary)",
+                                        background: session.enrolled >= session.capacity ? "var(--status-error)" : "var(--brand-primary)",
                                         borderRadius: "2px"
                                     }}></div>
                                 </div>
                                 <button
                                     className="btn-primary"
                                     style={{ padding: "8px 20px", fontSize: "0.85rem" }}
-                                    disabled={session.current_capacity >= session.max_capacity}
+                                    disabled={session.enrolled >= session.capacity}
                                 >
-                                    {session.current_capacity >= session.max_capacity ? "마감" : "예약하기"}
+                                    {session.enrolled >= session.capacity ? "마감" : "예약하기"}
                                 </button>
                             </div>
                         </div>

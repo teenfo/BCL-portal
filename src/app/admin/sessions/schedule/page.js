@@ -14,11 +14,7 @@ export default function SessionSchedule() {
         setLoading(true);
         const { data, error } = await supabase
             .from("sessions")
-            .select(`
-        *,
-        coaches:coach_id (profiles:profile_id (full_name)),
-        facilities:facility_id (name)
-      `)
+            .select("*")
             .order("start_time", { ascending: true });
         if (!error) setSessions(data);
         setLoading(false);
@@ -63,16 +59,16 @@ export default function SessionSchedule() {
                                         </div>
                                     </td>
                                     <td style={{ padding: "16px 24px", fontWeight: "500" }}>{session.title}</td>
-                                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{session.facilities?.name}</td>
+                                    <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>{session.intensity}</td>
                                     <td style={{ padding: "16px 24px", color: "var(--text-secondary)", fontSize: "0.9rem" }}>
-                                        {session.coaches?.profiles?.full_name}
+                                        {session.coach_name}
                                     </td>
                                     <td style={{ padding: "16px 24px" }}>
                                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                                             <div style={{ flex: 1, height: "4px", background: "var(--bg-tertiary)", borderRadius: "2px", width: "60px" }}>
-                                                <div style={{ width: `${(session.current_capacity / session.max_capacity) * 100}%`, height: "100%", background: "var(--brand-primary)", borderRadius: "2px" }}></div>
+                                                <div style={{ width: `${(session.enrolled / session.capacity) * 100}%`, height: "100%", background: "var(--brand-primary)", borderRadius: "2px" }}></div>
                                             </div>
-                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{session.current_capacity}/{session.max_capacity}</span>
+                                            <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>{session.enrolled}/{session.capacity}</span>
                                         </div>
                                     </td>
                                     <td style={{ padding: "16px 24px", textAlign: "right" }}>
