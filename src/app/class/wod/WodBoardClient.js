@@ -1,34 +1,37 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function WodBoardClient() {
-    const wodData = {
-        date: "2026-02-07",
-        title: "FRAN",
-        warmup: [
-            "3 Rounds:",
-            "10 PVC Pipe Pass-throughs",
-            "10 Air Squats",
-            "10 Scapular Pull-ups"
-        ],
-        strength: {
-            title: "Overhead Squat",
-            description: "Build to a heavy set of 3 in 12 minutes"
-        },
-        metcon: {
-            title: "FRAN",
-            format: "21-15-9 Reps for Time",
-            movements: [
-                { name: "Thrusters", rx: "95/65 lbs", scale: "65/45 lbs" },
-                { name: "Pull-ups", rx: "Chest to Bar", scale: "Ring Rows" }
-            ],
-            goal: "Sub 5:00 minutes"
-        },
-        cooldown: [
-            "2 min Pigeon Stretch (each side)",
-            "1 min Foam Roll Quads"
-        ]
-    };
+    const [wodData, setWodData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchWod() {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('wods')
+                .select('*')
+                .eq('date', new Date().toISOString().split('T')[0])
+                .single();
+
+            if (data) {
+                setWodData(data);
+            }
+            setLoading(false);
+        }
+
+        fetchWod();
+    }, []);
+
+    if (loading) return <div style={{ padding: '60px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>Loading WOD...</div>;
+    
+    if (!wodData) return (
+        <div style={{ padding: '60px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
+            <h2>NO WOD SCHEDULED FOR TODAY</h2>
+            <p>Check back later or contact the head coach.</p>
+        </div>
+    );
 
     return (
         <div style={{ height: "100%", overflowY: "auto", padding: "60px" }} className="custom-scrollbar">

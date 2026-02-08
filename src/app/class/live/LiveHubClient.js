@@ -5,15 +5,56 @@ import { supabase } from "@/lib/supabase";
 export default function LiveHubClient() {
     const [attendees, setAttendees] = useState([]);
     const [session, setSession] = useState(null);
+    const [todayWod, setTodayWod] = useState(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        async function fetchInitialData() {
+            setLoading(true);
+            const today = new Date().toISOString().split('T')[0];
+
+            // 1. Fetch Today's WOD
+            const { data: wodData } = await supabase
+                .from('wods')
+                .select('*')
+                .eq('date', today)
+                .maybeSingle();
+            if (wodData) setTodayWod(wodData);
+
+            // 2. Fetch Current Active Session
+            const now = new Date().toISOString();
+            const { data: sData } = await supabase
+                .from("sessions")
+                .select("*")
+                .lte('start_time', now)
+                .gte('end_time', now)
+                .limit(1)
+                .maybeSingle();
+
+            if (sData) {
+                setSession(sData);
+            } else {
+                // If no active session, get the next upcoming one
+                const { data: nextS } = await supabase
+                    .from("sessions")
+                    .select("*")
+                    .gte('start_time', now)
+                    .order('start_time', { ascending: true })
+                    .limit(1)
+                    .maybeSingle();
+                if (nextS) setSession(nextS);
+            }
+
+            await fetchAttendees();
+            setLoading(false);
+        }
+
         fetchInitialData();
 
         // Subscribe to check-ins
         const channel = supabase
             .channel('live-hub')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'checkins' }, payload => {
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'checkins' }, () => {
                 fetchAttendees();
             })
             .subscribe();
@@ -23,57 +64,35 @@ export default function LiveHubClient() {
         };
     }, []);
 
-    const fetchInitialData = async () => {
-        setLoading(true);
-        // Get most recent/active session
-        const { data: sData } = await supabase
-            .from("sessions")
-            .select("*")
-            .order("start_time", { ascending: false })
-            .limit(1)
-            .single();
-
-        if (sData) setSession(sData);
-        await fetchAttendees();
-        setLoading(false);
-    };
-
     const fetchAttendees = async () => {
-        // Fetch check-ins from the last 2 hours
-        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const today = new Date().toISOString().split('T')[0];
         const { data } = await supabase
             .from("checkins")
             .select(`
                 id,
-                checkin_time,
-                members (
-                    id,
-                    name
-                )
+                time,
+                member_name,
+                status
             `)
-            .gt("checkin_time", twoHoursAgo)
-            .order("checkin_time", { ascending: false });
+            .gte('time', today + 'T00:00:00')
+            .lte('time', today + 'T23:59:59')
+            .order('time', { ascending: false });
 
         if (data) {
             setAttendees(data.map(d => ({
                 id: d.id,
-                name: d.members?.name || "Unknown",
-                status: "Checked-in",
-                checkinTime: d.checkin_time
+                name: d.member_name || "Unknown",
+                status: d.status || "Checked-in",
+                checkinTime: d.time
             })));
         }
     };
 
-    if (loading) return <div style={{ padding: "40px", color: "white" }}>Initializing Live Hub...</div>;
+    if (loading) return <div style={{ padding: '60px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>Synchronizing Live Hub...</div>;
 
-    const workout = {
-        title: "FRAN",
-        type: "21-15-9",
-        movements: [
-            { name: "Thrusters", weight: "95 lbs" },
-            { name: "Pull-ups", weight: "Bodyweight" }
-        ],
-        timeCap: "10:00"
+    const workout = todayWod || {
+        title: "NO WOD TODAY",
+        metcon: { type: "N/A", format: "Rest Day", movements: [] }
     };
 
     return (
@@ -89,7 +108,7 @@ export default function LiveHubClient() {
                         </div>
                         <div style={{ textAlign: "right" }}>
                             <div style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)" }}>Phase</div>
-                            <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--status-warning)" }}>MAIN WORKOUT</div>
+                            <div style={{ fontSize: "1.5rem", fontWeight: "900", color: "var(--status-warning)" }}>{session ? "IN PROGRESS" : "WAITING"}</div>
                         </div>
                     </div>
                 </div>
@@ -100,20 +119,21 @@ export default function LiveHubClient() {
                         <h3 style={{ fontSize: "1.2rem", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
                             📋 <span>TODAY'S WOD: {workout.title}</span>
                         </h3>
-                        {/* WOD content stays same for now as placeholder for future CMS integration */}
-                        <div style={{ fontSize: "1.1rem", lineHeight: "1.6" }}>
-                            <div style={{ fontSize: "1.8rem", fontWeight: "800", marginBottom: "20px", color: "var(--brand-secondary)" }}>
-                                {workout.type} REPS FOR TIME
+                        {workout.metcon && (
+                            <div style={{ fontSize: "1.1rem", lineHeight: "1.6" }}>
+                                <div style={{ fontSize: "1.8rem", fontWeight: "800", marginBottom: "20px", color: "var(--brand-secondary)" }}>
+                                    {workout.metcon.format}
+                                </div>
+                                <ul style={{ listStyle: "none", padding: 0 }}>
+                                    {workout.metcon.movements?.map((move, idx) => (
+                                        <li key={idx} style={{ padding: "12px 16px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
+                                            <span style={{ fontWeight: "700" }}>{move.name}</span>
+                                            <span style={{ color: "rgba(255,255,255,0.5)" }}>{move.rx}</span>
+                                        </li>
+                                    ))}
+                                </ul>
                             </div>
-                            <ul style={{ listStyle: "none", padding: 0 }}>
-                                {workout.movements.map((move, idx) => (
-                                    <li key={idx} style={{ padding: "12px 16px", background: "rgba(255,255,255,0.03)", borderRadius: "8px", marginBottom: "10px", display: "flex", justifyContent: "space-between" }}>
-                                        <span style={{ fontWeight: "700" }}>{move.name}</span>
-                                        <span style={{ color: "rgba(255,255,255,0.5)" }}>{move.weight}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
+                        )}
                     </div>
 
                     {/* Quick Controls */}
@@ -130,7 +150,7 @@ export default function LiveHubClient() {
                             <h3 style={{ fontSize: "1.1rem", marginBottom: "15px" }}>Live Announcements</h3>
                             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.95rem" }}>
                                 <p style={{ marginBottom: "10px" }}>📢 Please sanitize equipment after the set.</p>
-                                <p>📢 Real-time check-ins are active.</p>
+                                <p>📢 {attendees.length > 0 ? `${attendees.length} members checked in.` : "Waiting for check-ins..."}</p>
                             </div>
                         </div>
                     </div>
@@ -162,13 +182,16 @@ export default function LiveHubClient() {
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: "600", fontSize: "1rem" }}>{person.name}</div>
-                                <div style={{ fontSize: "0.75rem", color: "var(--status-success)" }}>
+                                <div style={{ fontSize: "0.75rem", color: person.status === 'Checked-in' || person.status === 'Present' ? "var(--status-success)" : "rgba(255,255,255,0.3)" }}>
                                     {new Date(person.checkinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                             </div>
-                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--status-success)" }}></div>
+                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: person.status === 'Checked-in' || person.status === 'Present' ? "var(--status-success)" : "transparent", border: (person.status !== 'Checked-in' && person.status !== 'Present') ? "1px solid rgba(255,255,255,0.2)" : "none" }}></div>
                         </div>
                     ))}
+                </div>
+                <div style={{ padding: "20px", background: "rgba(0,0,0,0.2)" }}>
+                    <button className="btn-secondary" style={{ width: "100%", fontSize: "0.9rem" }}>OPEN CHECK-IN MODE</button>
                 </div>
             </div>
         </div>
