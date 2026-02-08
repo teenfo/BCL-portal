@@ -11,58 +11,51 @@ export default function AdminLayout({ children }) {
 
     const navGroups = [
         {
-            group: "운영 대시보드",
+            group: "운영 현황 및 리포트",
             items: [
                 { name: "대시보드", path: "/admin/dashboard", icon: "📊" },
-                { name: "권한 제어", path: "/admin/access-control", icon: "🛡️" },
-                { name: "통계 리포트", path: "/admin/reports/attendance", icon: "📈" },
+                { name: "출석 리포트", path: "/admin/reports/attendance", icon: "📈" },
+                { name: "수업 운영 리포트", path: "/admin/reports/sessions", icon: "📊" },
+                { name: "매출 리포트", path: "/admin/reports/revenue", icon: "💰" },
+                { name: "코치 성과", path: "/admin/reports/coaches", icon: "🏆" },
             ]
         },
         {
-            group: "회원 및 결제",
+            group: "회원 및 매출 관리",
             items: [
                 { name: "회원 목록", path: "/admin/members", icon: "👥" },
-                { name: "출석 로그", path: "/admin/attendance", icon: "📋" },
+                { name: "출석·체크인 로그", path: "/admin/attendance", icon: "📋" },
+                { name: "요금제(플랜) 관리", path: "/admin/billing/plans", icon: "💎" },
+                { name: "결제 및 환불 내역", path: "/admin/billing/payments", icon: "💳" },
                 { name: "정산 관리", path: "/admin/billing/settlements", icon: "💰" },
             ]
         },
         {
-            group: "수업 및 코치 관리",
+            group: "클래스 및 현장 운영",
             items: [
-                { name: "수업 일정", path: "/admin/sessions/schedule", icon: "📅" },
-                { name: "수업 담당 배정", path: "/admin/sessions/assignments", icon: "👥" },
-                { name: "예약 관리", path: "/admin/reservations", icon: "📝" },
-                { name: "코치 목록", path: "/admin/coaches", icon: "🏃" },
-                { name: "자격증 검증", path: "/admin/coaches/certifications", icon: "🏅" },
-                { name: "실시간 체크인", path: "/admin/checkin/live", icon: "🔔" },
-                { name: "체크인 QR", path: "/admin/checkin/qr", icon: "📱" },
+                { name: "수업 스케줄", path: "/admin/sessions/schedule", icon: "📅" },
+                { name: "예약 및 대기 관리", path: "/admin/reservations", icon: "📝" },
+                { name: "코치 관리", path: "/admin/coaches", icon: "🏃" },
+                { name: "현장 체크인 제어", path: "/admin/checkin/live", icon: "🔔" },
+                { name: "권한 제어(Access)", path: "/admin/access-control", icon: "🛡️" },
             ]
         },
         {
-            group: "콘텐츠 및 알림",
+            group: "콘텐츠 및 고객 소통",
             items: [
-                { name: "공지사항", path: "/admin/content/notices", icon: "📣" },
-                { name: "배너 관리", path: "/admin/content/banners", icon: "🖼️" },
-                { name: "커뮤니티", path: "/admin/content/posts", icon: "💬" },
-                { name: "콘텐츠 요약/검토", path: "/admin/content/moderation", icon: "🛡️" },
-                { name: "알림 템플릿", path: "/admin/notifications/templates", icon: "📩" },
-                { name: "발송 로그", path: "/admin/notifications/logs", icon: "📜" },
-                { name: "자동 발송 규칙", path: "/admin/notifications/rules", icon: "⚙️" },
-            ]
-        },
-        {
-            group: "설정 및 시스템",
-            items: [
-                { name: "지점 정보", path: "/admin/settings/facility", icon: "🏢" },
-                { name: "운영 정책", path: "/admin/settings/policies", icon: "⚖️" },
-                { name: "멤버십 정책", path: "/admin/settings/memberships", icon: "💎" },
-                { name: "역할 및 권한", path: "/admin/settings/roles", icon: "🔑" },
-                { name: "결제 연동", path: "/admin/integrations/payments", icon: "💳" },
-                { name: "데이터 내보내기", path: "/admin/integrations/import-export", icon: "📂" },
+                { name: "공지 및 배너", path: "/admin/content/notices", icon: "📣" },
+                { name: "커뮤니티 관리", path: "/admin/content/posts", icon: "💬" },
+                { name: "알림 센터", path: "/admin/notifications/templates", icon: "📩" },
                 { name: "고객 지원", path: "/admin/support", icon: "🎧" },
-                { name: "감사 로그", path: "/admin/audit/actions", icon: "🔍" },
-                { name: "에러 로그", path: "/admin/audit/errors", icon: "🚨" },
-                { name: "점검 이력", path: "/admin/audit/maintenance", icon: "🛠️" },
+            ]
+        },
+        {
+            group: "시스템 설정 및 보안",
+            items: [
+                { name: "지점 및 정책 설정", path: "/admin/settings/facility", icon: "🏢" },
+                { name: "시스템 연동", path: "/admin/integrations/payments", icon: "🔌" },
+                { name: "보안 감사 로그", path: "/admin/audit/actions", icon: "🔍" },
+                { name: "데이터 관리", path: "/admin/integrations/import-export", icon: "📂" },
             ]
         }
     ];

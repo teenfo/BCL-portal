@@ -37,11 +37,12 @@ trigger: always_on
 
 ## 2) Sitemap = Single Source of Truth (SSOT)
 - 정본 Sitemap 파일:
-  - `portal/.docs/sitemap/bcl-portal-sitemap.yaml`
+  - `.docs/sitemap/README.md` (전체 지도)
+  - `.docs/sitemap/**/*.md` (모듈별 상세 디자인)
 - Agent 규칙:
   - 새로운 화면/라우트/메뉴는 **반드시 sitemap을 먼저 수정**
   - sitemap에 없는 기능을 코드로 생성하면 안 된다
-  - Admin sitemap(v0.4)은 **기존 구조 유지**
+  - **Admin sitemap**: 업무 그룹별 세분화된 구조(`.docs/sitemap/admin/`)를 준수
 
 ---
 
@@ -71,7 +72,7 @@ Agent는 Auth 라우트를 sitemap 없이 추가하면 안 된다.
 - 모든 화면은 **CSR(Client Side Rendering)** 기준
 - 서버 렌더링 전제 코드 작성 금지
 - 데이터 접근 원칙:
-  - Client → Supabase SDK → DB
+  - Client -> Supabase SDK -> DB
   - Server/Worker는 다음 경우에만 사용:
     - Webhook 수신
     - 외부 API Secret 처리
@@ -118,19 +119,7 @@ Agent는 Auth 라우트를 sitemap 없이 추가하면 안 된다.
 
 ---
 
-## 8) 비허용 기능 범위
-Agent는 다음 기능을 제안/구현하면 안 된다:
-- 레이스 시스템
-- 키오스크
-- 장비/센서 연동
-- 다국어/번역 시스템
-- 하드웨어 직접 제어
-
-(위 항목은 명시적으로 제외됨)
-
----
-
-## 9) Background Job / 자동화 규칙
+## 8) Background Job / 자동화 규칙
 - Cron/Batch 작업은:
   - Supabase pg_cron
   - Supabase Edge Functions
@@ -138,11 +127,21 @@ Agent는 다음 기능을 제안/구현하면 안 된다:
 
 ---
 
-## 10) 문서 우선순위
+## 9) 문서 우선순위
 Agent가 판단에 사용할 문서 우선순위:
 1. `.agent/rules/bcl-portal.rules.md` (이 문서)
-2. `portal/docs/sitemap/bcl-portal-sitemap.md`
-3. `portal/docs/setup/*`
-4. 기타 문서
+2. `.docs/sitemap/README.md` (전체 지도)
+3. `.docs/sitemap/**/*.md` (모듈별 상세 디자인)
+4. `.docs/project-blueprint.md` (프로젝트 개요 및 체크리스트)
+5. `.docs/database-reference.md` (DB 스키마 및 가이드)
+6. `.docs/design-security.md` (디자인 시스템 및 보안)
+7. `.docs/deployment-guide.md` (배포 가이드)
+8. 기타 문서
 
 상위 문서와 충돌 시 **상위 문서가 항상 우선**이다.
+---
+
+## 10) 문서-코드 동기화 규칙 (Sync)
+- 모든 기능 개발 및 수정 시, 해당 기능의 기획 문서를 즉시 업데이트해야 한다.
+- Agent는 작업 완료 보고 전, 소스 코드와 `.docs/sitemap/**/*.md` 문서 간의 정합성을 최종 확인한다.
+- 불일치가 발견되면 코드를 수정하거나 기획 문서를 최신화하여 항상 동기화된 상태를 유지한다.

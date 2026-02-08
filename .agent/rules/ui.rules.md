@@ -21,7 +21,8 @@ trigger: always_on
   - 예약
   - 체크인
   - 결제 확인
-s
+
+**핵심**: UI 구현 시 반드시 `.agent/skills/ui-gen/SKILL.md` 의 Glassmorphism 가이드를 준수할 것.
 ---
 
 ## 2) 관리자 화면 (admin)
