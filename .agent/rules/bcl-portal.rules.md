@@ -135,8 +135,9 @@ Agent가 판단에 사용할 문서 우선순위:
 4. `.docs/project-blueprint.md` (프로젝트 개요 및 체크리스트)
 5. `.docs/database-reference.md` (DB 스키마 및 가이드)
 6. `.docs/design-security.md` (디자인 시스템 및 보안)
-7. `.docs/deployment-guide.md` (배포 가이드)
-8. 기타 문서
+7. `.docs/technical/**/*.md` (고도화 기술 명세)
+8. `.docs/deployment-guide.md` (배포 가이드)
+9. 기타 문서
 
 상위 문서와 충돌 시 **상위 문서가 항상 우선**이다.
 ---
