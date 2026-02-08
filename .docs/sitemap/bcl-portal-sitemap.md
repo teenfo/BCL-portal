@@ -1,5 +1,5 @@
-# BCL Portal Sitemap v0.6 (CSR / Next.js)
-(Antigravity SSOT 문서)
+# BCL Portal Sitemap v1.0 (Full Implementation)
+(Antigravity SSOT 정본 - 2026.02.08)
 
 > 목표: CSR 기반으로 **사용자 화면(apps)** + **관리자 화면(admin)**을 동시에 설계한다.
 >
