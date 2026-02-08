@@ -26,6 +26,7 @@ export default function AppsLayout({ children }) {
                     height: "var(--header-height)",
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "space-between",
                     padding: "0 20px",
                     position: "sticky",
                     top: 0,
@@ -35,6 +36,10 @@ export default function AppsLayout({ children }) {
                     <h1 style={{ fontSize: "1.1rem", fontWeight: "700", background: "linear-gradient(135deg, var(--brand-primary), var(--brand-secondary))", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                         BCL PORTAL
                     </h1>
+                    <a href="/apps/notifications" style={{ textDecoration: "none", fontSize: "1.2rem", position: "relative" }}>
+                        🔔
+                        <span style={{ position: "absolute", top: "-5px", right: "-5px", width: "8px", height: "8px", background: "var(--status-error)", borderRadius: "50%", border: "2px solid var(--bg-primary)" }}></span>
+                    </a>
                 </header>
 
                 {/* Content */}

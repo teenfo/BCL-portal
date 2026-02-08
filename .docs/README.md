@@ -8,6 +8,7 @@
 - [**관리자 포털 (Admin Portal)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/admin/_index.md): 센터 운영 및 마스터 데이터 관리
 - [**회원전용 앱 (User App)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/userApps/_index.md): 예약/체크인 및 회원 서비스
 - [**코치전용 앱 (Coach App)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/coach/_index.md): 수업 관리 및 회원 코칭 케어
+- [**무인 체크인 키오스크 (Kiosk)**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/kiosk/_index.md): 현장 출석 확인 및 안내
 
 ### 2. 시스템 설계 및 구조
 - **[사이트맵 (Sitemap)](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/sitemap/bcl-portal-sitemap.md)**: 전체 메뉴 트리 및 라우트 정의

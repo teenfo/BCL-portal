@@ -1,21 +1,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 :root {
-  /* Color Palette - Premium Dark Theme */
-  --bg-primary: #0a0a0c;
-  --bg-secondary: #141417;
-  --bg-tertiary: #1c1c21;
+  /* Color Palette - Refined Dark Gray Theme */
+  --bg-primary: #1c1c1e;
+  --bg-secondary: #242426;
+  --bg-tertiary: #2c2c2e;
 
   --brand-primary: #FF6B00;
   --brand-secondary: #FF9100;
   --brand-accent: #FF5000;
 
-  --text-primary: #ffffff;
+  --text-primary: #f5f5f7;
   --text-secondary: #a1a1aa;
   --text-tertiary: #71717a;
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-bright: rgba(255, 255, 255, 0.15);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-bright: rgba(255, 255, 255, 0.12);
 
   --status-success: #10b981;
   --status-warning: #f59e0b;
@@ -29,9 +29,9 @@
   --content-max-width: 1200px;
 
   /* Effects */
-  --glass-bg: rgba(20, 20, 23, 0.8);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  --glass-bg: rgba(28, 28, 30, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.06);
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.4);
 }
 
 * {

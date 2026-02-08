@@ -1,9 +1,9 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSearchParams } from "next/navigation";
 
-export default function LogoutPage() {
+function LogoutContent() {
     const searchParams = useSearchParams();
     const from = searchParams.get("from");
 
@@ -29,5 +29,13 @@ export default function LogoutPage() {
         <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
             <p style={{ color: "var(--text-secondary)" }}>로그아웃 중...</p>
         </div>
+    );
+}
+
+export default function LogoutPage() {
+    return (
+        <Suspense fallback={<div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><p>준비 중...</p></div>}>
+            <LogoutContent />
+        </Suspense>
     );
 }

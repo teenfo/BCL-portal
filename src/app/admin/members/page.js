@@ -153,7 +153,13 @@ export default function MemberManagement() {
                                         </span>
                                     </td>
                                     <td style={{ padding: "16px 24px", textAlign: "right" }}>
-                                        <button className="btn-secondary" style={{ padding: "6px 12px", fontSize: "0.8rem" }}>상세보기</button>
+                                        <button
+                                            onClick={() => window.location.href = `/admin/members/${member.id}`}
+                                            className="btn-secondary"
+                                            style={{ padding: "6px 12px", fontSize: "0.8rem" }}
+                                        >
+                                            상세보기
+                                        </button>
                                     </td>
                                 </tr>
                             ))

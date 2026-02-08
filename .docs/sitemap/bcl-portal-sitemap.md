@@ -16,6 +16,8 @@
 - **Coach**: `coach/*` → URL Prefix: `/coach/*`
   - 예: `/coach/dashboard`, `/coach/schedule`
 - **Admin**: `admin/*` → URL Prefix: `/admin/*`
+- **Class Portal**: `class/*` → URL Prefix: `/class/*`
+  - 예: `/class/live`, `/class/timer`
 
 - **인증(Auth) 라우팅**
   - 사용자: `/apps/auth/*`
@@ -29,7 +31,10 @@
   - 코치: `/coach/auth/*`
     - `/coach/auth/login`
     - `/coach/auth/callback`
-  - 공통 로그아웃(권장): `/auth/logout` (앱/관리자/코치에서 동일 처리)
+  - 클래스 포털: `/class/auth/*`
+    - `/class/auth/login`
+    - `/class/auth/callback`
+  - 공통 로그아웃(권장): `/auth/logout` (앱/관리자/코치/클래스에서 동일 처리)
 
 ---
 
@@ -243,6 +248,41 @@
 
 ---
 
+## 5) Kiosk Sitemap
+
+### A) Kiosk Navigation
+- **Idle Screen** → `/kiosk`
+- **QR Scan** → `/kiosk/scan`
+- **Success Feedback** → `/kiosk/success`
+
+---
+
+## 6) Class Portal Sitemap
+
+### A) Class Navigation (권장: Sidebar or Top Bar)
+- **Live Now** → `/class/live`
+- **WOD Board** → `/class/wod`
+- **Workout Timer** → `/class/timer`
+- **Leaderboard** → `/class/leaderboard`
+
+### 1) 라이브 허브
+- **라이브 화면** (`/class/live`)
+  - 현재 세션 정보, 체크인 명단, WOD 요약
+
+### 2) WOD 보드
+- **WOD 상세** (`/class/wod`)
+  - 대형 화면용 WOD 구성 상세, 동작 가이드
+
+### 3) 타이머
+- **워크아웃 타이머** (`/class/timer`)
+  - AMRAP, EMOM, Tabata 등 모드 선택 및 실행 화면
+
+### 4) 리더보드
+- **실시간 순위** (`/class/leaderboard`)
+  - 세션 참여자들의 기록 실시간 현황
+
+---
+
 ## 3) 사용자 기능 평가 및 반영 요약
-- **추가(필수/MVP):** 지점/시설 안내, 체크인(QR), 내 예약/예약 상세, 결제 내역, 공지/알림함, 고객지원(문의)
+- **추가(필수/MVP):** 지점/시설 안내, 체크인(QR/Camera Sync), 내 예약/예약 상세, 결제 내역, 공지/알림함, 고객지원(문의)
 - **보류(선택/추후):** 커뮤니티/게시판(운영 정책 확정 후), 코치 소개(필요 시)

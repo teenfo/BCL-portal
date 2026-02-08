@@ -85,7 +85,13 @@ export default function CoachManagement() {
                                 {coach.bio || "소개글이 없습니다."}
                             </p>
                             <div style={{ display: "flex", gap: "10px" }}>
-                                <button className="btn-secondary" style={{ flex: 1, fontSize: "0.85rem" }}>상세보기</button>
+                                <button
+                                    onClick={() => window.location.href = `/admin/coaches/${coach.id}`}
+                                    className="btn-secondary"
+                                    style={{ flex: 1, fontSize: "0.85rem" }}
+                                >
+                                    상세보기
+                                </button>
                                 <button className="btn-secondary" style={{ flex: 1, fontSize: "0.85rem" }}>일정관리</button>
                             </div>
                         </div>

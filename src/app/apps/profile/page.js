@@ -127,6 +127,36 @@ export default function ProfileView() {
                         </form>
                     </div>
 
+                    {/* History & Security Menu */}
+                    <div className="premium-card" style={{ padding: 0, overflow: "hidden", marginBottom: "24px" }}>
+                        {[
+                            { label: "출석 내역", path: "/apps/profile/history/checkin", icon: "🕒" },
+                            { label: "결제 내역", path: "/apps/profile/history/billing", icon: "💳" },
+                            { label: "계정 및 보안", path: "/apps/profile/security", icon: "🔒" },
+                            { label: "고객 지원", path: "/apps/support", icon: "🎧" }
+                        ].map((item, idx) => (
+                            <div
+                                key={idx}
+                                onClick={() => router.push(item.path)}
+                                style={{
+                                    padding: "20px 24px",
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    borderBottom: idx < 3 ? "1px solid var(--border-subtle)" : "none",
+                                    cursor: "pointer"
+                                }}
+                                className="hover-row"
+                            >
+                                <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                                    <span>{item.icon}</span>
+                                    <span>{item.label}</span>
+                                </div>
+                                <span style={{ color: "var(--text-secondary)" }}>›</span>
+                            </div>
+                        ))}
+                    </div>
+
                     {/* App Settings */}
                     <div className="premium-card" style={{ padding: "24px", marginBottom: "24px" }}>
                         <h3 style={{ fontSize: "1.1rem", marginBottom: "16px" }}>앱 설정</h3>

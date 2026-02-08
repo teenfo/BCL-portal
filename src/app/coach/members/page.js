@@ -90,8 +90,12 @@ export default function CoachMembers() {
                                 <h4 style={{ fontSize: "1.1rem", fontWeight: "600" }}>{member.name}</h4>
                                 <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>{member.phone || member.email}</p>
                             </div>
-                            <button className="btn-secondary" onClick={() => openModal(member)} style={{ fontSize: "0.8rem", padding: "8px 12px" }}>
-                                노트 작성
+                            <button
+                                className="btn-secondary"
+                                onClick={() => window.location.href = `/coach/members/${member.id}`}
+                                style={{ fontSize: "0.8rem", padding: "8px 12px" }}
+                            >
+                                상세보기
                             </button>
                         </div>
                     ))}

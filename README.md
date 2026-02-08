@@ -3,6 +3,7 @@
 - [**어드민 포털 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/admin/_index.md)
 - [**사용자 앱 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/userApps/_index.md)
 - [**코치 전용 앱 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/coach/_index.md)
+- [**키오스크 운영 가이드**](file:///Users/kimchoho/Develop/Antigravity/BCL-Repo/portal/.docs/apps/kiosk/_index.md)
 
 ## Getting Started
 

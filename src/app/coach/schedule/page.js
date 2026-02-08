@@ -70,9 +70,18 @@ export default function CoachSchedule() {
                                     {session.reservations?.[0]?.count || 0} / {session.capacity}
                                 </span>
                             </div>
-                            <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", gap: "16px" }}>
-                                <span>📍 {session.room || "Main Room"}</span>
-                                <span>⚡ {session.intensity || "Medium"}</span>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ fontSize: "0.85rem", color: "var(--text-secondary)", display: "flex", gap: "16px" }}>
+                                    <span>📍 {session.room || "Main Room"}</span>
+                                    <span>⚡ {session.intensity || "Medium"}</span>
+                                </div>
+                                <button
+                                    onClick={() => window.location.href = `/coach/schedule/attendance/${session.id}`}
+                                    className="btn-secondary"
+                                    style={{ fontSize: "0.8rem", padding: "6px 12px" }}
+                                >
+                                    출석부 확인
+                                </button>
                             </div>
                         </div>
                     ))}

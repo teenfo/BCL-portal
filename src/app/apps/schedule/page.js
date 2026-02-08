@@ -82,38 +82,7 @@ export default function ScheduleView() {
     };
 
     const handleSessionClick = (session) => {
-        setSelectedSession(session);
-        setIsBookingModalOpen(true);
-    };
-
-    const handleBooking = async () => {
-        if (!selectedSession || !user) return;
-
-        // 1. Get Member ID
-        const { data: memberData } = await supabase.from("members").select("id").eq("email", user.email).single();
-        if (!memberData) {
-            alert("회원 정보를 찾을 수 없습니다.");
-            return;
-        }
-
-        // 2. Insert Reservation
-        const { error } = await supabase.from("reservations").insert([
-            {
-                session_id: selectedSession.id,
-                member_id: memberData.id,
-                status: 'Confirmed'
-            }
-        ]);
-
-        if (!error) {
-            alert("예약이 완료되었습니다.");
-            setIsBookingModalOpen(false);
-            fetchMyBookings();
-            // Optionally update session enrolled count locally or re-fetch
-            fetchSessions();
-        } else {
-            alert("예약 실패: " + error.message);
-        }
+        router.push(`/apps/schedule/${session.id}`);
     };
 
     const getSessionStyle = (start, duration) => {
@@ -217,44 +186,6 @@ export default function ScheduleView() {
                 </div>
             </div>
 
-            {/* Booking Modal */}
-            {isBookingModalOpen && selectedSession && (
-                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-                    <div className="premium-card" style={{ width: "320px", padding: "24px", background: "var(--bg-secondary)" }}>
-                        <h2 style={{ marginBottom: "16px", fontSize: "1.25rem" }}>{selectedSession.title}</h2>
-
-                        <div style={{ display: "grid", gap: "12px", marginBottom: "24px" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>시간</span>
-                                <span>{new Date(selectedSession.start_time).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>코치</span>
-                                <span>{selectedSession.coach_name}</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>난이도</span>
-                                <span>{selectedSession.intensity}</span>
-                            </div>
-                            <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--text-secondary)" }}>정원</span>
-                                <span>{selectedSession.enrolled} / {selectedSession.capacity}명</span>
-                            </div>
-                        </div>
-
-                        <div style={{ display: "flex", gap: "10px" }}>
-                            <button onClick={() => setIsBookingModalOpen(false)} className="btn-secondary" style={{ flex: 1 }}>닫기</button>
-                            {myBookings.includes(selectedSession.id) ? (
-                                <button disabled className="btn-secondary" style={{ flex: 1, cursor: "not-allowed", opacity: 0.7 }}>이미 예약됨</button>
-                            ) : selectedSession.enrolled >= selectedSession.capacity ? (
-                                <button disabled className="btn-secondary" style={{ flex: 1, cursor: "not-allowed", opacity: 0.7, color: "var(--status-error)" }}>마감됨</button>
-                            ) : (
-                                <button onClick={handleBooking} className="btn-primary" style={{ flex: 1 }}>예약하기</button>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
