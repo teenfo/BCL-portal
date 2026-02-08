@@ -2,54 +2,45 @@
 
 This document serves as the Single Source of Truth (SSOT) for the BCL Portal database schema.
 
-## Overview
-- **Database**: PostgreSQL (via Supabase)
-- **Schema**: `public`
-- **Auth**: Managed by Supabase Auth (`auth.users`)
-
 ---
 
 ## Tables
 
-### 1. facilities
-Stores information about physical gym branches.
+### 1. facility_settings
+Stores physical branch info and global operating settings.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
+| `id` | `int4` | - | No | PK (usually 1) |
 | `name` | `text` | - | No | Branch name |
 | `address` | `text` | - | Yes | Physical address |
-| `operating_hours` | `text` | - | Yes | Business hours |
-| `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
+| `phone` | `text` | - | Yes | Phone number |
+| `open_time` | `time` | `'06:00'` | Yes | Opening hours |
+| `close_time` | `time` | `'23:00'` | Yes | Closing hours |
 
 ### 2. members
-Core user table for gym members, linked to Auth users.
+Core user table for gym members.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
 | `user_id` | `uuid` | - | Yes | FK -> `auth.users.id` |
 | `name` | `text` | - | No | Full name |
-| `email` | `text` | - | No | Contact email (Unique) |
-| `phone` | `text` | - | Yes | Contact phone |
-| `joined_date` | `date` | `CURRENT_DATE` | Yes | Membership start date |
-| `status` | `text` | `'Active'` | Yes | Membership status |
-| `plan` | `text` | `'Iron Pulse Lite'` | Yes | Current plan |
-| `credits` | `int4` | `0` | Yes | Booking credits |
+| `email` | `text` | - | No | Contact email |
+| `membership_type`| `text` | - | Yes | e.g. Iron Pulse Elite |
+| `status` | `text` | `'Active'` | Yes | Active, Inactive, etc. |
+| `end_date` | `date` | - | Yes | Membership expiry |
 | `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
 
-### 3. coaches
-Staff and instructors.
+### 3. membership_plans
+Available membership products.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
-| `name` | `text` | - | No | Full name |
-| `email` | `text` | - | No | Contact email |
-| `specialty` | `text` | - | Yes | Area of expertise |
-| `status` | `text` | `'Active'` | Yes | Employment status |
-| `joined_date` | `date` | `CURRENT_DATE` | Yes | Start date |
-| `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
+| `name` | `text` | - | No | Plan name |
+| `price` | `numeric` | - | No | Monthly price |
+| `status` | `text` | `'Active'` | Yes | Active, Disabled |
 
 ### 4. sessions
 Class schedules and booking slots.
@@ -60,68 +51,66 @@ Class schedules and booking slots.
 | `title` | `text` | - | No | Class title |
 | `coach_name` | `text` | - | Yes | Instructor name |
 | `start_time` | `timestamptz` | - | No | Start timestamp |
-| `end_time` | `timestamptz` | - | No | End timestamp |
-| `intensity` | `text` | - | Yes | Difficulty level |
+| `duration` | `int4` | `60` | Yes | Minutes |
 | `capacity` | `int4` | `20` | Yes | Max participants |
-| `enrolled` | `int4` | `0` | Yes | Current enrollment count |
-| `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
+| `enrolled` | `int4` | `0` | Yes | Current count |
 
-### 5. attendance
-Check-in records for members.
+### 5. reservations
+Member class bookings.
+
+| Column | Type | Default | Nullable | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
+| `member_id` | `uuid` | - | No | FK -> `members.id` |
+| `session_id` | `uuid` | - | No | FK -> `sessions.id` |
+| `status` | `text` | `'Confirmed'`| Yes | Confirmed, Canceled |
+
+### 6. checkins
+Kiosk and app check-in records.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
 | `member_id` | `uuid` | - | Yes | FK -> `members.id` |
-| `member_name` | `text` | - | Yes | Cached member name |
-| `time` | `timestamptz` | `now()` | Yes | Check-in timestamp |
-| `facility` | `text` | - | Yes | Branch name |
-| `status` | `text` | `'Present'` | Yes | Attendance status |
-| `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
+| `checkin_time` | `timestamptz` | `now()` | Yes | Timestamp |
 
-### 6. transactions
-Payment and billing history.
+### 7. support_tickets
+User inquiries and CS.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| `id` | `text` | - | No | Primary Key (External TX ID) |
-| `member_id` | `uuid` | - | Yes | FK -> `members.id` |
-| `member_email` | `text` | - | Yes | Cached email |
-| `amount` | `numeric` | - | Yes | Transaction amount |
-| `status` | `text` | `'completed'` | Yes | Payment status |
-| `date` | `date` | `CURRENT_DATE` | Yes | Transaction date |
-| `method` | `text` | - | Yes | Payment method (Card, etc) |
-| `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
+| `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
+| `title` | `text` | - | No | Subject |
+| `status` | `text` | `'Open'` | Yes | Open, Resolved |
 
-### 7. notices
-Announcements and news functionality.
+### 8. audit_logs
+System action logs.
+
+| Column | Type | Default | Nullable | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
+| `action` | `text` | - | No | Action name |
+| `admin_id` | `uuid` | - | Yes | Who did it |
+| `created_at` | `timestamptz` | `now()` | Yes | Event time |
+
+### 9. coaches
+Staff and instructors.
+
+| Column | Type | Default | Nullable | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
+| `name` | `text` | - | No | Full name |
+| `email` | `text` | - | No | Contact email |
+| `specialty` | `text` | - | Yes | Area of expertise |
+| `status` | `text` | `'Active'` | Yes | Employment status |
+
+### 10. notices
+Announcements and news.
 
 | Column | Type | Default | Nullable | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `uuid` | `gen_random_uuid()` | No | Primary Key |
 | `title` | `text` | - | No | Announcement title |
-| `category` | `text` | `'General'` | Yes | e.g. General, Operations |
-| `date` | `date` | `CURRENT_DATE` | Yes | Publication date |
-| `author` | `text` | - | Yes | Author name |
-| `views` | `int4` | `0` | Yes | View count |
 | `content` | `text` | - | Yes | Body content |
+| `author` | `text` | - | Yes | Author name |
 | `created_at` | `timestamptz` | `now()` | Yes | Creation timestamp |
-
----
-
-## Enum Types & Constants
-
-### Member Plans
-- `Iron Pulse Lite`
-- `Iron Pulse Elite`
-- `Iron Pulse Pro`
-
-### Member Status
-- `Active`
-- `Inactive`
-- `Suspended`
-
-### Transaction Status
-- `completed`
-- `pending`
-- `failed`

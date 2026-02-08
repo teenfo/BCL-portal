@@ -1,11 +1,10 @@
-"use client";
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 const WEEK_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const TIME_SLOTS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 to 22:00
 
 export default function ScheduleView() {
+    const router = useRouter();
     const [sessions, setSessions] = useState([]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [loading, setLoading] = useState(true);

@@ -15,7 +15,11 @@ function LogoutContent() {
             let redirectPath = "/apps/auth/login";
             if (from === "admin") {
                 redirectPath = "/admin/auth/login";
-            } else if (from === "apps") {
+            } else if (from === "coach") {
+                redirectPath = "/coach/auth/login";
+            } else if (from === "class") {
+                redirectPath = "/class/auth/login";
+            } else {
                 redirectPath = "/apps/auth/login";
             }
 

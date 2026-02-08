@@ -3,12 +3,68 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function LiveHubClient() {
-    const [attendees, setAttendees] = useState([
-        { id: 1, name: "김철수", status: "Checked-in", avatar: "👤" },
-        { id: 2, name: "이영희", status: "Checked-in", avatar: "👤" },
-        { id: 3, name: "박민준", status: "Checked-in", avatar: "👤" },
-        { id: 4, name: "최서연", status: "Waiting", avatar: "👤" },
-    ]);
+    const [attendees, setAttendees] = useState([]);
+    const [session, setSession] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        fetchInitialData();
+
+        // Subscribe to check-ins
+        const channel = supabase
+            .channel('live-hub')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'checkins' }, payload => {
+                fetchAttendees();
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const fetchInitialData = async () => {
+        setLoading(true);
+        // Get most recent/active session
+        const { data: sData } = await supabase
+            .from("sessions")
+            .select("*")
+            .order("start_time", { ascending: false })
+            .limit(1)
+            .single();
+
+        if (sData) setSession(sData);
+        await fetchAttendees();
+        setLoading(false);
+    };
+
+    const fetchAttendees = async () => {
+        // Fetch check-ins from the last 2 hours
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+        const { data } = await supabase
+            .from("checkins")
+            .select(`
+                id,
+                checkin_time,
+                members (
+                    id,
+                    name
+                )
+            `)
+            .gt("checkin_time", twoHoursAgo)
+            .order("checkin_time", { ascending: false });
+
+        if (data) {
+            setAttendees(data.map(d => ({
+                id: d.id,
+                name: d.members?.name || "Unknown",
+                status: "Checked-in",
+                checkinTime: d.checkin_time
+            })));
+        }
+    };
+
+    if (loading) return <div style={{ padding: "40px", color: "white" }}>Initializing Live Hub...</div>;
 
     const workout = {
         title: "FRAN",
@@ -28,8 +84,8 @@ export default function LiveHubClient() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div>
                             <span style={{ fontSize: "0.9rem", color: "var(--brand-primary)", fontWeight: "800", textTransform: "uppercase" }}>Current Session</span>
-                            <h2 style={{ fontSize: "2.5rem", fontWeight: "900", margin: "10px 0" }}>Evening CrossFit A</h2>
-                            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "1.1rem" }}>Lead Coach: <strong>Mark Henderson</strong> • Room: <strong>Zone 1</strong></p>
+                            <h2 style={{ fontSize: "2.5rem", fontWeight: "900", margin: "10px 0" }}>{session?.title || "No Active Session"}</h2>
+                            <p style={{ color: "rgba(255,255,255,0.6)", fontSize: "1.1rem" }}>Lead Coach: <strong>{session?.coach_name || "TBD"}</strong> • Room: <strong>Zone 1</strong></p>
                         </div>
                         <div style={{ textAlign: "right" }}>
                             <div style={{ fontSize: "1rem", color: "rgba(255,255,255,0.4)" }}>Phase</div>
@@ -44,6 +100,7 @@ export default function LiveHubClient() {
                         <h3 style={{ fontSize: "1.2rem", marginBottom: "20px", display: "flex", alignItems: "center", gap: "10px" }}>
                             📋 <span>TODAY'S WOD: {workout.title}</span>
                         </h3>
+                        {/* WOD content stays same for now as placeholder for future CMS integration */}
                         <div style={{ fontSize: "1.1rem", lineHeight: "1.6" }}>
                             <div style={{ fontSize: "1.8rem", fontWeight: "800", marginBottom: "20px", color: "var(--brand-secondary)" }}>
                                 {workout.type} REPS FOR TIME
@@ -56,9 +113,6 @@ export default function LiveHubClient() {
                                     </li>
                                 ))}
                             </ul>
-                            <div style={{ marginTop: "20px", padding: "15px", border: "1px dashed rgba(255,255,255,0.1)", borderRadius: "8px", fontSize: "0.9rem", color: "rgba(255,255,255,0.4)" }}>
-                                💡 Scaling: Use a weight that allows for 10+ unbroken thrusters.
-                            </div>
                         </div>
                     </div>
 
@@ -76,7 +130,7 @@ export default function LiveHubClient() {
                             <h3 style={{ fontSize: "1.1rem", marginBottom: "15px" }}>Live Announcements</h3>
                             <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.95rem" }}>
                                 <p style={{ marginBottom: "10px" }}>📢 Please sanitize equipment after the set.</p>
-                                <p>📢 Next session starts at 19:30.</p>
+                                <p>📢 Real-time check-ins are active.</p>
                             </div>
                         </div>
                     </div>
@@ -104,20 +158,17 @@ export default function LiveHubClient() {
                             border: "1px solid rgba(255,255,255,0.02)"
                         }}>
                             <div style={{ width: "40px", height: "40px", borderRadius: "50%", background: "rgba(255, 107, 0, 0.1)", display: "flex", alignItems: "center", justifyItems: "center", fontSize: "1.2rem", justifyContent: "center" }}>
-                                {person.avatar}
+                                👤
                             </div>
                             <div style={{ flex: 1 }}>
                                 <div style={{ fontWeight: "600", fontSize: "1rem" }}>{person.name}</div>
-                                <div style={{ fontSize: "0.75rem", color: person.status === 'Checked-in' ? "var(--status-success)" : "rgba(255,255,255,0.3)" }}>
-                                    {person.status}
+                                <div style={{ fontSize: "0.75rem", color: "var(--status-success)" }}>
+                                    {new Date(person.checkinTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                 </div>
                             </div>
-                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: person.status === 'Checked-in' ? "var(--status-success)" : "transparent", border: person.status !== 'Checked-in' ? "1px solid rgba(255,255,255,0.2)" : "none" }}></div>
+                            <div style={{ width: "10px", height: "10px", borderRadius: "50%", background: "var(--status-success)" }}></div>
                         </div>
                     ))}
-                </div>
-                <div style={{ padding: "20px", background: "rgba(0,0,0,0.2)" }}>
-                    <button className="btn-secondary" style={{ width: "100%", fontSize: "0.9rem" }}>OPEN CHECK-IN MODE</button>
                 </div>
             </div>
         </div>

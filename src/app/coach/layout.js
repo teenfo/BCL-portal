@@ -11,6 +11,7 @@ export default function CoachLayout({ children }) {
     const navItems = [
         { name: "홈", path: "/coach/dashboard", icon: "🏠" },
         { name: "스케줄", path: "/coach/schedule", icon: "🕒" },
+        { name: "레이스", path: "/coach/race", icon: "🏁" },
         { name: "회원관리", path: "/coach/members", icon: "👤" },
         { name: "내정보", path: "/coach/profile", icon: "⚙️" },
     ];

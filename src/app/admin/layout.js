@@ -14,7 +14,8 @@ export default function AdminLayout({ children }) {
             group: "운영 대시보드",
             items: [
                 { name: "대시보드", path: "/admin/dashboard", icon: "📊" },
-                { name: "통계 리포트", path: "/admin/reports", icon: "📈" },
+                { name: "권한 제어", path: "/admin/access-control", icon: "🛡️" },
+                { name: "통계 리포트", path: "/admin/reports/attendance", icon: "📈" },
             ]
         },
         {
@@ -22,16 +23,19 @@ export default function AdminLayout({ children }) {
             items: [
                 { name: "회원 목록", path: "/admin/members", icon: "👥" },
                 { name: "출석 로그", path: "/admin/attendance", icon: "📋" },
-                { name: "멤버십/결제", path: "/admin/billing", icon: "💳" },
+                { name: "정산 관리", path: "/admin/billing/settlements", icon: "💰" },
             ]
         },
         {
-            group: "시설 및 수업",
+            group: "수업 및 코치 관리",
             items: [
                 { name: "수업 일정", path: "/admin/sessions/schedule", icon: "📅" },
+                { name: "수업 담당 배정", path: "/admin/sessions/assignments", icon: "👥" },
                 { name: "예약 관리", path: "/admin/reservations", icon: "📝" },
-                { name: "라이브 체크인", path: "/admin/checkin/live", icon: "🔔" },
-                { name: "코치 관리", path: "/admin/coaches", icon: "🏃" },
+                { name: "코치 목록", path: "/admin/coaches", icon: "🏃" },
+                { name: "자격증 검증", path: "/admin/coaches/certifications", icon: "🏅" },
+                { name: "실시간 체크인", path: "/admin/checkin/live", icon: "🔔" },
+                { name: "체크인 QR", path: "/admin/checkin/qr", icon: "📱" },
             ]
         },
         {
@@ -40,15 +44,25 @@ export default function AdminLayout({ children }) {
                 { name: "공지사항", path: "/admin/content/notices", icon: "📣" },
                 { name: "배너 관리", path: "/admin/content/banners", icon: "🖼️" },
                 { name: "커뮤니티", path: "/admin/content/posts", icon: "💬" },
+                { name: "콘텐츠 요약/검토", path: "/admin/content/moderation", icon: "🛡️" },
                 { name: "알림 템플릿", path: "/admin/notifications/templates", icon: "📩" },
                 { name: "발송 로그", path: "/admin/notifications/logs", icon: "📜" },
+                { name: "자동 발송 규칙", path: "/admin/notifications/rules", icon: "⚙️" },
             ]
         },
         {
-            group: "시스템 설정",
+            group: "설정 및 시스템",
             items: [
                 { name: "지점 정보", path: "/admin/settings/facility", icon: "🏢" },
-                { name: "기타 로그", path: "/admin/logs/audit", icon: "🔍" },
+                { name: "운영 정책", path: "/admin/settings/policies", icon: "⚖️" },
+                { name: "멤버십 정책", path: "/admin/settings/memberships", icon: "💎" },
+                { name: "역할 및 권한", path: "/admin/settings/roles", icon: "🔑" },
+                { name: "결제 연동", path: "/admin/integrations/payments", icon: "💳" },
+                { name: "데이터 내보내기", path: "/admin/integrations/import-export", icon: "📂" },
+                { name: "고객 지원", path: "/admin/support", icon: "🎧" },
+                { name: "감사 로그", path: "/admin/audit/actions", icon: "🔍" },
+                { name: "에러 로그", path: "/admin/audit/errors", icon: "🚨" },
+                { name: "점검 이력", path: "/admin/audit/maintenance", icon: "🛠️" },
             ]
         }
     ];

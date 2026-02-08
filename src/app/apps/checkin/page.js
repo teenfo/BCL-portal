@@ -18,8 +18,8 @@ export default function CheckinView() {
         if (!member) return;
 
         const generateQR = () => {
-            const now = Math.floor(Date.now() / 1000);
-            const data = `BCL_CHK:${member.id}:${now}`;
+            const expiry = Math.floor(Date.now() / 1000) + 300; // 5 min expiry
+            const data = `BCL_CHK:${member.id}:${expiry}`;
             setQrValue(data);
         };
 

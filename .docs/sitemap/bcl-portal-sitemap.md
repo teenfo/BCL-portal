@@ -1,4 +1,4 @@
-# BCL Portal Sitemap v0.5 (CSR / Next.js)
+# BCL Portal Sitemap v0.6 (CSR / Next.js)
 (Antigravity SSOT 문서)
 
 > 목표: CSR 기반으로 **사용자 화면(apps)** + **관리자 화면(admin)**을 동시에 설계한다.
@@ -245,6 +245,11 @@
       - icon: `fa-bug`
     - **공지/점검 이력** (`/admin/audit/maintenance`)
       - icon: `fa-tools`
+
+### 10) 고객 지원
+- **문의/요청 관리** (`/admin/support`)
+    - icon: `fa-headset`
+
 
 ---
 

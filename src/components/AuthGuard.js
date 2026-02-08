@@ -23,8 +23,13 @@ export default function AuthGuard({ children, requiredRole }) {
                     return;
                 }
 
-                // If specialized role check is needed in the future:
-                // if (requiredRole && session.user.user_metadata?.role !== requiredRole) { ... }
+                // Check for required role
+                const userRole = session.user.user_metadata?.role;
+                if (requiredRole && userRole !== requiredRole) {
+                    console.warn(`Unauthorized access: Required ${requiredRole}, got ${userRole}`);
+                    handleUnauthorized();
+                    return;
+                }
 
                 setAuthorized(true);
                 setLoading(false);
