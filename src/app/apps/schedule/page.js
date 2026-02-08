@@ -1,4 +1,7 @@
+"use client";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 const WEEK_DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const TIME_SLOTS = Array.from({ length: 17 }, (_, i) => i + 6); // 06:00 to 22:00
