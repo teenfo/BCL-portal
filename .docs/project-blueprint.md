@@ -48,19 +48,19 @@
 - **에이전트 역할**: Antigravity는 기획 문서와 소스 코드의 동기화를 최우선으로 함.
 - **문서 위치**:
   - 기획: `.docs/sitemap/`
-  - 기술 가이드: `.docs/*.md`
+  - 기술 가이드: `.docs/**/*.md`
   - 에이전트 규칙: `.agent/`
 
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: 문서화 및 프로젝트 구조 정비 (Documentation & Infrastructure)
+- **Current Focus**: Admin Insights 데이터 연동 및 시계열 데이터 시딩 (Handoff 준비)
 - **Recent Accomplishments**:
-  - [x] Admin Sitemap 구조화 (5대 업무 그룹 분리)
-  - [x] Global Sitemap 및 하위 문서 연결 체계(SSOT) 완성
-  - [x] Agent Rules & Workflow 업데이트 (Technical Docs 우선순위 반영)
-  - [x] `env-setup` 스킬 (Python/Docker 지원) 및 `commit-bot` 빌드 검증 추가
-  - [x] `/update-context` 워크플로우 정의 및 커밋 봇 프로세스 강제 적용
+  - [x] Admin Insights 기획서 세분화 및 SSOT 연결 체계 완성
+  - [x] DB 스키마 갱신 완료 (`session_feedback` 생성, `transactions.category` 추가)
+  - [x] 데이터 시딩 스크립트 작성 완료 (`seed_foundations.js`, `seed_insights_data.js`)
+  - [x] 작업 컨텍스트 아카이브 (`.docs/agent-context/admin-insights-enhancement/`)
 - **Next Steps**:
-  - [ ] 사용자 앱(User App) 결제 모듈 연동
-  - [ ] 레이스 시스템(Race) 하드웨어 연동 테스트 (Python)
+  - [ ] 새 환경에서 `seed_foundations.js` 및 `seed_insights_data.js` 실행 (데이터 채우기)
+  - [ ] 어드민 대시보드 KPI 및 주간 트렌드 실제 데이터 연결
+  - [ ] 출석/매출/코치 리포트 상세 페이지 구현 (리얼 데이터 기반 히트맵 등)
