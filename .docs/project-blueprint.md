@@ -60,6 +60,7 @@
   - [x] DB 스키마 갱신 완료 (`session_feedback` 생성, `transactions.category` 추가)
   - [x] 데이터 시딩 스크립트 작성 완료 (`seed_foundations.js`, `seed_insights_data.js`)
   - [x] 작업 컨텍스트 아카이브 (`.docs/agent-context/admin-insights-enhancement/`)
+  - [x] `commit-bot` 스킬 고도화 (GIT PUSH 프로세스 및 가이드 보완)
 - **Next Steps**:
   - [ ] 새 환경에서 `seed_foundations.js` 및 `seed_insights_data.js` 실행 (데이터 채우기)
   - [ ] 어드민 대시보드 KPI 및 주간 트렌드 실제 데이터 연결

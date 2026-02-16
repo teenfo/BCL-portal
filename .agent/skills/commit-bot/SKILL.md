@@ -33,10 +33,13 @@ description: 표준화된 커밋 메시지 생성 및 자동 커밋을 관리하
 2. **빌드 검증 (Packaging)**: 커밋 시점이 곧 배포 시점이므로, `docker-compose build`를 실행하여 현재 코드가 정상적으로 도커 패키지로 말아지는지 확인합니다.
 3. **스테이징**: `git add .`를 통해 모든 변경 사항을 스테이징합니다.
 4. **커밋 실행**: 본 스킬의 형식에 맞춰 `git commit -m "[type] 제목"`을 실행합니다.
+5. **GIT PUSH**: `git push origin main`을 실행하여 원격 저장소에 변경 사항을 반영합니다.
 
 ## 4. 커맨드 예시
 - 빌드 검증: `sh .agent/skills/commit-bot/scripts/build-verify.sh`
 - 커밋: `git commit -m "feat: 메인 대시보드 통계 위젯 구현"`
+- GIT PUSH: `git push origin main`
+
 
 ## 5. 커밋 메시지 예시
 - `docs: 관리자 사이트맵 5대 그룹 체계 반영 및 상세 설계 업데이트`
