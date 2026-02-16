@@ -1,0 +1,143 @@
+{
+    "agents": {
+        "architect": {
+            "model": "claude-opus-4.6-thinking",
+            "role": "system-architect",
+            "expertise": "architecture-design",
+            "context": [
+                ".docs/project-blueprint.md",
+                ".docs/database/**/*.md",
+                ".docs/security/**/*.md",
+                ".docs/sitemap/README.md"
+            ],
+            "stitch_project": {
+                "project_id": "432557053076320380",
+                "name": "BCL Portal",
+                "purpose": "UI/UX design reference",
+                "url": "projects/432557053076320380"
+            },
+            "description": "최종 설계 검증, 아키텍처 결정, 시스템 전체 조율"
+        },
+        "senior-developer": {
+            "model": "claude-opus-4.5-thinking",
+            "role": "senior-developer",
+            "expertise": "complex-business-logic",
+            "context": [
+                ".docs/database-reference.md",
+                ".docs/security/README.md",
+                ".docs/sitemap/admin/*.md"
+            ],
+            "description": "복잡한 비즈니스 로직, 결제/재무, 보안 구현"
+        },
+        "developer": {
+            "model": "claude-sonnet-4.5-thinking",
+            "role": "backend-developer",
+            "expertise": "api-business-logic",
+            "context": [
+                ".docs/database-reference.md",
+                ".docs/sitemap/**/*.md",
+                "src/types/**/*",
+                "src/lib/**/*"
+            ],
+            "description": "백엔드 API, 비즈니스 로직, 데이터 통합, 서버 사이드 로직"
+        },
+        "ui-developer": {
+            "model": "gemini-3.0-flash",
+            "role": "ui-developer",
+            "expertise": "ui-ux-frontend",
+            "context": [
+                ".docs/sitemap/**/*.md",
+                ".docs/design-security.md",
+                ".agent/skills/ui-gen/SKILL.md",
+                ".antigravity/workflows/ui-development.md"
+            ],
+            "stitch_project": {
+                "project_id": "432557053076320380",
+                "name": "BCL Portal",
+                "purpose": "Primary UI/UX design reference and implementation guide",
+                "design_system_screen": "95b2195d8ffb4e99af97d0da938f24ff",
+                "url": "projects/432557053076320380"
+            },
+            "description": "모든 UI/UX 개발 (사용자 앱, 관리자, 코치, 디스플레이, 키오스크), 프론트엔드 컴포넌트, 인터랙션, 애니메이션"
+        },
+        "specialist": {
+            "model": "gemini-3.0-flash",
+            "role": "performance-specialist",
+            "expertise": "realtime-optimization",
+            "context": [
+                ".docs/sitemap/class-portal.md",
+                ".docs/sitemap/kiosk-app.md",
+                ".docs/design-security.md"
+            ],
+            "description": "실시간 성능 최적화, WebSocket/Realtime 연동, 카메라/하드웨어 통합"
+        },
+        "qa": {
+            "model": "gpt-oss",
+            "role": "qa-engineer",
+            "expertise": "testing-validation",
+            "context": [
+                ".docs/testing/**/*.md",
+                ".docs/project-blueprint.md"
+            ],
+            "stitch_project": {
+                "project_id": "432557053076320380",
+                "name": "BCL Portal",
+                "purpose": "UI/UX design validation and consistency check",
+                "url": "projects/432557053076320380"
+            },
+            "description": "테스트 작성, 품질 검증, 문서화, 사용성 검토"
+        }
+    },
+    "workflows": {
+        "feature-critical": [
+            "architect:design",
+            "senior-developer:implement",
+            "qa:test",
+            "architect:review"
+        ],
+        "feature-standard": [
+            "architect:design",
+            "developer:implement",
+            "qa:test",
+            "architect:review"
+        ],
+        "feature-ui": [
+            "architect:design",
+            "ui-developer:implement",
+            "qa:test",
+            "architect:review"
+        ],
+        "feature-realtime": [
+            "architect:design",
+            "ui-developer:implement",
+            "specialist:optimize",
+            "qa:test",
+            "architect:review"
+        ],
+        "bugfix-critical": [
+            "architect:analyze",
+            "senior-developer:fix",
+            "qa:verify",
+            "architect:approve"
+        ],
+        "bugfix-standard": [
+            "developer:analyze",
+            "developer:fix",
+            "qa:verify"
+        ],
+        "bugfix-ui": [
+            "ui-developer:analyze",
+            "ui-developer:fix",
+            "qa:verify"
+        ],
+        "optimize": [
+            "specialist:optimize",
+            "qa:benchmark",
+            "architect:verify"
+        ],
+        "documentation": [
+            "qa:write",
+            "architect:review"
+        ]
+    }
+}

@@ -1,0 +1,219 @@
+name: Feature Development
+
+description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 에이전트 체계)
+
+---
+
+## Workflow Variants
+
+워크플로우는 기능의 복잡도에 따라 3가지로 구분됩니다:
+1. **Critical Feature**: 결제, 보안, 재무 등 Critical 모듈
+2. **Standard Feature**: 일반 CRUD, UI/API
+3. **Real-time Feature**: 실시간 기능, 성능 최적화
+
+---
+
+## Critical Feature Workflow
+
+### Step 1: Architecture Design
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 2-4시간
+
+**Actions**:
+- 비즈니스 요구사항 상세 분석
+- 데이터베이스 스키마 설계
+- API 설계 및 인터페이스 정의
+- 보안 고려사항 문서화
+- RLS 정책 설계
+
+**Deliverables**:
+- Architecture Decision Record (ADR)
+- Database schema design
+- API specification
+- Security checklist
+
+---
+
+### Step 2: Implementation
+**Agent**: Senior Developer (Opus 4.5)  
+**Duration**: 1-3일
+
+**Actions**:
+- 복잡한 비즈니스 로직 구현
+- 트랜잭션 처리 로직 작성
+- RLS 정책 상세 구현
+- 에러 핸들링 및 검증
+- 단위 테스트 작성
+
+**Deliverables**:
+- Working implementation
+- Unit tests
+- Integration tests
+- Code documentation
+
+---
+
+### Step 3: Quality Assurance
+**Agent**: QA (GPT OSS)  
+**Duration**: 4-8시간
+
+**Actions**:
+- 기능 테스트 작성 및 실행
+- 통합 테스트 검증
+- 사용성 테스트
+- 보안 취약점 검사
+- 엣지 케이스 확인
+
+**Deliverables**:
+- Test report
+- Bug list (if any)
+- User guide draft
+
+---
+
+### Step 4: Final Review
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 2-4시간
+
+**Actions**:
+- 아키텍처 일관성 검증
+- 보안 정책 준수 확인
+- 코드 품질 검토
+- 성능 영향 분석
+- 배포 승인 여부 결정
+
+**Deliverables**:
+- Review feedback
+- Approval decision
+- Deployment checklist
+
+---
+
+## Standard Feature Workflow
+
+### Step 1: Design Guidance
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 1-2시간
+
+**Actions**:
+- 아키텍처 가이드라인 제공
+- 기존 패턴 확인
+- 인터페이스 정의
+
+---
+
+### Step 2: Implementation
+**Agent**: Developer (Sonnet 4.5)  
+**Duration**: 0.5-2일
+
+**Actions**:
+- UI 컴포넌트 구현
+- API 라우트 작성
+- 기본 테스트 작성
+- 에러 핸들링
+
+**Deliverables**:
+- Working feature
+- Basic tests
+- Documentation
+
+---
+
+### Step 3: Quality Assurance
+**Agent**: QA (GPT OSS)  
+**Duration**: 2-4시간
+
+**Actions**:
+- 기능 테스트
+- 사용성 검토
+- 브라우저 호환성 테스트
+
+**Deliverables**:
+- Test report
+- Bug list (if any)
+
+---
+
+### Step 4: Review (Optional)
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 1-2시간 (필요시)
+
+**Actions**:
+- 패턴 준수 확인
+- 코드 품질 검토
+
+---
+
+## Real-time Feature Workflow
+
+### Step 1: Performance Requirements
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 1-2시간
+
+**Actions**:
+- 성능 목표 설정 (FPS, latency)
+- 실시간 아키텍처 설계
+- 네트워크 조건 고려
+
+---
+
+### Step 2: Implementation
+**Agent**: Specialist (Gemini 3 Flash)  
+**Duration**: 1-2일
+
+**Actions**:
+- Supabase Realtime 구독 구현
+- React 성능 최적화
+- 애니메이션 구현
+- 에러 핸들링 및 재연결 로직
+
+**Deliverables**:
+- Optimized implementation
+- Performance benchmarks
+- Documentation
+
+---
+
+### Step 3: Performance Testing
+**Agent**: QA (GPT OSS)  
+**Duration**: 2-4시간
+
+**Actions**:
+- Lighthouse 측정
+- FPS 벤치마크
+- 메모리 프로파일링
+- 저사양 기기 테스트
+
+**Deliverables**:
+- Performance report
+- Optimization recommendations
+
+---
+
+### Step 4: Verification
+**Agent**: Architect (Opus 4.6)  
+**Duration**: 1-2시간
+
+**Actions**:
+- 성능 목표 달성 여부 확인
+- 아키텍처 검증
+- 승인
+
+---
+
+## Collaboration Guidelines
+
+### Communication
+- 각 단계 시작 시 간단한 킥오프 메시지
+- 블로커 발생 시 즉시 관련 에이전트에게 알림
+- 단계 완료 시 다음 에이전트에게 핸드오프 메시지
+
+### Documentation
+- 각 단계의 결정 사항은 ADR 또는 코멘트로 기록
+- 코드 리뷰 피드백은 구체적이고 실행 가능하게
+- 핸드오프 시 충분한 컨텍스트 제공
+
+### Quality Gates
+- 각 단계에서 체크리스트 준수
+- Critical Issue 발견 시 즉시 Architect에게 에스컬레이션
+- 모든 테스트 통과 후 다음 단계 진행

@@ -1,0 +1,83 @@
+{
+    "modules": {
+        "/admin/insights": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-sonnet-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "medium",
+            "note": "UI는 Gemini, API 로직은 Sonnet"
+        },
+        "/admin/finance": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-opus-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "critical",
+            "note": "UI는 Gemini, 결제/재무 로직은 Opus 4.5 - 보안 최우선"
+        },
+        "/admin/operations": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-sonnet-4.5-thinking",
+            "specialist": "gemini-3.0-flash",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "high",
+            "note": "UI + 레이스 시스템 실시간 - Gemini 담당"
+        },
+        "/admin/crm": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-sonnet-4.5-thinking",
+            "reviewer": "claude-opus-4.5-thinking",
+            "tester": "gpt-oss",
+            "complexity": "medium",
+            "note": "UI는 Gemini, CRM 로직은 Sonnet"
+        },
+        "/apps": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-sonnet-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "medium",
+            "note": "모든 사용자 앱 UI는 Gemini 담당"
+        },
+        "/coach": {
+            "primary": "gemini-3.0-flash",
+            "backend": "claude-sonnet-4.5-thinking",
+            "reviewer": "claude-opus-4.5-thinking",
+            "tester": "gpt-oss",
+            "complexity": "medium",
+            "note": "코치 앱 UI는 Gemini 담당"
+        },
+        "/class": {
+            "primary": "gemini-3.0-flash",
+            "specialist": "gemini-3.0-flash",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "high",
+            "note": "실시간 타이머, WOD 보드 - Gemini 전담 (UI + 성능)"
+        },
+        "/kiosk": {
+            "primary": "gemini-3.0-flash",
+            "specialist": "gemini-3.0-flash",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "high",
+            "note": "QR 스캔, 카메라 처리 - Gemini 전담 (UI + 하드웨어)"
+        },
+        "/database": {
+            "primary": "claude-opus-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
+            "tester": "gpt-oss",
+            "complexity": "critical",
+            "note": "스키마 설계, RLS 정책 - 아키텍처 중요"
+        },
+        "/api/routes": {
+            "primary": "claude-sonnet-4.5-thinking",
+            "reviewer": "claude-opus-4.5-thinking",
+            "tester": "gpt-oss",
+            "complexity": "medium",
+            "note": "API 엔드포인트, 비즈니스 로직"
+        }
+    }
+}
