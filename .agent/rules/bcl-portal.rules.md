@@ -15,7 +15,7 @@ trigger: always_on
 - 이 프로젝트는 **CSR 기반**이다.
 - SSR은 기본 사용하지 않는다.
 - Frontend: **Next.js**
-- Hosting: **Cloudflare Pages / Workers**
+- Hosting: **Ubuntu 24.04 자체 서버 (Docker)**
 - Backend DB/Auth: **Supabase**
 - 모든 커밋이 완료 되면 github의 action 확인 하고 에러 사항이 있다면 다시 수정 하여 커밋 한다.
 - 커밋 코멘트는 자동으로 생성 한다
@@ -130,14 +130,20 @@ Agent는 Auth 라우트를 sitemap 없이 추가하면 안 된다.
 ## 9) 문서 우선순위
 Agent가 판단에 사용할 문서 우선순위:
 1. `.agent/rules/bcl-portal.rules.md` (이 문서)
-2. `.docs/sitemap/README.md` (전체 지도)
-3. `.docs/sitemap/**/*.md` (모듈별 상세 디자인)
-4. `.docs/project-blueprint.md` (프로젝트 개요 및 체크리스트)
-5. `.docs/database-reference.md` (DB 스키마 및 가이드)
-6. `.docs/design-security.md` (디자인 시스템 및 보안)
-7. `.docs/technical/**/*.md` (고도화 기술 명세)
-8. `.docs/deployment-guide.md` (배포 가이드)
-9. 기타 문서
+2. `.agent/rules/ui.rules.md` (UI/UX 규칙)
+3. `.docs/sitemap/README.md` (전체 지도)
+4. `.docs/sitemap/**/*.md` (모듈별 상세 디자인)
+5. `.docs/project-blueprint.md` (프로젝트 개요 및 현재 상태)
+6. `.docs/database-reference.md` (DB 스키마 빠른 참조)
+7. `.docs/design-security.md` (UI 원칙 및 보안)
+8. `.docs/database/**/*` (DB 상세 - 스키마, RLS, 마이그레이션)
+9. `.docs/security/**/*` (보안 상세)
+10. `.docs/testing/**/*` (테스트 전략)
+
+**제외 규칙:**
+- ⛔ `.docs/archive/**/*` - Agent는 이 폴더를 **자동으로 참조하지 않음**
+  - 필요시 사용자가 명시적으로 요청한 경우에만 참조
+  - 아카이브: 과거 분석 리포트, 상세 가이드, 참조 문서
 
 상위 문서와 충돌 시 **상위 문서가 항상 우선**이다.
 ---

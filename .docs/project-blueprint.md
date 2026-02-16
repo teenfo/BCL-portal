@@ -11,7 +11,7 @@
   - `admin`: 운영진용 관리 도구 (회원 관리, 정산, 스케줄링)
   - `coach`: 코치 전용 앱 (수업 관리, 회원 케어)
   - `class`: 센터 내 대형 스크린용 실시간 포털
-- **기술 스택**: Next.js (CSR), Supabase (Auth/DB), Cloudflare (Pages/Workers), Vanilla CSS.
+- **기술 스택**: Next.js (CSR), Supabase (Auth/DB), Ubuntu 24.04 자체 서버 (Docker), Vanilla CSS.
 
 ## 2. 개발 원칙 및 규칙
 - **Rendering**: 모든 화면은 **CSR(Client Side Rendering)** 기준. 서버 컴포넌트 사용을 지양함.
@@ -49,19 +49,34 @@
 - **문서 위치**:
   - 기획: `.docs/sitemap/`
   - 기술 가이드: `.docs/**/*.md`
+  - 데이터베이스: `.docs/database/`
+  - 보안: `.docs/security/`
+  - 테스트: `.docs/testing/`
   - 에이전트 규칙: `.agent/`
 
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: Admin Insights 데이터 연동 및 시계열 데이터 시딩 (Handoff 준비)
+- **Current Focus**: 프로젝트 문서 개선 및 구조화 (Week 1 완료)
 - **Recent Accomplishments**:
-  - [x] Admin Insights 기획서 세분화 및 SSOT 연결 체계 완성
-  - [x] DB 스키마 갱신 완료 (`session_feedback` 생성, `transactions.category` 추가)
-  - [x] 데이터 시딩 스크립트 작성 완료 (`seed_foundations.js`, `seed_insights_data.js`)
-  - [x] 작업 컨텍스트 아카이브 (`.docs/agent-context/admin-insights-enhancement/`)
-  - [x] `commit-bot` 스킬 고도화 (GIT PUSH 프로세스 및 가이드 보완)
+  - [x] 프로젝트 전체 분석 보고서 작성 (`PROJECT_ANALYSIS_REPORT.md`)
+  - [x] 데이터베이스 문서 구조화 완료
+    - [x] `database/README.md` - 전체 아키텍처 개요
+    - [x] `database/schema/001_initial_schema.sql` - 초기 스키마
+    - [x] `database/migrations/versioning-strategy.md` - 마이그레이션 전략
+    - [x] `database/rls-policies/README.md` - RLS 정책 가이드
+  - [x] 보안 문서 확장 (`security/README.md`)
+  - [x] 테스트 전략 문서 작성 (`testing/README.md`)
+  - [x] `database-reference.md` v2.0 업데이트
 - **Next Steps**:
-  - [ ] 새 환경에서 `seed_foundations.js` 및 `seed_insights_data.js` 실행 (데이터 채우기)
-  - [ ] 어드민 대시보드 KPI 및 주간 트렌드 실제 데이터 연결
-  - [ ] 출석/매출/코치 리포트 상세 페이지 구현 (리얼 데이터 기반 히트맵 등)
+  - [ ] 테스트 전략 구체화 (Week 2-3)
+    - [ ] `testing/unit-testing.md`
+    - [ ] `testing/integration-testing.md`
+    - [ ] `testing/e2e-testing.md`
+    - [ ] `testing/ci-cd-pipeline.md`
+  - [ ] 보안 정책 상세화 (Week 2)
+    - [ ] `security/authentication.md`
+    - [ ] `security/authorization.md`
+    - [ ] `security/data-protection.md`
+  - [ ] 성능 최적화 가이드 (Week 4+)
+  - [ ] 실제 DB 스키마와 문서 동기화 검증

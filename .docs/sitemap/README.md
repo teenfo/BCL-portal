@@ -6,6 +6,11 @@
 
 ## 🗺️ 애플리케이션 라우팅 트리
 
+### 0. [공통 인증 시스템 (Authentication)](./auth-system.md) 🆕
+- **URL Prefix**: `/auth/*`
+- **Description**: 모든 애플리케이션의 공통 로그인, 회원가입, 비밀번호 재설정 등 인증 관련 화면.
+- **Path**: `src/app/auth/*`
+
 ### 1. [관리자 포털 (Admin Portal)](./admin/README.md)
 - **URL Prefix**: `/admin/*`
 *   **Description**: 센터 운영, 회원 관리, 매출 통계 및 시스템 설정을 위한 데스크탑 최적화 관리 도구.
