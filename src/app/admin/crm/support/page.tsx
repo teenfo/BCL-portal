@@ -27,10 +27,23 @@ export default function SupportPage() {
     const loadTickets = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
-        let query = supabase.from('support_tickets').select('*, members(name, email)').order('created_at', { ascending: false });
-        if (filterStatus !== 'all') query = query.eq('status', filterStatus);
-        const { data } = await query;
-        if (data) setTickets(data);
+        try {
+            let query = supabase.from('support_tickets').select('*, members!support_tickets_member_id_fkey(name, email)').order('created_at', { ascending: false });
+            if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+            const { data, error } = await query;
+            if (error) {
+                // Fallback without join
+                console.warn('Support tickets JOIN error, using fallback:', error.message);
+                let fallbackQuery = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+                if (filterStatus !== 'all') fallbackQuery = fallbackQuery.eq('status', filterStatus);
+                const { data: fallbackData } = await fallbackQuery;
+                if (fallbackData) setTickets(fallbackData.map((t: any) => ({ ...t, description: t.description || t.content || '' })) as any);
+            } else {
+                if (data) setTickets(data.map((t: any) => ({ ...t, description: t.description || t.content || '' })) as any);
+            }
+        } catch (e) {
+            console.error('Error loading tickets:', e);
+        }
         setLoading(false);
     }, [filterStatus]);
 

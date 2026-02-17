@@ -7,14 +7,23 @@ const ENV_FILE_PATH = path.join(process.cwd(), '.env.local');
 // Settings that can be managed through the admin UI
 // Keys starting with NEXT_PUBLIC_ are exposed to the client
 const MANAGEABLE_KEYS = [
-    // Image Upload
+    // Image Upload - Base
     'UPLOAD_BASE_DIR',               // Base directory for file uploads (relative to project root or absolute)
-    'UPLOAD_COACH_SUBDIR',           // Subdirectory for coach profile images
     'UPLOAD_IMAGE_MAX_WIDTH',        // Max image width (px)
     'UPLOAD_IMAGE_MAX_HEIGHT',       // Max image height (px)
     'UPLOAD_IMAGE_QUALITY',          // Image compression quality (1-100)
     'UPLOAD_IMAGE_FORMAT',           // Output format (webp, jpeg, png)
     'UPLOAD_MAX_FILE_SIZE_MB',       // Max upload file size in MB
+
+    // Image Upload - Per-Category Subdirectories
+    'UPLOAD_SUBDIR_COACHES',         // Subdirectory for coach profile images
+    'UPLOAD_SUBDIR_BANNERS',         // Subdirectory for banner images
+    'UPLOAD_SUBDIR_FACILITIES',      // Subdirectory for facility images
+    'UPLOAD_SUBDIR_MEMBERS',         // Subdirectory for member profile images
+    'UPLOAD_SUBDIR_GENERAL',         // Subdirectory for general/misc images
+    'UPLOAD_SUBDIR_CONTENT',         // Subdirectory for content/notice images
+    'UPLOAD_SUBDIR_EVENTS',          // Subdirectory for event images
+    'UPLOAD_SUBDIR_PRODUCTS',        // Subdirectory for product images
 
     // Snapshots
     'SETTINGS_SNAPSHOT_DIR',          // Directory for settings snapshots (not publicly accessible)
@@ -187,12 +196,19 @@ export async function PUT(request: NextRequest) {
 function getDefaultValue(key: string): string {
     const defaults: Record<string, string> = {
         UPLOAD_BASE_DIR: 'public/uploads',
-        UPLOAD_COACH_SUBDIR: 'coaches',
         UPLOAD_IMAGE_MAX_WIDTH: '300',
         UPLOAD_IMAGE_MAX_HEIGHT: '300',
         UPLOAD_IMAGE_QUALITY: '85',
         UPLOAD_IMAGE_FORMAT: 'webp',
         UPLOAD_MAX_FILE_SIZE_MB: '5',
+        UPLOAD_SUBDIR_COACHES: 'coaches',
+        UPLOAD_SUBDIR_BANNERS: 'banners',
+        UPLOAD_SUBDIR_FACILITIES: 'facilities',
+        UPLOAD_SUBDIR_MEMBERS: 'members',
+        UPLOAD_SUBDIR_GENERAL: 'general',
+        UPLOAD_SUBDIR_CONTENT: 'content',
+        UPLOAD_SUBDIR_EVENTS: 'events',
+        UPLOAD_SUBDIR_PRODUCTS: 'products',
         SETTINGS_SNAPSHOT_DIR: '.settings-snapshots',
         NEXT_PUBLIC_SITE_NAME: 'BCL CrossFit Lounge',
         NEXT_PUBLIC_SITE_DESCRIPTION: 'BCL CrossFit Lounge Admin Portal',

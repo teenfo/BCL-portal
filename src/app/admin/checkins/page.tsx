@@ -35,23 +35,81 @@ export default function CheckinsPage() {
         const supabase = createClient();
         setLoading(true);
 
-        let query = supabase
-            .from('checkins')
-            .select('*, members(name, email), sessions(title, session_date, start_time), facilities(name)')
-            .gte('checkin_time', selectedDate + 'T00:00:00')
-            .lte('checkin_time', selectedDate + 'T23:59:59')
-            .order('checkin_time', { ascending: false });
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            let query: any = supabase
+                .from('checkins')
+                .select('*, members!checkins_member_id_fkey(name, email), sessions!checkins_session_id_fkey(title, session_date, start_time), facilities!checkins_facility_id_fkey(name)')
+                .gte('checkin_time', selectedDate + 'T00:00:00')
+                .lte('checkin_time', selectedDate + 'T23:59:59')
+                .order('checkin_time', { ascending: false });
 
-        if (filterMethod !== 'all') {
-            query = query.eq('checkin_method', filterMethod);
+            if (filterMethod !== 'all') {
+                query = query.eq('checkin_method', filterMethod);
+            }
+
+            const { data, error } = await query;
+
+            if (error) {
+                // Fallback: query without joins using 'time' column
+                console.warn('Checkins JOIN query failed, trying fallback:', error.message);
+                let fallbackQuery: any = supabase
+                    .from('checkins')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                const { data: fallbackData } = await fallbackQuery;
+                if (fallbackData) {
+                    // Map old column names to expected interface
+                    const mapped = fallbackData.map((c: any) => ({
+                        ...c,
+                        checkin_time: c.checkin_time || c.time || c.created_at,
+                        checkin_method: c.checkin_method || 'manual',
+                        members: { name: c.member_name || 'Unknown', email: '' },
+                    }));
+                    // Filter by date
+                    const filtered = mapped.filter((c: any) => {
+                        const ct = c.checkin_time;
+                        return ct && ct >= selectedDate + 'T00:00:00' && ct <= selectedDate + 'T23:59:59';
+                    });
+                    setCheckins(filtered as Checkin[]);
+                }
+            } else {
+                if (data) setCheckins(data as Checkin[]);
+            }
+        } catch (e) {
+            console.error('Error loading checkins:', e);
         }
-
-        const { data } = await query;
-        if (data) setCheckins(data);
         setLoading(false);
     }, [selectedDate, filterMethod]);
 
     useEffect(() => { loadCheckins(); }, [loadCheckins]);
+
+    // Realtime subscription - 오늘 날짜일 때만 활성화
+    useEffect(() => {
+        const today = new Date().toISOString().split('T')[0];
+        if (selectedDate !== today) return;
+
+        const supabase = createClient();
+        const channel = supabase
+            .channel('checkins-realtime')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'checkins',
+                },
+                () => {
+                    loadCheckins();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [selectedDate, loadCheckins]);
 
     useEffect(() => {
         async function loadMembers() {

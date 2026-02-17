@@ -26,26 +26,26 @@ export default function SupportPage() {
     useEffect(() => { loadTickets(); }, []);
 
     async function loadTickets() {
-        const supabase = createClient();
+        const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
-        const { data } = await supabase
+        const { data }: any = await supabase
             .from('support_tickets')
             .select('*')
             .eq('member_id', user.id)
             .order('created_at', { ascending: false });
-        if (data) setTickets(data);
+        if (data) setTickets(data as any);
         setLoading(false);
     }
 
     async function handleSubmit() {
         if (!subject.trim() || !message.trim() || submitting) return;
         setSubmitting(true);
-        const supabase = createClient();
+        const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSubmitting(false); return; }
 
-        const { error } = await supabase.from('support_tickets').insert({
+        const { error }: any = await supabase.from('support_tickets').insert({
             member_id: user.id,
             subject: subject.trim(),
             message: message.trim(),

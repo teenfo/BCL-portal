@@ -34,22 +34,58 @@ export default function TransactionsPage() {
         const supabase = createClient();
         setLoading(true);
 
-        let query = supabase
-            .from('transactions')
-            .select('*, members(name, email)')
-            .gte('created_at', dateRange.start + 'T00:00:00')
-            .lte('created_at', dateRange.end + 'T23:59:59')
-            .order('created_at', { ascending: false });
+        try {
+            let query = supabase
+                .from('transactions')
+                .select('*, members!transactions_member_id_fkey(name, email)')
+                .gte('created_at', dateRange.start + 'T00:00:00')
+                .lte('created_at', dateRange.end + 'T23:59:59')
+                .order('created_at', { ascending: false });
 
-        if (filterStatus !== 'all') {
-            query = query.eq('payment_status', filterStatus);
-        }
-        if (filterCategory !== 'all') {
-            query = query.eq('category', filterCategory);
-        }
+            if (filterStatus !== 'all') {
+                // Try both column names for compatibility
+                query = query.or(`payment_status.eq.${filterStatus},status.eq.${filterStatus}`);
+            }
+            if (filterCategory !== 'all') {
+                query = query.eq('category', filterCategory);
+            }
 
-        const { data } = await query;
-        if (data) setTransactions(data);
+            const { data, error } = await query;
+
+            if (error) {
+                // Fallback: query without joins
+                console.warn('Transactions JOIN query error, trying fallback:', error.message);
+                const { data: fallbackData } = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .gte('created_at', dateRange.start + 'T00:00:00')
+                    .lte('created_at', dateRange.end + 'T23:59:59')
+                    .order('created_at', { ascending: false });
+
+                if (fallbackData) {
+                    const mapped = fallbackData.map((t: any) => ({
+                        ...t,
+                        payment_status: t.payment_status || t.status || 'pending',
+                        payment_method: t.payment_method || t.method || null,
+                        transaction_type: t.transaction_type || 'purchase',
+                    }));
+                    setTransactions(mapped as any);
+                }
+            } else {
+                if (data) {
+                    // Map actual columns to expected interface
+                    const mapped = data.map((t: any) => ({
+                        ...t,
+                        payment_status: t.payment_status || t.status || 'pending',
+                        payment_method: t.payment_method || t.method || null,
+                        transaction_type: t.transaction_type || 'purchase',
+                    }));
+                    setTransactions(mapped as any);
+                }
+            }
+        } catch (e) {
+            console.error('Error loading transactions:', e);
+        }
         setLoading(false);
     }, [dateRange, filterStatus, filterCategory]);
 

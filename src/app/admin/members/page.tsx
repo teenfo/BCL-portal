@@ -33,6 +33,7 @@ export default function AdminMembersPage() {
         gender: '',
         birthdate: '',
     });
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
 
     useEffect(() => { loadMembers(); }, []);
 
@@ -74,7 +75,9 @@ export default function AdminMembersPage() {
             member.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             member.phone?.includes(searchTerm);
         const matchesFilter = filterStatus === 'all' || member.status === filterStatus;
-        return matchesSearch && matchesFilter;
+        const matchesDateStart = !dateRange.start || (member.joined_date && member.joined_date >= dateRange.start);
+        const matchesDateEnd = !dateRange.end || (member.joined_date && member.joined_date <= dateRange.end);
+        return matchesSearch && matchesFilter && matchesDateStart && matchesDateEnd;
     });
 
     const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
@@ -94,7 +97,7 @@ export default function AdminMembersPage() {
 
             <div className="p-10 max-w-[1400px] mx-auto">
                 {/* Filters & Search */}
-                <div className="flex items-center gap-4 mb-8">
+                <div className="flex items-center gap-4 mb-8 flex-wrap">
                     <div className="flex gap-2">
                         {(['all', 'Active', 'Expired'] as const).map((f) => (
                             <button
@@ -105,6 +108,32 @@ export default function AdminMembersPage() {
                                 {f === 'all' ? '전체' : f === 'Active' ? '활성' : '만료'}
                             </button>
                         ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={dateRange.start}
+                            onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                            className="admin-search-input"
+                            title="가입일 시작"
+                        />
+                        <span className="text-white/20">~</span>
+                        <input
+                            type="date"
+                            value={dateRange.end}
+                            onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                            className="admin-search-input"
+                            title="가입일 종료"
+                        />
+                        {(dateRange.start || dateRange.end) && (
+                            <button
+                                onClick={() => setDateRange({ start: '', end: '' })}
+                                className="admin-filter-btn text-[9px]"
+                                title="날짜 필터 초기화"
+                            >
+                                ✕
+                            </button>
+                        )}
                     </div>
                     <div className="flex-1">
                         <input

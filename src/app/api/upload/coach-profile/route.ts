@@ -24,7 +24,7 @@ async function getUploadConfig() {
     }
 
     const baseDir = envVars['UPLOAD_BASE_DIR'] || 'public/uploads';
-    const coachSubdir = envVars['UPLOAD_COACH_SUBDIR'] || 'coaches';
+    const coachSubdir = envVars['UPLOAD_SUBDIR_COACHES'] || 'coaches';
     const maxWidth = parseInt(envVars['UPLOAD_IMAGE_MAX_WIDTH'] || '300', 10);
     const maxHeight = parseInt(envVars['UPLOAD_IMAGE_MAX_HEIGHT'] || '300', 10);
     const quality = parseInt(envVars['UPLOAD_IMAGE_QUALITY'] || '85', 10);

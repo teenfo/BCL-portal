@@ -31,7 +31,7 @@ export default function UserProfilePage() {
 
         setUserEmail(user.email || '');
 
-        const { data: memberData } = await supabase
+        const { data: memberData }: any = await supabase
             .from('members')
             .select('name, role')
             .eq('user_id', user.id)
@@ -41,7 +41,7 @@ export default function UserProfilePage() {
             setIsAdmin(memberData.role === 'admin' || memberData.role === 'super_admin');
         }
 
-        const { data: membershipData } = await supabase
+        const { data: membershipData }: any = await supabase
             .from('memberships')
             .select('*, membership_plans(name)')
             .eq('member_id', user.id)

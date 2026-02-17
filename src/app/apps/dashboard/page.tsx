@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useNotifications } from '@/hooks/useNotifications';
 import Link from 'next/link';
-import Image from 'next/image';
 
 interface Session {
     id: string;
@@ -60,26 +58,25 @@ export default function UserDashboardPage() {
     const [membership, setMembership] = useState<Membership | null>(null);
     const [userName, setUserName] = useState('회원');
     const [loading, setLoading] = useState(true);
-    const { unreadCount } = useNotifications();
 
     useEffect(() => {
         loadDashboard();
     }, []);
 
     async function loadDashboard() {
-        const supabase = createClient();
+        const supabase: any = createClient();
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const { data: memberData } = await supabase
+                const { data: memberData }: any = await supabase
                     .from('members')
                     .select('name')
                     .eq('user_id', user.id)
                     .single();
                 if (memberData?.name) setUserName(memberData.name);
 
-                const { data: membershipData } = await supabase
+                const { data: membershipData }: any = await supabase
                     .from('memberships')
                     .select('*, membership_plans(name, credit_count)')
                     .eq('member_id', user.id)
@@ -99,7 +96,7 @@ export default function UserDashboardPage() {
                 }
             }
 
-            const { data: sessionsData } = await supabase
+            const { data: sessionsData }: any = await supabase
                 .from('sessions')
                 .select('*')
                 .gte('start_time', new Date().toISOString())
@@ -107,7 +104,7 @@ export default function UserDashboardPage() {
                 .limit(1);
             if (sessionsData) setUpcomingSessions(sessionsData);
 
-            const { data: noticesData } = await supabase
+            const { data: noticesData }: any = await supabase
                 .from('notices')
                 .select('*')
                 .eq('is_published', true)
@@ -153,104 +150,14 @@ export default function UserDashboardPage() {
 
     return (
         <div className="app-page">
-            {/* ── BCL Logo ── */}
-            <div style={{ textAlign: 'center', marginBottom: '1rem' }}>
-                <Image
-                    src="/images/logo/bcl-logo.svg"
-                    alt="BCL Logo"
-                    width={48}
-                    height={48}
-                    style={{ margin: '0 auto' }}
-                />
-                <div style={{
-                    fontSize: '0.5rem',
-                    color: 'var(--app-text-muted)',
-                    marginTop: 2,
-                    letterSpacing: '0.05em',
-                }}>
-                    Banning CrossFit Lounge
-                </div>
-            </div>
-
             {/* ── Greeting ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
-                <div>
-                    <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem', marginBottom: '0.125rem' }}>
-                        {getGreeting()}
-                    </p>
-                    <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--app-text-primary)', letterSpacing: '-0.01em' }}>
-                        Welcome back, {userName}
-                    </h1>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    {/* Notification Bell */}
-                    <Link href="/apps/notifications" style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: 'var(--app-surface)',
-                        border: '1px solid var(--app-border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        textDecoration: 'none',
-                        position: 'relative',
-                        boxShadow: 'var(--app-shadow-sm)',
-                    }}>
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--app-text-secondary)" strokeWidth="2">
-                            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                            <path d="M13.73 21a2 2 0 01-3.46 0" />
-                        </svg>
-                        {unreadCount > 0 && (
-                            <span style={{
-                                position: 'absolute',
-                                top: -2,
-                                right: -2,
-                                minWidth: 20,
-                                height: 20,
-                                borderRadius: 10,
-                                background: 'var(--app-accent)',
-                                color: '#fff',
-                                fontSize: '0.625rem',
-                                fontWeight: 700,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '0 5px',
-                                border: '2px solid var(--app-bg)',
-                            }}>
-                                {unreadCount > 99 ? '99+' : unreadCount}
-                            </span>
-                        )}
-                    </Link>
-                    {/* Profile Avatar */}
-                    <Link href="/apps/profile" style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, var(--app-accent), #E8933A)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: '1rem',
-                        textDecoration: 'none',
-                        position: 'relative',
-                    }}>
-                        {userName.charAt(0)}
-                        <span style={{
-                            position: 'absolute',
-                            bottom: 1,
-                            right: 1,
-                            width: 10,
-                            height: 10,
-                            borderRadius: '50%',
-                            background: '#22C55E',
-                            border: '2px solid var(--app-bg)',
-                        }} />
-                    </Link>
-                </div>
+            <div style={{ marginBottom: '1.5rem' }}>
+                <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem', marginBottom: '0.125rem' }}>
+                    {getGreeting()}
+                </p>
+                <h2 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--app-text-primary)', letterSpacing: '-0.01em' }}>
+                    Welcome back, {userName}
+                </h2>
             </div>
 
             {/* ── Next Class Card (Figma Style) ── */}
@@ -358,6 +265,42 @@ export default function UserDashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* ── Quick Links ── */}
+            <div style={{ marginTop: '1.5rem' }}>
+                <h2 className="app-section-title" style={{ marginBottom: '0.75rem' }}>Quick Links</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
+                    {[
+                        { href: '/apps/leaderboard', icon: '🏆', label: '리더보드' },
+                        { href: '/apps/badges', icon: '🎖️', label: '배지' },
+                        { href: '/apps/coaches', icon: '💪', label: '코치' },
+                        { href: '/apps/records', icon: '📊', label: '운동기록' },
+                        { href: '/apps/purchase', icon: '🎫', label: '이용권' },
+                        { href: '/apps/feedback', icon: '📝', label: '피드백' },
+                    ].map(link => (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                padding: '1rem 0.5rem',
+                                borderRadius: 'var(--app-radius-lg)',
+                                background: 'var(--app-surface)',
+                                border: '1px solid var(--app-border)',
+                                textDecoration: 'none',
+                                transition: 'all 0.2s ease',
+                                boxShadow: 'var(--app-shadow-sm)',
+                            }}
+                        >
+                            <span style={{ fontSize: '1.5rem' }}>{link.icon}</span>
+                            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)' }}>{link.label}</span>
+                        </Link>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }

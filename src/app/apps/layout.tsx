@@ -1,5 +1,6 @@
 'use client';
 
+import UserTopHeader from '@/components/layout/UserTopHeader';
 import UserBottomNav from '@/components/layout/UserBottomNav';
 import NotificationToast from '@/components/ui/NotificationToast';
 import { ReactNode, useEffect } from 'react';
@@ -17,6 +18,7 @@ export default function AppsLayout({ children }: { children: ReactNode }) {
 
     return (
         <div className="relative">
+            <UserTopHeader />
             <NotificationToast />
             {children}
             <UserBottomNav />

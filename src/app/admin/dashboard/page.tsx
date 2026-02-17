@@ -64,13 +64,13 @@ export default function AdminDashboardPage() {
                 supabase.from('members').select('id', { count: 'exact', head: true }),
                 supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
                 supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Expired'),
-                supabase.from('checkins').select('id', { count: 'exact', head: true }).gte('checkin_time', today + 'T00:00:00'),
-                supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('booking_date', today).lte('booking_date', today),
-                supabase.from('transactions').select('amount').gte('created_at', startOfMonth + 'T00:00:00').eq('payment_status', 'completed'),
+                supabase.from('checkins').select('id', { count: 'exact', head: true }).or(`checkin_time.gte.${today}T00:00:00,time.gte.${today}T00:00:00`),
+                supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', today + 'T00:00:00'),
+                supabase.from('transactions').select('amount').gte('created_at', startOfMonth + 'T00:00:00').or('payment_status.eq.completed,status.eq.completed'),
                 supabase.from('memberships').select('id', { count: 'exact', head: true }).eq('status', 'active'),
                 supabase.from('coaches').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-                supabase.from('transactions').select('id, amount, payment_status, category, created_at, member_id, members(name)').order('created_at', { ascending: false }).limit(5),
-                supabase.from('checkins').select('id, checkin_time, checkin_method, member_id, members(name), facility_id, facilities(name)').order('checkin_time', { ascending: false }).limit(6),
+                supabase.from('transactions').select('id, amount, payment_status, status, category, created_at, member_id, members!transactions_member_id_fkey(name)').order('created_at', { ascending: false }).limit(5),
+                supabase.from('checkins').select('id, checkin_time, time, checkin_method, member_id, member_name, members!checkins_member_id_fkey(name), facility_id, facility, facilities!checkins_facility_id_fkey(name)').order('created_at', { ascending: false }).limit(6),
             ]);
 
             const monthlyRevenue = txRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
@@ -91,8 +91,8 @@ export default function AdminDashboardPage() {
                     id: t.id,
                     member_name: t.members?.name || 'Unknown',
                     amount: Number(t.amount),
-                    payment_status: t.payment_status,
-                    category: t.category,
+                    payment_status: t.payment_status || t.status || 'pending',
+                    category: t.category || '-',
                     created_at: t.created_at,
                 })));
             }
@@ -100,10 +100,10 @@ export default function AdminDashboardPage() {
             if (recentCheckinRes.data) {
                 setRecentCheckins(recentCheckinRes.data.map((c: any) => ({
                     id: c.id,
-                    member_name: c.members?.name || 'Unknown',
-                    facility_name: c.facilities?.name || '-',
-                    checkin_method: c.checkin_method,
-                    checkin_time: c.checkin_time,
+                    member_name: c.members?.name || c.member_name || 'Unknown',
+                    facility_name: c.facilities?.name || c.facility || '-',
+                    checkin_method: c.checkin_method || 'manual',
+                    checkin_time: c.checkin_time || c.time || c.created_at,
                 })));
             }
         } catch (error) {

@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import QuickActionManagerTab from '@/components/settings/QuickActionManagerTab';
 import {
     IconCamera, IconSave, IconGlobe, IconLock, IconFolder, IconClipboard,
     IconInbox, IconEye, IconTrash, IconRefresh, IconCheckCircle, IconShield,
-    IconZap, IconLightbulb
+    IconZap, IconLightbulb, IconPlus
 } from '@/components/icons/AdminIcons';
 
 /* ────────────────────── Types ────────────────────── */
@@ -49,24 +49,45 @@ interface SettingsGroup {
     fields: SettingField[];
 }
 
+// Subdir fields for path preview (used in hints section)
+const SUBDIR_FIELDS = [
+    { key: 'UPLOAD_SUBDIR_COACHES', label: '코치 프로필', ph: 'coaches' },
+    { key: 'UPLOAD_SUBDIR_BANNERS', label: '배너 이미지', ph: 'banners' },
+    { key: 'UPLOAD_SUBDIR_FACILITIES', label: '시설 이미지', ph: 'facilities' },
+    { key: 'UPLOAD_SUBDIR_MEMBERS', label: '회원 프로필', ph: 'members' },
+    { key: 'UPLOAD_SUBDIR_GENERAL', label: '일반 이미지', ph: 'general' },
+    { key: 'UPLOAD_SUBDIR_CONTENT', label: '콘텐츠/공지사항', ph: 'content' },
+    { key: 'UPLOAD_SUBDIR_EVENTS', label: '이벤트 이미지', ph: 'events' },
+    { key: 'UPLOAD_SUBDIR_PRODUCTS', label: '상품 이미지', ph: 'products' },
+];
+
 const GROUPS: SettingsGroup[] = [
     {
         id: 'upload',
         title: '이미지 업로드',
         icon: <IconCamera size={18} />,
         accentColor: '#FF6B00',
-        desc: '코치 프로필 등 업로드 파일의 저장 경로와 처리 옵션',
+        desc: '업로드 파일의 저장 경로, 처리 옵션 및 카테고리별 저장 위치 설정',
         fields: [
-            { key: 'UPLOAD_BASE_DIR', label: '업로드 기본 디렉토리', desc: '상대 경로 또는 절대 경로', type: 'path', ph: 'public/uploads' },
-            { key: 'UPLOAD_COACH_SUBDIR', label: '코치 이미지 폴더', desc: '기본 디렉토리 하위 폴더명', type: 'text', ph: 'coaches' },
-            { key: 'UPLOAD_IMAGE_MAX_WIDTH', label: '최대 너비 (px)', desc: '자동 리사이즈 기준', type: 'number', ph: '300', unit: 'px' },
-            { key: 'UPLOAD_IMAGE_MAX_HEIGHT', label: '최대 높이 (px)', desc: '자동 리사이즈 기준', type: 'number', ph: '300', unit: 'px' },
+            { key: 'UPLOAD_BASE_DIR', label: '업로드 기본 디렉토리', desc: '모든 이미지가 저장되는 기본 경로 (상대/절대 경로)', type: 'path', ph: 'public/uploads' },
+            { key: 'UPLOAD_IMAGE_MAX_WIDTH', label: '최대 너비 (px)', desc: '전체 카테고리 기본 리사이즈 너비', type: 'number', ph: '300', unit: 'px' },
+            { key: 'UPLOAD_IMAGE_MAX_HEIGHT', label: '최대 높이 (px)', desc: '전체 카테고리 기본 리사이즈 높이', type: 'number', ph: '300', unit: 'px' },
             { key: 'UPLOAD_IMAGE_QUALITY', label: '압축 품질 (%)', desc: '높을수록 고화질·대용량', type: 'number', ph: '85', unit: '%' },
             {
                 key: 'UPLOAD_IMAGE_FORMAT', label: '출력 포맷', desc: '이미지 저장 형식', type: 'select',
                 options: [{ value: 'webp', label: 'WebP (권장)' }, { value: 'jpeg', label: 'JPEG' }, { value: 'png', label: 'PNG' }]
             },
-            { key: 'UPLOAD_MAX_FILE_SIZE_MB', label: '최대 업로드 용량', desc: '파일당 제한 (MB)', type: 'range', min: 1, max: 50, unit: 'MB' },
+            { key: 'UPLOAD_MAX_FILE_SIZE_MB', label: '최대 업로드 용량', desc: '파일당 용량 제한 (MB)', type: 'range', min: 1, max: 50, unit: 'MB' },
+            // Separator + Category subdirectory fields
+            { key: '_SUBDIR_SEPARATOR', label: '카테고리별 저장 위치', desc: '각 기능별 이미지 저장 하위 폴더명 (기본 디렉토리 기준)', type: 'separator' as any },
+            { key: 'UPLOAD_SUBDIR_COACHES', label: '코치 프로필', desc: '코치 프로필 이미지 하위 폴더', type: 'text', ph: 'coaches' },
+            { key: 'UPLOAD_SUBDIR_BANNERS', label: '배너 이미지', desc: '메인 배너/프로모션 이미지 하위 폴더', type: 'text', ph: 'banners' },
+            { key: 'UPLOAD_SUBDIR_FACILITIES', label: '시설 이미지', desc: '지점/시설 사진 하위 폴더', type: 'text', ph: 'facilities' },
+            { key: 'UPLOAD_SUBDIR_MEMBERS', label: '회원 프로필', desc: '회원 프로필 이미지 하위 폴더', type: 'text', ph: 'members' },
+            { key: 'UPLOAD_SUBDIR_GENERAL', label: '일반 이미지', desc: '기타 범용 이미지 하위 폴더', type: 'text', ph: 'general' },
+            { key: 'UPLOAD_SUBDIR_CONTENT', label: '콘텐츠/공지사항', desc: '공지사항, 뉴스 등 콘텐츠 이미지 하위 폴더', type: 'text', ph: 'content' },
+            { key: 'UPLOAD_SUBDIR_EVENTS', label: '이벤트 이미지', desc: '이벤트/대회 관련 이미지 하위 폴더', type: 'text', ph: 'events' },
+            { key: 'UPLOAD_SUBDIR_PRODUCTS', label: '상품 이미지', desc: '상품/요금제 관련 이미지 하위 폴더', type: 'text', ph: 'products' },
         ],
     },
     {
@@ -129,6 +150,13 @@ export default function SettingsPage() {
     const [loadingPreview, setLoadingPreview] = useState(false);
     const [restoring, setRestoring] = useState(false);
 
+    // Path validation state
+    type PathStatus = { exists: boolean; checking: boolean; resolvedPath: string; isDirectory?: boolean };
+    const [pathStatuses, setPathStatuses] = useState<Record<string, PathStatus>>({});
+    const pathCheckTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+    const [createPathModal, setCreatePathModal] = useState<{ key: string; label: string; fullPath: string; resolvedPath: string } | null>(null);
+    const [creatingPath, setCreatingPath] = useState(false);
+
     const load = useCallback(async () => {
         setLoading(true);
         try {
@@ -160,7 +188,124 @@ export default function SettingsPage() {
     );
     const hasChanges = changedKeys.length > 0;
 
-    function upd(k: string, v: string) { setEdited((p) => ({ ...p, [k]: v })); setMsg(null); }
+    // Check if a key is path-related
+    const isPathKey = useCallback((key: string) => {
+        return key === 'UPLOAD_BASE_DIR' || key.startsWith('UPLOAD_SUBDIR_');
+    }, []);
+
+    // Check single path existence
+    const checkPathExists = useCallback(async (fullPath: string, key: string) => {
+        if (!fullPath.trim()) {
+            setPathStatuses(prev => { const next = { ...prev }; delete next[key]; return next; });
+            return;
+        }
+        setPathStatuses(prev => ({ ...prev, [key]: { exists: false, checking: true, resolvedPath: '' } }));
+        try {
+            const res = await fetch(`/api/settings/check-path?path=${encodeURIComponent(fullPath)}`);
+            const data = await res.json();
+            setPathStatuses(prev => ({
+                ...prev,
+                [key]: { exists: data.exists, checking: false, resolvedPath: data.resolvedPath || '', isDirectory: data.isDirectory },
+            }));
+        } catch {
+            setPathStatuses(prev => ({
+                ...prev,
+                [key]: { exists: false, checking: false, resolvedPath: '' },
+            }));
+        }
+    }, []);
+
+    // Resolve the full path for a key (base + subdir for subdir keys, or just value for base)
+    const resolveFullPath = useCallback((key: string, value: string, currentEdited: Record<string, string>) => {
+        if (key === 'UPLOAD_BASE_DIR') return value;
+        if (key.startsWith('UPLOAD_SUBDIR_')) {
+            const baseDir = currentEdited['UPLOAD_BASE_DIR'] || 'public/uploads';
+            return `${baseDir}/${value}`;
+        }
+        return value;
+    }, []);
+
+    // Debounced path check when a field value changes
+    const triggerPathCheck = useCallback((key: string, value: string, currentEdited: Record<string, string>) => {
+        if (pathCheckTimers.current[key]) clearTimeout(pathCheckTimers.current[key]);
+        if (!value.trim()) {
+            setPathStatuses(prev => { const next = { ...prev }; delete next[key]; return next; });
+            return;
+        }
+        setPathStatuses(prev => ({ ...prev, [key]: { exists: false, checking: true, resolvedPath: '' } }));
+        pathCheckTimers.current[key] = setTimeout(() => {
+            const fullPath = resolveFullPath(key, value, currentEdited);
+            checkPathExists(fullPath, key);
+        }, 600);
+    }, [checkPathExists, resolveFullPath]);
+
+    // When base dir changes, re-check all subdir paths too
+    const triggerAllSubdirChecks = useCallback((newEdited: Record<string, string>) => {
+        for (const sf of SUBDIR_FIELDS) {
+            const subdirVal = newEdited[sf.key];
+            if (subdirVal?.trim()) {
+                triggerPathCheck(sf.key, subdirVal, newEdited);
+            }
+        }
+    }, [triggerPathCheck]);
+
+    function upd(k: string, v: string) {
+        const newEdited = { ...edited, [k]: v };
+        setEdited(newEdited);
+        setMsg(null);
+        // Trigger path check for path-related keys
+        if (isPathKey(k)) {
+            triggerPathCheck(k, v, newEdited);
+            // If base dir changed, re-check all subdir paths
+            if (k === 'UPLOAD_BASE_DIR') {
+                triggerAllSubdirChecks(newEdited);
+            }
+        }
+    }
+
+    // Initial path check after settings load
+    useEffect(() => {
+        if (Object.keys(edited).length === 0) return;
+        // Check base dir
+        const baseDir = edited['UPLOAD_BASE_DIR'];
+        if (baseDir?.trim()) checkPathExists(baseDir, 'UPLOAD_BASE_DIR');
+        // Check each subdir
+        for (const sf of SUBDIR_FIELDS) {
+            const val = edited[sf.key];
+            if (val?.trim()) {
+                const fullPath = `${baseDir || 'public/uploads'}/${val}`;
+                checkPathExists(fullPath, sf.key);
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loading]);
+
+    // Create directory handler
+    async function handleCreatePath() {
+        if (!createPathModal) return;
+        setCreatingPath(true);
+        try {
+            const res = await fetch('/api/settings/check-path', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: createPathModal.fullPath }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                setPathStatuses(prev => ({
+                    ...prev,
+                    [createPathModal.key]: { exists: true, checking: false, resolvedPath: data.resolvedPath || createPathModal.resolvedPath, isDirectory: true },
+                }));
+                setMsg({ ok: true, text: `✅ 경로가 생성되었습니다: ${createPathModal.fullPath}` });
+            } else {
+                setMsg({ ok: false, text: `❌ 경로 생성 실패: ${data.error}` });
+            }
+        } catch {
+            setMsg({ ok: false, text: '❌ 경로 생성 요청 실패' });
+        }
+        setCreatingPath(false);
+        setCreatePathModal(null);
+    }
     function reset() {
         const init: Record<string, string> = {};
         for (const [k, v] of Object.entries(settings)) init[k] = v.value;
@@ -475,21 +620,49 @@ export default function SettingsPage() {
 
                                 {/* Configuration Hints (shown FIRST, before fields) */}
                                 {activeGroup.id === 'upload' && (
-                                    <div className="mb-6 p-5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="shrink-0" style={{ color: 'var(--primary)' }}><IconLightbulb size={14} /></span>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,107,0,0.6)' }}>Tips</span>
+                                    <div className="mb-6 space-y-4">
+                                        <div className="p-5 rounded-xl bg-white/[0.015] border border-white/[0.03]">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <span className="shrink-0" style={{ color: 'var(--primary)' }}><IconLightbulb size={14} /></span>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'rgba(255,107,0,0.6)' }}>Tips</span>
+                                            </div>
+                                            <ul className="space-y-2">
+                                                <li className="flex items-start gap-2 text-[11px] text-white/25">
+                                                    <span className="mt-0.5 text-[8px]" style={{ color: 'var(--primary)' }}>●</span>
+                                                    업로드 경로는 상대(<span className="font-mono text-white/35">public/uploads</span>) 또는 절대(<span className="font-mono text-white/35">/var/www/uploads</span>) 경로 사용
+                                                </li>
+                                                <li className="flex items-start gap-2 text-[11px] text-white/25">
+                                                    <span className="mt-0.5 text-[8px]" style={{ color: 'var(--primary)' }}>●</span>
+                                                    이미지 설정은 즉시 적용 — 서버 재시작 불필요
+                                                </li>
+                                                <li className="flex items-start gap-2 text-[11px] text-white/25">
+                                                    <span className="mt-0.5 text-[8px]" style={{ color: 'var(--primary)' }}>●</span>
+                                                    저장 위치 변경 시 기존 파일은 자동으로 이동되지 않습니다 — 수동 이동이 필요합니다
+                                                </li>
+                                            </ul>
                                         </div>
-                                        <ul className="space-y-2">
-                                            <li className="flex items-start gap-2 text-[11px] text-white/25">
-                                                <span className="mt-0.5 text-[8px]" style={{ color: 'var(--primary)' }}>●</span>
-                                                업로드 경로는 상대(<span className="font-mono text-white/35">public/uploads</span>) 또는 절대(<span className="font-mono text-white/35">/var/www/uploads</span>) 경로 사용
-                                            </li>
-                                            <li className="flex items-start gap-2 text-[11px] text-white/25">
-                                                <span className="mt-0.5 text-[8px]" style={{ color: 'var(--primary)' }}>●</span>
-                                                이미지 설정은 즉시 적용 — 서버 재시작 불필요
-                                            </li>
-                                        </ul>
+
+                                        {/* Live Path Preview */}
+                                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <IconEye size={12} className="text-white/30" />
+                                                <span className="text-[9px] font-black text-white/30 uppercase tracking-widest">카테고리별 저장 경로 미리보기</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {SUBDIR_FIELDS.map(f => {
+                                                    const status = pathStatuses[f.key];
+                                                    const dotColor = status?.checking ? '#FBBF24' : status?.exists ? '#34D399' : status ? '#F87171' : 'var(--primary)';
+                                                    return (
+                                                        <div key={f.key} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.02]">
+                                                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${status?.checking ? 'animate-pulse' : ''}`} style={{ background: dotColor }} />
+                                                            <span className="text-[9px] font-mono text-white/25 truncate">
+                                                                {edited['UPLOAD_BASE_DIR'] || 'public/uploads'}/{edited[f.key] || f.ph}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 
@@ -535,6 +708,20 @@ export default function SettingsPage() {
                                 {/* Fields */}
                                 <div className="space-y-4">
                                     {activeGroup.fields.map((field) => {
+                                        // Render separator type
+                                        if ((field.type as string) === 'separator') {
+                                            return (
+                                                <div key={field.key} className="pt-4 pb-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <IconFolder size={14} className="text-white/20" />
+                                                        <span className="text-[12px] font-bold text-white/60 tracking-wide">{field.label}</span>
+                                                        <div className="flex-1 h-px bg-white/[0.06]" />
+                                                    </div>
+                                                    <p className="text-[10px] text-white/20 pl-[26px]">{field.desc}</p>
+                                                </div>
+                                            );
+                                        }
+
                                         const { val, ro, changed } = gf(field.key);
                                         const isRestricted = ro;
 
@@ -604,6 +791,54 @@ export default function SettingsPage() {
                                                         style={{ opacity: isRestricted ? 0.4 : 1 }}
                                                     />
                                                 )}
+
+                                                {/* Path status indicator */}
+                                                {isPathKey(field.key) && pathStatuses[field.key] && (
+                                                    <div className="mt-2.5 flex items-center gap-2">
+                                                        {pathStatuses[field.key].checking ? (
+                                                            /* Checking animation */
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.02]">
+                                                                <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                                                                <span className="text-[10px] text-white/30 font-medium">경로 확인 중...</span>
+                                                            </div>
+                                                        ) : pathStatuses[field.key].exists ? (
+                                                            /* Path exists */
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+                                                                <IconCheckCircle size={12} className="text-emerald-400" />
+                                                                <span className="text-[10px] text-emerald-400/70 font-medium">경로 존재</span>
+                                                                <span className="text-[9px] font-mono text-white/15 ml-1 truncate max-w-[300px]">{pathStatuses[field.key].resolvedPath}</span>
+                                                            </div>
+                                                        ) : (
+                                                            /* Path does NOT exist */
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-400">
+                                                                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                                                        <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                                                                    </svg>
+                                                                    <span className="text-[10px] text-red-400/80 font-medium">경로가 존재하지 않습니다</span>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const fullPath = resolveFullPath(field.key, val, edited);
+                                                                        setCreatePathModal({
+                                                                            key: field.key,
+                                                                            label: field.label,
+                                                                            fullPath,
+                                                                            resolvedPath: pathStatuses[field.key].resolvedPath,
+                                                                        });
+                                                                    }}
+                                                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                                                    style={{ background: 'rgba(255,107,0,0.08)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.15)' }}
+                                                                >
+                                                                    <IconPlus size={10} />
+                                                                    폴더 생성
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -655,6 +890,78 @@ export default function SettingsPage() {
                     )}
                 </div>
             </div>
+
+            {/* ═══ Modal: Create Path Confirmation ═══ */}
+            {createPathModal && createPortal(
+                <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 10000 }} onClick={() => !creatingPath && setCreatePathModal(null)}>
+                    <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }} />
+                    <div
+                        className="relative p-7 rounded-2xl border border-white/10"
+                        style={{ width: '480px', background: '#1a1a1a', boxShadow: '0 25px 60px rgba(0,0,0,0.7)', animation: 'slideUpFade 0.25s ease-out' }}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-5">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'rgba(255,107,0,0.1)' }}>
+                                <IconFolder size={20} className="text-[var(--primary)]" />
+                            </div>
+                            <div>
+                                <h2 className="text-[15px] font-black text-white uppercase tracking-tight">폴더 생성 확인</h2>
+                                <p className="text-[10px] text-white/30 mt-0.5">{createPathModal.label}</p>
+                            </div>
+                        </div>
+
+                        {/* Path Info */}
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-5 space-y-3">
+                            <div>
+                                <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">생성할 경로</span>
+                                <p className="font-mono text-[12px] text-white/60 mt-1 break-all">{createPathModal.fullPath}</p>
+                            </div>
+                            {createPathModal.resolvedPath && (
+                                <div>
+                                    <span className="text-[9px] font-bold text-white/20 uppercase tracking-widest">절대 경로</span>
+                                    <p className="font-mono text-[10px] text-white/30 mt-1 break-all">{createPathModal.resolvedPath}</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Warning */}
+                        <div className="flex items-start gap-2 mb-6 p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 shrink-0 mt-0.5">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                            <span className="text-[10px] text-amber-400/60 leading-relaxed">
+                                이 경로에 폴더를 생성합니다. 중간 경로가 없으면 재귀적으로 모두 생성됩니다.
+                            </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setCreatePathModal(null)}
+                                disabled={creatingPath}
+                                className="flex-1 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleCreatePath}
+                                disabled={creatingPath}
+                                className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                                style={{ background: creatingPath ? 'rgba(255,107,0,0.4)' : 'rgba(255,107,0,0.8)', boxShadow: '0 0 20px rgba(255,107,0,0.15)' }}
+                            >
+                                {creatingPath ? (
+                                    <><div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" /> 생성 중...</>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1"><IconPlus size={14} /> 폴더 생성</span>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* ═══ Modal: Save Snapshot ═══ */}
             {showSaveModal && createPortal(

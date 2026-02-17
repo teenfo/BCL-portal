@@ -46,6 +46,24 @@ interface Note {
     created_at: string;
 }
 
+interface Membership {
+    id: string;
+    status: string;
+    start_date: string;
+    end_date: string;
+    remaining_credits: number;
+    pause_count: number;
+    paused_at: string | null;
+    pause_reason: string | null;
+    membership_plans: {
+        name: string;
+        price: number;
+        duration_days: number;
+        credits: number;
+        max_pauses: number;
+    } | null;
+}
+
 export default function MemberDetailPage() {
     const params = useParams();
     const memberId = params.id as string;
@@ -54,6 +72,7 @@ export default function MemberDetailPage() {
     const [checkins, setCheckins] = useState<Checkin[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [notes, setNotes] = useState<Note[]>([]);
+    const [memberships, setMemberships] = useState<Membership[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'payments' | 'notes'>('overview');
     const [newNote, setNewNote] = useState('');
@@ -66,17 +85,19 @@ export default function MemberDetailPage() {
         const supabase = createClient();
         setLoading(true);
 
-        const [memberRes, checkinsRes, txRes, notesRes] = await Promise.all([
+        const [memberRes, checkinsRes, txRes, notesRes, membershipsRes] = await Promise.all([
             supabase.from('members').select('*').eq('id', memberId).single(),
             supabase.from('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
             supabase.from('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
             supabase.from('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
+            supabase.from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('user_id', memberId).order('created_at', { ascending: false }),
         ]);
 
         if (memberRes.data) setMember(memberRes.data);
         if (checkinsRes.data) setCheckins(checkinsRes.data);
         if (txRes.data) setTransactions(txRes.data);
         if (notesRes.data) setNotes(notesRes.data);
+        if (membershipsRes.data) setMemberships(membershipsRes.data as unknown as Membership[]);
 
         setLoading(false);
     }
@@ -244,24 +265,46 @@ export default function MemberDetailPage() {
                     {/* Membership Card */}
                     <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
                         <h3 className="text-[10px] font-black uppercase tracking-widest mb-5" style={{ color: 'rgba(255,255,255,0.3)' }}>멤버십 정보</h3>
-                        <div className="space-y-4">
-                            {[
-                                { label: '플랜', value: member.plan || '-', highlight: true },
-                                { label: '시작일', value: member.membership_start_date || '-' },
-                                { label: '종료일', value: member.membership_end_date || '-' },
-                            ].map((item, i) => (
-                                <div key={i} className="flex justify-between items-center">
-                                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}</span>
-                                    <span className={`text-sm font-bold ${item.highlight ? '' : 'text-white'}`} style={item.highlight ? { color: 'var(--primary)' } : {}}>{item.value}</span>
+                        {(() => {
+                            const activeMembership = memberships.find(m => m.status === 'active') || memberships[0];
+                            const planName = activeMembership?.membership_plans?.name || member.plan || '-';
+                            const startDate = activeMembership?.start_date || member.membership_start_date || '-';
+                            const endDate = activeMembership?.end_date || member.membership_end_date || '-';
+                            const credits = activeMembership?.remaining_credits ?? member.credits;
+                            const pauseCount = activeMembership?.pause_count || 0;
+                            const maxPauses = activeMembership?.membership_plans?.max_pauses || 0;
+                            return (
+                                <div className="space-y-4">
+                                    {[
+                                        { label: '플랜', value: planName, highlight: true },
+                                        { label: '시작일', value: startDate },
+                                        { label: '종료일', value: endDate },
+                                    ].map((item, i) => (
+                                        <div key={i} className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}</span>
+                                            <span className={`text-sm font-bold ${item.highlight ? '' : 'text-white'}`} style={item.highlight ? { color: 'var(--primary)' } : {}}>{item.value}</span>
+                                        </div>
+                                    ))}
+                                    {credits > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>잔여 횟수</span>
+                                            <span className="text-sm font-black text-white">{credits}회</span>
+                                        </div>
+                                    )}
+                                    {activeMembership?.status === 'paused' && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>홀딩 상태</span>
+                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}>일시정지 ({pauseCount}/{maxPauses})</span>
+                                        </div>
+                                    )}
+                                    {memberships.length > 1 && (
+                                        <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>이전 멤버십 {memberships.length - 1}건</p>
+                                        </div>
+                                    )}
                                 </div>
-                            ))}
-                            {member.credits > 0 && (
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>잔여 횟수</span>
-                                    <span className="text-sm font-black text-white">{member.credits}회</span>
-                                </div>
-                            )}
-                        </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Stats Card */}

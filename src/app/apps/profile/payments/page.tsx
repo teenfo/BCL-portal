@@ -23,13 +23,13 @@ export default function PaymentsPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) { setLoading(false); return; }
 
-            const { data } = await supabase
+            const { data }: any = await supabase
                 .from('transactions')
                 .select('*')
                 .eq('member_id', user.id)
                 .order('created_at', { ascending: false });
 
-            if (data) setTransactions(data);
+            if (data) setTransactions(data as any);
             setLoading(false);
         })();
     }, []);

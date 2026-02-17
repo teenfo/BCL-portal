@@ -76,50 +76,9 @@ export default function NotificationsPage() {
 
     return (
         <div className="app-page">
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '1.25rem',
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Link href="/apps/dashboard" style={{
-                        color: 'var(--app-text-secondary)',
-                        textDecoration: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                    }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="15 18 9 12 15 6" />
-                        </svg>
-                    </Link>
-                    <h1 style={{
-                        fontSize: '1.375rem',
-                        fontWeight: 700,
-                        color: 'var(--app-text-primary)',
-                    }}>
-                        Notifications
-                    </h1>
-                    {unreadCount > 0 && (
-                        <span style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: 22,
-                            height: 22,
-                            borderRadius: 11,
-                            background: 'var(--app-accent)',
-                            color: '#fff',
-                            fontSize: '0.6875rem',
-                            fontWeight: 700,
-                            padding: '0 6px',
-                        }}>
-                            {unreadCount}
-                        </span>
-                    )}
-                </div>
-                {unreadCount > 0 && (
+            {/* Mark all read action */}
+            {unreadCount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.75rem' }}>
                     <button
                         onClick={markAllAsRead}
                         style={{
@@ -133,8 +92,8 @@ export default function NotificationsPage() {
                     >
                         Mark all read
                     </button>
-                )}
-            </div>
+                </div>
+            )}
 
             {/* Category Filters */}
             <div className="app-filter-chips">

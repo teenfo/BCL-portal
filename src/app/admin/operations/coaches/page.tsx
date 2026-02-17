@@ -67,8 +67,8 @@ export default function OperationsCoachesPage() {
         if (filterStatus !== 'all') {
             query = query.eq('status', filterStatus);
         }
-        const { data } = await query;
-        if (data) setCoaches(data);
+        const { data }: any = await query;
+        if (data) setCoaches(data as any);
         setLoading(false);
     }, [filterStatus]);
 
@@ -208,11 +208,11 @@ export default function OperationsCoachesPage() {
                     profile_image_url: null as string | null,
                 };
 
-                const { data: newCoach } = await supabase.from('coaches').insert(coachData).select('id').single();
+                const { data: newCoach }: any = await supabase.from('coaches').insert(coachData).select('id').single();
 
                 if (newCoach && selectedFile) {
                     profileImageUrl = await uploadImage(newCoach.id);
-                    await supabase.from('coaches').update({ profile_image_url: profileImageUrl }).eq('id', newCoach.id);
+                    await supabase.from('coaches').update({ profile_image_url: profileImageUrl } as any).eq('id', newCoach.id);
                 }
             }
 
@@ -245,7 +245,7 @@ export default function OperationsCoachesPage() {
         const supabase = createClient();
         setPerfLoading(true);
 
-        const { data: coachData } = await supabase
+        const { data: coachData }: any = await supabase
             .from('coaches')
             .select('*')
             .eq('status', 'active');

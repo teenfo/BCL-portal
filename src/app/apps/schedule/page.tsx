@@ -93,30 +93,6 @@ export default function UserSchedulePage() {
 
     return (
         <div className="app-page">
-            {/* ── Header ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Schedule</h1>
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <button style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: 'var(--app-surface)', border: '1px solid var(--app-border)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer',
-                    }}>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                    </button>
-                    <Link href="/apps/schedule/bookings" style={{
-                        width: 36, height: 36, borderRadius: '50%',
-                        background: 'var(--app-accent)', color: '#fff',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        textDecoration: 'none', fontSize: '0.75rem', fontWeight: 700,
-                    }}>
-                        AR
-                    </Link>
-                </div>
-            </div>
 
             {/* ── Date Picker (Figma: MON-FRI row) ── */}
             <div className="date-picker-row" style={{ justifyContent: 'space-between' }}>

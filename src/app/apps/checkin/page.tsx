@@ -55,7 +55,7 @@ export default function UserCheckinPage() {
     }, [isActive, generateToken]);
 
     async function loadCheckinData() {
-        const supabase = createClient();
+        const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
@@ -64,7 +64,7 @@ export default function UserCheckinPage() {
         setMemberId(`BCL-${shortId}`);
 
         // Get membership info
-        const { data: membershipData } = await supabase
+        const { data: membershipData }: any = await supabase
             .from('memberships')
             .select('*, membership_plans(name)')
             .eq('member_id', user.id)
@@ -81,7 +81,7 @@ export default function UserCheckinPage() {
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-        const { data: monthData } = await supabase
+        const { data: monthData }: any = await supabase
             .from('checkins')
             .select('*')
             .eq('member_id', user.id)

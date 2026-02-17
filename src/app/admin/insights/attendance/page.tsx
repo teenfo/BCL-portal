@@ -39,7 +39,7 @@ export default function AttendancePage() {
         startDate.setDate(startDate.getDate() - days);
         const startStr = startDate.toISOString();
 
-        const { data: checkins } = await supabase
+        const { data: checkins }: any = await supabase
             .from('checkins')
             .select('checkin_time, checkin_method')
             .gte('checkin_time', startStr)

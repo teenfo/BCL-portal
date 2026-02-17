@@ -41,13 +41,13 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
     // optionsQuery가 있는 select 필드의 옵션 로드
     useEffect(() => {
         if (!isOpen) return;
-        const supabase = createClient();
+        const supabase: any = createClient();
 
         modal.fields.forEach(async (field) => {
             if (field.type === 'select' && field.optionsQuery && !field.dependsOn) {
                 try {
                     const { table, valueField, labelField, filter } = field.optionsQuery;
-                    let query = supabase.from(table).select(`${valueField}, ${labelField}`);
+                    let query: any = supabase.from(table).select(`${valueField}, ${labelField}`);
                     if (filter) {
                         Object.entries(filter).forEach(([k, v]) => {
                             if (v === 'today') {
@@ -60,7 +60,7 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
                             }
                         });
                     }
-                    const { data } = await query.limit(50);
+                    const { data }: any = await query.limit(50);
                     if (data) {
                         setSelectOptions(prev => ({
                             ...prev,
@@ -80,13 +80,13 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
     // 의존성 필드 옵션 로드
     useEffect(() => {
         if (!isOpen) return;
-        const supabase = createClient();
+        const supabase: any = createClient();
 
         modal.fields.forEach(async (field) => {
             if (field.dependsOn && field.optionsQuery && formData[field.dependsOn]) {
                 try {
                     const { table, valueField, labelField } = field.optionsQuery;
-                    const { data } = await supabase.from(table)
+                    const { data }: any = await supabase.from(table)
                         .select(`${valueField}, ${labelField}`)
                         .eq('member_id', formData[field.dependsOn])
                         .limit(20);
@@ -110,9 +110,9 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
     const handleMemberSearch = useCallback(async (query: string) => {
         setSearchQuery(query);
         if (query.length < 2) { setSearchResults([]); return; }
-        const supabase = createClient();
-        const { data } = await supabase.from('members')
-            .select('id, name, phone')
+        const supabase: any = createClient();
+        const { data }: any = await (supabase.from('members')
+            .select('id, name, phone') as any)
             .or(`name.ilike.%${query}%,phone.ilike.%${query}%`)
             .limit(5);
         if (data) {
@@ -131,7 +131,7 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
         e.preventDefault();
         setSubmitting(true);
         try {
-            const supabase = createClient();
+            const supabase: any = createClient();
             const { table, method, successMessage, refreshWidgets } = modal.submitAction;
 
             // 실제 DB 작업 (시뮬레이션 — 실 연동은 Edge Function 추천)

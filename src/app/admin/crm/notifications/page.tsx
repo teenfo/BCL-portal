@@ -97,13 +97,19 @@ export default function NotificationsPage() {
         setLoading(true);
         let query = supabase
             .from('notifications')
-            .select('*, members(name, email)')
+            .select('*, members!notifications_member_id_fkey(name, email)')
             .order('created_at', { ascending: false })
             .limit(200);
 
         if (filterType !== 'all') query = query.eq('type', filterType);
-        const { data } = await query;
-        if (data) setNotifications(data);
+        const { data, error } = await query;
+        if (error) {
+            console.warn('Notifications JOIN error, using fallback:', error.message);
+            const { data: fallbackData } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(200);
+            if (fallbackData) setNotifications(fallbackData as any);
+        } else {
+            if (data) setNotifications(data);
+        }
         setLoading(false);
     }, [filterType]);
 
@@ -113,7 +119,7 @@ export default function NotificationsPage() {
             .from('notification_rules')
             .select('*')
             .order('created_at', { ascending: false });
-        if (data) setRules(data);
+        if (data) setRules(data as any);
     }, []);
 
     useEffect(() => {
@@ -346,8 +352,8 @@ export default function NotificationsPage() {
                                                     <button
                                                         onClick={() => toggleRule(rule)}
                                                         className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${rule.is_active
-                                                                ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
-                                                                : 'bg-white/5 text-white/30 hover:bg-white/10'
+                                                            ? 'bg-green-500/15 text-green-400 hover:bg-green-500/25'
+                                                            : 'bg-white/5 text-white/30 hover:bg-white/10'
                                                             }`}
                                                     >
                                                         {rule.is_active ? 'Active' : 'Inactive'}

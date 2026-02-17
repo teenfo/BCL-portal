@@ -34,7 +34,7 @@ export default function FinanceReportPage() {
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - months);
 
-        const { data: transactions } = await supabase
+        const { data: transactions }: any = await supabase
             .from('transactions')
             .select('amount, payment_status, transaction_type, category, created_at')
             .gte('created_at', startDate.toISOString())

@@ -1,36 +1,88 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import AdminModal from '@/components/layout/AdminModal';
 
 interface FeedbackItem {
     id: string;
-    memberName: string;
-    sessionName: string;
-    coach: string;
+    session_id: string | null;
+    member_id: string | null;
+    coach_id: string | null;
     rating: number;
     comment: string;
-    date: string;
-    category: string;
+    admin_response: string | null;
+    responded_at: string | null;
+    created_at: string;
+    members?: { name: string; email: string } | null;
+    sessions?: { title: string } | null;
+    coaches?: { name: string } | null;
 }
 
 export default function FeedbackPage() {
+    const [feedback, setFeedback] = useState<FeedbackItem[]>([]);
+    const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [saving, setSaving] = useState(false);
 
-    // Mock data - session_feedback table may not exist yet
-    const feedbackData: FeedbackItem[] = [
-        { id: '1', memberName: '김민수', sessionName: 'WOD Classic', coach: 'Coach Park', rating: 5, comment: '최고의 수업이었습니다! 코치님의 폼 교정이 매우 도움됐어요.', date: '2026-02-17', category: 'session' },
-        { id: '2', memberName: '이지영', sessionName: 'Endurance Flow', coach: 'Coach Lee', rating: 4, comment: '전반적으로 좋았지만 난이도가 조금 높았어요.', date: '2026-02-16', category: 'session' },
-        { id: '3', memberName: '박현우', sessionName: '-', coach: '-', rating: 3, comment: '샤워실 온수가 잘 안 나옵니다.', date: '2026-02-15', category: 'facility' },
-        { id: '4', memberName: '최서연', sessionName: 'Olympic Lifting', coach: 'Coach Kim', rating: 5, comment: '데드리프트 자세 교정 정말 감사합니다!', date: '2026-02-14', category: 'session' },
-        { id: '5', memberName: '정태영', sessionName: '-', coach: '-', rating: 2, comment: '주차 공간이 너무 부족합니다.', date: '2026-02-13', category: 'facility' },
-    ];
+    const loadFeedback = useCallback(async () => {
+        const supabase = createClient();
+        setLoading(true);
+        try {
+            // Try with JOINs first
+            const { data, error } = await supabase
+                .from('session_feedback')
+                .select('*, members(name, email), sessions(title), coaches(name)')
+                .order('created_at', { ascending: false });
 
-    const filtered = filter === 'all' ? feedbackData : feedbackData.filter(f => f.category === filter);
+            if (error) {
+                console.warn('Feedback JOIN error, using fallback:', error.message);
+                const { data: fallbackData } = await supabase
+                    .from('session_feedback')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (fallbackData) setFeedback(fallbackData as any);
+            } else {
+                if (data) setFeedback(data as any);
+            }
+        } catch (e) {
+            console.error('Error loading feedback:', e);
+        }
+        setLoading(false);
+    }, []);
 
-    const avgRating = feedbackData.length > 0 ? (feedbackData.reduce((s, f) => s + f.rating, 0) / feedbackData.length).toFixed(1) : '0';
-    const sessionFeedback = feedbackData.filter(f => f.category === 'session').length;
-    const facilityFeedback = feedbackData.filter(f => f.category === 'facility').length;
+    useEffect(() => { loadFeedback(); }, [loadFeedback]);
+
+    async function submitReply(feedbackId: string) {
+        if (!replyText.trim()) return;
+        setSaving(true);
+        const supabase = createClient();
+        const { error } = await supabase
+            .from('session_feedback')
+            .update({ admin_response: replyText, responded_at: new Date().toISOString() })
+            .eq('id', feedbackId);
+        setSaving(false);
+        if (!error) {
+            setReplyText('');
+            setSelectedFeedback(null);
+            loadFeedback();
+        }
+    }
+
+    const filtered = filter === 'all'
+        ? feedback
+        : filter === 'responded'
+            ? feedback.filter(f => f.admin_response)
+            : filter === 'pending'
+                ? feedback.filter(f => !f.admin_response)
+                : feedback.filter(f => f.rating <= 2);
+
+    const avgRating = feedback.length > 0 ? (feedback.reduce((s, f) => s + (f.rating || 0), 0) / feedback.length).toFixed(1) : '0';
+    const respondedCount = feedback.filter(f => f.admin_response).length;
+    const lowRatingCount = feedback.filter(f => f.rating <= 2).length;
 
     return (
         <div className="transition-all duration-500">
@@ -44,59 +96,160 @@ export default function FeedbackPage() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-12 gap-6 mb-10">
-                    <div className="col-span-4 kpi-card">
+                    <div className="col-span-3 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Total Feedback</h4>
+                        <p className="text-4xl font-black text-white mt-4">{feedback.length}</p>
+                    </div>
+                    <div className="col-span-3 kpi-card">
                         <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Avg Rating</h4>
                         <div className="mt-4 flex items-end gap-2">
                             <p className="text-4xl font-black text-[var(--primary)]">{avgRating}</p>
                             <p className="text-lg text-yellow-400 mb-1">{'★'.repeat(Math.round(Number(avgRating)))}</p>
                         </div>
                     </div>
-                    <div className="col-span-4 kpi-card">
-                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Session Feedback</h4>
-                        <p className="text-3xl font-black text-white mt-4">{sessionFeedback}</p>
+                    <div className="col-span-3 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Responded</h4>
+                        <div className="mt-4 flex items-end gap-2">
+                            <p className="text-4xl font-black text-green-400">{respondedCount}</p>
+                            <p className="text-xs text-[var(--text-muted)] mb-1">/ {feedback.length}</p>
+                        </div>
                     </div>
-                    <div className="col-span-4 kpi-card">
-                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Facility Feedback</h4>
-                        <p className="text-3xl font-black text-white mt-4">{facilityFeedback}</p>
+                    <div className="col-span-3 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Low Rating</h4>
+                        <p className="text-4xl font-black text-red-400 mt-4">{lowRatingCount}</p>
                     </div>
                 </div>
 
                 {/* Filter */}
                 <div className="flex gap-2 mb-8">
-                    {['all', 'session', 'facility'].map((f) => (
-                        <button key={f} onClick={() => setFilter(f)} className={`admin-filter-btn ${filter === f ? 'active' : ''}`}>
-                            {f === 'all' ? '전체' : f === 'session' ? '수업' : '시설'}
+                    {[
+                        { key: 'all', label: '전체' },
+                        { key: 'pending', label: '미답변' },
+                        { key: 'responded', label: '답변완료' },
+                        { key: 'low', label: '낮은 평점' },
+                    ].map(({ key, label }) => (
+                        <button key={key} onClick={() => setFilter(key)} className={`admin-filter-btn ${filter === key ? 'active' : ''}`}>
+                            {label}
                         </button>
                     ))}
                 </div>
 
-                {/* Feedback List */}
-                <div className="space-y-4">
-                    {filtered.map((f) => (
-                        <div key={f.id} className="glass-card p-6 rounded-2xl group hover:border-white/10 transition-all">
-                            <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>{f.memberName.charAt(0)}</div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-white">{f.memberName}</h4>
-                                        <p className="text-[9px] text-[var(--text-muted)]">{f.date} · {f.category === 'session' ? `${f.sessionName} (${f.coach})` : '시설 피드백'}</p>
+                {/* Loading */}
+                {loading ? (
+                    <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="glass-card p-6 rounded-2xl animate-pulse">
+                                <div className="h-4 bg-white/5 rounded w-1/3 mb-3" />
+                                <div className="h-3 bg-white/5 rounded w-2/3" />
+                            </div>
+                        ))}
+                    </div>
+                ) : filtered.length === 0 ? (
+                    <div className="glass-card p-16 rounded-2xl text-center">
+                        <p className="text-4xl mb-4">💬</p>
+                        <p className="text-white/40 text-sm">피드백이 없습니다</p>
+                    </div>
+                ) : (
+                    /* Feedback List */
+                    <div className="space-y-4">
+                        {filtered.map((f) => {
+                            const memberName = (f.members as any)?.name || '회원';
+                            const sessionTitle = (f.sessions as any)?.title || '-';
+                            const coachName = (f.coaches as any)?.name || '-';
+                            const dateStr = f.created_at ? new Date(f.created_at).toLocaleDateString('ko-KR') : '';
+
+                            return (
+                                <div key={f.id} className="glass-card p-6 rounded-2xl group hover:border-white/10 transition-all">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>
+                                                {memberName.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-black text-white">{memberName}</h4>
+                                                <p className="text-[9px] text-[var(--text-muted)]">
+                                                    {dateStr} · {sessionTitle !== '-' ? `${sessionTitle} (${coachName})` : '일반 피드백'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            {f.admin_response && (
+                                                <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase bg-green-500/10 border border-green-500/20 text-green-400">답변완료</span>
+                                            )}
+                                            <div className="flex items-center gap-0.5">
+                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                    <span key={star} className={`text-sm ${star <= (f.rating || 0) ? 'text-yellow-400' : 'text-white/10'}`}>★</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-white/70 leading-relaxed pl-13">{f.comment || '(내용 없음)'}</p>
+
+                                    {/* Admin Response */}
+                                    {f.admin_response && (
+                                        <div className="mt-3 ml-13 p-3 rounded-xl bg-[var(--primary)]/5 border border-[var(--primary)]/10">
+                                            <p className="text-[9px] text-[var(--primary)] font-bold mb-1">관리자 답변</p>
+                                            <p className="text-xs text-white/60">{f.admin_response}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-2 mt-4 pl-13 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={() => { setSelectedFeedback(f); setReplyText(f.admin_response || ''); }}
+                                            className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all"
+                                        >
+                                            {f.admin_response ? '답변 수정' : '답변하기'}
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                        <span key={star} className={`text-sm ${star <= f.rating ? 'text-yellow-400' : 'text-white/10'}`}>★</span>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Reply Modal */}
+            <AdminModal
+                isOpen={!!selectedFeedback}
+                onClose={() => { setSelectedFeedback(null); setReplyText(''); }}
+                title="피드백 답변"
+                size="md"
+                footer={
+                    <div className="flex gap-3 justify-end">
+                        <button onClick={() => { setSelectedFeedback(null); setReplyText(''); }} className="px-5 py-2.5 rounded-xl text-xs font-bold text-white/50 bg-white/[0.03] border border-white/5 hover:border-white/10">취소</button>
+                        <button onClick={() => selectedFeedback && submitReply(selectedFeedback.id)} disabled={saving || !replyText.trim()} className="admin-action-btn disabled:opacity-50">
+                            {saving ? '저장 중...' : '답변 저장'}
+                        </button>
+                    </div>
+                }
+            >
+                {selectedFeedback && (
+                    <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-sm font-bold text-white">{(selectedFeedback.members as any)?.name || '회원'}</span>
+                                <div className="flex gap-0.5">
+                                    {[1, 2, 3, 4, 5].map(s => (
+                                        <span key={s} className={`text-xs ${s <= (selectedFeedback.rating || 0) ? 'text-yellow-400' : 'text-white/10'}`}>★</span>
                                     ))}
                                 </div>
                             </div>
-                            <p className="text-sm text-white/70 leading-relaxed pl-13">{f.comment}</p>
-                            <div className="flex gap-2 mt-4 pl-13 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all">답변하기</button>
-                                <span className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase ${f.category === 'session' ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-purple-500/10 border border-purple-500/20 text-purple-400'}`}>{f.category === 'session' ? '수업' : '시설'}</span>
-                            </div>
+                            <p className="text-xs text-white/60">{selectedFeedback.comment}</p>
                         </div>
-                    ))}
-                </div>
-            </div>
+                        <div>
+                            <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 block">답변 내용</label>
+                            <textarea
+                                value={replyText}
+                                onChange={(e) => setReplyText(e.target.value)}
+                                placeholder="답변을 입력하세요..."
+                                rows={4}
+                                className="w-full admin-search-input resize-none"
+                                style={{ minHeight: '120px' }}
+                            />
+                        </div>
+                    </div>
+                )}
+            </AdminModal>
         </div>
     );
 }

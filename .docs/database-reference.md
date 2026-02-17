@@ -55,10 +55,49 @@
 #### 분석 (Analytics)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `session_feedback` | 수업 피드백 | session_id, member_id, rating, comments |
+| `session_feedback` | 수업 피드백 | session_id, member_id, coach_id, rating, comments, admin_response |
+
+#### 락커 관리 (Locker Management)
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `lockers` | 개별 락커 정보 | locker_number, size(S/M/L), status, monthly_fee, assigned_member_id |
+| `locker_assignments` | 배정 이력 | locker_id, member_id, start_date, end_date, status |
+
+#### Race 시스템 (Race Management) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `race_events` | Race 이벤트 | name, event_date, event_type, distance_meters, status |
+| `race_records` | Race 기록 | event_id, member_id, result_time, result_distance, is_pr |
+| `pm5_devices` | PM5 기기 | serial_number, device_type, status, firmware_version |
+
+#### RBAC (역할 기반 접근 제어) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `admin_roles` | 역할 정의 | name, display_name, permissions(JSONB), is_system_role |
+| `admin_user_roles` | 사용자-역할 매핑 | user_id, role_id, facility_id, assigned_by |
+
+#### 멤버십 이력 (Membership History) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `membership_history` | 변경 이력 | membership_id, action_type, old_values, new_values, changed_by |
+
+#### 알림 시스템 (Notification)
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `notification_rules` | 자동 알림 규칙 | name, trigger_type, trigger_config, channels, is_active |
+| `notification_logs` | 발송 로그 | rule_id, notification_id, channel, status, sent_at, read_at |
+| `notification_preferences` | 수신 설정 | user_id, class_reminder, push_enabled, quiet_hours |
+| `push_subscriptions` | 웹 푸시 구독 | user_id, endpoint, p256dh_key, auth_key |
+
+#### 보조 시스템 (Supplementary) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `qr_codes` | QR 코드 관리 | code, qr_type, facility_id, expires_at, is_active |
+| `kiosk_devices` | 키오스크 기기 | device_name, device_ip, status, last_heartbeat |
+| `audit_logs` | 감사 로그 | user_id, action, table_name, old_values, new_values |
 
 ### 상세 스키마
-- **초기 스키마**: [001_initial_schema.sql](./database/schema/001_initial_schema.sql)
+- **마이그레이션 파일**: `supabase/migrations/` 디렉토리
 - **전체 컬럼 정의**: Supabase Dashboard 또는 위 SQL 파일 참조
 
 ---
@@ -85,11 +124,23 @@
 
 ### 마이그레이션 파일
 ```
-database/schema/
-├── 001_initial_schema.sql         # 초기 스키마
-├── 002_add_race_tables.sql        # Race 시스템 테이블
-├── 003_add_insights_tables.sql    # Insights/Analytics 테이블
-└── 004_add_notification_system.sql # 알림 시스템
+supabase/migrations/
+├── 20260125105614_initial_schema_setup.sql
+├── 20260125153612_initial_schema_v0.6.sql
+├── 20260207020501_fix_auth_users_email_change_null.sql
+├── 20260208xxxxxx_*.sql (Auth/Members 개선 7개)
+├── 20260217102xxx_*.sql (Widget/의정 시스템 5개)
+├── 20260217104530_notification_system_schema.sql
+├── 20260217105553_notification_automation_cron.sql
+├── 20260217111257_add_lockers_table.sql
+├── 20260217203600_enhance_session_feedback.sql      🆕
+├── 20260217203700_create_race_system.sql             🆕
+├── 20260217203800_create_admin_rbac.sql              🆕
+├── 20260217203900_create_notification_logs.sql       🆕
+├── 20260217204000_create_membership_history.sql      🆕
+├── 20260217204100_enhance_existing_tables_columns.sql 🆕
+├── 20260217204200_create_supplementary_tables.sql    🆕
+└── 20260217204300_fix_rls_security_issues.sql        🆕
 ```
 
 ### 실행 방법

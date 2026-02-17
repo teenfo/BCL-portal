@@ -38,7 +38,7 @@ export function useNotifications(): UseNotificationsReturn {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        const { data } = await supabase
+        const { data }: any = await supabase
             .from('notifications')
             .select('*')
             .eq('user_id', user.id)

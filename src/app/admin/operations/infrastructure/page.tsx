@@ -20,7 +20,7 @@ export default function InfrastructurePage() {
         async function load() {
             const supabase = createClient();
             const { data } = await supabase.from('facilities').select('*').order('name');
-            if (data) setFacilities(data);
+            if (data) setFacilities(data as any);
             setLoading(false);
         }
         load();

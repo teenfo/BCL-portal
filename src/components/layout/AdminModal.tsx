@@ -4,13 +4,18 @@ import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface AdminModalProps {
-    show: boolean;
+    show?: boolean;
+    isOpen?: boolean;
     onClose: () => void;
     title: string;
     subtitle?: string;
     children: React.ReactNode;
     width?: string;
+    size?: 'sm' | 'md' | 'lg';
+    footer?: React.ReactNode;
 }
+
+const SIZE_MAP = { sm: '420px', md: '520px', lg: '680px' };
 
 /**
  * Unified Admin Modal Component
@@ -21,28 +26,30 @@ interface AdminModalProps {
  * - Click backdrop to dismiss
  * - Escape key to dismiss
  */
-export default function AdminModal({ show, onClose, title, subtitle, children, width = '520px' }: AdminModalProps) {
+export default function AdminModal({ show, isOpen, onClose, title, subtitle, children, width, size, footer }: AdminModalProps) {
+    const visible = show ?? isOpen ?? false;
+    const resolvedWidth = width || SIZE_MAP[size || 'md'];
     // Handle escape key
     useEffect(() => {
-        if (!show) return;
+        if (!visible) return;
         const handleEsc = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
         };
         window.addEventListener('keydown', handleEsc);
         return () => window.removeEventListener('keydown', handleEsc);
-    }, [show, onClose]);
+    }, [visible, onClose]);
 
     // Prevent body scroll when modal is open
     useEffect(() => {
-        if (show) {
+        if (visible) {
             document.body.style.overflow = 'hidden';
         } else {
             document.body.style.overflow = '';
         }
         return () => { document.body.style.overflow = ''; };
-    }, [show]);
+    }, [visible]);
 
-    if (!show) return null;
+    if (!visible) return null;
 
     return createPortal(
         <div
@@ -65,7 +72,7 @@ export default function AdminModal({ show, onClose, title, subtitle, children, w
             <div
                 className="relative p-8 rounded-2xl border border-white/10"
                 style={{
-                    width,
+                    width: resolvedWidth,
                     maxHeight: '85vh',
                     overflowY: 'auto',
                     background: '#1a1a1a',
@@ -81,6 +88,11 @@ export default function AdminModal({ show, onClose, title, subtitle, children, w
                 )}
                 {!subtitle && <div className="mb-6" />}
                 {children}
+                {footer && (
+                    <div className="mt-6 pt-6 border-t border-white/[0.05]">
+                        {footer}
+                    </div>
+                )}
             </div>
         </div>,
         document.body

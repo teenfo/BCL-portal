@@ -28,7 +28,7 @@ export default function BranchSetupPage() {
         const supabase = createClient();
         setLoading(true);
         const { data } = await supabase.from('facilities').select('*').order('name');
-        if (data) setFacilities(data);
+        if (data) setFacilities(data as any);
         setLoading(false);
     }
 
