@@ -23,7 +23,7 @@
 
 ---
 
-### When to Escalate to Senior Developer (Opus 4.5)
+### When to Escalate to Senior Developer (Opus 4.6)
 **필수 에스컬레이션:**
 - 결제/재무 시스템 개발
 - 복잡한 비즈니스 로직 구현

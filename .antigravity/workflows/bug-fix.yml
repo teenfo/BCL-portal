@@ -33,11 +33,11 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ---
 
 ### Step 2: Fix Implementation
-**Agent**: Senior Developer (Opus 4.5) 또는 Developer (Sonnet 4.5)  
+**Agent**: Senior Developer (Opus 4.6) 또는 Developer (Sonnet 4.5)  
 **Duration**: 1-4시간 (Critical), 반나절-1일 (High)
 
 **선택 기준**:
-- **Senior Developer** (Opus 4.5): 비즈니스 로직, 보안, 데이터베이스
+- **Senior Developer** (Opus 4.6): 비즈니스 로직, 보안, 데이터베이스
 - **Developer** (Sonnet 4.5): UI/API, 일반 로직
 
 **Actions**:

@@ -53,7 +53,7 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
 
 ---
 
-### 2. **Senior Developer** (Claude Opus 4.5 Thinking) 💎
+### 2. **Senior Developer** (Claude Opus 4.6 Thinking) 💎
 - **역할**: Senior Developer & Business Logic Expert
 - **전문 영역**: 복잡한 비즈니스 로직, 결제/재무, 보안 구현
 - **책임**:
@@ -110,8 +110,8 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
 ### Critical Modules (복잡도: Critical)
 | 모듈 | Primary | Reviewer | Tester | 이유 |
 |:-----|:--------|:---------|:-------|:-----|
-| `/admin/finance` | **Senior Dev** (Opus 4.5) | Architect | QA | 결제/재무 - 보안 최우선 |
-| `/database` | **Senior Dev** (Opus 4.5) | Architect | QA | 스키마 설계 - 아키텍처 중요 |
+| `/admin/finance` | **Senior Dev** (Opus 4.6) | Architect | QA | 결제/재무 - 보안 최우선 |
+| `/database` | **Senior Dev** (Opus 4.6) | Architect | QA | 스키마 설계 - 아키텍처 중요 |
 
 ### High Complexity Modules (복잡도: High)
 | 모듈 | Primary | Reviewer | Tester | 이유 |
@@ -229,7 +229,7 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 
 ### 에이전트 역할
 - [agents/architect.md](./agents/architect.md) - Opus 4.6 Thinking
-- [agents/senior-developer.md](./agents/senior-developer.md) - Opus 4.5 Thinking
+- [agents/senior-developer.md](./agents/senior-developer.md) - Opus 4.6 Thinking
 - [agents/developer.md](./agents/developer.md) - Sonnet 4.5 Thinking
 - [agents/specialist.md](./agents/specialist.md) - Gemini 3.0 Flash
 - [agents/qa.md](./agents/qa.md) - GPT OSS
@@ -250,6 +250,17 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 - **프로젝트 블루프린트**: `../.docs/project-blueprint.md`
 - **Sitemap**: `../.docs/sitemap/`
 - **데이터베이스**: `../.docs/database/`
+
+### ⚠️ 아카이브 폴더 (자동 참조 금지)
+- **경로**: `../.docs/archive/**`
+- **규칙**: Agent는 이 폴더를 자동으로 참조하지 않음
+- **구조**:
+  - `../.docs/archive/` - 초기 분석 리포트, 가이드, 기술 문서
+  - `../.docs/archive/result/` - 개발 과정 결과물 (리뷰, 완료 리포트, 구현 계획)
+- **참조 방법**: 사용자가 명시적으로 요청한 경우에만 참조
+  - 예시: "result 폴더의 AUTH_COMPLETE.md에서 인증 구현 내역 확인해줘"
+- **상세**: `../.docs/archive/README.md`, `../.docs/archive/result/README.md`
+
 
 ---
 
@@ -287,7 +298,7 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 - Security Issues Caught: 100%
 - Production Approval: 24시간 이내
 
-### Senior Developer (Opus 4.5)
+### Senior Developer (Opus 4.6)
 - Complex Features: 주 1-2개
 - Bug Fix (Critical): 4시간 이내
 - Code Quality: 0 보안 취약점
@@ -314,7 +325,7 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 ### v2.0 (2026-02-16)
 - 5개 에이전트 체계로 확장
 - Opus 4.6 Thinking (Architect) 추가
-- Opus 4.5 Thinking (Senior Developer) 역할 세분화
+- Opus 4.6 Thinking (Senior Developer) 역할 세분화
 - GPT OSS (QA) 추가
 - 모듈별 복잡도 및 담당자 재배치
 

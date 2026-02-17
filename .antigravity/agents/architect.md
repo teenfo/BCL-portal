@@ -76,7 +76,7 @@
 - 일반 UI 컴포넌트 (Developer)
 - 단위 테스트 작성 (QA)
 
-### When to Escalate Opus 4.5
+### When to Escalate Opus 4.6
 - 복잡한 비즈니스 로직 구현
 - 결제/재무 시스템 개발
 - RLS 정책 상세 구현
@@ -107,7 +107,7 @@
 
 ## Collaboration Protocol
 
-### With Senior Developer (Opus 4.5)
+### With Senior Developer (Opus 4.6)
 - 복잡한 비즈니스 로직 설계 협의
 - 결제/재무 시스템 아키텍처 리뷰
 - 보안 취약점 분석 협업

@@ -1,0 +1,361 @@
+
+> bcl-portal@0.1.0 lint
+> eslint
+
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/[id]/page.tsx
+  62:9  error    Error: Cannot access variable before it is declared
+
+`loadMemberData` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/[id]/page.tsx:62:9
+  60 |
+  61 |     useEffect(() => {
+> 62 |         loadMemberData();
+     |         ^^^^^^^^^^^^^^ `loadMemberData` accessed before it is declared
+  63 |     }, [memberId]);
+  64 |
+  65 |     async function loadMemberData() {
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/[id]/page.tsx:65:5
+  63 |     }, [memberId]);
+  64 |
+> 65 |     async function loadMemberData() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 66 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 67 |         setLoading(true);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 81 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 82 |     }
+     | ^^^^^^ `loadMemberData` is declared here
+  83 |
+  84 |     async function addNote() {
+  85 |         if (!newNote.trim()) return;  react-hooks/immutability
+  63:8  warning  React Hook useEffect has a missing dependency: 'loadMemberData'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      react-hooks/exhaustive-deps
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/page.tsx
+  25:23  error  Error: Cannot access variable before it is declared
+
+`loadMembers` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/page.tsx:25:23
+  23 |     const [filterStatus, setFilterStatus] = useState('all');
+  24 |
+> 25 |     useEffect(() => { loadMembers(); }, []);
+     |                       ^^^^^^^^^^^ `loadMembers` accessed before it is declared
+  26 |
+  27 |     async function loadMembers() {
+  28 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/members/page.tsx:27:5
+  25 |     useEffect(() => { loadMembers(); }, []);
+  26 |
+> 27 |     async function loadMembers() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 29 |         setLoading(true);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 36 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |     }
+     | ^^^^^^ `loadMembers` is declared here
+  38 |
+  39 |     const filteredMembers = members.filter((member) => {
+  40 |         const matchesSearch =  react-hooks/immutability
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/reservations/page.tsx
+  23:9  error    Error: Cannot access variable before it is declared
+
+`loadBookings` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/reservations/page.tsx:23:9
+  21 |
+  22 |     useEffect(() => {
+> 23 |         loadBookings();
+     |         ^^^^^^^^^^^^ `loadBookings` accessed before it is declared
+  24 |     }, [filter]);
+  25 |
+  26 |     async function loadBookings() {
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/reservations/page.tsx:26:5
+  24 |     }, [filter]);
+  25 |
+> 26 |     async function loadBookings() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 27 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |         let query = supabase.from('bookings').select('*, members(name), sessions(name, start_time)');
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 41 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 42 |     }
+     | ^^^^^^ `loadBookings` is declared here
+  43 |
+  44 |     return (
+  45 |         <div className="p-8 lg:p-12 transition-all duration-700">  react-hooks/immutability
+  24:8  warning  React Hook useEffect has a missing dependency: 'loadBookings'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 react-hooks/exhaustive-deps
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/schedule/page.tsx
+  23:9  error    Error: Cannot access variable before it is declared
+
+`loadSessions` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/schedule/page.tsx:23:9
+  21 |
+  22 |     useEffect(() => {
+> 23 |         loadSessions();
+     |         ^^^^^^^^^^^^ `loadSessions` accessed before it is declared
+  24 |     }, [selectedDate]);
+  25 |
+  26 |     async function loadSessions() {
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/operations/schedule/page.tsx:26:5
+  24 |     }, [selectedDate]);
+  25 |
+> 26 |     async function loadSessions() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 27 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |         const startOfDay = new Date(selectedDate);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 45 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 46 |     }
+     | ^^^^^^ `loadSessions` is declared here
+  47 |
+  48 |     return (
+  49 |         <div className="p-8 lg:p-12 transition-all duration-700">  react-hooks/immutability
+  24:8  warning  React Hook useEffect has a missing dependency: 'loadSessions'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  react-hooks/exhaustive-deps
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/plans/page.tsx
+  23:23  error  Error: Cannot access variable before it is declared
+
+`loadPlans` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/plans/page.tsx:23:23
+  21 |     const [form, setForm] = useState({ name: '', description: '', price: '', duration_days: '', credits: '' });
+  22 |
+> 23 |     useEffect(() => { loadPlans(); }, []);
+     |                       ^^^^^^^^^ `loadPlans` accessed before it is declared
+  24 |
+  25 |     async function loadPlans() {
+  26 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/admin/plans/page.tsx:25:5
+  23 |     useEffect(() => { loadPlans(); }, []);
+  24 |
+> 25 |     async function loadPlans() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 26 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 27 |         setLoading(true);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 28 |         const { data } = await supabase.from('membership_plans').select('*').order('price', { ascending: true });
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 29 |         if (data) setPlans(data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 30 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 31 |     }
+     | ^^^^^^ `loadPlans` is declared here
+  32 |
+  33 |     function openModal(plan?: Plan) {
+  34 |         if (plan) {  react-hooks/immutability
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/checkin/page.tsx
+  22:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/checkin/page.tsx:22:9
+  20 |
+  21 |     useEffect(() => {
+> 22 |         generateToken();
+     |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  23 |     }, [generateToken]);
+  24 |
+  25 |     useEffect(() => {  react-hooks/set-state-in-effect
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/dashboard/page.tsx
+  29:23  error  Error: Cannot access variable before it is declared
+
+`loadDashboard` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/dashboard/page.tsx:29:23
+  27 |     const [loading, setLoading] = useState(true);
+  28 |
+> 29 |     useEffect(() => { loadDashboard(); }, []);
+     |                       ^^^^^^^^^^^^^ `loadDashboard` accessed before it is declared
+  30 |
+  31 |     async function loadDashboard() {
+  32 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/dashboard/page.tsx:31:5
+  29 |     useEffect(() => { loadDashboard(); }, []);
+  30 |
+> 31 |     async function loadDashboard() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 32 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 33 |         const [sessionsRes, noticesRes] = await Promise.all([
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 34 |             supabase.from('sessions').select('*').gte('start_time', new Date().toISOString()).order('start_time', { ascending: true }).limit(3),
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 35 |             supabase.from('notices').select('*').order('date', { ascending: false }).limit(4),
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 36 |         ]);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 37 |         if (sessionsRes.data) setUpcomingSessions(sessionsRes.data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |         if (noticesRes.data) setNotices(noticesRes.data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 39 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 40 |     }
+     | ^^^^^^ `loadDashboard` is declared here
+  41 |
+  42 |     const intensityColors: Record<string, string> = { Low: '#22C55E', Medium: '#F59E0B', High: '#EF4444' };
+  43 |  react-hooks/immutability
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/facilities/page.tsx
+  18:23  error  Error: Cannot access variable before it is declared
+
+`loadFacilities` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/facilities/page.tsx:18:23
+  16 |     const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  17 |
+> 18 |     useEffect(() => { loadFacilities(); }, []);
+     |                       ^^^^^^^^^^^^^^ `loadFacilities` accessed before it is declared
+  19 |
+  20 |     async function loadFacilities() {
+  21 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/facilities/page.tsx:20:5
+  18 |     useEffect(() => { loadFacilities(); }, []);
+  19 |
+> 20 |     async function loadFacilities() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 21 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 22 |         const { data } = await supabase.from('facilities').select('*').order('name');
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 23 |         if (data) setFacilities(data);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |     }
+     | ^^^^^^ `loadFacilities` is declared here
+  26 |
+  27 |     const facilityIcons = ['🏋️', '💪', '🥊'];
+  28 |  react-hooks/immutability
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/profile/page.tsx
+  19:23  error  Error: Cannot access variable before it is declared
+
+`loadProfile` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/profile/page.tsx:19:23
+  17 |     const [loading, setLoading] = useState(true);
+  18 |
+> 19 |     useEffect(() => { loadProfile(); }, []);
+     |                       ^^^^^^^^^^^ `loadProfile` accessed before it is declared
+  20 |
+  21 |     async function loadProfile() {
+  22 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/profile/page.tsx:21:5
+  19 |     useEffect(() => { loadProfile(); }, []);
+  20 |
+> 21 |     async function loadProfile() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 22 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 23 |         const { data: plansData } = await supabase.from('membership_plans').select('*').order('price', { ascending: true });
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 24 |         if (plansData) setPlans(plansData);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 26 |     }
+     | ^^^^^^ `loadProfile` is declared here
+  27 |
+  28 |     const menuItems = [
+  29 |         { icon: '👤', label: '프로필 수정', desc: '이름, 연락처 변경' },  react-hooks/immutability
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/schedule/page.tsx
+  22:23  error    Error: Cannot access variable before it is declared
+
+`loadSessions` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/schedule/page.tsx:22:23
+  20 |     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  21 |
+> 22 |     useEffect(() => { loadSessions(); }, [selectedDate]);
+     |                       ^^^^^^^^^^^^ `loadSessions` accessed before it is declared
+  23 |
+  24 |     async function loadSessions() {
+  25 |         const supabase = createClient();
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/apps/schedule/page.tsx:24:5
+  22 |     useEffect(() => { loadSessions(); }, [selectedDate]);
+  23 |
+> 24 |     async function loadSessions() {
+     |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 25 |         const supabase = createClient();
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 26 |         setLoading(true);
+     …
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 38 |         setLoading(false);
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 39 |     }
+     | ^^^^^^ `loadSessions` is declared here
+  40 |
+  41 |     // Generate week dates for horizontal scrolling date picker
+  42 |     function getWeekDates() {  react-hooks/immutability
+  22:42  warning  React Hook useEffect has a missing dependency: 'loadSessions'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/auth/reset-password/page.tsx
+   95:39  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  128:60  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/app/layout.tsx
+  18:17  warning  A font-display parameter is missing (adding `&display=optional` is recommended). See: https://nextjs.org/docs/messages/google-font-display                       @next/next/google-font-display
+  18:17  warning  Custom fonts not added in `pages/_document.js` will only load for a single page. This is discouraged. See: https://nextjs.org/docs/messages/no-page-custom-font  @next/next/no-page-custom-font
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/components/layout/AdminSidebar.tsx
+  82:9  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/components/layout/AdminSidebar.tsx:82:9
+  80 |             initialStates[group.name] = idx === 0 || group.items.some(item => pathname.startsWith(item.href));
+  81 |         });
+> 82 |         setOpenGroups(initialStates);
+     |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  83 |     }, []);
+  84 |
+  85 |     const toggleGroup = (name: string) => {  react-hooks/set-state-in-effect
+  83:8  warning  React Hook useEffect has a missing dependency: 'pathname'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    react-hooks/exhaustive-deps
+
+/Users/kimchoho/Antigravity/BCL-Repo/portal/src/contexts/AuthContext.tsx
+  43:8  warning  React Hook useEffect has a missing dependency: 'supabase.auth'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+✖ 21 problems (13 errors, 8 warnings)
+

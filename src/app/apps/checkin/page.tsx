@@ -1,187 +1,112 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { createClient } from '@/lib/supabase/client';
+import { useEffect, useState, useCallback } from 'react';
 
+export default function UserCheckinPage() {
+    const [qrToken, setQrToken] = useState('');
+    const [timeLeft, setTimeLeft] = useState(30);
+    const [isActive, setIsActive] = useState(true);
 
-export default function CheckInPage() {
-    const { user } = useAuth();
-    const [qrCode, setQrCode] = useState<string>('');
-    const [expiresAt, setExpiresAt] = useState<Date | null>(null);
-    const [stats, setStats] = useState({ thisWeek: 0, thisMonth: 0, total: 0 });
+    const generateToken = useCallback(() => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let token = 'BCL-';
+        for (let i = 0; i < 16; i++) {
+            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        token += '-' + Date.now().toString(36);
+        setQrToken(token);
+        setTimeLeft(30);
+    }, []);
 
     useEffect(() => {
-        generateQR();
-        loadStats();
+        generateToken();
+    }, [generateToken]);
 
-        // Regenerate QR every 30 seconds
-        const interval = setInterval(generateQR, 30000);
+    useEffect(() => {
+        if (!isActive) return;
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    generateToken();
+                    return 30;
+                }
+                return prev - 1;
+            });
+        }, 1000);
         return () => clearInterval(interval);
-    }, [user]);
+    }, [isActive, generateToken]);
 
-    async function generateQR() {
-        if (!user) return;
-
-        // Generate a time-based token
-        const token = `${user.id}:${Date.now()}`;
-        const encoded = btoa(token);
-        setQrCode(encoded);
-        setExpiresAt(new Date(Date.now() + 30000)); // 30 seconds
-    }
-
-    async function loadStats() {
-        if (!user) return;
-
-        const supabase = createClient();
-
-        // This week
-        const { count: weekCount } = await supabase
-            .from('check_ins')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .gte('checked_in_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
-
-        // This month
-        const { count: monthCount } = await supabase
-            .from('check_ins')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .gte('checked_in_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString());
-
-        // Total
-        const { count: totalCount } = await supabase
-            .from('check_ins')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id);
-
-        setStats({
-            thisWeek: weekCount || 0,
-            thisMonth: monthCount || 0,
-            total: totalCount || 0,
-        });
-    }
+    const progressPercent = (timeLeft / 30) * 100;
 
     return (
-        <div className="min-h-screen pb-20" style={{ background: 'var(--background)' }}>
-            {/* Header */}
-            <div className="p-6 pb-4">
-                <h1 className="text-2xl font-bold text-white">Check-in</h1>
-                <p style={{ color: 'var(--foreground-secondary)' }}>Scan QR code at the facility</p>
-            </div>
+        <div className="p-4 pb-24 max-w-lg mx-auto animate-fade-in">
+            <h1 className="text-2xl font-bold text-white mb-6">체크인</h1>
 
-            {/* QR Code */}
-            <div className="px-4 mb-6">
-                <div
-                    className="glass-card p-8 rounded-xl text-center"
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.9), rgba(20, 20, 20, 0.95))',
-                    }}
-                >
-                    <div
-                        className="bg-white p-6 rounded-xl inline-block mb-4"
-                        style={{
-                            boxShadow: '0 0 0 4px var(--bcl-orange)',
-                        }}
-                    >
-                        {/* QR Code Placeholder - In production, use a QR library */}
-                        <div className="w-48 h-48 flex items-center justify-center text-gray-800">
-                            <div>
-                                <div className="text-6xl font-mono break-all text-center">
-                                    {qrCode.substring(0, 16)}
-                                </div>
-                                <p className="text-xs mt-2">QR Code</p>
-                            </div>
-                        </div>
-                    </div>
+            {/* QR Code Container */}
+            <div className="glass-card p-6 rounded-xl text-center mb-6">
+                <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+                    키오스크에 아래 QR을 스캔하세요
+                </p>
 
-                    <p className="text-white font-semibold mb-1">Member ID: {user?.id.substring(0, 8)}</p>
-                    <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                        Expires in {expiresAt ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)) : 30}s
-                    </p>
-
-                    <div className="mt-4 flex justify-center">
-                        <div
-                            className="h-1 w-full max-w-xs rounded-full overflow-hidden"
-                            style={{ background: 'rgba(255, 255, 255, 0.1)' }}
-                        >
+                {/* QR Code Visual (ASCII art style as placeholder) */}
+                <div className="mx-auto w-48 h-48 rounded-xl flex items-center justify-center mb-4 relative" style={{ background: '#fff' }}>
+                    <div className="grid grid-cols-8 gap-0.5 p-3">
+                        {Array.from({ length: 64 }, (_, i) => (
                             <div
-                                className="h-full transition-all duration-1000"
+                                key={i}
+                                className="w-4 h-4 rounded-sm"
                                 style={{
-                                    background: 'var(--bcl-orange)',
-                                    width: expiresAt
-                                        ? `${((expiresAt.getTime() - Date.now()) / 30000) * 100}%`
-                                        : '100%',
+                                    background: qrToken.charCodeAt(i % qrToken.length) % 3 !== 0 ? '#1A1A1A' : '#FFFFFF',
                                 }}
                             />
-                        </div>
+                        ))}
                     </div>
                 </div>
-            </div>
 
-            {/* Stats Grid */}
-            <div className="px-4 mb-6">
-                <h2 className="text-lg font-semibold text-white mb-3">Attendance Stats</h2>
-                <div className="grid grid-cols-3 gap-3">
-                    <div className="glass-card p-4 rounded-xl text-center">
-                        <p className="text-2xl font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                            {stats.thisWeek}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--foreground-secondary)' }}>
-                            This Week
-                        </p>
+                {/* Timer */}
+                <div className="mb-3">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-3xl font-bold text-white">{timeLeft}</span>
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>초 후 갱신</span>
                     </div>
-                    <div className="glass-card p-4 rounded-xl text-center">
-                        <p className="text-2xl font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                            {stats.thisMonth}
-                        </p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--foreground-secondary)' }}>
-                            This Month
-                        </p>
-                    </div>
-                    <div className="glass-card p-4 rounded-xl text-center">
-                        <p className="text-2xl font-bold text-white">{stats.total}</p>
-                        <p className="text-xs mt-1" style={{ color: 'var(--foreground-secondary)' }}>
-                            Total
-                        </p>
+                    <div className="w-full h-2 rounded-full" style={{ background: 'rgba(255,255,255,0.1)' }}>
+                        <div
+                            className="h-full rounded-full transition-all duration-1000"
+                            style={{
+                                width: `${progressPercent}%`,
+                                background: timeLeft <= 5 ? 'var(--error)' : timeLeft <= 10 ? 'var(--warning)' : 'var(--primary)',
+                            }}
+                        />
                     </div>
                 </div>
+
+                <button
+                    onClick={() => setIsActive(!isActive)}
+                    className="text-sm px-4 py-2 mt-2 rounded-lg transition-all"
+                    style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-secondary)' }}
+                >
+                    {isActive ? '⏸ 일시정지' : '▶ 재개'}
+                </button>
             </div>
 
             {/* Instructions */}
-            <div className="px-4">
-                <div className="glass-card p-6 rounded-xl">
-                    <h3 className="text-white font-semibold mb-3">How to Check-in</h3>
-                    <ol className="space-y-2 text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                        <li className="flex gap-3">
-                            <span className="font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                                1.
-                            </span>
-                            <span>Find the check-in kiosk at the facility entrance</span>
-                        </li>
-                        <li className="flex gap-3">
-                            <span className="font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                                2.
-                            </span>
-                            <span>Increase screen brightness for better scanning</span>
-                        </li>
-                        <li className="flex gap-3">
-                            <span className="font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                                3.
-                            </span>
-                            <span>Hold your QR code steady in front of the camera</span>
-                        </li>
-                        <li className="flex gap-3">
-                            <span className="font-bold" style={{ color: 'var(--bcl-orange)' }}>
-                                4.
-                            </span>
-                            <span>Wait for confirmation beep and message</span>
-                        </li>
-                    </ol>
+            <div className="glass-card p-5 rounded-xl">
+                <h3 className="text-white font-semibold mb-3">체크인 안내</h3>
+                <div className="space-y-3">
+                    {[
+                        { step: '1', text: '입구의 키오스크에서 "체크인" 버튼을 터치', icon: '📱' },
+                        { step: '2', text: '화면의 QR 코드를 키오스크 스캐너에 비춤', icon: '📷' },
+                        { step: '3', text: '"체크인 완료" 메시지가 나오면 입장', icon: '✅' },
+                    ].map((item) => (
+                        <div key={item.step} className="flex items-center gap-3">
+                            <span className="text-lg">{item.icon}</span>
+                            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                                <span className="text-white font-semibold">Step {item.step}.</span> {item.text}
+                            </p>
+                        </div>
+                    ))}
                 </div>
             </div>
-
-
         </div>
     );
 }

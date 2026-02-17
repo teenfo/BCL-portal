@@ -1,203 +1,138 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
-
-interface Class {
+interface Session {
     id: string;
-    name: string;
+    title: string;
+    coach_name: string;
     start_time: string;
     end_time: string;
-    max_capacity: number;
-    current_capacity: number;
-    coach_name: string;
-    facility_name: string;
+    intensity: string;
+    capacity: number;
+    enrolled: number;
 }
 
-export default function SchedulePage() {
-    const { user } = useAuth();
-    const [selectedDate, setSelectedDate] = useState(new Date());
-    const [classes, setClasses] = useState<Class[]>([]);
+export default function UserSchedulePage() {
+    const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
 
-    useEffect(() => {
-        loadClasses();
-    }, [selectedDate]);
+    useEffect(() => { loadSessions(); }, [selectedDate]);
 
-    async function loadClasses() {
+    async function loadSessions() {
         const supabase = createClient();
         setLoading(true);
+        const startOfDay = selectedDate + 'T00:00:00+09:00';
+        const endOfDay = selectedDate + 'T23:59:59+09:00';
 
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
-
-        const { data, error } = await supabase
-            .from('classes')
-            .select(`
-                *,
-                coach:users!coach_id(full_name),
-                facility:facilities(name)
-            `)
-            .gte('start_time', startOfDay.toISOString())
-            .lte('start_time', endOfDay.toISOString())
+        const { data } = await supabase
+            .from('sessions')
+            .select('*')
+            .gte('start_time', startOfDay)
+            .lte('start_time', endOfDay)
             .order('start_time', { ascending: true });
 
-        if (!error && data) {
-            setClasses(
-                data.map((c: any) => ({
-                    id: c.id,
-                    name: c.name,
-                    start_time: c.start_time,
-                    end_time: c.end_time,
-                    max_capacity: c.max_capacity,
-                    current_capacity: c.current_capacity,
-                    coach_name: c.coach.full_name,
-                    facility_name: c.facility.name,
-                }))
-            );
-        }
-
+        if (data) setSessions(data);
         setLoading(false);
     }
 
-    async function handleBookClass(classId: string) {
-        if (!user) return;
-
-        const supabase = createClient();
-        const { error } = await supabase.from('bookings').insert({
-            user_id: user.id,
-            class_id: classId,
-            status: 'confirmed',
-        });
-
-        if (!error) {
-            alert('Class booked successfully!');
-            loadClasses();
-        } else {
-            alert('Failed to book class: ' + error.message);
+    // Generate week dates for horizontal scrolling date picker
+    function getWeekDates() {
+        const dates = [];
+        const today = new Date();
+        for (let i = -2; i <= 6; i++) {
+            const d = new Date(today);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
         }
+        return dates;
     }
 
-    function changeDate(days: number) {
-        const newDate = new Date(selectedDate);
-        newDate.setDate(newDate.getDate() + days);
-        setSelectedDate(newDate);
-    }
+    const weekDates = getWeekDates();
+    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+    const intensityColors: Record<string, string> = { Low: '#22C55E', Medium: '#F59E0B', High: '#EF4444' };
 
     return (
-        <div className="min-h-screen pb-20" style={{ background: 'var(--background)' }}>
-            {/* Header */}
-            <div className="p-6 pb-4">
-                <h1 className="text-2xl font-bold text-white">Schedule</h1>
-                <p style={{ color: 'var(--foreground-secondary)' }}>Book your classes</p>
+        <div className="p-4 pb-24 max-w-lg mx-auto animate-fade-in">
+            <h1 className="text-2xl font-bold text-white mb-4">수업 일정</h1>
+
+            {/* Date Picker */}
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
+                {weekDates.map((date) => {
+                    const dateStr = date.toISOString().split('T')[0];
+                    const isSelected = dateStr === selectedDate;
+                    const isToday = dateStr === new Date().toISOString().split('T')[0];
+                    return (
+                        <button
+                            key={dateStr}
+                            onClick={() => setSelectedDate(dateStr)}
+                            className="flex flex-col items-center min-w-[52px] py-3 px-2 rounded-xl transition-all"
+                            style={isSelected ? { background: 'var(--primary)', color: '#fff' } : { background: 'var(--surface)', color: 'var(--text-secondary)' }}
+                        >
+                            <span className="text-xs font-medium">{dayNames[date.getDay()]}</span>
+                            <span className="text-lg font-bold mt-1" style={{ color: isSelected ? '#fff' : 'var(--text-primary)' }}>{date.getDate()}</span>
+                            {isToday && <div className="w-1.5 h-1.5 rounded-full mt-1" style={{ background: isSelected ? '#fff' : 'var(--primary)' }}></div>}
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Date Selector */}
-            <div className="px-4 mb-4">
-                <div className="glass-card flex items-center justify-between p-4 rounded-xl">
-                    <button
-                        onClick={() => changeDate(-1)}
-                        className="p-2 rounded-lg transition-colors"
-                        style={{ background: 'rgba(255, 255, 255, 0.05)' }}
-                    >
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                        </svg>
-                    </button>
-
-                    <div className="text-center">
-                        <p className="text-lg font-semibold text-white">
-                            {selectedDate.toLocaleDateString('en-US', {
-                                weekday: 'long',
-                            })}
-                        </p>
-                        <p style={{ color: 'var(--foreground-secondary)' }}>
-                            {selectedDate.toLocaleDateString('en-US', {
-                                month: 'long',
-                                day: 'numeric',
-                                year: 'numeric',
-                            })}
-                        </p>
-                    </div>
-
-                    <button
-                        onClick={() => changeDate(1)}
-                        className="p-2 rounded-lg transition-colors"
-                        style={{ background: 'rgba(255, 255, 255, 0.05)' }}
-                    >
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                    </button>
+            {/* Sessions */}
+            {loading ? (
+                <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
                 </div>
-            </div>
-
-            {/* Classes List */}
-            <div className="px-4 space-y-3">
-                {loading ? (
-                    <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 mx-auto" style={{ borderColor: 'var(--bcl-orange)' }}></div>
-                    </div>
-                ) : classes.length === 0 ? (
-                    <div className="glass-card p-8 rounded-xl text-center">
-                        <p style={{ color: 'var(--foreground-secondary)' }}>No classes scheduled for this date</p>
-                    </div>
-                ) : (
-                    classes.map((classItem) => (
-                        <div key={classItem.id} className="glass-card p-4 rounded-xl">
-                            <div className="flex justify-between items-start mb-3">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-white">{classItem.name}</h3>
-                                    <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                                        {classItem.coach_name}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-sm font-semibold" style={{ color: 'var(--bcl-orange)' }}>
-                                        {new Date(classItem.start_time).toLocaleTimeString('en-US', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                        })}
-                                    </p>
-                                    <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-                                        {classItem.facility_name}
-                                    </p>
+            ) : sessions.length === 0 ? (
+                <div className="glass-card p-8 rounded-xl text-center">
+                    <p className="text-4xl mb-3">🏋️</p>
+                    <p className="text-white font-semibold mb-1">이 날짜에 수업이 없습니다</p>
+                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>다른 날짜를 확인해보세요</p>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    {sessions.map((session) => {
+                        const isFull = session.enrolled >= session.capacity;
+                        return (
+                            <div key={session.id} className="glass-card p-4 rounded-xl">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex gap-3">
+                                        <div className="text-center pt-1">
+                                            <p className="text-white font-bold text-sm">
+                                                {new Date(session.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                                ~{new Date(session.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        <div className="w-px self-stretch" style={{ background: 'var(--border)' }}></div>
+                                        <div>
+                                            <h3 className="text-white font-semibold">{session.title}</h3>
+                                            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>코치: {session.coach_name}</p>
+                                            <div className="flex items-center gap-2 mt-2">
+                                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: `${intensityColors[session.intensity]}20`, color: intensityColors[session.intensity] }}>
+                                                    {session.intensity}
+                                                </span>
+                                                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{session.enrolled}/{session.capacity}명</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        disabled={isFull}
+                                        className="px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95"
+                                        style={isFull
+                                            ? { background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', cursor: 'not-allowed' }
+                                            : { background: 'var(--primary)', color: '#fff' }}
+                                    >
+                                        {isFull ? '마감' : '예약'}
+                                    </button>
                                 </div>
                             </div>
-
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--foreground-secondary)' }}>
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    <span>
-                                        {classItem.current_capacity}/{classItem.max_capacity}
-                                    </span>
-                                </div>
-
-                                <button
-                                    onClick={() => handleBookClass(classItem.id)}
-                                    disabled={classItem.current_capacity >= classItem.max_capacity}
-                                    className="px-4 py-2 rounded-lg font-semibold text-sm transition-opacity disabled:opacity-50"
-                                    style={{
-                                        background: 'var(--bcl-orange)',
-                                        color: '#FFFFFF',
-                                    }}
-                                >
-                                    {classItem.current_capacity >= classItem.max_capacity ? 'Full' : 'Book'}
-                                </button>
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-
-
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }

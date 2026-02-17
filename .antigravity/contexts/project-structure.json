@@ -6,7 +6,7 @@
                 ".docs/database/README.md",
                 ".docs/security/README.md"
             ],
-            "assignedTo": "claude-opus-4.5"
+            "assignedTo": "claude-opus-4.6"
         },
         "frontend-common": {
             "files": [

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import Logo from '@/components/ui/Logo';
 
 export default function LoginPage() {
     const router = useRouter();
@@ -28,220 +29,136 @@ export default function LoginPage() {
     };
 
     return (
-        <div
-            className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden"
-            style={{ background: 'var(--background)' }}
-        >
-            {/* Blue Outer Glow Effect */}
-            <div className="absolute inset-0 bcl-blue-glow pointer-events-none" />
+        <div className="min-h-screen flex items-center justify-center p-4 relative bg-[var(--background)] overflow-hidden">
+            {/* Background Glow Spots */}
+            <div className="bcl-glow-spot w-[600px] h-[600px] -top-48 -left-48 opacity-20" />
+            <div className="bcl-glow-spot w-[400px] h-[400px] -bottom-24 -right-24 opacity-10" />
 
-            {/* Main Card Container */}
-            <div className="relative w-full max-w-md">
-                {/* Glass Card */}
-                <div
-                    className="relative rounded-2xl p-10"
-                    style={{
-                        background: 'linear-gradient(135deg, rgba(30, 30, 30, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%)',
-                        border: '1px solid rgba(255, 255, 255, 0.05)',
-                        backdropFilter: 'blur(20px)'
-                    }}
-                >
-                    {/* Header Section - Logo, Title, Subtitle */}
-                    <div className="text-center mb-8">
-                        {/* BCL Circle Logo */}
-                        <div className="flex justify-center mb-6">
-                            <div className="bcl-logo-circle bcl-logo-glow">
-                                <span className="text-2xl font-bold text-white">BCL</span>
-                            </div>
+            {/* Main Container */}
+            <div className="relative w-full max-w-[420px] animate-fade-in">
+                {/* Brand Logo & Header */}
+                <div className="flex flex-col items-center mb-10">
+                    <Logo size={60} className="mb-8" />
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2">
+                        <span className="text-white">Portal</span>
+                        <span className="text-[var(--primary)] ml-1">.</span>
+                    </h1>
+                </div>
+
+                {/* Login Card */}
+                <div className="premium-card p-1">
+                    <div className="bg-[#1A1A1A]/40 backdrop-blur-xl rounded-[calc(var(--radius-md)-4px)] p-8">
+                        <div className="mb-8">
+                            <h2 className="text-2xl font-bold text-white mb-1">Welcome Back</h2>
+                            <p className="text-sm text-[var(--text-secondary)]">
+                                Enter your credentials to access the portal
+                            </p>
                         </div>
-
-                        {/* Portal Title */}
-                        <h1 className="text-4xl font-bold mb-2">
-                            <span className="text-white">BCL </span>
-                            <span style={{ color: 'var(--bcl-orange)' }}>Portal</span>
-                        </h1>
-                        <p
-                            className="text-xs font-semibold tracking-wider uppercase"
-                            style={{ color: 'var(--bcl-orange)' }}
-                        >
-                            BUNDANG CROSSFIT LOUNGE
-                        </p>
-                    </div>
-
-                    {/* Form Section - Inner Dark Box */}
-                    <div
-                        className="rounded-xl p-8 mb-8"
-                        style={{
-                            background: 'rgba(10, 10, 10, 0.7)',
-                            border: '1px solid rgba(255, 255, 255, 0.02)'
-                        }}
-                    >
-                        {/* Form Title */}
-                        <h2 className="text-2xl font-semibold text-white mb-2">Login</h2>
-                        <p className="text-sm mb-6" style={{ color: 'var(--foreground-secondary)' }}>
-                            Welcome back to BCL Portal
-                        </p>
 
                         {/* Error Message */}
                         {error && (
-                            <div
-                                className="mb-5 p-3 rounded-lg text-sm text-center"
-                                style={{
-                                    background: 'rgba(239, 68, 68, 0.1)',
-                                    border: '1px solid rgba(239, 68, 68, 0.3)',
-                                    color: '#F87171'
-                                }}
-                            >
+                            <div className="mb-6 p-3 rounded-lg text-sm bg-red-500/10 border border-red-500/20 text-red-400 text-center animate-shake">
                                 {error}
                             </div>
                         )}
 
-                        {/* Form */}
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            {/* Email Input */}
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                required
-                                placeholder="Email Address"
-                                className="bcl-input w-full"
-                                autoComplete="email"
-                            />
-
-                            {/* Password Input */}
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                placeholder="Password"
-                                className="bcl-input w-full"
-                                autoComplete="current-password"
-                            />
-
-                            {/* Remember Me + Forgot Password */}
-                            <div className="flex items-center justify-between text-sm pt-1">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={remember}
-                                        onChange={(e) => setRemember(e.target.checked)}
-                                        className="w-4 h-4 rounded"
-                                        style={{
-                                            accentColor: 'var(--bcl-orange)'
-                                        }}
-                                    />
-                                    <span style={{ color: 'var(--foreground-secondary)' }}>
-                                        Remember Me
-                                    </span>
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">
+                                    Email Address
                                 </label>
-                                <Link
-                                    href="/auth/reset-password"
-                                    className="font-medium transition-colors"
-                                    style={{ color: 'var(--bcl-orange)' }}
-                                >
-                                    Forgot Password?
-                                </Link>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    required
+                                    placeholder="name@example.com"
+                                    className="bcl-input"
+                                    autoComplete="email"
+                                />
                             </div>
 
-                            {/* Sign In Button */}
+                            <div className="space-y-1.5">
+                                <div className="flex justify-between items-center ml-1">
+                                    <label className="text-xs font-medium text-[var(--text-secondary)]">
+                                        Password
+                                    </label>
+                                    <Link
+                                        href="/auth/reset-password"
+                                        className="text-[11px] font-medium text-[var(--primary)] hover:underline opacity-80"
+                                    >
+                                        Forgot Password?
+                                    </Link>
+                                </div>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder="••••••••"
+                                    className="bcl-input"
+                                    autoComplete="current-password"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-2 px-1">
+                                <label className="flex items-center gap-2 cursor-pointer group">
+                                    <div className="relative">
+                                        <input
+                                            type="checkbox"
+                                            checked={remember}
+                                            onChange={(e) => setRemember(e.target.checked)}
+                                            className="peer sr-only"
+                                        />
+                                        <div className="w-4 h-4 rounded border border-[var(--border)] peer-checked:bg-[var(--primary)] peer-checked:border-[var(--primary)] transition-all" />
+                                        <svg className="absolute inset-0 w-3 h-3 text-white m-auto opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <span className="text-xs text-[var(--text-secondary)] group-hover:text-white transition-colors">
+                                        Remember this session
+                                    </span>
+                                </label>
+                            </div>
+
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg font-semibold transition-all disabled:opacity-50 mt-6"
-                                style={{
-                                    background: 'var(--bcl-orange)',
-                                    color: '#FFFFFF'
-                                }}
+                                className="bcl-button-primary w-full py-4 mt-4"
                             >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                                    />
-                                </svg>
-                                {loading ? 'Signing In...' : 'Sign In'}
+                                {loading ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Authenticating...
+                                    </span>
+                                ) : (
+                                    'Sign In to Portal'
+                                )}
                             </button>
                         </form>
 
-                        {/* Social Login Separator */}
-                        <div className="relative my-6">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t" style={{ borderColor: 'var(--border-color)' }}></div>
-                            </div>
-                            <div className="relative flex justify-center text-sm">
-                                <span
-                                    className="px-4"
-                                    style={{
-                                        background: 'rgba(10, 10, 10, 0.7)',
-                                        color: 'var(--foreground-secondary)'
-                                    }}
+                        <div className="mt-8 pt-8 border-t border-[var(--border)] text-center">
+                            <p className="text-sm text-[var(--text-secondary)]">
+                                New to BCL?{' '}
+                                <Link
+                                    href="/auth/signup"
+                                    className="font-bold text-white hover:text-[var(--primary)] transition-colors ml-1"
                                 >
-                                    or continue with
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Social Login Buttons */}
-                        <div className="grid grid-cols-2 gap-3">
-                            <button
-                                className="py-3 px-4 rounded-lg border transition-all text-sm font-medium"
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.03)',
-                                    borderColor: 'var(--border-color)',
-                                    color: 'var(--foreground-secondary)'
-                                }}
-                            >
-                                Google
-                            </button>
-                            <button
-                                className="py-3 px-4 rounded-lg border transition-all text-sm font-medium"
-                                style={{
-                                    background: 'rgba(255, 255, 255, 0.03)',
-                                    borderColor: 'var(--border-color)',
-                                    color: 'var(--foreground-secondary)'
-                                }}
-                            >
-                                Kakao
-                            </button>
-                        </div>
-
-                        {/* Sign Up Link */}
-                        <div className="mt-6 text-center text-sm">
-                            <span style={{ color: 'var(--foreground-secondary)' }}>
-                                Don't have an account?{' '}
-                            </span>
-                            <Link
-                                href="/auth/signup"
-                                className="font-semibold transition-colors"
-                                style={{ color: 'var(--bcl-orange)' }}
-                            >
-                                Sign Up
-                            </Link>
-                        </div>
-
-                        {/* Support Link */}
-                        <div className="mt-3 text-center text-sm">
-                            <span style={{ color: 'var(--foreground-secondary)' }}>Need help? </span>
-                            <a
-                                href="#"
-                                className="font-medium transition-colors"
-                                style={{ color: 'var(--bcl-orange)' }}
-                            >
-                                Contact Support
-                            </a>
+                                    Create Account
+                                </Link>
+                            </p>
                         </div>
                     </div>
+                </div>
 
-                    {/* Footer Section - Copyright */}
-                    <div className="text-center">
-                        <p className="text-xs" style={{ color: 'var(--foreground-secondary)' }}>
-                            © 2024 BCL Portal. Login. Premium Dark Mode Experience
-                        </p>
-                    </div>
+                {/* Footer Info */}
+                <div className="mt-10 text-center">
+                    <p className="text-[10px] text-[var(--text-muted)] font-medium tracking-wide">
+                        © 2026 BCL PORTAL • PREMIUM AUTHENTICATION SYSTEM
+                    </p>
                 </div>
             </div>
         </div>

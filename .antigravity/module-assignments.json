@@ -10,11 +10,11 @@
         },
         "/admin/finance": {
             "primary": "gemini-3.0-flash",
-            "backend": "claude-opus-4.5-thinking",
+            "backend": "claude-opus-4.6-thinking",
             "reviewer": "claude-opus-4.6-thinking",
             "tester": "gpt-oss",
             "complexity": "critical",
-            "note": "UI는 Gemini, 결제/재무 로직은 Opus 4.5 - 보안 최우선"
+            "note": "UI는 Gemini, 결제/재무 로직은 Opus 4.6 - 보안 최우선"
         },
         "/admin/operations": {
             "primary": "gemini-3.0-flash",
@@ -28,7 +28,7 @@
         "/admin/crm": {
             "primary": "gemini-3.0-flash",
             "backend": "claude-sonnet-4.5-thinking",
-            "reviewer": "claude-opus-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
             "tester": "gpt-oss",
             "complexity": "medium",
             "note": "UI는 Gemini, CRM 로직은 Sonnet"
@@ -44,7 +44,7 @@
         "/coach": {
             "primary": "gemini-3.0-flash",
             "backend": "claude-sonnet-4.5-thinking",
-            "reviewer": "claude-opus-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
             "tester": "gpt-oss",
             "complexity": "medium",
             "note": "코치 앱 UI는 Gemini 담당"
@@ -66,7 +66,7 @@
             "note": "QR 스캔, 카메라 처리 - Gemini 전담 (UI + 하드웨어)"
         },
         "/database": {
-            "primary": "claude-opus-4.5-thinking",
+            "primary": "claude-opus-4.6-thinking",
             "reviewer": "claude-opus-4.6-thinking",
             "tester": "gpt-oss",
             "complexity": "critical",
@@ -74,7 +74,7 @@
         },
         "/api/routes": {
             "primary": "claude-sonnet-4.5-thinking",
-            "reviewer": "claude-opus-4.5-thinking",
+            "reviewer": "claude-opus-4.6-thinking",
             "tester": "gpt-oss",
             "complexity": "medium",
             "note": "API 엔드포인트, 비즈니스 로직"

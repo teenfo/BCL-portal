@@ -19,7 +19,7 @@
             "description": "최종 설계 검증, 아키텍처 결정, 시스템 전체 조율"
         },
         "senior-developer": {
-            "model": "claude-opus-4.5-thinking",
+            "model": "claude-opus-4.6-thinking",
             "role": "senior-developer",
             "expertise": "complex-business-logic",
             "context": [

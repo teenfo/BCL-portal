@@ -1,6 +1,6 @@
 # Role: Senior Developer & Business Logic Expert
 
-**Model**: Claude Opus 4.5 Thinking  
+**Model**: Claude Opus 4.6 Thinking  
 **Level**: Senior Developer  
 **Focus**: 복잡한 비즈니스 로직, 결제/재무, 보안 구현
 
