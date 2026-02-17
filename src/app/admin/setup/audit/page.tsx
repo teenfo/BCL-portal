@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
 
 interface AuditLog {
     id: string;
@@ -46,56 +47,57 @@ export default function AuditLogsPage() {
     const actionColors: Record<string, string> = { CREATE: '#22C55E', UPDATE: '#3B82F6', DELETE: '#EF4444' };
 
     return (
-        <div className="p-8 lg:p-12">
-            <header className="mb-12">
-                <div className="flex items-center gap-3 mb-2">
-                    <span className="w-2 h-2 rounded-full bg-[var(--primary)]"></span>
-                    <span className="text-[11px] font-black text-[var(--primary)] uppercase tracking-[0.5em]">Infrastructure</span>
-                </div>
-                <h1 className="text-4xl font-black text-white uppercase">Audit <span className="opacity-20 font-light ml-2">Logs</span></h1>
-            </header>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="Infrastructure"
+                title="Audit"
+                subtitle="Logs"
+            />
 
-            {/* Filters */}
-            <div className="flex items-center gap-4 mb-8">
-                <div className="flex gap-2">
-                    {['all', 'info', 'warning', 'critical'].map((s) => (
-                        <button key={s} onClick={() => setFilterSeverity(s)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filterSeverity === s ? 'bg-[var(--primary)] text-white' : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)]'}`}>
-                            {s === 'all' ? '전체' : severityConfig[s]?.label}
-                        </button>
-                    ))}
-                </div>
-                <input type="text" placeholder="사용자, 리소스, 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white placeholder-[var(--text-muted)] outline-none focus:border-[var(--primary)]/50 transition-all" />
-            </div>
+            <div className="p-10 max-w-[1400px] mx-auto">
 
-            {/* Log List */}
-            <div className="glass-card rounded-2xl overflow-hidden">
-                <table className="w-full">
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">시간</th>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">사용자</th>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">액션</th>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">리소스</th>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">상세</th>
-                            <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Level</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((log) => {
-                            const sc = severityConfig[log.severity];
-                            return (
-                                <tr key={log.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <td className="p-4"><p className="text-[10px] text-white font-mono">{log.timestamp}</p></td>
-                                    <td className="p-4"><p className="text-xs text-white font-bold">{log.user}</p><p className="text-[8px] text-[var(--text-muted)]">{log.role} · {log.ip}</p></td>
-                                    <td className="p-4"><span className="text-[9px] font-black uppercase" style={{ color: actionColors[log.action] || '#6B7280' }}>{log.action}</span></td>
-                                    <td className="p-4"><code className="text-[10px] text-[var(--primary)] bg-white/[0.03] px-2 py-0.5 rounded font-mono">{log.resource}</code></td>
-                                    <td className="p-4"><p className="text-[10px] text-white/60 max-w-xs truncate">{log.details}</p></td>
-                                    <td className="p-4"><span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                {/* Filters */}
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="flex gap-2">
+                        {['all', 'info', 'warning', 'critical'].map((s) => (
+                            <button key={s} onClick={() => setFilterSeverity(s)} className={`admin-filter-btn ${filterSeverity === s ? 'active' : ''}`}>
+                                {s === 'all' ? '전체' : severityConfig[s]?.label}
+                            </button>
+                        ))}
+                    </div>
+                    <input type="text" placeholder="사용자, 리소스, 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 admin-search-input" />
+                </div>
+
+                {/* Log List */}
+                <div className="glass-card rounded-2xl overflow-hidden">
+                    <table className="w-full">
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">시간</th>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">사용자</th>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">액션</th>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">리소스</th>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">상세</th>
+                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filtered.map((log) => {
+                                const sc = severityConfig[log.severity];
+                                return (
+                                    <tr key={log.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td className="p-4"><p className="text-[10px] text-white font-mono">{log.timestamp}</p></td>
+                                        <td className="p-4"><p className="text-xs text-white font-bold">{log.user}</p><p className="text-[8px] text-[var(--text-muted)]">{log.role} · {log.ip}</p></td>
+                                        <td className="p-4"><span className="text-[9px] font-black uppercase" style={{ color: actionColors[log.action] || '#6B7280' }}>{log.action}</span></td>
+                                        <td className="p-4"><code className="text-[10px] text-[var(--primary)] bg-white/[0.03] px-2 py-0.5 rounded font-mono">{log.resource}</code></td>
+                                        <td className="p-4"><p className="text-[10px] text-white/60 max-w-xs truncate">{log.details}</p></td>
+                                        <td className="p-4"><span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span></td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

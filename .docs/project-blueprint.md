@@ -81,10 +81,22 @@
     - [x] Revenue Report (월별 매출/환불 차트, 카테고리 비율, 성장률)
     - [x] Coach Performance (랭킹, 평점/세션/리텐션, 전문분야 분포)
 
-### Phase 3: 특화 모듈 및 고도화 (예정)
+### Phase 3: 특화 모듈 및 고도화
 - [x] 클래스 포털: 실시간 WOD 보드 및 타이머
 - [ ] 레이스 시스템: PM5 기기 데이터 연동 및 리더보드 (UI 구현 완료, DB 연동 대기)
-- [ ] 알림 센터: 카카오 알림톡 및 푸시 알림 자동화
+- [x] **알림 시스템: 통합 알림 센터 및 자동화** (2026-02-17 완료) ✨
+  - [x] DB 스키마 확장 (notifications, notification_rules, push_subscriptions, notification_preferences)
+  - [x] User App: 알림 센터 + 알림 설정 (카테고리별 수신 on/off)
+  - [x] Admin: 3탭 구조 (History, Rules, Compose) + KPI 대시보드
+  - [x] PWA 설정 (manifest.json, Service Worker) – iOS Push 지원
+  - [x] 자동 알림 규칙 (pg_cron + DB Trigger):
+    - 수업 1시간 전 리마인더 (매 10분)
+    - 예약 취소 시 대기열 즉시 알림 (트리거)
+    - 멤버십 만료 D-7/3/1 (매일 오전 9시)
+    - 체크인 완료 격려 (트리거)
+  - [x] 채널 지원: In-App (Realtime), Web Push, 카카오/SMS (Edge Function)
+  - [x] Edge Functions 배포: send-push-notification, send-external-notification
+
 
 ---
 

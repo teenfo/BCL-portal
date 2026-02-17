@@ -2,6 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import AdminModal from '@/components/layout/AdminModal';
+import { IconCreditCard } from '@/components/icons/AdminIcons';
 
 interface Membership {
     id: string;
@@ -145,252 +148,231 @@ export default function MembershipsPage() {
     };
 
     return (
-        <div className="p-8 lg:p-12 transition-all duration-700">
-            {/* Header */}
-            <header className="flex items-end justify-between mb-12 animate-premium-fade">
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <span className="w-2 h-2 rounded-full bg-[var(--primary)] shadow-[0_0_15px_var(--primary-glow)]"></span>
-                            <span className="text-[11px] font-black text-[var(--primary)] uppercase tracking-[0.5em] italic">User &amp; Finance</span>
-                        </div>
-                        <h1 className="text-4xl font-black text-white tracking-tight leading-none uppercase">
-                            Memberships <span className="opacity-20 font-light ml-2">Management</span>
-                        </h1>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="User & Finance"
+                title="Memberships"
+                subtitle="Subscriptions"
+                actions={<button onClick={() => setShowCreateModal(true)} className="admin-action-btn">+ 신규 멤버십</button>}
+            />
+
+            <div className="p-10 max-w-[1400px] mx-auto">
+                {/* Filters */}
+                <div className="flex items-center gap-4 mb-8">
+                    <div className="flex gap-2">
+                        {(['all', 'active', 'expired', 'cancelled'] as const).map((f) => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`admin-filter-btn ${filter === f ? 'active' : ''}`}
+                            >
+                                {f === 'all' ? '전체' : f === 'active' ? '활성' : f === 'expired' ? '만료' : '취소'}
+                            </button>
+                        ))}
                     </div>
+                    <div className="flex-1">
+                        <input
+                            type="text"
+                            placeholder="회원명, 이메일, 플랜명으로 검색..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="admin-search-input"
+                        />
+                    </div>
+                    <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
+                        {filteredMemberships.length}건
+                    </span>
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setShowCreateModal(true)}
-                        className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                        style={{ background: 'var(--primary)', color: '#fff', boxShadow: '0 0 20px rgba(255, 107, 0, 0.3)' }}
-                    >
-                        + 멤버십 추가
-                    </button>
-                </div>
-            </header>
 
-            {/* Filters */}
-            <div className="flex items-center gap-4 mb-8">
-                <div className="flex gap-2">
-                    {(['all', 'active', 'expired', 'cancelled'] as const).map((f) => (
-                        <button
-                            key={f}
-                            onClick={() => setFilter(f)}
-                            className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === f
-                                ? 'bg-[var(--primary)] text-white shadow-[0_0_15px_rgba(255,107,0,0.3)]'
-                                : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)] hover:text-white'
-                                }`}
-                        >
-                            {f === 'all' ? '전체' : f === 'active' ? '활성' : f === 'expired' ? '만료' : '취소'}
-                        </button>
-                    ))}
-                </div>
-                <div className="flex-1">
-                    <input
-                        type="text"
-                        placeholder="회원명, 이메일, 플랜명으로 검색..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white placeholder-[var(--text-muted)] outline-none focus:border-[var(--primary)]/50 transition-all"
-                    />
-                </div>
-                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">
-                    {filteredMemberships.length}건
-                </span>
-            </div>
+                {/* Table */}
 
-            {/* Table */}
-            {loading ? (
-                <div className="flex justify-center py-64">
-                    <div className="w-10 h-10 rounded-xl border-2 border-white/5 border-t-[var(--primary)] animate-spin"></div>
-                </div>
-            ) : filteredMemberships.length === 0 ? (
-                <div className="glass-card p-20 flex flex-col items-center justify-center text-center opacity-40">
-                    <span className="text-4xl mb-4">💳</span>
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em]">No memberships found</p>
-                </div>
-            ) : (
-                <div className="space-y-3">
-                    {filteredMemberships.map((ms) => {
-                        const days = getDaysRemaining(ms.end_date);
-                        const sc = statusConfig[ms.status] || statusConfig.cancelled;
-                        return (
-                            <div key={ms.id} className="grid grid-cols-12 gap-4 items-center p-5 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
-                                {/* Member Info */}
-                                <div className="col-span-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>
-                                            {ms.members?.name?.charAt(0) || '?'}
+                {
+                    loading ? (
+                        <div className="flex justify-center py-64">
+                            <div className="w-10 h-10 rounded-xl border-2 border-white/5 border-t-[var(--primary)] animate-spin"></div>
+                        </div>
+                    ) : filteredMemberships.length === 0 ? (
+                        <div className="glass-card p-20 flex flex-col items-center justify-center text-center opacity-40">
+                            <span className="text-4xl mb-4"><IconCreditCard size={40} /></span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em]">No memberships found</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {filteredMemberships.map((ms) => {
+                                const days = getDaysRemaining(ms.end_date);
+                                const sc = statusConfig[ms.status] || statusConfig.cancelled;
+                                return (
+                                    <div key={ms.id} className="grid grid-cols-12 gap-4 items-center p-5 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
+                                        {/* Member Info */}
+                                        <div className="col-span-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>
+                                                    {ms.members?.name?.charAt(0) || '?'}
+                                                </div>
+                                                <div>
+                                                    <h4 className="text-sm font-bold text-white group-hover:text-[var(--primary)] transition-colors">{ms.members?.name || 'Unknown'}</h4>
+                                                    <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{ms.members?.email}</p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h4 className="text-sm font-bold text-white group-hover:text-[var(--primary)] transition-colors">{ms.members?.name || 'Unknown'}</h4>
-                                            <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{ms.members?.email}</p>
+
+                                        {/* Plan */}
+                                        <div className="col-span-2">
+                                            <p className="text-xs font-bold text-white uppercase">{ms.membership_plans?.name || '-'}</p>
+                                            <p className="text-[9px] text-[var(--primary)] mt-0.5 font-bold">
+                                                ₩{ms.membership_plans?.price?.toLocaleString() || 0}
+                                            </p>
+                                        </div>
+
+                                        {/* Period */}
+                                        <div className="col-span-2">
+                                            <p className="text-[10px] text-white font-bold">{ms.start_date} ~ {ms.end_date || '∞'}</p>
+                                            {days !== null && (
+                                                <p className="text-[9px] font-bold mt-0.5" style={{ color: days > 14 ? '#22C55E' : days > 0 ? '#F59E0B' : '#EF4444' }}>
+                                                    {days > 0 ? `D-${days}` : days === 0 ? '오늘 만료' : `${Math.abs(days)}일 지남`}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Credits */}
+                                        <div className="col-span-1 text-center">
+                                            {ms.remaining_credits !== null ? (
+                                                <div>
+                                                    <p className="text-lg font-black text-white">{ms.remaining_credits}</p>
+                                                    <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">크레딧</p>
+                                                </div>
+                                            ) : (
+                                                <p className="text-[9px] text-[var(--text-muted)]">기간제</p>
+                                            )}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="col-span-1">
+                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>
+                                                {sc.label}
+                                            </span>
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="col-span-3 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {ms.remaining_credits !== null && (
+                                                <button
+                                                    onClick={() => { setSelectedMembership(ms); setShowCreditModal(true); }}
+                                                    className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all"
+                                                >
+                                                    크레딧 조정
+                                                </button>
+                                            )}
+                                            {ms.end_date && ms.status === 'active' && (
+                                                <button
+                                                    onClick={() => extendMembership(ms, 30)}
+                                                    className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
+                                                >
+                                                    +30일 연장
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => toggleHold(ms)}
+                                                className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${ms.status === 'active'
+                                                    ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20'
+                                                    : 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'
+                                                    }`}
+                                            >
+                                                {ms.status === 'active' ? '홀딩' : '재개'}
+                                            </button>
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Plan */}
-                                <div className="col-span-2">
-                                    <p className="text-xs font-bold text-white uppercase">{ms.membership_plans?.name || '-'}</p>
-                                    <p className="text-[9px] text-[var(--primary)] mt-0.5 font-bold">
-                                        ₩{ms.membership_plans?.price?.toLocaleString() || 0}
-                                    </p>
-                                </div>
-
-                                {/* Period */}
-                                <div className="col-span-2">
-                                    <p className="text-[10px] text-white font-bold">{ms.start_date} ~ {ms.end_date || '∞'}</p>
-                                    {days !== null && (
-                                        <p className="text-[9px] font-bold mt-0.5" style={{ color: days > 14 ? '#22C55E' : days > 0 ? '#F59E0B' : '#EF4444' }}>
-                                            {days > 0 ? `D-${days}` : days === 0 ? '오늘 만료' : `${Math.abs(days)}일 지남`}
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Credits */}
-                                <div className="col-span-1 text-center">
-                                    {ms.remaining_credits !== null ? (
-                                        <div>
-                                            <p className="text-lg font-black text-white">{ms.remaining_credits}</p>
-                                            <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">크레딧</p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-[9px] text-[var(--text-muted)]">기간제</p>
-                                    )}
-                                </div>
-
-                                {/* Status */}
-                                <div className="col-span-1">
-                                    <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>
-                                        {sc.label}
-                                    </span>
-                                </div>
-
-                                {/* Actions */}
-                                <div className="col-span-3 flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    {ms.remaining_credits !== null && (
-                                        <button
-                                            onClick={() => { setSelectedMembership(ms); setShowCreditModal(true); }}
-                                            className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all"
-                                        >
-                                            크레딧 조정
-                                        </button>
-                                    )}
-                                    {ms.end_date && ms.status === 'active' && (
-                                        <button
-                                            onClick={() => extendMembership(ms, 30)}
-                                            className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
-                                        >
-                                            +30일 연장
-                                        </button>
-                                    )}
-                                    <button
-                                        onClick={() => toggleHold(ms)}
-                                        className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${ms.status === 'active'
-                                            ? 'bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 hover:bg-yellow-500/20'
-                                            : 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'
-                                            }`}
-                                    >
-                                        {ms.status === 'active' ? '홀딩' : '재개'}
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* Create Membership Modal */}
-            {showCreateModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowCreateModal(false)}>
-                    <div className="glass-card p-8 rounded-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight mb-8">새 멤버십 추가</h2>
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">회원 선택</label>
-                                <select
-                                    value={createForm.member_id}
-                                    onChange={(e) => setCreateForm({ ...createForm, member_id: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50"
-                                >
-                                    <option value="">회원을 선택하세요</option>
-                                    {members.map((m) => (
-                                        <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">요금제</label>
-                                <select
-                                    value={createForm.plan_id}
-                                    onChange={(e) => setCreateForm({ ...createForm, plan_id: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50"
-                                >
-                                    <option value="">요금제를 선택하세요</option>
-                                    {plans.map((p) => (
-                                        <option key={p.id} value={p.id}>{p.name} - ₩{p.price.toLocaleString()} ({p.type === 'period' ? `${p.duration_days}일` : `${p.credit_count}회`})</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">시작일</label>
-                                <input
-                                    type="date"
-                                    value={createForm.start_date}
-                                    onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50"
-                                />
-                            </div>
+                                );
+                            })}
                         </div>
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all">취소</button>
-                            <button onClick={createMembership} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>생성</button>
+                    )
+                }
+
+                {/* Create Membership Modal */}
+                <AdminModal show={showCreateModal} onClose={() => setShowCreateModal(false)} title="새 멤버십 추가">
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">회원 선택</label>
+                            <select
+                                value={createForm.member_id}
+                                onChange={(e) => setCreateForm({ ...createForm, member_id: e.target.value })}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            >
+                                <option value="">회원을 선택하세요</option>
+                                {members.map((m) => (
+                                    <option key={m.id} value={m.id}>{m.name} ({m.email})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">요금제</label>
+                            <select
+                                value={createForm.plan_id}
+                                onChange={(e) => setCreateForm({ ...createForm, plan_id: e.target.value })}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            >
+                                <option value="">요금제를 선택하세요</option>
+                                {plans.map((p) => (
+                                    <option key={p.id} value={p.id}>{p.name} - ₩{p.price.toLocaleString()} ({p.type === 'period' ? `${p.duration_days}일` : `${p.credit_count}회`})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">시작일</label>
+                            <input
+                                type="date"
+                                value={createForm.start_date}
+                                onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            />
                         </div>
                     </div>
-                </div>
-            )}
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={createMembership} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>생성</button>
+                    </div>
+                </AdminModal>
 
-            {/* Credit Adjustment Modal */}
-            {showCreditModal && selectedMembership && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowCreditModal(false)}>
-                    <div className="glass-card p-8 rounded-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight mb-2">크레딧 조정</h2>
-                        <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-8">
-                            {selectedMembership.members?.name} · 현재 {selectedMembership.remaining_credits}회
-                        </p>
-                        <div className="space-y-5">
-                            <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">조정 수량 (+ 증가 / - 감소)</label>
-                                <input
-                                    type="number"
-                                    value={creditAdjust}
-                                    onChange={(e) => setCreditAdjust(Number(e.target.value))}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">사유</label>
-                                <input
-                                    type="text"
-                                    value={creditReason}
-                                    onChange={(e) => setCreditReason(e.target.value)}
-                                    placeholder="예: 보정, 환불, 프로모션 등"
-                                    className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white placeholder-[var(--text-muted)] outline-none focus:border-[var(--primary)]/50"
-                                />
-                            </div>
+                {/* Credit Adjustment Modal */}
+                <AdminModal show={showCreditModal && !!selectedMembership} onClose={() => { setShowCreditModal(false); setSelectedMembership(null); }} title="크레딧 조정" subtitle={selectedMembership ? `${selectedMembership.members?.name} · 현재 ${selectedMembership.remaining_credits}회` : ''}>
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">조정 수량 (+ 증가 / - 감소)</label>
+                            <input
+                                type="number"
+                                value={creditAdjust}
+                                onChange={(e) => setCreditAdjust(Number(e.target.value))}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">사유</label>
+                            <input
+                                type="text"
+                                value={creditReason}
+                                onChange={(e) => setCreditReason(e.target.value)}
+                                placeholder="예: 보정, 환불, 프로모션 등"
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            />
+                        </div>
+                        {selectedMembership && (
                             <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.03]">
                                 <p className="text-[10px] text-[var(--text-muted)] mb-1">조정 후 크레딧</p>
                                 <p className="text-2xl font-black text-white">{Math.max(0, (selectedMembership.remaining_credits || 0) + creditAdjust)}회</p>
                             </div>
-                        </div>
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => { setShowCreditModal(false); setSelectedMembership(null); }} className="flex-1 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all">취소</button>
-                            <button onClick={adjustCredits} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>적용</button>
-                        </div>
+                        )}
                     </div>
-                </div>
-            )}
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowCreditModal(false); setSelectedMembership(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={adjustCredits} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>적용</button>
+                    </div>
+                </AdminModal>
+            </div>
         </div>
     );
 }

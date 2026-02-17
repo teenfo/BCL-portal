@@ -1,0 +1,30 @@
+{
+    "name": "BCL Portal",
+    "short_name": "BCL",
+    "description": "Banning CrossFit Lounge - Member Portal",
+    "start_url": "/apps/dashboard",
+    "display": "standalone",
+    "background_color": "#F5F3F0",
+    "theme_color": "#D2691E",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/images/logo/bcl-logo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "/images/logo/bcl-logo.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        }
+    ],
+    "categories": [
+        "fitness",
+        "health"
+    ],
+    "lang": "ko",
+    "scope": "/apps/"
+}

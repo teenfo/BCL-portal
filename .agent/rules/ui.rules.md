@@ -57,3 +57,29 @@ trigger: always_on
 - 기능 의미가 직관적으로 드러나야 함
 - 경고/삭제는 시각적으로 명확히 구분
 - 장식 목적 아이콘 남용 금지
+
+---
+
+## 6) Admin 글로벌 컴포넌트 규칙 (필수)
+
+Admin 페이지의 필터/검색/액션 영역은 **반드시 글로벌 CSS 클래스를 사용**한다.
+인라인 스타일로 동일한 디자인을 재구현하면 안 된다.
+
+### 필수 사용 클래스 (globals.css 정의)
+| 클래스 | 용도 | 높이 기준 |
+|---|---|---|
+| `.admin-filter-btn` | 필터/토글 버튼 (전체/활성/만료 등) | `py-2 px-4` (~34px) |
+| `.admin-search-input` | 검색 인풋, 날짜 피커 | `py-2 px-4` (~34px, 필터와 동일) |
+| `.admin-action-btn` | CTA 버튼 (+ 추가, 생성 등) | `py-3 px-6` (~42px) |
+
+### 활성 상태
+- 필터 버튼 활성: `className="admin-filter-btn active"`
+- 날짜 피커 아이콘: 글로벌 CSS에서 자동 흰색 처리 (`invert(1)`)
+
+### Agent 금지 사항
+- ❌ 필터 버튼/검색 인풋/액션 버튼의 padding, font-size, border 등을 인라인으로 재정의
+- ❌ `input[type="date"]`의 캘린더 아이콘 별도 처리 (글로벌에서 처리됨)
+- ❌ 새 Admin 페이지에서 위 클래스 없이 비슷한 스타일 직접 작성
+
+### 참조
+- 상세 가이드: `.agent/skills/ui-gen/SKILL.md` Section 3 참조

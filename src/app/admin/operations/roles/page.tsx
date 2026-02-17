@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import { IconShield } from '@/components/icons/AdminIcons';
 
 interface Role {
     id: string;
@@ -32,83 +34,106 @@ export default function RolesPage() {
     const levelColors: Record<number, string> = { 100: '#EF4444', 80: '#F59E0B', 40: '#3B82F6', 20: '#22C55E' };
 
     return (
-        <div className="p-8 lg:p-12">
-            <header className="flex items-end justify-between mb-12">
-                <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className="w-2 h-2 rounded-full bg-[var(--primary)]"></span>
-                        <span className="text-[11px] font-black text-[var(--primary)] uppercase tracking-[0.5em]">Operations</span>
-                    </div>
-                    <h1 className="text-4xl font-black text-white uppercase">Roles <span className="opacity-20 font-light ml-2">&amp; Permissions</span></h1>
-                </div>
-                <button className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest" style={{ background: 'var(--primary)', color: '#fff', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>+ 역할 추가</button>
-            </header>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="Operations"
+                title="Roles"
+                subtitle="Permissions"
+                actions={<button className="admin-action-btn">+ 역할 추가</button>}
+            />
 
-            <div className="grid grid-cols-12 gap-8">
-                {/* Left: Role List */}
-                <div className="col-span-4 space-y-3">
-                    {roles.map((role) => (
-                        <button
-                            key={role.id}
-                            onClick={() => setSelectedRole(role)}
-                            className={`w-full text-left p-5 rounded-2xl transition-all ${selectedRole?.id === role.id ? 'bg-white/[0.05] border border-[var(--primary)]/30' : 'bg-white/[0.02] border border-white/[0.03] hover:border-white/10'}`}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-black text-white uppercase">{role.name}</h4>
-                                <span className="w-3 h-3 rounded-full" style={{ background: levelColors[role.level] || '#6B7280' }}></span>
-                            </div>
-                            <p className="text-[10px] text-[var(--text-muted)] mb-3">{role.description}</p>
-                            <div className="flex items-center justify-between">
-                                <span className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest">Level {role.level}</span>
-                                <span className="text-[9px] text-[var(--primary)] font-bold">{role.userCount}명</span>
-                            </div>
-                        </button>
-                    ))}
-                </div>
-
-                {/* Right: Permission Matrix */}
-                <div className="col-span-8">
-                    {selectedRole ? (
-                        <div className="glass-card p-8 rounded-2xl">
-                            <div className="flex items-center justify-between mb-8">
-                                <div>
-                                    <h3 className="text-xl font-black text-white uppercase">{selectedRole.name}</h3>
-                                    <p className="text-[10px] text-[var(--text-muted)] mt-1">{selectedRole.description}</p>
-                                </div>
-                                <span className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest" style={{ background: `${levelColors[selectedRole.level] || '#6B7280'}15`, color: levelColors[selectedRole.level] || '#6B7280' }}>
-                                    Level {selectedRole.level}
-                                </span>
-                            </div>
-
-                            <div className="space-y-6">
-                                {Object.entries(PERMISSION_GROUPS).map(([key, group]) => (
-                                    <div key={key}>
-                                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">{group.label}</h4>
-                                        <div className="grid grid-cols-3 gap-3">
-                                            {group.items.map((perm) => {
-                                                const hasPermission = selectedRole.permissions.includes(perm);
-                                                return (
-                                                    <div key={perm} className={`p-3 rounded-xl flex items-center gap-3 transition-all ${hasPermission ? 'bg-green-500/10 border border-green-500/20' : 'bg-white/[0.01] border border-white/[0.03]'}`}>
-                                                        <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] ${hasPermission ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-white/20'}`}>
-                                                            {hasPermission ? '✓' : '✕'}
-                                                        </span>
-                                                        <span className={`text-[9px] font-bold uppercase tracking-wider ${hasPermission ? 'text-white' : 'text-white/30'}`}>
-                                                            {perm.split('.')[1]}
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
+            <div className="p-10 max-w-[1400px] mx-auto">
+                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                    {/* Left: Role List */}
+                    <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+                        <div className="space-y-3">
+                            {roles.map((role) => {
+                                const levelColor = levelColors[role.level] || '#6B7280';
+                                return (
+                                    <button
+                                        key={role.id}
+                                        onClick={() => setSelectedRole(role)}
+                                        className="w-full text-left p-5 rounded-2xl transition-all hover:scale-[1.01]"
+                                        style={selectedRole?.id === role.id
+                                            ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,107,0,0.3)' }
+                                            : { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }
+                                        }
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="text-sm font-black text-white uppercase">{role.name}</h4>
+                                            <span className="w-3 h-3 rounded-full" style={{ background: levelColor }}></span>
                                         </div>
+                                        <p className="text-[10px] mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{role.description}</p>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                                Level {role.level}
+                                            </span>
+                                            <span className="text-[9px] font-bold" style={{ color: 'var(--primary)' }}>{role.userCount}명</span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Right: Permission Matrix */}
+                    <div style={{ flex: '2 1 400px', minWidth: 0 }}>
+                        {selectedRole ? (
+                            <div className="p-8 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div className="flex items-center justify-between mb-8">
+                                    <div>
+                                        <h3 className="text-xl font-black text-white uppercase">{selectedRole.name}</h3>
+                                        <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{selectedRole.description}</p>
                                     </div>
-                                ))}
+                                    <span className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest"
+                                        style={{
+                                            background: `rgba(${levelColors[selectedRole.level] === '#EF4444' ? '239,68,68' : levelColors[selectedRole.level] === '#F59E0B' ? '245,158,11' : levelColors[selectedRole.level] === '#3B82F6' ? '59,130,246' : '34,197,94'},0.15)`,
+                                            color: levelColors[selectedRole.level] || '#6B7280'
+                                        }}>
+                                        Level {selectedRole.level}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {Object.entries(PERMISSION_GROUPS).map(([key, group]) => (
+                                        <div key={key}>
+                                            <h4 className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>{group.label}</h4>
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {group.items.map((perm) => {
+                                                    const hasPermission = selectedRole.permissions.includes(perm);
+                                                    return (
+                                                        <div key={perm} className="p-3 rounded-xl flex items-center gap-3 transition-all"
+                                                            style={hasPermission
+                                                                ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }
+                                                                : { background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)' }
+                                                            }>
+                                                            <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px]"
+                                                                style={hasPermission
+                                                                    ? { background: 'rgba(34,197,94,0.2)', color: '#4ADE80' }
+                                                                    : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' }
+                                                                }>
+                                                                {hasPermission ? '✓' : '✕'}
+                                                            </span>
+                                                            <span className="text-[9px] font-bold uppercase tracking-wider"
+                                                                style={{ color: hasPermission ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                                                                {perm.split('.')[1]}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
-                    ) : (
-                        <div className="glass-card p-20 rounded-2xl flex flex-col items-center justify-center text-center opacity-40">
-                            <span className="text-4xl mb-4">🛡️</span>
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em]">Select a role to view permissions</p>
-                        </div>
-                    )}
+                        ) : (
+                            <div className="p-20 rounded-2xl flex flex-col items-center justify-center text-center opacity-40"
+                                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                <span className="text-4xl mb-4"><IconShield size={40} /></span>
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.4)' }}>Select a role to view permissions</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

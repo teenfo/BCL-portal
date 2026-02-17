@@ -43,4 +43,9 @@ mcp.json
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
-.DS_Store
+
+# uploaded files (runtime user data)
+/public/uploads/
+
+# settings snapshots (runtime config backups)
+.settings-snapshots/

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import AdminModal from '@/components/layout/AdminModal';
+import { IconFlag, IconRadio, IconTrophy, IconRowing } from '@/components/icons/AdminIcons';
 
 interface RaceEvent {
     id: string;
@@ -56,183 +59,166 @@ export default function RacePage() {
     };
 
     return (
-        <div className="p-8 lg:p-12 transition-all duration-700">
-            {/* Header */}
-            <header className="flex items-end justify-between mb-12 animate-premium-fade">
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <span className="w-2 h-2 rounded-full bg-[var(--primary)] shadow-[0_0_15px_var(--primary-glow)]"></span>
-                            <span className="text-[11px] font-black text-[var(--primary)] uppercase tracking-[0.5em] italic">Operations</span>
-                        </div>
-                        <h1 className="text-4xl font-black text-white tracking-tight leading-none uppercase">
-                            Race <span className="opacity-20 font-light ml-2">Management</span>
-                        </h1>
-                    </div>
-                </div>
-                <button
-                    onClick={() => setShowEventModal(true)}
-                    className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                    style={{ background: 'var(--primary)', color: '#fff', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}
-                >
-                    + 이벤트 생성
-                </button>
-            </header>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="Operations"
+                title="Race"
+                subtitle="Management"
+                actions={<button onClick={() => setShowEventModal(true)} className="admin-action-btn">+ 이벤트 생성</button>}
+            />
 
-            {/* Tabs */}
-            <div className="flex gap-2 mb-10">
-                {(['events', 'devices', 'records'] as const).map((tab) => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
-                            ? 'bg-[var(--primary)] text-white shadow-[0_0_15px_rgba(255,107,0,0.3)]'
-                            : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)] hover:text-white'
-                            }`}
-                    >
-                        {tab === 'events' ? '🏁 이벤트' : tab === 'devices' ? '📡 기기 관리' : '🏆 기록 통계'}
-                    </button>
-                ))}
-            </div>
-
-            {/* Events Tab */}
-            {activeTab === 'events' && (
-                <div className="space-y-4">
-                    {events.map((event) => {
-                        const sc = statusConfig[event.status];
-                        return (
-                            <div key={event.id} className="grid grid-cols-12 gap-6 items-center p-6 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
-                                <div className="col-span-1">
-                                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl bg-white/[0.03] border border-white/5">
-                                        {event.sport === 'Rowing' ? '🚣' : event.sport === 'SkiErg' ? '⛷️' : '🚴'}
-                                    </div>
-                                </div>
-                                <div className="col-span-4">
-                                    <h4 className="text-sm font-black text-white group-hover:text-[var(--primary)] transition-colors uppercase">{event.name}</h4>
-                                    <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-1">{event.date} · {event.sport}</p>
-                                </div>
-                                <div className="col-span-2 text-center">
-                                    <p className="text-lg font-black text-white">{event.distance}</p>
-                                    <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">Distance</p>
-                                </div>
-                                <div className="col-span-2 text-center">
-                                    <p className="text-lg font-black text-white">{event.participants}</p>
-                                    <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">Participants</p>
-                                </div>
-                                <div className="col-span-1">
-                                    <span className="px-3 py-1 rounded-full text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
-                                </div>
-                                <div className="col-span-2 text-right">
-                                    <button className="px-4 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-[9px] font-black text-white hover:border-[var(--primary)]/50 transition-all uppercase tracking-widest">
-                                        상세 보기
-                                    </button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
-
-            {/* Devices Tab */}
-            {activeTab === 'devices' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {devices.map((device) => (
-                        <div key={device.id} className="glass-card p-6 rounded-2xl group">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-xl">{device.type === 'Rowing' ? '🚣' : device.type === 'SkiErg' ? '⛷️' : '🚴'}</span>
-                                <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
-                                    <span className={`text-[8px] font-black uppercase tracking-widest ${device.status === 'online' ? 'text-green-400' : 'text-red-400'}`}>{device.status}</span>
-                                </div>
-                            </div>
-                            <h4 className="text-sm font-black text-white mb-1">{device.serial}</h4>
-                            <p className="text-[9px] text-[var(--text-muted)] mb-3">{device.branch}</p>
-                            <div className="space-y-2 pt-3 border-t border-white/[0.03]">
-                                <div className="flex justify-between text-[9px]">
-                                    <span className="text-[var(--text-muted)]">Firmware</span>
-                                    <span className="text-white font-bold">{device.firmware}</span>
-                                </div>
-                                <div className="flex justify-between text-[9px]">
-                                    <span className="text-[var(--text-muted)]">Last Sync</span>
-                                    <span className="text-white font-bold">{device.lastSync}</span>
-                                </div>
-                            </div>
-                        </div>
+            <div className="p-10 max-w-[1400px] mx-auto">
+                {/* Tabs */}
+                <div className="flex gap-2 mb-10">
+                    {(['events', 'devices', 'records'] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            onClick={() => setActiveTab(tab)}
+                            className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                            style={activeTab === tab
+                                ? { background: 'var(--primary)', color: '#fff', boxShadow: '0 0 15px rgba(255,107,0,0.3)' }
+                                : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }
+                            }
+                        >
+                            {tab === 'events' ? <span className="inline-flex items-center gap-1"><IconFlag size={14} /> 이벤트</span> : tab === 'devices' ? <span className="inline-flex items-center gap-1"><IconRadio size={14} /> 기기 관리</span> : <span className="inline-flex items-center gap-1"><IconTrophy size={14} /> 기록 통계</span>}
+                        </button>
                     ))}
                 </div>
-            )}
 
-            {/* Records Tab */}
-            {activeTab === 'records' && (
-                <div className="glass-card rounded-2xl overflow-hidden">
-                    <div className="p-6 border-b border-white/[0.03]">
-                        <h3 className="text-lg font-black text-white uppercase tracking-tight">🏆 Leaderboard — 2000m Rowing</h3>
+                {/* Events Tab */}
+                {activeTab === 'events' && (
+                    <div className="space-y-4">
+                        {events.map((event) => {
+                            const sc = statusConfig[event.status];
+                            return (
+                                <div key={event.id} className="grid grid-cols-12 gap-6 items-center p-6 rounded-2xl bg-white/[0.02] border border-white/[0.03] hover:border-white/10 transition-all group">
+                                    <div className="col-span-1">
+                                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl bg-white/[0.03] border border-white/5">
+                                            {event.sport === 'Rowing' ? <IconRowing size={20} /> : event.sport === 'SkiErg' ? 'SKI' : 'BIKE'}
+                                        </div>
+                                    </div>
+                                    <div className="col-span-4">
+                                        <h4 className="text-sm font-black text-white group-hover:text-[var(--primary)] transition-colors uppercase">{event.name}</h4>
+                                        <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mt-1">{event.date} · {event.sport}</p>
+                                    </div>
+                                    <div className="col-span-2 text-center">
+                                        <p className="text-lg font-black text-white">{event.distance}</p>
+                                        <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">Distance</p>
+                                    </div>
+                                    <div className="col-span-2 text-center">
+                                        <p className="text-lg font-black text-white">{event.participants}</p>
+                                        <p className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest">Participants</p>
+                                    </div>
+                                    <div className="col-span-1">
+                                        <span className="px-3 py-1 rounded-full text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
+                                    </div>
+                                    <div className="col-span-2 text-right">
+                                        <button className="px-4 py-2 rounded-lg bg-white/[0.03] border border-white/5 text-[9px] font-black text-white hover:border-[var(--primary)]/50 transition-all uppercase tracking-widest">
+                                            상세 보기
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                    <table className="w-full">
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Rank</th>
-                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Name</th>
-                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Time</th>
-                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Distance</th>
-                                <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {records.map((record) => (
-                                <tr key={record.rank} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                    <td className="p-4">
-                                        <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${record.rank <= 3 ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}`} style={record.rank <= 3 ? { background: 'rgba(255,107,0,0.1)' } : {}}>
-                                            {record.rank <= 3 ? ['🥇', '🥈', '🥉'][record.rank - 1] : `#${record.rank}`}
-                                        </span>
-                                    </td>
-                                    <td className="p-4 text-sm font-bold text-white">{record.name}</td>
-                                    <td className="p-4 text-sm font-black text-[var(--primary)]">{record.time}</td>
-                                    <td className="p-4 text-xs text-[var(--text-muted)]">{record.distance}</td>
-                                    <td className="p-4 text-xs text-[var(--text-muted)]">{record.date}</td>
+                )}
+
+                {/* Devices Tab */}
+                {activeTab === 'devices' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {devices.map((device) => (
+                            <div key={device.id} className="glass-card p-6 rounded-2xl group">
+                                <div className="flex items-center justify-between mb-4">
+                                    <span className="text-xl">{device.type === 'Rowing' ? <IconRowing size={20} /> : device.type === 'SkiErg' ? 'SKI' : 'BIKE'}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`w-2 h-2 rounded-full ${device.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                                        <span className={`text-[8px] font-black uppercase tracking-widest ${device.status === 'online' ? 'text-green-400' : 'text-red-400'}`}>{device.status}</span>
+                                    </div>
+                                </div>
+                                <h4 className="text-sm font-black text-white mb-1">{device.serial}</h4>
+                                <p className="text-[9px] text-[var(--text-muted)] mb-3">{device.branch}</p>
+                                <div className="space-y-2 pt-3 border-t border-white/[0.03]">
+                                    <div className="flex justify-between text-[9px]">
+                                        <span className="text-[var(--text-muted)]">Firmware</span>
+                                        <span className="text-white font-bold">{device.firmware}</span>
+                                    </div>
+                                    <div className="flex justify-between text-[9px]">
+                                        <span className="text-[var(--text-muted)]">Last Sync</span>
+                                        <span className="text-white font-bold">{device.lastSync}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Records Tab */}
+                {activeTab === 'records' && (
+                    <div className="glass-card rounded-2xl overflow-hidden">
+                        <div className="p-6 border-b border-white/[0.03]">
+                            <h3 className="text-lg font-black text-white uppercase tracking-tight inline-flex items-center gap-2"><IconTrophy size={18} /> Leaderboard — 2000m Rowing</h3>
+                        </div>
+                        <table className="w-full">
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Rank</th>
+                                    <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Name</th>
+                                    <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Time</th>
+                                    <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Distance</th>
+                                    <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Date</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                            </thead>
+                            <tbody>
+                                {records.map((record) => (
+                                    <tr key={record.rank} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td className="p-4">
+                                            <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${record.rank <= 3 ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}`} style={record.rank <= 3 ? { background: 'rgba(255,107,0,0.1)' } : {}}>
+                                                {record.rank <= 3 ? <span className={`font-black text-sm ${record.rank === 1 ? 'text-yellow-400' : record.rank === 2 ? 'text-gray-300' : 'text-amber-600'}`}>#{record.rank}</span> : `#${record.rank}`}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-sm font-bold text-white">{record.name}</td>
+                                        <td className="p-4 text-sm font-black text-[var(--primary)]">{record.time}</td>
+                                        <td className="p-4 text-xs text-[var(--text-muted)]">{record.distance}</td>
+                                        <td className="p-4 text-xs text-[var(--text-muted)]">{record.date}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
 
-            {/* Create Event Modal */}
-            {showEventModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowEventModal(false)}>
-                    <div className="glass-card p-8 rounded-2xl w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight mb-8">새 Race 이벤트</h2>
-                        <div className="space-y-5">
+                {/* Create Event Modal */}
+                <AdminModal show={showEventModal} onClose={() => setShowEventModal(false)} title="새 Race 이벤트">
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이벤트명</label>
+                            <input value={eventForm.name} onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })} placeholder="2026 Spring Rowing Challenge" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이벤트명</label>
-                                <input value={eventForm.name} onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })} placeholder="2026 Spring Rowing Challenge" className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50" />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">날짜</label>
-                                    <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50" />
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">종목</label>
-                                    <select value={eventForm.sport} onChange={(e) => setEventForm({ ...eventForm, sport: e.target.value })} className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50">
-                                        <option value="Rowing">Rowing</option>
-                                        <option value="SkiErg">SkiErg</option>
-                                        <option value="Bike">Bike</option>
-                                    </select>
-                                </div>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">날짜</label>
+                                <input type="date" value={eventForm.date} onChange={(e) => setEventForm({ ...eventForm, date: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">거리 (m)</label>
-                                <input value={eventForm.distance} onChange={(e) => setEventForm({ ...eventForm, distance: e.target.value })} placeholder="2000" className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-sm text-white outline-none focus:border-[var(--primary)]/50" />
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">종목</label>
+                                <select value={eventForm.sport} onChange={(e) => setEventForm({ ...eventForm, sport: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <option value="Rowing">Rowing</option>
+                                    <option value="SkiErg">SkiErg</option>
+                                    <option value="Bike">Bike</option>
+                                </select>
                             </div>
                         </div>
-                        <div className="flex gap-3 mt-8">
-                            <button onClick={() => setShowEventModal(false)} className="flex-1 py-3 rounded-xl bg-white/[0.03] border border-white/5 text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all">취소</button>
-                            <button onClick={() => setShowEventModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>생성</button>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">거리 (m)</label>
+                            <input value={eventForm.distance} onChange={(e) => setEventForm({ ...eventForm, distance: e.target.value })} placeholder="2000" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
                         </div>
                     </div>
-                </div>
-            )}
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => setShowEventModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={() => setShowEventModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>생성</button>
+                    </div>
+                </AdminModal>
+            </div>
         </div>
     );
 }

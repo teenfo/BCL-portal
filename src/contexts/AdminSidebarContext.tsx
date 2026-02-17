@@ -14,7 +14,7 @@ export function AdminSidebarProvider({ children }: { children: React.ReactNode }
 
     // Sync width to CSS variable for easy access in Layout
     useEffect(() => {
-        document.documentElement.style.setProperty('--sidebar-width', collapsed ? '80px' : '256px');
+        document.documentElement.style.setProperty('--sidebar-width', collapsed ? '68px' : '256px');
     }, [collapsed]);
 
     return (

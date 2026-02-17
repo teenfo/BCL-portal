@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import AdminModal from '@/components/layout/AdminModal';
+import { IconCreditCard } from '@/components/icons/AdminIcons';
 
 interface Plan {
     id: string;
@@ -67,84 +70,158 @@ export default function AdminPlansPage() {
         loadPlans();
     }
 
+    const tierColors = ['#FF6B00', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899'];
+
     return (
-        <div className="flex min-h-screen" style={{ background: 'var(--background)' }}>
-            <main className="flex-1 ml-64 p-8">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-3xl font-bold text-white mb-2">요금제 관리</h1>
-                        <p style={{ color: 'var(--foreground-secondary)' }}>{plans.length}개 요금제</p>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="User & Finance"
+                title="Plans"
+                subtitle="Management"
+                actions={<button onClick={() => openModal()} className="admin-action-btn">+ 신규 요금제</button>}
+            />
+
+            <div className="p-10 max-w-[1400px] mx-auto">
+
+                {/* Stats row */}
+                <div className="flex gap-4 mb-10">
+                    {[
+                        { label: 'Total Plans', value: plans.length, unit: '개', color: 'var(--primary)' },
+                        { label: 'Lowest Price', value: plans.length > 0 ? `₩${Math.min(...plans.map(p => p.price)).toLocaleString()}` : '-', unit: '', color: '#22C55E' },
+                        { label: 'Highest Price', value: plans.length > 0 ? `₩${Math.max(...plans.map(p => p.price)).toLocaleString()}` : '-', unit: '', color: '#8B5CF6' },
+                    ].map((stat, i) => (
+                        <div key={i} className="flex-1 p-5 rounded-2xl transition-all"
+                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.3)' }}>{stat.label}</p>
+                            <p className="text-2xl font-black text-white">{stat.value}<span className="text-sm ml-1" style={{ color: stat.color }}>{stat.unit}</span></p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Plans Grid */}
+                {loading ? (
+                    <div className="flex justify-center py-32">
+                        <div className="w-10 h-10 rounded-xl border-2 animate-spin" style={{ borderColor: 'rgba(255,255,255,0.05)', borderTopColor: 'var(--primary)' }}></div>
                     </div>
-                    <button onClick={() => openModal()} className="px-4 py-2 rounded-lg font-semibold transition-colors" style={{ background: 'var(--bcl-orange)', color: '#fff' }}>
-                        + 요금제 추가
-                    </button>
-                </div>
+                ) : plans.length === 0 ? (
+                    <div className="glass-card p-20 flex flex-col items-center justify-center opacity-40">
+                        <span className="text-4xl mb-4"><IconCreditCard size={40} /></span>
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.4)' }}>No plans found</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        {plans.map((plan, idx) => {
+                            const accentColor = tierColors[idx % tierColors.length];
+                            return (
+                                <div key={plan.id}
+                                    className="relative group p-6 rounded-2xl transition-all hover:scale-[1.02] hover:shadow-lg"
+                                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                                >
+                                    {/* Top accent bar */}
+                                    <div className="absolute top-0 left-6 right-6 h-[2px] rounded-b-full" style={{ background: accentColor }}></div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {loading ? (
-                        <div className="col-span-3 text-center py-12">
-                            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 mx-auto" style={{ borderColor: 'var(--bcl-orange)' }}></div>
-                        </div>
-                    ) : (
-                        plans.map((plan) => (
-                            <div key={plan.id} className="glass-card p-6 rounded-xl relative group">
-                                <div className="flex items-center justify-between mb-4">
-                                    <h3 className="text-xl font-bold text-white">{plan.name}</h3>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
-                                        <button onClick={() => openModal(plan)} className="text-sm px-3 py-1 rounded" style={{ background: 'rgba(59,130,246,0.2)', color: '#3B82F6' }}>수정</button>
-                                        <button onClick={() => deletePlan(plan.id)} className="text-sm px-3 py-1 rounded" style={{ background: 'rgba(239,68,68,0.2)', color: '#EF4444' }}>삭제</button>
+                                    {/* Header */}
+                                    <div className="flex items-start justify-between mb-4 mt-2">
+                                        <div>
+                                            <h3 className="text-lg font-black text-white uppercase tracking-tight">{plan.name}</h3>
+                                            <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{plan.description || '설명 없음'}</p>
+                                        </div>
+                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                            <button onClick={() => openModal(plan)}
+                                                className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest"
+                                                style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6' }}>
+                                                수정
+                                            </button>
+                                            <button onClick={() => deletePlan(plan.id)}
+                                                className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest"
+                                                style={{ background: 'rgba(239,68,68,0.15)', color: '#EF4444' }}>
+                                                삭제
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                                <p className="text-sm mb-4" style={{ color: 'var(--foreground-secondary)' }}>{plan.description || '설명 없음'}</p>
-                                <div className="text-3xl font-bold mb-1" style={{ color: 'var(--bcl-orange)' }}>
-                                    ₩{Number(plan.price).toLocaleString()}
-                                </div>
-                                <div className="flex gap-4 mt-3" style={{ color: 'var(--foreground-secondary)' }}>
-                                    <span className="text-sm">📅 {plan.duration_days}일</span>
-                                    {plan.credits > 0 && <span className="text-sm">🎫 {plan.credits}회</span>}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
 
-                {/* Modal */}
-                {showModal && (
-                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setShowModal(false)}>
-                        <div className="glass-card p-8 rounded-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-                            <h2 className="text-xl font-bold text-white mb-6">{editingPlan ? '요금제 수정' : '새 요금제 추가'}</h2>
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm mb-1" style={{ color: 'var(--foreground-secondary)' }}>요금제 이름</label>
-                                    <input className="bcl-input w-full" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예: All Access Unlimited" />
-                                </div>
-                                <div>
-                                    <label className="block text-sm mb-1" style={{ color: 'var(--foreground-secondary)' }}>설명</label>
-                                    <textarea className="bcl-input w-full" rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="요금제 설명" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm mb-1" style={{ color: 'var(--foreground-secondary)' }}>가격 (원)</label>
-                                        <input type="number" className="bcl-input w-full" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                                    {/* Price */}
+                                    <div className="mb-6">
+                                        <span className="text-3xl font-black" style={{ color: accentColor }}>
+                                            ₩{Number(plan.price).toLocaleString()}
+                                        </span>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm mb-1" style={{ color: 'var(--foreground-secondary)' }}>기간 (일)</label>
-                                        <input type="number" className="bcl-input w-full" value={form.duration_days} onChange={(e) => setForm({ ...form, duration_days: e.target.value })} />
+
+                                    {/* Details */}
+                                    <div className="flex gap-4">
+                                        <div className="flex-1 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                            <p className="text-[8px] font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>기간</p>
+                                            <p className="text-sm font-bold text-white">{plan.duration_days}일</p>
+                                        </div>
+                                        {plan.credits > 0 && (
+                                            <div className="flex-1 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                                <p className="text-[8px] font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>횟수</p>
+                                                <p className="text-sm font-bold text-white">{plan.credits}회</p>
+                                            </div>
+                                        )}
+                                        {plan.credits === 0 && (
+                                            <div className="flex-1 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                                <p className="text-[8px] font-black uppercase tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.3)' }}>횟수</p>
+                                                <p className="text-sm font-bold" style={{ color: '#22C55E' }}>무제한</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm mb-1" style={{ color: 'var(--foreground-secondary)' }}>횟수 (0 = 무제한)</label>
-                                    <input type="number" className="bcl-input w-full" value={form.credits} onChange={(e) => setForm({ ...form, credits: e.target.value })} />
-                                </div>
-                            </div>
-                            <div className="flex gap-3 mt-6">
-                                <button onClick={() => setShowModal(false)} className="flex-1 py-2 rounded-lg font-semibold" style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--foreground-secondary)' }}>취소</button>
-                                <button onClick={savePlan} className="flex-1 py-2 rounded-lg font-semibold" style={{ background: 'var(--bcl-orange)', color: '#fff' }}>저장</button>
-                            </div>
-                        </div>
+                            );
+                        })}
                     </div>
                 )}
-            </main>
+
+                {/* Modal */}
+                <AdminModal show={showModal} onClose={() => setShowModal(false)} title={editingPlan ? '요금제 수정' : '새 요금제 추가'}>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>요금제 이름</label>
+                            <input className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="예: All Access Unlimited" />
+                        </div>
+                        <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>설명</label>
+                            <textarea className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="요금제 설명" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>가격 (원)</label>
+                                <input type="number" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                    value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+                            </div>
+                            <div>
+                                <label className="block text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>기간 (일)</label>
+                                <input type="number" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                    value={form.duration_days} onChange={(e) => setForm({ ...form, duration_days: e.target.value })} />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.4)' }}>횟수 (0 = 무제한)</label>
+                            <input type="number" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                value={form.credits} onChange={(e) => setForm({ ...form, credits: e.target.value })} />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => setShowModal(false)}
+                            className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all hover:bg-white/[0.06]"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            취소
+                        </button>
+                        <button onClick={savePlan}
+                            className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all"
+                            style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>
+                            저장
+                        </button>
+                    </div>
+                </AdminModal>
+            </div>
         </div>
     );
 }

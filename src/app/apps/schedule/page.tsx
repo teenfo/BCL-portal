@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
 interface Session {
@@ -12,16 +13,18 @@ interface Session {
     intensity: string;
     capacity: number;
     enrolled: number;
+    category?: string;
 }
+
+const FILTERS = ['Filter', 'All Coaches', 'Beginner'];
 
 export default function UserSchedulePage() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedFilter, setSelectedFilter] = useState('Filter');
 
-    useEffect(() => { loadSessions(); }, [selectedDate]);
-
-    async function loadSessions() {
+    const loadSessions = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
         const startOfDay = selectedDate + 'T00:00:00+09:00';
@@ -36,103 +39,188 @@ export default function UserSchedulePage() {
 
         if (data) setSessions(data);
         setLoading(false);
-    }
+    }, [selectedDate]);
 
-    // Generate week dates for horizontal scrolling date picker
+    useEffect(() => {
+        loadSessions();
+    }, [loadSessions]);
+
     function getWeekDates() {
         const dates = [];
         const today = new Date();
-        for (let i = -2; i <= 6; i++) {
-            const d = new Date(today);
-            d.setDate(d.getDate() + i);
+        const startOfWeek = new Date(today);
+        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+        for (let i = 0; i < 5; i++) {
+            const d = new Date(startOfWeek);
+            d.setDate(startOfWeek.getDate() + i);
             dates.push(d);
         }
         return dates;
     }
 
     const weekDates = getWeekDates();
-    const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
-    const intensityColors: Record<string, string> = { Low: '#22C55E', Medium: '#F59E0B', High: '#EF4444' };
+    const dayAbbrs = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    async function handleReserve(sessionId: string) {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            alert('Please log in first.');
+            return;
+        }
+
+        const { error } = await supabase.from('bookings').insert({
+            session_id: sessionId,
+            member_id: user.id,
+            status: 'confirmed',
+        });
+
+        if (error) {
+            if (error.code === '23505') {
+                alert('You have already booked this class.');
+            } else {
+                alert('Booking failed. Please try again.');
+            }
+        } else {
+            alert('Booking confirmed! ✅');
+            loadSessions();
+        }
+    }
+
+    const completedClasses = 2; // This would come from actual data
+    const weeklyGoal = 4;
 
     return (
-        <div className="p-4 pb-24 max-w-lg mx-auto animate-fade-in">
-            <h1 className="text-2xl font-bold text-white mb-4">수업 일정</h1>
+        <div className="app-page">
+            {/* ── Header ── */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
+                <h1 style={{ fontSize: '1.5rem', fontWeight: 700 }}>Schedule</h1>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: 'var(--app-surface)', border: '1px solid var(--app-border)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer',
+                    }}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
+                    </button>
+                    <Link href="/apps/schedule/bookings" style={{
+                        width: 36, height: 36, borderRadius: '50%',
+                        background: 'var(--app-accent)', color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        textDecoration: 'none', fontSize: '0.75rem', fontWeight: 700,
+                    }}>
+                        AR
+                    </Link>
+                </div>
+            </div>
 
-            {/* Date Picker */}
-            <div className="flex gap-2 overflow-x-auto pb-2 mb-6 no-scrollbar">
+            {/* ── Date Picker (Figma: MON-FRI row) ── */}
+            <div className="date-picker-row" style={{ justifyContent: 'space-between' }}>
                 {weekDates.map((date) => {
                     const dateStr = date.toISOString().split('T')[0];
                     const isSelected = dateStr === selectedDate;
-                    const isToday = dateStr === new Date().toISOString().split('T')[0];
+                    const isToday = dateStr === todayStr;
                     return (
                         <button
                             key={dateStr}
                             onClick={() => setSelectedDate(dateStr)}
-                            className="flex flex-col items-center min-w-[52px] py-3 px-2 rounded-xl transition-all"
-                            style={isSelected ? { background: 'var(--primary)', color: '#fff' } : { background: 'var(--surface)', color: 'var(--text-secondary)' }}
+                            className={`date-chip ${isSelected ? 'active' : ''}`}
+                            style={{ flex: 1 }}
                         >
-                            <span className="text-xs font-medium">{dayNames[date.getDay()]}</span>
-                            <span className="text-lg font-bold mt-1" style={{ color: isSelected ? '#fff' : 'var(--text-primary)' }}>{date.getDate()}</span>
-                            {isToday && <div className="w-1.5 h-1.5 rounded-full mt-1" style={{ background: isSelected ? '#fff' : 'var(--primary)' }}></div>}
+                            <span className="day-name">{dayAbbrs[date.getDay()]}</span>
+                            <span className="day-num">{date.getDate()}</span>
+                            {isToday && <div className="today-dot" />}
                         </button>
                     );
                 })}
             </div>
 
-            {/* Sessions */}
+            {/* ── Filter Chips (Figma Style) ── */}
+            <div className="app-filter-chips">
+                {FILTERS.map(f => (
+                    <button
+                        key={f}
+                        className={`app-filter-chip ${selectedFilter === f ? 'active' : ''}`}
+                        onClick={() => setSelectedFilter(f)}
+                        style={f === 'Filter' && selectedFilter !== 'Filter' ? { color: 'var(--app-accent)', borderColor: 'var(--app-accent)' } : {}}
+                    >
+                        {f === 'Filter' ? (
+                            <span style={{ color: selectedFilter === 'Filter' ? '#fff' : 'var(--app-accent)' }}>Filter</span>
+                        ) : f}
+                    </button>
+                ))}
+            </div>
+
+            {/* ── Session List ── */}
+            <div className="app-section-label">AVAILABLE CLASSES ({sessions.length})</div>
+
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="app-skeleton" style={{ height: 72, borderRadius: 16 }} />
+                    ))}
                 </div>
             ) : sessions.length === 0 ? (
-                <div className="glass-card p-8 rounded-xl text-center">
-                    <p className="text-4xl mb-3">🏋️</p>
-                    <p className="text-white font-semibold mb-1">이 날짜에 수업이 없습니다</p>
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>다른 날짜를 확인해보세요</p>
+                <div className="app-empty-state">
+                    <div className="emoji">🏋️</div>
+                    <div className="message">No classes available for this date</div>
+                    <p style={{ color: 'var(--app-text-muted)', fontSize: '0.8125rem', marginTop: '0.5rem' }}>
+                        Try another date or check back later
+                    </p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                     {sessions.map((session) => {
                         const isFull = session.enrolled >= session.capacity;
                         return (
-                            <div key={session.id} className="glass-card p-4 rounded-xl">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex gap-3">
-                                        <div className="text-center pt-1">
-                                            <p className="text-white font-bold text-sm">
-                                                {new Date(session.start_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                                ~{new Date(session.end_time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                        </div>
-                                        <div className="w-px self-stretch" style={{ background: 'var(--border)' }}></div>
-                                        <div>
-                                            <h3 className="text-white font-semibold">{session.title}</h3>
-                                            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>코치: {session.coach_name}</p>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: `${intensityColors[session.intensity]}20`, color: intensityColors[session.intensity] }}>
-                                                    {session.intensity}
-                                                </span>
-                                                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{session.enrolled}/{session.capacity}명</span>
-                                            </div>
-                                        </div>
+                            <div key={session.id} className="session-card">
+                                <div className="session-time" style={{ borderRight: '1px solid var(--app-border-strong)', paddingRight: '1rem' }}>
+                                    <div className="start">
+                                        {new Date(session.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/\s?(AM|PM)/, '')}
                                     </div>
-                                    <button
-                                        disabled={isFull}
-                                        className="px-4 py-2 rounded-lg text-sm font-semibold transition-all active:scale-95"
-                                        style={isFull
-                                            ? { background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)', cursor: 'not-allowed' }
-                                            : { background: 'var(--primary)', color: '#fff' }}
-                                    >
-                                        {isFull ? '마감' : '예약'}
-                                    </button>
+                                    <div className="end" style={{ fontSize: '0.6875rem', textTransform: 'uppercase' }}>
+                                        {new Date(session.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).includes('AM') ? 'AM' : 'PM'}
+                                    </div>
                                 </div>
+                                <div className="session-info">
+                                    <div className="title">{session.title}</div>
+                                    <div className="coach">Coach {session.coach_name}</div>
+                                </div>
+                                <button
+                                    disabled={false}
+                                    className={isFull ? 'app-btn-outline' : 'app-btn-primary'}
+                                    onClick={() => !isFull ? handleReserve(session.id) : null}
+                                    style={{ fontSize: '0.8125rem', padding: '0.5rem 1.25rem' }}
+                                >
+                                    {isFull ? 'Waitlist' : 'Book'}
+                                </button>
                             </div>
                         );
                     })}
                 </div>
             )}
+
+            {/* ── Weekly Progress (Figma) ── */}
+            <div className="weekly-progress-card" style={{ marginTop: '1.5rem' }}>
+                <div>
+                    <div className="weekly-progress-label">WEEKLY PROGRESS</div>
+                    <div className="weekly-progress-value">{completedClasses} / {weeklyGoal} Classes</div>
+                </div>
+                <svg width="52" height="52" viewBox="0 0 52 52" style={{ flexShrink: 0 }}>
+                    <circle cx="26" cy="26" r="22" fill="none" stroke="#E5E7EB" strokeWidth="4" />
+                    <circle
+                        cx="26" cy="26" r="22" fill="none"
+                        stroke="var(--app-accent)" strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(completedClasses / weeklyGoal) * 138.2} 138.2`}
+                        transform="rotate(-90 26 26)"
+                    />
+                </svg>
+            </div>
         </div>
     );
 }

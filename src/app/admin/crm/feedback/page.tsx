@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import AdminPageHeader from '@/components/layout/AdminPageHeader';
 
 interface FeedbackItem {
     id: string;
@@ -32,68 +33,69 @@ export default function FeedbackPage() {
     const facilityFeedback = feedbackData.filter(f => f.category === 'facility').length;
 
     return (
-        <div className="p-8 lg:p-12">
-            <header className="mb-12">
-                <div className="flex items-center gap-3 mb-2">
-                    <span className="w-2 h-2 rounded-full bg-[var(--primary)]"></span>
-                    <span className="text-[11px] font-black text-[var(--primary)] uppercase tracking-[0.5em]">CRM</span>
-                </div>
-                <h1 className="text-4xl font-black text-white uppercase">Feedback <span className="opacity-20 font-light ml-2">Management</span></h1>
-            </header>
+        <div className="transition-all duration-500">
+            <AdminPageHeader
+                category="CRM"
+                title="Feedback"
+                subtitle="Management"
+            />
 
-            {/* Stats */}
-            <div className="grid grid-cols-12 gap-6 mb-10">
-                <div className="col-span-4 kpi-card">
-                    <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Avg Rating</h4>
-                    <div className="mt-4 flex items-end gap-2">
-                        <p className="text-4xl font-black text-[var(--primary)]">{avgRating}</p>
-                        <p className="text-lg text-yellow-400 mb-1">{'★'.repeat(Math.round(Number(avgRating)))}</p>
+            <div className="p-10 max-w-[1400px] mx-auto">
+
+                {/* Stats */}
+                <div className="grid grid-cols-12 gap-6 mb-10">
+                    <div className="col-span-4 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Avg Rating</h4>
+                        <div className="mt-4 flex items-end gap-2">
+                            <p className="text-4xl font-black text-[var(--primary)]">{avgRating}</p>
+                            <p className="text-lg text-yellow-400 mb-1">{'★'.repeat(Math.round(Number(avgRating)))}</p>
+                        </div>
+                    </div>
+                    <div className="col-span-4 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Session Feedback</h4>
+                        <p className="text-3xl font-black text-white mt-4">{sessionFeedback}</p>
+                    </div>
+                    <div className="col-span-4 kpi-card">
+                        <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Facility Feedback</h4>
+                        <p className="text-3xl font-black text-white mt-4">{facilityFeedback}</p>
                     </div>
                 </div>
-                <div className="col-span-4 kpi-card">
-                    <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Session Feedback</h4>
-                    <p className="text-3xl font-black text-white mt-4">{sessionFeedback}</p>
-                </div>
-                <div className="col-span-4 kpi-card">
-                    <h4 className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">Facility Feedback</h4>
-                    <p className="text-3xl font-black text-white mt-4">{facilityFeedback}</p>
-                </div>
-            </div>
 
-            {/* Filter */}
-            <div className="flex gap-2 mb-8">
-                {['all', 'session', 'facility'].map((f) => (
-                    <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${filter === f ? 'bg-[var(--primary)] text-white' : 'bg-white/[0.03] border border-white/5 text-[var(--text-muted)]'}`}>
-                        {f === 'all' ? '전체' : f === 'session' ? '수업' : '시설'}
-                    </button>
-                ))}
-            </div>
+                {/* Filter */}
+                <div className="flex gap-2 mb-8">
+                    {['all', 'session', 'facility'].map((f) => (
+                        <button key={f} onClick={() => setFilter(f)} className={`admin-filter-btn ${filter === f ? 'active' : ''}`}>
+                            {f === 'all' ? '전체' : f === 'session' ? '수업' : '시설'}
+                        </button>
+                    ))}
+                </div>
 
-            {/* Feedback List */}
-            <div className="space-y-4">
-                {filtered.map((f) => (
-                    <div key={f.id} className="glass-card p-6 rounded-2xl group hover:border-white/10 transition-all">
-                        <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>{f.memberName.charAt(0)}</div>
-                                <div>
-                                    <h4 className="text-sm font-black text-white">{f.memberName}</h4>
-                                    <p className="text-[9px] text-[var(--text-muted)]">{f.date} · {f.category === 'session' ? `${f.sessionName} (${f.coach})` : '시설 피드백'}</p>
+                {/* Feedback List */}
+                <div className="space-y-4">
+                    {filtered.map((f) => (
+                        <div key={f.id} className="glass-card p-6 rounded-2xl group hover:border-white/10 transition-all">
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black" style={{ background: 'linear-gradient(135deg, rgba(255,107,0,0.3), rgba(255,107,0,0.1))', color: 'var(--primary)' }}>{f.memberName.charAt(0)}</div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-white">{f.memberName}</h4>
+                                        <p className="text-[9px] text-[var(--text-muted)]">{f.date} · {f.category === 'session' ? `${f.sessionName} (${f.coach})` : '시설 피드백'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <span key={star} className={`text-sm ${star <= f.rating ? 'text-yellow-400' : 'text-white/10'}`}>★</span>
+                                    ))}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                                {[1, 2, 3, 4, 5].map((star) => (
-                                    <span key={star} className={`text-sm ${star <= f.rating ? 'text-yellow-400' : 'text-white/10'}`}>★</span>
-                                ))}
+                            <p className="text-sm text-white/70 leading-relaxed pl-13">{f.comment}</p>
+                            <div className="flex gap-2 mt-4 pl-13 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all">답변하기</button>
+                                <span className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase ${f.category === 'session' ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-purple-500/10 border border-purple-500/20 text-purple-400'}`}>{f.category === 'session' ? '수업' : '시설'}</span>
                             </div>
                         </div>
-                        <p className="text-sm text-white/70 leading-relaxed pl-13">{f.comment}</p>
-                        <div className="flex gap-2 mt-4 pl-13 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-white/[0.03] border border-white/5 text-white hover:border-[var(--primary)]/50 transition-all">답변하기</button>
-                            <span className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase ${f.category === 'session' ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : 'bg-purple-500/10 border border-purple-500/20 text-purple-400'}`}>{f.category === 'session' ? '수업' : '시설'}</span>
-                        </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
