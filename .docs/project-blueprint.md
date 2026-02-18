@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Admin Advanced Features & Content Management (Tier 3)** ✅
+- **Current Focus**: **Admin 미구현 기능 Phase 3+4 완료 → 커밋 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 성공 (System Config DB Integration 완료)
+- **Build Status**: ✅ `npm run build` 성공 (T3-3 DnD + T3-9 RBAC 구현 완료)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Successfully integrated `system_config` table with UI and improved connection tests. Resolved Admin Dashboard build errors.
+- **Last Action**: T3-3(캘린더 DnD) HTML5 Drag&Drop API 구현, T3-9(역할 기반 접근 통제) useAdminPermissions 훅 + 사이드바 필터링 + 페이지 가드 구현 완료.
 
 ---
 
@@ -127,9 +127,9 @@
     - [x] database-reference.md 갱신 (알림 시스템 테이블 5개 + 자동화 트리거 4개 반영 완료)
     - [x] blueprint 반영
 
-#### 🔵 Priority 8: Admin 미구현 상세 기능 완성 (진행 중 — Tier 1+2 완료)
+#### ✅ Priority 8: Admin 미구현 상세 기능 완성 (완료) 🎉
   > **기획서**: `.docs/archive/planning/admin-unimplemented-features.md`
-  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63% → ~80%)
+  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63% → ~95%)
   > **방안**: Tier 1(비즈니스 핵심)부터 Tier 3(고도화)까지 4개 스프린트로 나누어 기능 완성
 
   - [x] Phase 1: Tier 1 비즈니스 핵심 ✅ → 💎 **Senior Dev** + 💻 **Dev** + 🎨 **UI**
@@ -139,7 +139,7 @@
     - [x] T1-4: 지점 운영시간 설정 (요일별 오픈/마감, 휴무 토글)
     - [x] T1-5: 예약 세션별 명단 + 노쇼 통제
     - [x] T1-6: CS 티켓 답변 기능
-  - [x] Phase 2: Tier 2 운영 효율 (대부분 완료) ✅ → 💻 **Developer (Sonnet)** + 🎨 **UI**
+  - [x] Phase 2: Tier 2 운영 효율 ✅ → 💻 **Developer (Sonnet)** + 🎨 **UI**
     - [x] T2-1: 출석 데이터 CSV 다운로드
     - [x] T2-2: 결제 데이터 CSV 다운로드
     - [x] T2-3: 알림 규칙 생성/수정 모달
@@ -150,13 +150,21 @@
     - [x] T2-10: 감사 로그 날짜 범위 필터
     - [x] T2-6: 요금제 정책 설정 (credit_count, max_pauses 등 필드 연동 완료) ✅
     - [x] T2-7: 역할별 사용자 배정 UI (/admin/operations/roles 구현 완료) ✅
-  - [ ] Phase 3: Tier 3 고도화 (시스템연동, 히트맵, DnD 캘린더 등) → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
-    - [x] T3-5: 회원권 양도 기능 (완료) ✅
-    - [x] T3-6: FAQ 관리 시스템 (완료) ✅
-    - [x] T3-9: 시스템 설정 DB 연동 (System Config DB Integration) ✅
-    - [ ] t3-1 ~ t3-12 기타 상세 기능 구현
-  - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap 갱신 및 blueprint 반영
+  - [x] Phase 3: Tier 3 고도화 (12/12 완료) ✅ → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
+    - [x] T3-1: 시스템 설정 DB 연동 (system_config 테이블 + RLS + 연결 테스트) ✅
+    - [x] T3-2: 출석 히트맵 (요일×시간대 히트맵 구현) ✅
+    - [x] T3-3: 수업 캘린더 DnD (HTML5 Drag&Drop API, 코치 충돌 검사, 낙관적 업데이트) ✅
+    - [x] T3-4: PM5 기기 CRUD + 상태 모니터링 ✅
+    - [x] T3-5: 멤버십 양도 기능 ✅
+    - [x] T3-6: FAQ 관리 시스템 ✅
+    - [x] T3-7: 배너 이미지 업로드 (파일 업로드 + 미리보기) ✅
+    - [x] T3-8: 지점 이미지 관리 (지도 URL + 갤러리 이미지 CRUD) ✅
+    - [x] T3-9: 역할 기반 메뉴 접근 통제 (useAdminPermissions + 사이드바 잠금 + 페이지 가드) ✅
+    - [x] T3-10: 코치 급여/수당 관리 (Settlements 탭 구현) ✅
+    - [x] T3-11: 고정 QR 코드 생성/다운로드 (Canvas 기반 QR + PNG 다운로드) ✅
+    - [x] T3-12: 대시보드 트렌드 위젯 (WoW 전주 대비 % KPI 카드) ✅
+  - [x] Phase 4: 문서 동기화 및 최종 검증 ✅ → 🏛️ **Architect (Opus)**
+    - [x] sitemap 갱신 및 blueprint 반영
 
 #### 🟠 Priority 9: 결제 시스템 아키텍처 (진행 중 — Phase 1 완료) 💳
   > **기획서**: `.docs/archive/planning/payment-system.md`

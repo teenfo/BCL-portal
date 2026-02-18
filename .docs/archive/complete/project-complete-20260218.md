@@ -213,3 +213,37 @@
   - [x] notification_preferences: categories JSON 컬럼 매핑 로직 수정
   - [x] members: birth_date, profile_image_url 등 필드명 정합성 확보
 - [x] npm run build 최종 성공 확인
+
+## 2026-02-19 세션 작업 내역
+### [Priority 8 완료 — Admin 미구현 상세 기능 완성] 🎉
+
+#### T3-3: 수업 캘린더 드래그 앤 드롭
+- [x] HTML5 Drag & Drop API 기반 수업 시간/날짜 이동 구현
+- [x] 드래그 시 원본 카드 반투명 처리 + 드롭 타겟 오렌지 하이라이트
+- [x] 코치 충돌 검사 (이동 후 동일 코치 시간 겹침 방지)
+- [x] 낙관적 업데이트 (UI 즉시 반영 → DB 비동기 업데이트)
+- [x] 빈 셀 드롭 시 "Drop Here" 점선 가이드 표시
+- **변경 파일**: `src/app/admin/operations/schedule/page.tsx`
+
+#### T3-9: 역할 기반 메뉴 접근 통제 (RBAC)
+- [x] `useAdminPermissions` 훅 신규 구현
+  - admin_user_roles → admin_roles.permissions 기반 퍼미션 로드
+  - 메뉴 경로별 필요 퍼미션 매핑 (MENU_PERMISSION_MAP)
+  - profile.role === 'admin' 자동 전체 권한 부여
+- [x] 사이드바 메뉴 접근 통제
+  - 권한 없는 메뉴 → 🔒 잠금 표시 (opacity: 0.3, cursor: not-allowed)
+  - 잠금 메뉴 클릭 불가 (Link → div 대체)
+- [x] AdminPermissionGuard 컴포넌트
+  - 페이지 레벨 접근 차단 (직접 URL 이동 시 잠금 화면 표시)
+  - Admin 레이아웃에 통합 적용
+- **신규 파일**:
+  - `src/hooks/useAdminPermissions.ts`
+  - `src/components/layout/AdminPermissionGuard.tsx`
+- **변경 파일**:
+  - `src/components/layout/AdminSidebar.tsx`
+  - `src/app/admin/layout.tsx`
+
+#### 빌드 검증
+- [x] `npm run build` 성공 (83개 라우트 전체 정상)
+- [x] Priority 8 전체 완료 (Tier 1, 2, 3 + Phase 4 문서 동기화)
+

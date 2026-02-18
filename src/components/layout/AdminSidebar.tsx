@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAdminSidebar } from '@/contexts/AdminSidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useAdminPermissions } from '@/hooks/useAdminPermissions';
 import Logo from '@/components/ui/Logo';
 
 interface MenuItem {
@@ -395,6 +396,7 @@ export default function AdminSidebar() {
     const router = useRouter();
     const { collapsed, setCollapsed } = useAdminSidebar();
     const { user, profile, signOut } = useAuth();
+    const { canAccessMenu, loading: permLoading } = useAdminPermissions();
     const [isMounted, setIsMounted] = useState(false);
     const isDev = process.env.NEXT_PUBLIC_SUPABASE_ENV === 'dev';
 
@@ -447,6 +449,32 @@ export default function AdminSidebar() {
                         <div className="admin-sidebar__items">
                             {group.items.map((item) => {
                                 const isActive = isActivePath(pathname, item.href);
+                                const hasAccess = permLoading || canAccessMenu(item.href);
+
+                                if (!hasAccess) {
+                                    // T3-9: 접근 불가 메뉴 — 잠금 표시
+                                    return (
+                                        <div
+                                            key={item.href}
+                                            className="admin-sidebar__item admin-sidebar__item--locked"
+                                            title={collapsed ? `🔒 ${item.name}` : '접근 권한이 없습니다'}
+                                            style={{ opacity: 0.3, cursor: 'not-allowed' }}
+                                        >
+                                            <span className="admin-sidebar__icon">
+                                                {item.icon}
+                                            </span>
+                                            {!collapsed && (
+                                                <span className="admin-sidebar__label">
+                                                    {item.name}
+                                                </span>
+                                            )}
+                                            {!collapsed && (
+                                                <span style={{ marginLeft: 'auto', fontSize: '10px', opacity: 0.6 }}>🔒</span>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
                                 return (
                                     <Link
                                         key={item.href}

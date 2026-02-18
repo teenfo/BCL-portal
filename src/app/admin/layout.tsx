@@ -1,6 +1,7 @@
 'use client';
 
 import AdminSidebar from '@/components/layout/AdminSidebar';
+import AdminPermissionGuard from '@/components/layout/AdminPermissionGuard';
 import { AdminSidebarProvider } from '@/contexts/AdminSidebarContext';
 import { AuthGuard } from '@/components/AuthGuard';
 
@@ -14,7 +15,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         className="flex-1 transition-all duration-500"
                         style={{ marginLeft: 'var(--sidebar-width, 256px)' }}
                     >
-                        {children}
+                        <AdminPermissionGuard>
+                            {children}
+                        </AdminPermissionGuard>
                     </main>
                 </div>
             </AdminSidebarProvider>

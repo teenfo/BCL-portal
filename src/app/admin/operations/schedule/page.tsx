@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
@@ -64,6 +64,11 @@ export default function SchedulePage() {
     const [showModal, setShowModal] = useState(false);
     const [editingSession, setEditingSession] = useState<Session | null>(null);
     const [coachConflict, setCoachConflict] = useState<string | null>(null);
+
+    // T3-3: Drag & Drop state
+    const [dragSessionId, setDragSessionId] = useState<string | null>(null);
+    const [dropTarget, setDropTarget] = useState<{ dayIdx: number; hour: number } | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     const today = useMemo(() => {
         const d = new Date();
@@ -288,6 +293,90 @@ export default function SchedulePage() {
         return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
     }
 
+    // T3-3: Drag & Drop handlers
+    function handleDragStart(e: React.DragEvent, sessionId: string) {
+        e.dataTransfer.setData('text/plain', sessionId);
+        e.dataTransfer.effectAllowed = 'move';
+        setDragSessionId(sessionId);
+        setIsDragging(true);
+        // Add custom drag image with slight transparency
+        const el = e.currentTarget as HTMLElement;
+        const ghost = el.cloneNode(true) as HTMLElement;
+        ghost.style.opacity = '0.8';
+        ghost.style.transform = 'scale(0.95)';
+        document.body.appendChild(ghost);
+        e.dataTransfer.setDragImage(ghost, 60, 20);
+        setTimeout(() => document.body.removeChild(ghost), 0);
+    }
+
+    function handleDragOver(e: React.DragEvent, dayIdx: number, hour: number) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        setDropTarget({ dayIdx, hour });
+    }
+
+    function handleDragLeave() {
+        setDropTarget(null);
+    }
+
+    function handleDragEnd() {
+        setDragSessionId(null);
+        setDropTarget(null);
+        setIsDragging(false);
+    }
+
+    async function handleDrop(e: React.DragEvent, day: Date, hour: number) {
+        e.preventDefault();
+        const sessionId = e.dataTransfer.getData('text/plain');
+        if (!sessionId) return;
+
+        const session = sessions.find(s => s.id === sessionId);
+        if (!session) return;
+
+        // Calculate duration
+        const oldStart = new Date(session.start_time);
+        const oldEnd = new Date(session.end_time);
+        const durationMs = oldEnd.getTime() - oldStart.getTime();
+
+        // Build new start/end
+        const newStart = new Date(day);
+        newStart.setHours(hour, oldStart.getMinutes(), 0, 0);
+        const newEnd = new Date(newStart.getTime() + durationMs);
+
+        // Skip if same position
+        if (oldStart.getTime() === newStart.getTime()) {
+            handleDragEnd();
+            return;
+        }
+
+        // Check coach conflict at new position
+        const newDate = `${newStart.getFullYear()}-${String(newStart.getMonth() + 1).padStart(2, '0')}-${String(newStart.getDate()).padStart(2, '0')}`;
+        const newStartTime = `${String(newStart.getHours()).padStart(2, '0')}:${String(newStart.getMinutes()).padStart(2, '0')}`;
+        const newEndTime = `${String(newEnd.getHours()).padStart(2, '0')}:${String(newEnd.getMinutes()).padStart(2, '0')}`;
+        const conflict = checkCoachConflict(session.coach_id, newDate, newStartTime, newEndTime, session.id);
+        if (conflict) {
+            handleDragEnd();
+            return;
+        }
+
+        // Optimistic update
+        setSessions(prev => prev.map(s =>
+            s.id === sessionId
+                ? { ...s, start_time: newStart.toISOString(), end_time: newEnd.toISOString() }
+                : s
+        ));
+
+        // DB update
+        const supabase = createClient();
+        await supabase.from('sessions').update({
+            session_date: newDate,
+            start_time: newStart.toISOString(),
+            end_time: newEnd.toISOString(),
+        }).eq('id', sessionId);
+
+        handleDragEnd();
+    }
+
     // --- KPI summary ---
     const totalSessions = sessions.length;
     const totalBookings = sessions.reduce((a, s) => a + s.current_bookings, 0);
@@ -389,20 +478,28 @@ export default function SchedulePage() {
                                     {weekDays.map((day, di) => {
                                         const session = getSessionForCell(day, hour);
                                         const td = isToday(day);
+                                        const isDropHere = dropTarget?.dayIdx === di && dropTarget?.hour === hour;
+                                        const isDragSource = session && dragSessionId === session.id;
                                         return (
                                             <div
                                                 key={di}
-                                                className={`min-h-[56px] border-b border-r border-white/[0.03] relative cursor-pointer transition-all hover:bg-white/[0.02] ${td ? 'bg-[var(--primary)]/[0.02]' : ''}`}
-                                                onClick={() => !session && openCreateModal(day, hour)}
+                                                className={`min-h-[56px] border-b border-r border-white/[0.03] relative cursor-pointer transition-all hover:bg-white/[0.02] ${td ? 'bg-[var(--primary)]/[0.02]' : ''} ${isDropHere ? '!bg-[var(--primary)]/10 ring-1 ring-inset ring-[var(--primary)]/40' : ''}`}
+                                                onClick={() => !session && !isDragging && openCreateModal(day, hour)}
+                                                onDragOver={(e) => handleDragOver(e, di, hour)}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={(e) => handleDrop(e, day, hour)}
                                             >
                                                 {session && (
                                                     <div
-                                                        className="absolute inset-1 rounded-lg p-2 cursor-pointer transition-all hover:scale-[1.02] group/cell overflow-hidden"
+                                                        className={`absolute inset-1 rounded-lg p-2 cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02] group/cell overflow-hidden ${isDragSource ? 'opacity-30 scale-95' : ''}`}
                                                         style={{
                                                             background: `${INTENSITY_CONFIG[session.intensity_level]?.color || '#3B82F6'}15`,
                                                             borderLeft: `3px solid ${INTENSITY_CONFIG[session.intensity_level]?.color || '#3B82F6'}`,
                                                         }}
-                                                        onClick={(e) => { e.stopPropagation(); openEditModal(session); }}
+                                                        draggable
+                                                        onDragStart={(e) => handleDragStart(e, session.id)}
+                                                        onDragEnd={handleDragEnd}
+                                                        onClick={(e) => { if (!isDragging) { e.stopPropagation(); openEditModal(session); } }}
                                                     >
                                                         <p className="text-[9px] font-black text-white truncate leading-tight">{session.title}</p>
                                                         <p className="text-[8px] text-white/40 truncate mt-0.5">{session.coach_name}</p>
@@ -412,6 +509,11 @@ export default function SchedulePage() {
                                                             </div>
                                                             <span className="text-[7px] font-bold text-white/30">{session.current_bookings}/{session.capacity}</span>
                                                         </div>
+                                                    </div>
+                                                )}
+                                                {isDropHere && !session && (
+                                                    <div className="absolute inset-1 rounded-lg border-2 border-dashed border-[var(--primary)]/40 flex items-center justify-center">
+                                                        <span className="text-[8px] font-black text-[var(--primary)]/60 uppercase tracking-widest">Drop Here</span>
                                                     </div>
                                                 )}
                                             </div>
