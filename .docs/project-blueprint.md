@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 9 Phase 4 완료 + Known Issues 점검 → 커밋 대기**
+- **Current Focus**: **User App 핵심 화면 고도화 기획 완료 → `/plan-to-blueprint` 등록 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 성공 (랠딩 페이지 + SEO 구현 완료)
+- **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: POS 매출 연동 (Edge Function 2개 + pg_cron + Admin Finance POS 필터 + POS 동기화 UI). Known Issues 점검 완료.
+- **Last Action**: User App 기획서 작성 완료 (`.docs/planning/user-app-enhancement.md`, Status: Approved)
 
 ---
 
@@ -101,17 +101,37 @@
 #### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료)
   > 기획서: `.docs/archive/planning/landing-page.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-#### 🟡 잔여 개선 항목 (향후)
-  - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
-  - [ ] Check-in QR 표준 라이브러리 교체 (qrcode.react) → ⚡ **Specialist**
-  - [ ] User Check-in QR 비표준 렌더링 개선 → ⚡ **Specialist**
-  - [ ] 대시보드 위젯 실 데이터 완성 → 💻 **Developer**
-  - [ ] 레이스 시스템 PM5 기기 데이터 연동 → ⚡ **Specialist**
-  - [ ] Coach 앱 브라우저 통합 테스트 → 💻 **Developer**
+#### ✅ Priority 11: 잔여 개선 항목 통합 (완료)
+  > **기획서**: `.docs/archive/planning/remaining-improvements.md`
+  > **결과**: QR 표준 라이브러리 교체 완료, Class 포털 rAF 기반 성능 최적화, 대시보드 위젯 쿼리 바인딩 보강, Coach 앱 통합 검증 완료
+
+  - [x] Phase 1: QR 표준 라이브러리 교체 → ⚡ **Specialist (Gemini)** ✅
+    - [x] `qrcode.react` 패키지 설치 (이미 설치됨 확인)
+    - [x] Check-in QR 렌더링 교체 (QRCodeSVG) — ISO/IEC 18004 규격
+    - [x] 키오스크 스캔 연동 검증
+    - [x] 빌드 검증
+  - [x] Phase 2: Class 포털 성능 최적화 → ⚡ **Specialist (Gemini)** ✅
+    - [x] Timer `requestAnimationFrame` 전환 + DOM 직접 갱신
+    - [x] Live 인라인 스타일 정적화 + React.memo
+    - [x] Leaderboard/WOD `rAF + ref` 시계 최적화
+    - [x] 빌드 검증
+  - [x] Phase 3: 대시보드 위젯 실 데이터 완성 → 💻 **Developer (Sonnet)** ✅
+    - [x] widget-registry 쿼리 키 감사
+    - [x] schedule/notifications/coaches/memberships 쿼리 바인딩 보강
+    - [x] Empty State / Error 처리 (기존 구현 확인)
+    - [x] 빌드 검증
+  - [x] Phase 4: Coach 앱 브라우저 통합 테스트 → 💻 **Developer (Sonnet)** ✅
+    - [x] Coach 전 5개 화면 통합 테스트 (dashboard, schedule, members, race, profile)
+    - [x] 발견 버그: 없음 (모든 화면 정상)
+  - [x] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)** ✅
+    - [x] sitemap/blueprint/complete 갱신
+
+  > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 → 등록 대기
 
 ---
 
 ### Known Issues (Active)
+- ✅ ~~**Check-in QR 비표준 렌더링** (RESOLVED): `qrcode.react` QRCodeSVG로 교체 완료. ISO/IEC 18004 규격 QR 코드 생성, 키오스크 스캐너 인식 가능.~~
 - ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
 - 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
 
