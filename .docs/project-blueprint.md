@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 8: Admin 미구현 상세 기능 완성 — Tier 1 완료 + Tier 2 대부분 완료** ✅
+- **Current Focus**: **랜딩 페이지 기획 완료 → 블루프린트 등록 대기** 📝
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
-- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 21:55 확인)
+- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 17:00 확인)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 8 Tier 1 + Tier 2 개발 완료 (2026-02-18 21:57)
+- **Last Action**: 랜딩 페이지 기획서 작성 완료 — `.docs/planning/landing-page.md` (Status: Approved) (2026-02-18 22:00)
 
 ---
 
@@ -188,7 +188,7 @@
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
   - [ ] Check-in QR 표준 라이브러리 교체 (qrcode.react) → ⚡ **Specialist**
   - [ ] User Check-in QR 비표준 렌더링 개선 → ⚡ **Specialist**
-  - [ ] 루트 랜딩 페이지 구현 → 🎨 **UI Developer**
+  - [ ] 루트 랜딩 페이지 구현 → 🎨 **UI Developer** (기획서: `.docs/planning/landing-page.md` ✅ Approved)
   - [ ] 대시보드 위젯 실 데이터 완성 → 💻 **Developer**
   - [ ] 레이스 시스템 PM5 기기 데이터 연동 → ⚡ **Specialist**
   - [ ] Coach 앱 브라우저 통합 테스트 → 💻 **Developer**
