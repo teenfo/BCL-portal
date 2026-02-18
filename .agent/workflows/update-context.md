@@ -32,22 +32,32 @@ description: 현재 작업의 진행 상황과 컨텍스트를 프로젝트 블�
 
 ---
 
-### 2️⃣ 블루프린트 문서 갱신
+### 2️⃣ 블루프린트 문서 갱신 (이원화 구조)
 **담당**: 💻 **Developer (Sonnet 4.6)**
 
-- `.docs/project-blueprint.md` 파일을 열어 **`5. 현재 작업 컨텍스트 (Active Context)`** 섹션을 갱신합니다.
-- **Developer가 수행할 것**:
-  - **`Current Focus`**: 현재 진행 중인 작업의 주제를 한 줄로 요약 (예: Admin 대시보드 UI 구현)
-  - **`Recent Accomplishments`**: 이번 세션에서 완료된 항목을 체크박스(`- [x]`) 형태로 추가
-  - **`Next Steps`**: 다음 작업자가 바로 이어서 해야 할 구체적인 태스크 명시 (`- [ ]`)
-  - **담당 에이전트 명시**: Next Steps에 담당 에이전트 표기
-    ```markdown
-    - [ ] 결제 모듈 API 구현 → **Senior Developer (Opus)**
-    - [ ] 결제 UI 구현 → **UI Developer (Gemini)**
-    - [ ] 결제 기능 테스트 → **Developer (Sonnet)**
-    ```
+> ⚠️ **이원화 규칙**: 블루프린트는 **미구현 항목만** 유지합니다.
+> 완료된 작업은 `.docs/project-complete-YYYYMMDD.md`로 이동합니다.
 
----
+#### A. `.docs/project-blueprint.md` (활성 문서)
+- **Active Context(Section 5)만 갱신**:
+  - **`Current Focus`**: 현재 진행 중인 작업의 주제를 한 줄로 요약
+  - **`Next Steps`**: 다음 작업자가 바로 이어서 해야 할 미구현 태스크만 남김 (`- [ ]`)
+  - **담당 에이전트 명시**: Next Steps에 담당 에이전트 표기
+- **완료된 항목 제거**: `- [x]` 체크된 항목은 blueprint에서 삭제 (complete 파일로 이동)
+- **구현 상태 요약(Section 3) 테이블 갱신**: 모듈 완료 상태만 간결하게 유지
+
+#### B. `.docs/project-complete-YYYYMMDD.md` (히스토리)
+- **오늘 날짜 파일 확인**: `.docs/project-complete-YYYYMMDD.md` (예: `project-complete-20260218.md`)
+  - 파일이 없으면 새로 생성 (날짜가 바뀐 경우)
+  - 파일이 이미 있으면 하단에 **이번 세션 작업 내역 추가**
+- **기록 형식**:
+  ```markdown
+  ## YYYY-MM-DD HH:MM 세션 작업 내역
+  ### [작업 주제]
+  - [x] 완료 항목 1
+  - [x] 완료 항목 2
+  ```
+- **Agent 자동 참조 금지**: 이 파일은 사용자가 명시적으로 요청한 경우에만 참조
 
 ### 3️⃣ 체크리스트 동기화 (선택)
 **담당**: 💻 **Developer (Sonnet 4.6)**
