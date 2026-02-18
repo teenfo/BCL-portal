@@ -196,7 +196,7 @@
     - [x] sitemap/database-reference/blueprint 갱신
 
 #### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료) 🎉
-  > **기획서**: `.docs/planning/landing-page.md` ✅ Approved
+  > **기획서**: `.docs/archive/planning/landing-page.md` ✅ Approved
   > **문제**: 루트 URL(`/`)에 플레이스홀더만 존재하여 잠재 회원에게 짐 정보 전달 불가
   > **방안**: Hero + Features + Programs + Coaches(DB) + Pricing(DB) + Facility(DB) + CTA + Footer
 
