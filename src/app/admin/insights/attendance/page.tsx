@@ -88,6 +88,21 @@ export default function AttendancePage() {
 
     useEffect(() => { loadData(); }, [loadData]);
 
+    // T2-1: CSV Download helper
+    function downloadCSV() {
+        if (dailyData.length === 0) return;
+        const rows = [['Date', 'Check-ins']];
+        dailyData.forEach(d => rows.push([d.date, String(d.count)]));
+        const csvContent = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `attendance_${period}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     // Chart helpers
     const maxDailyCount = Math.max(...dailyData.map(d => d.count), 1);
     const maxHourlyCount = Math.max(...hourlyData.map(h => h.count), 1);
@@ -144,6 +159,7 @@ export default function AttendancePage() {
                             </button>
                         ))}
                     </div>
+                    <button onClick={downloadCSV} disabled={dailyData.length === 0} className="admin-action-btn disabled:opacity-40">⬇ CSV 다운로드</button>
                 </div>
 
                 {loading ? (

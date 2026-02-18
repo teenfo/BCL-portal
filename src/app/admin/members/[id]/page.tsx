@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import AdminModal from '@/components/layout/AdminModal';
 import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes } from '@/components/icons/AdminIcons';
 
 interface Member {
@@ -77,6 +78,11 @@ export default function MemberDetailPage() {
     const [activeTab, setActiveTab] = useState<'overview' | 'attendance' | 'payments' | 'notes'>('overview');
     const [newNote, setNewNote] = useState('');
 
+    // T1-2: Edit member modal state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birthdate: '', status: '' });
+    const [saving, setSaving] = useState(false);
+
     useEffect(() => {
         loadMemberData();
     }, [memberId]);
@@ -119,6 +125,25 @@ export default function MemberDetailPage() {
         if (!endDate) return null;
         const diff = new Date(endDate).getTime() - new Date().getTime();
         return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    // T1-2: Open edit modal
+    function openEditModal() {
+        if (!member) return;
+        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birthdate: member.birthdate || '', status: member.status || 'Active' });
+        setShowEditModal(true);
+    }
+
+    // T1-2: Save member edit
+    async function saveMemberEdit() {
+        if (!member) return;
+        setSaving(true);
+        const supabase = createClient();
+        const { error } = await supabase.from('members').update({
+            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birthdate: editForm.birthdate || null, status: editForm.status,
+        }).eq('id', member.id);
+        if (!error) { setShowEditModal(false); loadMemberData(); }
+        setSaving(false);
     }
 
     if (loading) {
@@ -205,6 +230,7 @@ export default function MemberDetailPage() {
                             >
                                 {member.status}
                             </span>
+                            <button onClick={openEditModal} className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white/[0.05] border border-white/5 text-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all">✏️ 수정</button>
                         </div>
                         <div className="flex items-center gap-4 flex-wrap">
                             <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{member.email}</span>
@@ -490,6 +516,23 @@ export default function MemberDetailPage() {
                     </div>
                 </div>
             )}
+
+            {/* T1-2: Member Edit Modal */}
+            <AdminModal show={showEditModal} onClose={() => setShowEditModal(false)} title="회원 정보 수정" subtitle={member.email}>
+                <div className="space-y-5">
+                    <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이름 *</label><input type="text" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                    <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">전화번호</label><input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="010-0000-0000" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">성별</label><select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="">미지정</option><option value="M">남성</option><option value="F">여성</option></select></div>
+                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">생년월일</label><input type="date" value={editForm.birthdate} onChange={(e) => setEditForm({ ...editForm, birthdate: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                    </div>
+                    <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">상태</label><select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="Active">활성</option><option value="Inactive">비활성</option><option value="Expired">만료</option><option value="Suspended">정지</option></select></div>
+                </div>
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                    <button onClick={saveMemberEdit} disabled={saving || !editForm.name.trim()} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-50" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>{saving ? '저장 중...' : '저장'}</button>
+                </div>
+            </AdminModal>
         </div>
     );
 }

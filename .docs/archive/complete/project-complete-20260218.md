@@ -164,3 +164,42 @@
 - ✅ **키오스크 QR 실동작 불가**: html5-qrcode 라이브러리 연동 완료
 - ✅ **키오스크 DB 스키마 불일치**: 컬럼명 통일
 - ✅ **Class 포털 미완성**: 4/4 화면 구현 + Leaderboard DB 연동
+
+---
+
+## 2026-02-18 21:57 세션 작업 내역
+
+### Priority 8: Admin 미구현 상세 기능 — Tier 1 완료 + Tier 2 대부분 완료
+
+#### Tier 1 비즈니스 핵심 (전 항목 완료) ✅
+- [x] **T1-1**: 환불 프로세스 — 위약금 자동 계산 + 환불 승인 모달 + 트랜잭션 생성 (transactions 페이지)
+- [x] **T1-2**: 회원 정보 수정 — 이름/전화/성별/생년월일/상태 편집 모달 (members/[id] 페이지)
+- [x] **T1-3**: 멤버십 홀딩 정상화 — pause_count 증가, paused_at 기록, 재개 시 종료일 자동 연장, max_pauses 초과 방지, 홀딩 사유 입력, 커스텀 연장일 (memberships 페이지)
+- [x] **T1-4**: 지점 운영시간 설정 — 요일별 오픈/마감 시간, 휴무 토글, 프리셋 버튼, 카드에 요약 표시 (setup/branch 페이지)
+- [x] **T1-5**: 예약 세션별 명단 + 노쇼 통제 — 슬라이드아웃 참석자 명단, 출석/노쇼 처리, 대기→확정 자동 승격 (reservations 페이지)
+- [x] **T1-6**: CS 티켓 답변 기능 — 인라인 답변 입력, 답변 히스토리, 상태 자동 변경 (crm/support 페이지)
+
+#### Tier 2 운영 효율 (8/10 완료) ✅
+- [x] **T2-1**: 출석 데이터 CSV 다운로드 (insights/attendance)
+- [x] **T2-2**: 결제 데이터 CSV 다운로드 (transactions)
+- [x] **T2-3**: 알림 규칙 생성/수정 모달 — 트리거/카테고리/채널/템플릿 설정 (crm/notifications)
+- [x] **T2-4**: 피드백 필터(코치/수업/날짜) + 검색 기능 추가 (crm/feedback)
+- [x] **T2-5**: 멤버십 연장 커스텀 일수 (T1-3에서 구현)
+- [x] **T2-8**: 예약 검색 기능 (T1-5에서 구현)
+- [x] **T2-9**: 알림 KPI 대시보드 (기존 구현 확인)
+- [x] **T2-10**: 감사 로그 날짜 범위 필터 (setup/audit)
+
+#### 변경된 파일
+| 파일 | 변경 내용 |
+|------|-----------|
+| `src/app/admin/setup/branch/page.tsx` | T1-4: 운영시간 설정 모달 + 카드 요약 |
+| `src/app/admin/insights/attendance/page.tsx` | T2-1: CSV 다운로드 |
+| `src/app/admin/transactions/page.tsx` | T1-1 + T2-2: 환불 + CSV |
+| `src/app/admin/setup/audit/page.tsx` | T2-10: 날짜 범위 필터 |
+| `src/app/admin/crm/feedback/page.tsx` | T2-4: 코치/날짜 필터 + 검색 |
+| `src/app/admin/crm/notifications/page.tsx` | T2-3: 규칙 생성/수정 모달 |
+| `src/app/admin/crm/support/page.tsx` | T1-6: 티켓 답변 |
+| `src/app/admin/members/[id]/page.tsx` | T1-2: 회원 정보 수정 |
+| `src/app/admin/memberships/page.tsx` | T1-3: 홀딩/연장 |
+| `src/app/admin/operations/reservations/page.tsx` | T1-5: 명단/노쇼 |
+

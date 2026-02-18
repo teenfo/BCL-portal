@@ -177,3 +177,20 @@ Agent가 판단에 사용할 문서 우선순위:
 - 모든 기능 개발 및 수정 시, 해당 기능의 기획 문서를 즉시 업데이트해야 한다.
 - Agent는 작업 완료 보고 전, 소스 코드와 `.docs/sitemap/**/*.md` 문서 간의 정합성을 최종 확인한다.
 - 불일치가 발견되면 코드를 수정하거나 기획 문서를 최신화하여 항상 동기화된 상태를 유지한다.
+
+---
+
+## 12) 기획-개발 파이프라인 규칙 (Plan → Build)
+- 새로운 기능/아키텍처 변경은 **반드시 기획 문서를 먼저 작성**한다.
+- 기획은 **🏛️ Architect (Opus)**가 전담한다 (다른 에이전트 위임 금지).
+- 기획-개발 파이프라인:
+  1. **`/plan`** → 기획 문서 작성 (`.docs/planning/`에 저장)
+     - 스킬: `.agent/skills/feature-planning/SKILL.md`
+  2. **`/plan-to-blueprint`** → 블루프린트 등록 (`.docs/archive/planning/`으로 이동)
+     - 스킬: `.agent/skills/plan-to-blueprint/SKILL.md`
+  3. **`/develop`** → Phase별 개발 실행
+- Agent 금지 사항:
+  - ❌ 기획 문서 없이 대규모 기능 개발 착수
+  - ❌ 기획 문서를 `.docs/planning/` 외의 위치에 저장
+  - ❌ Architect 외의 에이전트가 기획 문서 작성
+  - ❌ 블루프린트 등록 없이 개발 착수 (단순 버그 수정 제외)

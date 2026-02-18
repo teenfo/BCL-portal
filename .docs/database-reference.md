@@ -84,10 +84,19 @@
 #### 알림 시스템 (Notification)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
+| `notifications` | 알림 통합 테이블 | user_id, title, content, category, type, channel, action_url, metadata |
 | `notification_rules` | 자동 알림 규칙 | name, trigger_type, trigger_config, channels, is_active |
 | `notification_logs` | 발송 로그 | rule_id, notification_id, channel, status, sent_at, read_at |
-| `notification_preferences` | 수신 설정 | user_id, class_reminder, push_enabled, quiet_hours |
-| `push_subscriptions` | 웹 푸시 구독 | user_id, endpoint, p256dh_key, auth_key |
+| `notification_preferences` | 수신 설정 | user_id, class_reminder, push_enabled, kakao_enabled, sms_enabled |
+| `push_subscriptions` | 웹 푸시 구독 | user_id, endpoint, p256dh_key, auth_key, device_type |
+
+#### 자동화 트리거 및 함수 (Automation) 🆕
+| 명칭 | 유형 | 대상 | 설명 |
+|------|------|------|------|
+| `fn_handle_notification_side_effects` | Trigger Function | `notifications` | 알림 생성 시 푸시/외부 채널 발송 및 로그 기록 |
+| `fn_send_class_reminders` | Cron Function | `sessions` | 수업 시작 1시간 전 예약자에게 알림 발송 |
+| `fn_notify_waitlist_on_vacancy` | Trigger Function | `bookings` | 예약 취소 시 대기열 상위 인원에게 알림 발송 |
+| `fn_send_membership_expiry_reminders` | Cron Function | `memberships` | 멤버십 만료 전 d-7, d-3, d-1 알림 발송 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |

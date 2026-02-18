@@ -16,6 +16,8 @@ interface Ticket {
     created_at: string;
     updated_at: string;
     members?: { name: string; email: string };
+    admin_reply?: string | null;
+    resolved_at?: string | null;
 }
 
 export default function SupportPage() {
@@ -23,6 +25,8 @@ export default function SupportPage() {
     const [loading, setLoading] = useState(true);
     const [filterStatus, setFilterStatus] = useState('all');
     const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [replying, setReplying] = useState(false);
 
     const loadTickets = useCallback(async () => {
         const supabase = createClient();
@@ -51,9 +55,39 @@ export default function SupportPage() {
 
     async function updateTicketStatus(id: string, status: string) {
         const supabase = createClient();
-        await supabase.from('support_tickets').update({ status }).eq('id', id);
-        if (selectedTicket?.id === id) setSelectedTicket({ ...selectedTicket, status });
+        const updates: any = { status };
+        if (status === 'resolved') updates.resolved_at = new Date().toISOString();
+        await supabase.from('support_tickets').update(updates).eq('id', id);
+        if (selectedTicket?.id === id) setSelectedTicket({ ...selectedTicket, status, ...(status === 'resolved' ? { resolved_at: new Date().toISOString() } : {}) });
         loadTickets();
+    }
+
+    // T1-6: Send reply to ticket
+    async function sendReply() {
+        if (!selectedTicket || !replyText.trim()) return;
+        setReplying(true);
+        const supabase = createClient();
+        const existingReply = selectedTicket.admin_reply || '';
+        const timestamp = new Date().toLocaleString('ko-KR');
+        const newReply = existingReply
+            ? `${existingReply}\n---\n[${timestamp}] ${replyText.trim()}`
+            : `[${timestamp}] ${replyText.trim()}`;
+
+        const { error } = await supabase.from('support_tickets').update({
+            admin_reply: newReply,
+            status: selectedTicket.status === 'open' ? 'in_progress' : selectedTicket.status,
+        }).eq('id', selectedTicket.id);
+
+        if (!error) {
+            setSelectedTicket({
+                ...selectedTicket,
+                admin_reply: newReply,
+                status: selectedTicket.status === 'open' ? 'in_progress' : selectedTicket.status,
+            });
+            setReplyText('');
+            loadTickets();
+        }
+        setReplying(false);
     }
 
     const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
@@ -117,13 +151,58 @@ export default function SupportPage() {
                                 <h3 className="text-lg font-black text-white">{selectedTicket.subject}</h3>
                                 <button onClick={() => setSelectedTicket(null)} className="text-[var(--text-muted)] hover:text-white text-lg">✕</button>
                             </div>
-                            <div className="space-y-4 mb-8">
-                                <div className="grid grid-cols-3 gap-4 text-center">
+                            <div className="space-y-4 mb-6">
+                                <div className="grid grid-cols-4 gap-4 text-center">
                                     <div className="p-3 rounded-xl bg-white/[0.02]"><p className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Status</p><span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase" style={{ background: (statusConfig[selectedTicket.status]?.bg), color: (statusConfig[selectedTicket.status]?.color) }}>{statusConfig[selectedTicket.status]?.label}</span></div>
                                     <div className="p-3 rounded-xl bg-white/[0.02]"><p className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Member</p><p className="text-xs font-bold text-white">{selectedTicket.members?.name}</p></div>
                                     <div className="p-3 rounded-xl bg-white/[0.02]"><p className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Created</p><p className="text-xs font-bold text-white">{new Date(selectedTicket.created_at).toLocaleDateString('ko-KR')}</p></div>
+                                    <div className="p-3 rounded-xl bg-white/[0.02]"><p className="text-[8px] text-[var(--text-muted)] uppercase mb-1">Priority</p><span className="w-2 h-2 rounded-full inline-block" style={{ background: priorityColors[selectedTicket.priority] || '#6B7280' }}></span> <span className="text-[9px] text-white/60 uppercase">{selectedTicket.priority}</span></div>
                                 </div>
-                                <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.03]"><p className="text-sm text-white/80 leading-relaxed">{selectedTicket.description}</p></div>
+                                {/* Customer message */}
+                                <div>
+                                    <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">고객 문의 내용</p>
+                                    <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.03]"><p className="text-sm text-white/80 leading-relaxed">{selectedTicket.description}</p></div>
+                                </div>
+                                {/* T1-6: Admin replies */}
+                                {selectedTicket.admin_reply && (
+                                    <div>
+                                        <p className="text-[8px] font-black text-[var(--primary)] uppercase tracking-widest mb-2">관리자 답변</p>
+                                        <div className="space-y-2">
+                                            {selectedTicket.admin_reply.split('\n---\n').map((reply, i) => (
+                                                <div key={i} className="p-4 rounded-xl border" style={{ background: 'rgba(255,107,0,0.03)', borderColor: 'rgba(255,107,0,0.1)' }}>
+                                                    <p className="text-sm text-white/80 leading-relaxed whitespace-pre-wrap">{reply}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {/* T1-6: Reply input */}
+                                {selectedTicket.status !== 'closed' && (
+                                    <div>
+                                        <p className="text-[8px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">답변 작성</p>
+                                        <div className="flex gap-2">
+                                            <textarea
+                                                value={replyText}
+                                                onChange={(e) => setReplyText(e.target.value)}
+                                                placeholder="답변을 입력하세요..."
+                                                rows={3}
+                                                className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none resize-none"
+                                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                                            />
+                                        </div>
+                                        <button
+                                            onClick={sendReply}
+                                            disabled={replying || !replyText.trim()}
+                                            className="mt-2 px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-white transition-all disabled:opacity-40"
+                                            style={{ background: 'var(--primary)', boxShadow: '0 0 15px rgba(255,107,0,0.3)' }}
+                                        >
+                                            {replying ? '전송 중...' : '답변 전송'}
+                                        </button>
+                                    </div>
+                                )}
+                                {selectedTicket.resolved_at && (
+                                    <p className="text-[9px] text-green-500/60">✅ 해결일: {new Date(selectedTicket.resolved_at).toLocaleString('ko-KR')}</p>
+                                )}
                             </div>
                             <div className="flex flex-wrap gap-2">
                                 {Object.entries(statusConfig).map(([key, val]) => (

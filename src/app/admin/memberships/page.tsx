@@ -16,7 +16,10 @@ interface Membership {
     status: string;
     created_at: string;
     members?: { id: string; name: string; email: string; phone: string };
-    membership_plans?: { id: string; name: string; type: string; price: number; duration_days: number; credit_count: number };
+    membership_plans?: { id: string; name: string; type: string; price: number; duration_days: number; credit_count: number; max_pauses?: number };
+    pause_count?: number;
+    paused_at?: string | null;
+    pause_reason?: string | null;
 }
 
 interface Member {
@@ -48,6 +51,15 @@ export default function MembershipsPage() {
     const [creditReason, setCreditReason] = useState('');
     const [createForm, setCreateForm] = useState({ member_id: '', plan_id: '', start_date: new Date().toISOString().split('T')[0] });
 
+    // T1-3: Hold modal state
+    const [showHoldModal, setShowHoldModal] = useState(false);
+    const [holdTarget, setHoldTarget] = useState<Membership | null>(null);
+    const [holdReason, setHoldReason] = useState('');
+    // T1-3: Custom extension
+    const [showExtendModal, setShowExtendModal] = useState(false);
+    const [extendTarget, setExtendTarget] = useState<Membership | null>(null);
+    const [extendDays, setExtendDays] = useState(30);
+
     const loadData = useCallback(async () => {
         const supabase: any = createClient();
         setLoading(true);
@@ -56,7 +68,7 @@ export default function MembershipsPage() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             let query: any = supabase
                 .from('memberships')
-                .select('*, members!memberships_member_id_fkey(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count)')
+                .select('*, members!memberships_member_id_fkey(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count, max_pauses)')
                 .order('created_at', { ascending: false });
 
             if (filter !== 'all') {
@@ -75,7 +87,7 @@ export default function MembershipsPage() {
                 // Fallback: query without explicit FK name
                 let fallbackQuery: any = supabase
                     .from('memberships')
-                    .select('*, members(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count)')
+                    .select('*, members(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count, max_pauses)')
                     .order('created_at', { ascending: false });
                 if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
                 const { data: fallbackData, error: fallbackError } = await fallbackQuery;
@@ -135,11 +147,33 @@ export default function MembershipsPage() {
         loadData();
     }
 
+    // T1-3: Proper hold/resume with pause_count, paused_at, and duration extension
     async function toggleHold(ms: Membership) {
-        const supabase: any = createClient();
-        const newStatus = ms.status === 'active' ? 'expired' : 'active';
-        await supabase.from('memberships').update({ status: newStatus }).eq('id', ms.id);
-        loadData();
+        if (ms.status === 'active') {
+            // Check max_pauses
+            const maxPauses = ms.membership_plans?.max_pauses ?? 99;
+            const currentPauses = ms.pause_count ?? 0;
+            if (currentPauses >= maxPauses) {
+                alert(`최대 홀딩 횟수(${maxPauses}회)를 초과했습니다.`);
+                return;
+            }
+            // Open hold reason modal
+            setHoldTarget(ms);
+            setHoldReason('');
+            setShowHoldModal(true);
+        } else if (ms.status === 'expired' || ms.status === 'paused') {
+            // Resume: extend end_date by paused duration
+            const supabase: any = createClient();
+            let newEndDate = ms.end_date;
+            if (ms.paused_at && ms.end_date) {
+                const pausedMs = Date.now() - new Date(ms.paused_at).getTime();
+                const pausedDays = Math.ceil(pausedMs / 86400000);
+                const extEnd = new Date(new Date(ms.end_date).getTime() + pausedDays * 86400000);
+                newEndDate = extEnd.toISOString().split('T')[0];
+            }
+            await supabase.from('memberships').update({ status: 'active', paused_at: null, pause_reason: null, end_date: newEndDate }).eq('id', ms.id);
+            loadData();
+        }
     }
 
     async function adjustCredits() {
@@ -154,12 +188,34 @@ export default function MembershipsPage() {
         loadData();
     }
 
+    // T1-3: Confirm hold with reason
+    async function confirmHold() {
+        if (!holdTarget) return;
+        const supabase: any = createClient();
+        await supabase.from('memberships').update({
+            status: 'paused',
+            paused_at: new Date().toISOString(),
+            pause_count: (holdTarget.pause_count ?? 0) + 1,
+            pause_reason: holdReason || null,
+        }).eq('id', holdTarget.id);
+        setShowHoldModal(false);
+        setHoldTarget(null);
+        loadData();
+    }
+
+    // T1-3: Custom day extension
     async function extendMembership(ms: Membership, days: number) {
         if (!ms.end_date) return;
         const supabase: any = createClient();
         const newEnd = new Date(new Date(ms.end_date).getTime() + days * 86400000);
         await supabase.from('memberships').update({ end_date: newEnd.toISOString().split('T')[0] }).eq('id', ms.id);
         loadData();
+    }
+
+    function openExtendModal(ms: Membership) {
+        setExtendTarget(ms);
+        setExtendDays(30);
+        setShowExtendModal(true);
     }
 
     function getDaysRemaining(endDate: string | null) {
@@ -170,6 +226,7 @@ export default function MembershipsPage() {
 
     const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
         active: { bg: 'rgba(34, 197, 94, 0.15)', color: '#22C55E', label: '활성' },
+        paused: { bg: 'rgba(245, 158, 11, 0.15)', color: '#F59E0B', label: '홀딩' },
         expired: { bg: 'rgba(239, 68, 68, 0.15)', color: '#EF4444', label: '만료' },
         cancelled: { bg: 'rgba(107, 114, 128, 0.15)', color: '#9CA3AF', label: '취소' },
     };
@@ -292,10 +349,10 @@ export default function MembershipsPage() {
                                             )}
                                             {ms.end_date && ms.status === 'active' && (
                                                 <button
-                                                    onClick={() => extendMembership(ms, 30)}
+                                                    onClick={() => openExtendModal(ms)}
                                                     className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all"
                                                 >
-                                                    +30일 연장
+                                                    연장
                                                 </button>
                                             )}
                                             <button
@@ -307,6 +364,11 @@ export default function MembershipsPage() {
                                             >
                                                 {ms.status === 'active' ? '홀딩' : '재개'}
                                             </button>
+                                            {ms.status === 'paused' && ms.paused_at && (
+                                                <span className="text-[7px] text-yellow-500/60 ml-1">
+                                                    {Math.ceil((Date.now() - new Date(ms.paused_at).getTime()) / 86400000)}일째
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 );
@@ -397,6 +459,48 @@ export default function MembershipsPage() {
                     <div className="flex gap-3 mt-8">
                         <button onClick={() => { setShowCreditModal(false); setSelectedMembership(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
                         <button onClick={adjustCredits} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>적용</button>
+                    </div>
+                </AdminModal>
+
+                {/* T1-3: Hold Reason Modal */}
+                <AdminModal show={showHoldModal && !!holdTarget} onClose={() => { setShowHoldModal(false); setHoldTarget(null); }} title="멤버십 홀딩" subtitle={holdTarget ? `${holdTarget.members?.name} · 홀딩 ${(holdTarget.pause_count ?? 0)}/${holdTarget.membership_plans?.max_pauses ?? '∞'}회` : ''}>
+                    <div className="space-y-5">
+                        <div className="p-4 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
+                            <p className="text-[10px] text-yellow-500 font-bold">⚠️ 홀딩 시 멤버십 기간이 정지됩니다. 재개 시 홀딩 기간만큼 자동 연장됩니다.</p>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">홀딩 사유 (선택)</label>
+                            <input type="text" value={holdReason} onChange={(e) => setHoldReason(e.target.value)} placeholder="예: 부상, 출장, 개인사유" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowHoldModal(false); setHoldTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={confirmHold} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: '#F59E0B', boxShadow: '0 0 20px rgba(245,158,11,0.3)' }}>홀딩 확인</button>
+                    </div>
+                </AdminModal>
+
+                {/* T1-3: Custom Extension Modal */}
+                <AdminModal show={showExtendModal && !!extendTarget} onClose={() => { setShowExtendModal(false); setExtendTarget(null); }} title="멤버십 연장" subtitle={extendTarget?.members?.name || ''}>
+                    <div className="space-y-5">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">연장 일수</label>
+                            <div className="flex gap-2 mb-3">
+                                {[7, 14, 30, 60, 90].map(d => (
+                                    <button key={d} onClick={() => setExtendDays(d)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${extendDays === d ? 'bg-blue-500/20 border border-blue-500/30 text-blue-400' : 'bg-white/[0.03] border border-white/5 text-white/50'}`}>{d}일</button>
+                                ))}
+                            </div>
+                            <input type="number" min={1} value={extendDays} onChange={(e) => setExtendDays(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        {extendTarget?.end_date && (
+                            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.03]">
+                                <p className="text-[10px] text-[var(--text-muted)] mb-1">연장 후 종료일</p>
+                                <p className="text-lg font-black text-white">{new Date(new Date(extendTarget.end_date).getTime() + extendDays * 86400000).toLocaleDateString('ko-KR')}</p>
+                            </div>
+                        )}
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowExtendModal(false); setExtendTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={() => { if (extendTarget) { extendMembership(extendTarget, extendDays); setShowExtendModal(false); setExtendTarget(null); } }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>연장 확인</button>
                     </div>
                 </AdminModal>
             </div>

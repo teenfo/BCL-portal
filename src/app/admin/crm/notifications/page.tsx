@@ -90,6 +90,10 @@ export default function NotificationsPage() {
     const [sending, setSending] = useState(false);
     const [showRuleModal, setShowRuleModal] = useState(false);
     const [editingRule, setEditingRule] = useState<NotifRule | null>(null);
+    // T2-3: Rule form state
+    const defaultRuleForm = { name: '', description: '', trigger_type: 'time_before_session', category: 'class_reminder', channels: ['in_app'] as string[], title_template: '', message_template: '', is_active: true };
+    const [ruleForm, setRuleForm] = useState(defaultRuleForm);
+    const [savingRule, setSavingRule] = useState(false);
 
     // ── Load Data ──
     const loadNotifications = useCallback(async () => {
@@ -183,6 +187,46 @@ export default function NotificationsPage() {
     async function toggleRule(rule: NotifRule) {
         const supabase = createClient();
         await supabase.from('notification_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
+        loadRules();
+    }
+
+    // T2-3: Open rule modal for create/edit
+    function openRuleModal(rule?: NotifRule) {
+        if (rule) {
+            setEditingRule(rule);
+            setRuleForm({
+                name: rule.name, description: rule.description,
+                trigger_type: rule.trigger_type, category: rule.category,
+                channels: rule.channels || ['in_app'],
+                title_template: rule.title_template || '', message_template: rule.message_template || '',
+                is_active: rule.is_active,
+            });
+        } else {
+            setEditingRule(null);
+            setRuleForm(defaultRuleForm);
+        }
+        setShowRuleModal(true);
+    }
+
+    // T2-3: Save rule
+    async function saveRule() {
+        if (!ruleForm.name || !ruleForm.title_template) return;
+        setSavingRule(true);
+        const supabase = createClient();
+        const payload = {
+            name: ruleForm.name, description: ruleForm.description || null,
+            trigger_type: ruleForm.trigger_type, trigger_config: {},
+            category: ruleForm.category, channels: ruleForm.channels,
+            title_template: ruleForm.title_template, message_template: ruleForm.message_template,
+            is_active: ruleForm.is_active,
+        };
+        if (editingRule) {
+            await (supabase as any).from('notification_rules').update(payload).eq('id', editingRule.id);
+        } else {
+            await (supabase as any).from('notification_rules').insert(payload);
+        }
+        setShowRuleModal(false);
+        setSavingRule(false);
         loadRules();
     }
 
@@ -319,6 +363,9 @@ export default function NotificationsPage() {
                 {/* ── Tab: Rules ── */}
                 {activeTab === 'rules' && (
                     <div>
+                        <div className="flex justify-end mb-6">
+                            <button onClick={() => openRuleModal()} className="admin-action-btn">+ 규칙 추가</button>
+                        </div>
                         <div className="space-y-3">
                             {rules.length === 0 ? (
                                 <div className="glass-card p-20 flex flex-col items-center justify-center opacity-40">
@@ -357,6 +404,12 @@ export default function NotificationsPage() {
                                                             }`}
                                                     >
                                                         {rule.is_active ? 'Active' : 'Inactive'}
+                                                    </button>
+                                                    <button
+                                                        onClick={() => openRuleModal(rule)}
+                                                        className="px-3 py-2 rounded-lg text-[10px] font-black text-blue-400 bg-blue-500/10 hover:bg-blue-500/20 transition-all"
+                                                    >
+                                                        Edit
                                                     </button>
                                                     <button
                                                         onClick={() => deleteRule(rule.id)}
@@ -505,6 +558,55 @@ export default function NotificationsPage() {
                         </div>
                     </div>
                 )}
+
+                {/* T2-3: Rule Create/Edit Modal */}
+                <AdminModal show={showRuleModal} onClose={() => setShowRuleModal(false)} title={editingRule ? '규칙 수정' : '새 규칙 등록'}>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">규칙명 *</label>
+                            <input value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">설명</label>
+                            <input value={ruleForm.description} onChange={(e) => setRuleForm({ ...ruleForm, description: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">트리거</label>
+                                <select value={ruleForm.trigger_type} onChange={(e) => setRuleForm({ ...ruleForm, trigger_type: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {Object.entries(triggerLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">카테고리</label>
+                                <select value={ruleForm.category} onChange={(e) => setRuleForm({ ...ruleForm, category: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                    {Object.entries(categoryConfig).map(([k, c]) => <option key={k} value={k}>{c.emoji} {c.label}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">제목 템플릿 *</label>
+                            <input value={ruleForm.title_template} onChange={(e) => setRuleForm({ ...ruleForm, title_template: e.target.value })} placeholder="예: {{session_title}} 수업 알림" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">메시지 템플릿</label>
+                            <textarea value={ruleForm.message_template} onChange={(e) => setRuleForm({ ...ruleForm, message_template: e.target.value })} rows={3} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none resize-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">채널:</label>
+                            {['in_app', 'push', 'sms', 'email'].map(ch => (
+                                <button key={ch} onClick={() => {
+                                    const cs = ruleForm.channels.includes(ch) ? ruleForm.channels.filter(c => c !== ch) : [...ruleForm.channels, ch];
+                                    setRuleForm({ ...ruleForm, channels: cs });
+                                }} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase ${ruleForm.channels.includes(ch) ? 'bg-[var(--primary)]/20 text-[var(--primary)] border border-[var(--primary)]/30' : 'bg-white/[0.03] border border-white/5 text-white/40'}`}>{ch}</button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => setShowRuleModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={saveRule} disabled={savingRule || !ruleForm.name || !ruleForm.title_template} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-30" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>{savingRule ? '저장 중...' : '저장'}</button>
+                    </div>
+                </AdminModal>
             </div>
         </div>
     );

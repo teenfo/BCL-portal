@@ -23,6 +23,9 @@ export default function AuditLogsPage() {
     const [filterAction, setFilterAction] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+    // T2-10: Date range filter
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     const loadLogs = useCallback(async () => {
         const supabase = createClient();
@@ -37,6 +40,9 @@ export default function AuditLogsPage() {
             if (filterAction !== 'all') {
                 query = query.eq('action', filterAction);
             }
+            // T2-10: Date range filtering
+            if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
+            if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
 
             const { data, error } = await query;
             if (error) {
@@ -48,7 +54,7 @@ export default function AuditLogsPage() {
             console.error('Error:', e);
         }
         setLoading(false);
-    }, [filterAction]);
+    }, [filterAction, dateFrom, dateTo]);
 
     useEffect(() => { loadLogs(); }, [loadLogs]);
 
@@ -130,6 +136,10 @@ export default function AuditLogsPage() {
                         ))}
                     </div>
                     <input type="text" placeholder="테이블, 내용, IP 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 admin-search-input" />
+                    {/* T2-10: Date range */}
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
+                    <span className="text-white/30 text-xs">~</span>
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
                 </div>
 
                 {/* Loading */}

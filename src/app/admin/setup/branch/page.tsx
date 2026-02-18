@@ -22,6 +22,15 @@ export default function BranchSetupPage() {
     const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
     const [form, setForm] = useState({ name: '', address: '', phone: '' });
 
+    // T1-4: Operating hours state
+    const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
+    const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const defaultHours: Record<string, { open: string; close: string; closed: boolean }> = {};
+    DAY_KEYS.forEach((d, i) => { defaultHours[d] = { open: i < 5 ? '06:00' : '09:00', close: i < 5 ? '22:00' : '18:00', closed: false }; });
+    const [showHoursModal, setShowHoursModal] = useState(false);
+    const [hoursTarget, setHoursTarget] = useState<Facility | null>(null);
+    const [hoursForm, setHoursForm] = useState<Record<string, { open: string; close: string; closed: boolean }>>(defaultHours);
+
     useEffect(() => { loadFacilities(); }, []);
 
     async function loadFacilities() {
@@ -62,6 +71,40 @@ export default function BranchSetupPage() {
         loadFacilities();
     }
 
+    // T1-4: Open operating hours modal
+    function openHoursModal(facility: Facility) {
+        setHoursTarget(facility);
+        if (facility.operating_hours && typeof facility.operating_hours === 'object') {
+            const h = facility.operating_hours as Record<string, any>;
+            const merged = { ...defaultHours };
+            DAY_KEYS.forEach(d => { if (h[d]) merged[d] = { open: h[d].open || '06:00', close: h[d].close || '22:00', closed: !!h[d].closed }; });
+            setHoursForm(merged);
+        } else {
+            setHoursForm({ ...defaultHours });
+        }
+        setShowHoursModal(true);
+    }
+
+    // T1-4: Save operating hours
+    async function saveOperatingHours() {
+        if (!hoursTarget) return;
+        const supabase = createClient();
+        await (supabase as any).from('facilities').update({ operating_hours: hoursForm }).eq('id', hoursTarget.id);
+        setShowHoursModal(false);
+        setHoursTarget(null);
+        loadFacilities();
+    }
+
+    // T1-4: Format operating hours summary
+    function getHoursSummary(f: Facility): string {
+        if (!f.operating_hours || typeof f.operating_hours !== 'object') return '운영시간 미설정';
+        const h = f.operating_hours as Record<string, any>;
+        const weekday = h['mon'];
+        if (!weekday) return '운영시간 미설정';
+        if (weekday.closed) return '휴무';
+        return `평일 ${weekday.open || '06:00'}~${weekday.close || '22:00'}`;
+    }
+
     return (
         <div className="transition-all duration-500">
             <AdminPageHeader
@@ -90,8 +133,15 @@ export default function BranchSetupPage() {
                                 <div className="space-y-2 text-[10px]">
                                     <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconMapPin size={14} /></span><span className="text-white/60">{f.address || '주소 미설정'}</span></div>
                                     <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconPhone size={14} /></span><span className="text-white/60">{f.phone || '번호 미설정'}</span></div>
-                                    <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconCalendar size={14} /></span><span className="text-white/60">등록일: {new Date(f.created_at).toLocaleDateString('ko-KR')}</span></div>
+                                    <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconCalendar size={14} /></span><span className="text-white/60">{getHoursSummary(f)}</span></div>
                                 </div>
+                                {/* T1-4: Operating hours button */}
+                                <button
+                                    onClick={() => openHoursModal(f)}
+                                    className="mt-4 w-full py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white/50 hover:border-[var(--primary)]/30 hover:text-[var(--primary)] transition-all"
+                                >
+                                    ⏰ 운영시간 설정
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -115,6 +165,59 @@ export default function BranchSetupPage() {
                     <div className="flex gap-3 mt-8">
                         <button onClick={() => setShowModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
                         <button onClick={saveFacility} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>저장</button>
+                    </div>
+                </AdminModal>
+
+                {/* T1-4: Operating Hours Modal */}
+                <AdminModal show={showHoursModal && !!hoursTarget} onClose={() => { setShowHoursModal(false); setHoursTarget(null); }} title="운영 시간 설정" subtitle={hoursTarget?.name || ''}>
+                    <div className="space-y-3">
+                        {DAY_KEYS.map((d, i) => (
+                            <div key={d} className={`flex items-center gap-3 p-3 rounded-xl transition-all ${hoursForm[d]?.closed ? 'bg-red-500/5 border border-red-500/10' : 'bg-white/[0.02] border border-white/[0.03]'}`}>
+                                <span className={`w-8 text-center text-xs font-black ${hoursForm[d]?.closed ? 'text-red-400' : 'text-white'}`}>{DAYS[i]}</span>
+                                <button
+                                    onClick={() => setHoursForm({ ...hoursForm, [d]: { ...hoursForm[d], closed: !hoursForm[d].closed } })}
+                                    className={`px-2 py-1 rounded-lg text-[7px] font-black uppercase ${hoursForm[d]?.closed ? 'bg-red-500/20 text-red-400' : 'bg-green-500/10 text-green-400'}`}
+                                >
+                                    {hoursForm[d]?.closed ? '휴무' : '영업'}
+                                </button>
+                                {!hoursForm[d]?.closed && (
+                                    <>
+                                        <input
+                                            type="time"
+                                            value={hoursForm[d]?.open || '06:00'}
+                                            onChange={(e) => setHoursForm({ ...hoursForm, [d]: { ...hoursForm[d], open: e.target.value } })}
+                                            className="px-3 py-1.5 rounded-lg text-xs text-white outline-none"
+                                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                        />
+                                        <span className="text-white/30 text-xs">~</span>
+                                        <input
+                                            type="time"
+                                            value={hoursForm[d]?.close || '22:00'}
+                                            onChange={(e) => setHoursForm({ ...hoursForm, [d]: { ...hoursForm[d], close: e.target.value } })}
+                                            className="px-3 py-1.5 rounded-lg text-xs text-white outline-none"
+                                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                        />
+                                    </>
+                                )}
+                            </div>
+                        ))}
+                        {/* Quick presets */}
+                        <div className="flex gap-2 pt-2">
+                            <button onClick={() => {
+                                const preset: Record<string, any> = {};
+                                DAY_KEYS.forEach((d, i) => { preset[d] = i < 5 ? { open: '06:00', close: '22:00', closed: false } : { open: '09:00', close: '18:00', closed: false }; });
+                                setHoursForm(preset);
+                            }} className="px-3 py-1.5 rounded-lg text-[7px] font-black uppercase bg-white/[0.03] border border-white/5 text-white/50 hover:text-white transition-all">기본 프리셋</button>
+                            <button onClick={() => {
+                                const preset: Record<string, any> = {};
+                                DAY_KEYS.forEach((d, i) => { preset[d] = i < 6 ? { open: '06:00', close: '22:00', closed: false } : { open: '06:00', close: '22:00', closed: true }; });
+                                setHoursForm(preset);
+                            }} className="px-3 py-1.5 rounded-lg text-[7px] font-black uppercase bg-white/[0.03] border border-white/5 text-white/50 hover:text-white transition-all">일요일 휴무</button>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowHoursModal(false); setHoursTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={saveOperatingHours} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>저장</button>
                     </div>
                 </AdminModal>
             </div>

@@ -27,6 +27,11 @@ export default function FeedbackPage() {
     const [selectedFeedback, setSelectedFeedback] = useState<FeedbackItem | null>(null);
     const [replyText, setReplyText] = useState('');
     const [saving, setSaving] = useState(false);
+    // T2-4: Additional filters
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterCoach, setFilterCoach] = useState('all');
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
 
     const loadFeedback = useCallback(async () => {
         const supabase = createClient();
@@ -72,13 +77,37 @@ export default function FeedbackPage() {
         }
     }
 
-    const filtered = filter === 'all'
+    const intermediateFiltered = filter === 'all'
         ? feedback
         : filter === 'responded'
             ? feedback.filter(f => f.admin_response)
             : filter === 'pending'
                 ? feedback.filter(f => !f.admin_response)
                 : feedback.filter(f => f.rating <= 2);
+
+    // T2-4: Apply additional filters
+    const finalFiltered = intermediateFiltered.filter(f => {
+        // Coach filter
+        if (filterCoach !== 'all') {
+            const coachName = (f.coaches as any)?.name || '';
+            if (coachName !== filterCoach) return false;
+        }
+        // Date range
+        if (dateFrom && f.created_at && f.created_at < dateFrom) return false;
+        if (dateTo && f.created_at && f.created_at > `${dateTo}T23:59:59`) return false;
+        // Search
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            const memberName = ((f.members as any)?.name || '').toLowerCase();
+            const sessionTitle = ((f.sessions as any)?.title || '').toLowerCase();
+            const comment = (f.comment || '').toLowerCase();
+            if (!memberName.includes(term) && !sessionTitle.includes(term) && !comment.includes(term)) return false;
+        }
+        return true;
+    });
+
+    // T2-4: Unique coaches for filter
+    const uniqueCoaches = Array.from(new Set(feedback.map(f => (f.coaches as any)?.name).filter(Boolean)));
 
     const avgRating = feedback.length > 0 ? (feedback.reduce((s, f) => s + (f.rating || 0), 0) / feedback.length).toFixed(1) : '0';
     const respondedCount = feedback.filter(f => f.admin_response).length;
@@ -133,6 +162,17 @@ export default function FeedbackPage() {
                         </button>
                     ))}
                 </div>
+                {/* T2-4: Coach filter + search + date range */}
+                <div className="flex items-center gap-3 mb-8">
+                    <select value={filterCoach} onChange={(e) => setFilterCoach(e.target.value)} className="admin-search-input" style={{ maxWidth: 160 }}>
+                        <option value="all">코치 전체</option>
+                        {uniqueCoaches.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <input type="text" placeholder="회원, 수업, 내용 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 admin-search-input" />
+                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="admin-search-input" style={{ maxWidth: 140 }} />
+                    <span className="text-white/30 text-xs">~</span>
+                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="admin-search-input" style={{ maxWidth: 140 }} />
+                </div>
 
                 {/* Loading */}
                 {loading ? (
@@ -144,7 +184,7 @@ export default function FeedbackPage() {
                             </div>
                         ))}
                     </div>
-                ) : filtered.length === 0 ? (
+                ) : finalFiltered.length === 0 ? (
                     <div className="glass-card p-16 rounded-2xl text-center">
                         <p className="text-4xl mb-4">💬</p>
                         <p className="text-white/40 text-sm">피드백이 없습니다</p>
@@ -152,7 +192,7 @@ export default function FeedbackPage() {
                 ) : (
                     /* Feedback List */
                     <div className="space-y-4">
-                        {filtered.map((f) => {
+                        {finalFiltered.map((f) => {
                             const memberName = (f.members as any)?.name || '회원';
                             const sessionTitle = (f.sessions as any)?.title || '-';
                             const coachName = (f.coaches as any)?.name || '-';

@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **결제 시스템 기획 완료 → Priority 9 등록** 💳
+- **Current Focus**: **Priority 8: Admin 미구현 상세 기능 완성 — Tier 1 완료 + Tier 2 대부분 완료** ✅
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
-- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 17:00 확인)
+- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 21:55 확인)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 결제 시스템 기획서 작성 완료 → Blueprint Priority 9 등록 → Archive 이동 (2026-02-18 21:37)
+- **Last Action**: Priority 8 Tier 1 + Tier 2 개발 완료 (2026-02-18 21:57)
 
 ---
 
@@ -121,24 +121,35 @@
   - [x] Phase 2: 자동 알림 규칙 엔진 (완료) ✨
   - [x] Phase 3: Web Push (PWA) 통합 (완료) ✨
   - [x] Phase 4: 외부 채널 연동 (완료) ✨
-  - [ ] Phase 5: 문서 동기화 (진행 중)
+  - [x] Phase 5: 문서 동기화 (완료) ✨
     - [x] notifications/push_subscriptions/notification_preferences DB 스키마 검증
     - [x] sitemap 갱신 (사용자 앱/관리자 알림 센터 구현 반영)
-    - [ ] `database-reference.md` 유실 데이터 복구 및 최신화
-  - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap 갱신 (알림 센터 화면 추가)
-    - [ ] database-reference.md 갱신
-    - [ ] blueprint 반영
+    - [x] database-reference.md 갱신 (알림 시스템 테이블 5개 + 자동화 트리거 4개 반영 완료)
+    - [x] blueprint 반영
 
-#### 🟠 Priority 8: Admin 미구현 상세 기능 완성 (개발 대기)
+#### 🔵 Priority 8: Admin 미구현 상세 기능 완성 (진행 중 — Tier 1+2 완료)
   > **기획서**: `.docs/archive/planning/admin-unimplemented-features.md`
-  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63%)
+  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63% → ~80%)
   > **방안**: Tier 1(비즈니스 핵심)부터 Tier 3(고도화)까지 4개 스프린트로 나누어 기능 완성
 
-  - [ ] Phase 1: Tier 1 비즈니스 핵심 (회원수정, 홀딩, 운영시간, CS답변 등) → 💎 **Senior Dev (Opus)** + 💻 **Dev** + 🎨 **UI**
-    - [ ] t1-1 ~ t1-6 상세 기능 구현
-  - [ ] Phase 2: Tier 2 운영 효율 (CSV 다운로드, 알림편집, 검색강화 등) → 💻 **Developer (Sonnet)** + 🎨 **UI**
-    - [ ] t2-1 ~ t2-10 상세 기능 구현
+  - [x] Phase 1: Tier 1 비즈니스 핵심 ✅ → 💎 **Senior Dev** + 💻 **Dev** + 🎨 **UI**
+    - [x] T1-1: 환불 프로세스 (위약금 계산 + 승인)
+    - [x] T1-2: 회원 정보 수정 (이름/연락처/상태)
+    - [x] T1-3: 멤버십 홀딩 처리 (pause_count, 기간 차감)
+    - [x] T1-4: 지점 운영시간 설정 (요일별 오픈/마감, 휴무 토글)
+    - [x] T1-5: 예약 세션별 명단 + 노쇼 통제
+    - [x] T1-6: CS 티켓 답변 기능
+  - [x] Phase 2: Tier 2 운영 효율 (대부분 완료) ✅ → 💻 **Developer (Sonnet)** + 🎨 **UI**
+    - [x] T2-1: 출석 데이터 CSV 다운로드
+    - [x] T2-2: 결제 데이터 CSV 다운로드
+    - [x] T2-3: 알림 규칙 생성/수정 모달
+    - [x] T2-4: 피드백 필터(코치/수업/날짜) + 검색
+    - [x] T2-5: 멤버십 연장 커스텀 일수 (T1-3에서 구현)
+    - [x] T2-8: 예약 검색 기능 (T1-5에서 구현)
+    - [x] T2-9: 알림 KPI 대시보드 (기존 구현 확인)
+    - [x] T2-10: 감사 로그 날짜 범위 필터
+    - [ ] T2-6: 요금제 정책 설정 (DB 스키마 변경 필요) → 💎 **Senior Dev**
+    - [ ] T2-7: 역할별 사용자 배정 UI → 🎨 **UI Dev**
   - [ ] Phase 3: Tier 3 고도화 (시스템연동, 히트맵, DnD 캘린더 등) → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
     - [ ] t3-1 ~ t3-12 상세 기능 구현
   - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**

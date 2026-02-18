@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
+import AdminModal from '@/components/layout/AdminModal';
 import { IconFileText } from '@/components/icons/AdminIcons';
 
 interface Transaction {
@@ -29,6 +30,13 @@ export default function TransactionsPage() {
         end: new Date().toISOString().split('T')[0],
     });
     const [searchTerm, setSearchTerm] = useState('');
+
+    // T1-1: Refund modal state
+    const [showRefundModal, setShowRefundModal] = useState(false);
+    const [refundTarget, setRefundTarget] = useState<Transaction | null>(null);
+    const [refundReason, setRefundReason] = useState('');
+    const [refundFeePercent, setRefundFeePercent] = useState(10);
+    const [processing, setProcessing] = useState(false);
 
     const loadTransactions = useCallback(async () => {
         const supabase = createClient();
@@ -91,6 +99,44 @@ export default function TransactionsPage() {
 
     useEffect(() => { loadTransactions(); }, [loadTransactions]);
 
+    // T1-1: Open refund modal with auto fee calculation
+    function openRefundModal(tx: Transaction) {
+        setRefundTarget(tx);
+        // Auto-calc fee: default 10%, but could be adjusted
+        setRefundFeePercent(10);
+        setRefundReason('');
+        setShowRefundModal(true);
+    }
+
+    // T1-1: Process refund
+    async function processRefund() {
+        if (!refundTarget) return;
+        setProcessing(true);
+        const supabase = createClient();
+        const feeAmount = Math.round(Number(refundTarget.amount) * refundFeePercent / 100);
+        const refundAmount = Number(refundTarget.amount) - feeAmount;
+
+        // Mark original transaction as refunded
+        await (supabase as any).from('transactions').update({
+            status: 'refunded',
+        }).eq('id', refundTarget.id);
+
+        // Create refund transaction record
+        await (supabase as any).from('transactions').insert({
+            member_id: refundTarget.member_id,
+            amount: refundAmount,
+            method: refundTarget.payment_method,
+            status: 'completed',
+            category: refundTarget.category,
+            date: new Date().toISOString().split('T')[0],
+        });
+
+        setShowRefundModal(false);
+        setRefundTarget(null);
+        setProcessing(false);
+        loadTransactions();
+    }
+
     const filteredTransactions = transactions.filter((t) => {
         if (!searchTerm) return true;
         const term = searchTerm.toLowerCase();
@@ -106,6 +152,25 @@ export default function TransactionsPage() {
     const totalRefund = transactions.filter(t => t.payment_status === 'refunded' || t.transaction_type === 'refund').reduce((sum, t) => sum + Number(t.amount), 0);
     const pendingAmount = transactions.filter(t => t.payment_status === 'pending').reduce((sum, t) => sum + Number(t.amount), 0);
     const txCount = transactions.length;
+
+    // T2-2: CSV Download
+    function downloadTransactionsCSV() {
+        if (filteredTransactions.length === 0) return;
+        const rows = [['Date', 'Member', 'Email', 'Type', 'Category', 'Method', 'Status', 'Amount']];
+        filteredTransactions.forEach(t => rows.push([
+            t.created_at?.split('T')[0] || '', t.members?.name || '', t.members?.email || '',
+            t.transaction_type || '', t.category || '', t.payment_method || '',
+            t.payment_status || '', String(t.amount),
+        ]));
+        const csvContent = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 
     const statusConfig: Record<string, { bg: string; color: string; label: string }> = {
         completed: { bg: 'rgba(34, 197, 94, 0.15)', color: '#22C55E', label: '완료' },
@@ -128,6 +193,7 @@ export default function TransactionsPage() {
                 category="User & Finance"
                 title="Transactions"
                 subtitle="Ledger"
+                actions={<button onClick={downloadTransactionsCSV} disabled={filteredTransactions.length === 0} className="admin-action-btn disabled:opacity-40">⬇ CSV 다운로드</button>}
             />
 
             <div className="p-10 max-w-[1400px] mx-auto">
@@ -231,6 +297,7 @@ export default function TransactionsPage() {
                                     <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">결제 수단</th>
                                     <th className="text-left p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">상태</th>
                                     <th className="text-right p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">금액</th>
+                                    <th className="p-4 text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -273,6 +340,17 @@ export default function TransactionsPage() {
                                                     {t.transaction_type === 'refund' ? '-' : ''}₩{Number(t.amount).toLocaleString()}
                                                 </span>
                                             </td>
+                                            {/* T1-1: Refund button */}
+                                            <td className="p-4">
+                                                {t.payment_status === 'completed' && t.transaction_type !== 'refund' && (
+                                                    <button
+                                                        onClick={() => openRefundModal(t)}
+                                                        className="px-3 py-1.5 rounded-lg text-[7px] font-black uppercase tracking-widest bg-purple-500/10 border border-purple-500/20 text-purple-400 hover:bg-purple-500/20 transition-all opacity-0 group-hover:opacity-100"
+                                                    >
+                                                        환불
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -280,6 +358,66 @@ export default function TransactionsPage() {
                         </table>
                     </div>
                 )}
+
+                {/* T1-1: Refund Modal */}
+                <AdminModal show={showRefundModal && !!refundTarget} onClose={() => { setShowRefundModal(false); setRefundTarget(null); }} title="환불 처리" subtitle={refundTarget?.members?.name || ''}>
+                    {refundTarget && (() => {
+                        const feeAmount = Math.round(Number(refundTarget.amount) * refundFeePercent / 100);
+                        const refundAmount = Number(refundTarget.amount) - feeAmount;
+                        return (
+                            <div className="space-y-5">
+                                {/* Original transaction info */}
+                                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.03]">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-[9px] text-[var(--text-muted)] uppercase">원거래 금액</span>
+                                        <span className="text-lg font-black text-white">₩{Number(refundTarget.amount).toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[9px] text-[var(--text-muted)] uppercase">결제일</span>
+                                        <span className="text-xs text-white/60">{new Date(refundTarget.created_at).toLocaleDateString('ko-KR')}</span>
+                                    </div>
+                                </div>
+
+                                {/* Fee calculation */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">위약금 비율 (%)</label>
+                                    <div className="flex gap-2 mb-3">
+                                        {[0, 5, 10, 20, 30].map(p => (
+                                            <button key={p} onClick={() => setRefundFeePercent(p)} className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${refundFeePercent === p ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400' : 'bg-white/[0.03] border border-white/5 text-white/50'}`}>{p}%</button>
+                                        ))}
+                                    </div>
+                                    <input type="number" min={0} max={100} value={refundFeePercent} onChange={(e) => setRefundFeePercent(Math.min(100, Math.max(0, Number(e.target.value))))} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                                </div>
+
+                                {/* Refund summary */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 text-center">
+                                        <p className="text-[8px] text-red-400 uppercase mb-1">위약금</p>
+                                        <p className="text-lg font-black text-red-400">₩{feeAmount.toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-4 rounded-xl bg-purple-500/5 border border-purple-500/10 text-center">
+                                        <p className="text-[8px] text-purple-400 uppercase mb-1">환불액</p>
+                                        <p className="text-lg font-black text-purple-400">₩{refundAmount.toLocaleString()}</p>
+                                    </div>
+                                </div>
+
+                                {/* Reason */}
+                                <div>
+                                    <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">환불 사유</label>
+                                    <input type="text" value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="예: 단순 변심, 시설 불만, 이전 등" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                                </div>
+
+                                <div className="p-3 rounded-xl bg-yellow-500/5 border border-yellow-500/10">
+                                    <p className="text-[9px] text-yellow-500 font-bold">⚠️ 환불 처리는 취소할 수 없습니다. 신중하게 확인해주세요.</p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowRefundModal(false); setRefundTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={processRefund} disabled={processing} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-50" style={{ background: '#8B5CF6', boxShadow: '0 0 20px rgba(139,92,246,0.3)' }}>{processing ? '처리 중...' : '환불 승인'}</button>
+                    </div>
+                </AdminModal>
             </div>
         </div>
     );
