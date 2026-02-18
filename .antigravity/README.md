@@ -1,10 +1,16 @@
-# Antigravity Multi-Agent Development System v2.0
+# Antigravity Multi-Agent Development System v3.0
 
-BCL Portal은 **5명의 전문 AI 에이전트**가 협업하여 개발하는 통합 플랫폼입니다.
+BCL Portal은 **3종 AI 모델 기반 5명의 전문 에이전트**가 협업하여 개발하는 통합 플랫폼입니다.
 
 ---
 
-## 🤖 에이전트 팀 구성
+## 🤖 사용 가능 모델
+
+| 모델 | 특성 | Config ID |
+|:-----|:-----|:----------|
+| **Claude Opus 4.6 (Thinking)** | 최고 수준의 추론력, 깊은 사고, 복잡한 문제 해결 | `claude-opus-4.6-thinking` |
+| **Claude Sonnet 4.6** | 균형잡힌 속도와 품질, 코드 생성·분석·테스트 | `claude-sonnet-4.6` |
+| **Gemini 3 Flash** | 초고속 응답, 실시간 처리, UI/프론트엔드 특화 | `gemini-3-flash` |
 
 ---
 
@@ -26,9 +32,9 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
 | 에이전트 | 활용 목적 |
 |:---------|:----------|
 | **Architect** | 디자인 시스템 아키텍처 설계, UI 패턴 일관성 검증 |
-| **Developer** | UI 컴포넌트 구현 시 디자인 참조, 레이아웃 구현 |
+| **UI Developer** | UI 컴포넌트 구현 시 디자인 참조, 레이아웃 구현 |
 | **Specialist** | 인터랙티브 UI, 애니메이션, 전환 효과 참조 |
-| **QA** | 디자인 일관성 검증, 사용성 테스트, 접근성 검증 |
+| **Developer** | 디자인 일관성 검증, 사용성 테스트 (QA 포함) |
 
 ### 참조 원칙
 1. **컨셉 중심**: Pixel-perfect 구현이 아닌 디자인 컨셉과 레이아웃 중심
@@ -48,7 +54,6 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
   - 모든 Critical/High 복잡도 작업 최종 검토
   - 기술 스택 결정 및 ADR 작성
   - 프로덕션 배포 승인
-- **성능**: 최고 수준의 추론력, 깊은 사고
 - **상세**: [agents/architect.md](./agents/architect.md)
 
 ---
@@ -61,25 +66,36 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
   - 멤버십 관리 로직
   - RLS 정책 상세 구현
   - 트랜잭션 관리
-- **성능**: 깊은 사고, 복잡한 문제 해결
 - **상세**: [agents/senior-developer.md](./agents/senior-developer.md)
 
 ---
 
-### 3. **Developer** (Claude Sonnet 4.5 Thinking) 💻
-- **역할**: Full-Stack Developer
-- **전문 영역**: 일반 개발, UI/API 구현, 통합 테스트
+### 3. **Developer** (Claude Sonnet 4.6) 💻
+- **역할**: Full-Stack Developer & QA Engineer
+- **전문 영역**: 일반 개발, API 구현, 테스트, 품질 검증, 문서화
 - **책임**:
-  - React 컴포넌트 구현
-  - Next.js API Routes 작성
-  - 통합 테스트 작성
-  - 일반 CRUD 개발
-- **성능**: 빠른 추론과 코드 생성 균형
+  - 백엔드 API (Next.js API Routes) 작성
+  - Supabase 클라이언트 연동 및 데이터 통합
+  - 단위/통합/E2E 테스트 작성 및 검증
+  - 품질 검증, 버그 리포트, 사용성 검토
+  - API 문서 및 사용자 가이드 작성
 - **상세**: [agents/developer.md](./agents/developer.md)
 
 ---
 
-### 4. **Specialist** (Gemini 3.0 Flash) ⚡
+### 4. **UI Developer** (Gemini 3 Flash) 🎨
+- **역할**: UI/UX Frontend Developer
+- **전문 영역**: 모든 화면의 UI/UX 개발, 프론트엔드 컴포넌트
+- **책임**:
+  - 사용자 앱 / 관리자 / 코치 / 디스플레이 / 키오스크 UI 개발
+  - React/Next.js 컴포넌트 개발
+  - Glassmorphism 스타일, 반응형 레이아웃
+  - UX 마이크로 인터랙션 및 애니메이션
+- **상세**: [agents/ui-developer.md](./agents/ui-developer.md)
+
+---
+
+### 5. **Specialist** (Gemini 3 Flash) ⚡
 - **역할**: Performance Specialist & Real-time Expert
 - **전문 영역**: 실시간 기능, 성능 최적화, 카메라/QR, 애니메이션
 - **책임**:
@@ -87,47 +103,33 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
   - React 성능 최적화
   - 카메라/QR 코드 스캔
   - WOD 타이머, 키오스크 시스템
-- **성능**: 초고속, 실시간 처리 특화
 - **상세**: [agents/specialist.md](./agents/specialist.md)
-
----
-
-### 5. **QA** (GPT OSS) 🔍
-- **역할**: QA Engineer & Documentation Specialist
-- **전문 영역**: 테스트, 품질 검증, 문서화, 사용성 검토
-- **책임**:
-  - 단위/통합/E2E 테스트 작성
-  - 품질 검증 및 버그 발견
-  - API 문서 및 사용자 가이드 작성
-  - 접근성 검증
-- **성능**: 범용적 성능, 안정적 검증
-- **상세**: [agents/qa.md](./agents/qa.md)
 
 ---
 
 ## 📋 모듈별 담당자
 
 ### Critical Modules (복잡도: Critical)
-| 모듈 | Primary | Reviewer | Tester | 이유 |
-|:-----|:--------|:---------|:-------|:-----|
-| `/admin/finance` | **Senior Dev** (Opus 4.6) | Architect | QA | 결제/재무 - 보안 최우선 |
-| `/database` | **Senior Dev** (Opus 4.6) | Architect | QA | 스키마 설계 - 아키텍처 중요 |
+| 모듈 | UI | Backend/Logic | Reviewer | 이유 |
+|:-----|:---|:-------------|:---------|:-----|
+| `/admin/finance` | **UI Developer** (Gemini) | **Senior Dev** (Opus) | Architect | 결제/재무 - 보안 최우선 |
+| `/database` | - | **Senior Dev** (Opus) | Architect | 스키마 설계 - 아키텍처 중요 |
 
 ### High Complexity Modules (복잡도: High)
-| 모듈 | Primary | Reviewer | Tester | 이유 |
-|:-----|:--------|:---------|:-------|:-----|
-| `/admin/operations` | Developer (Sonnet) | Architect | QA | 레이스 시스템 포함 |
-| `/class` | **Specialist** (Gemini) | Architect | QA | 실시간 타이머 - 성능 중요 |
-| `/kiosk` | **Specialist** (Gemini) | Architect | QA | QR 스캔 - 빠른 응답 필요 |
+| 모듈 | UI | Backend/Logic | Reviewer | 이유 |
+|:-----|:---|:-------------|:---------|:-----|
+| `/admin/operations` | **UI Developer** (Gemini) | Developer (Sonnet) | Architect | 레이스 시스템 포함 |
+| `/class` | **UI Developer** (Gemini) | **Specialist** (Gemini) | Architect | 실시간 타이머 - 성능 중요 |
+| `/kiosk` | **UI Developer** (Gemini) | **Specialist** (Gemini) | Architect | QR 스캔 - 빠른 응답 필요 |
 
 ### Medium Complexity Modules (복잡도: Medium)
-| 모듈 | Primary | Reviewer | Tester |
-|:-----|:--------|:---------|:-------|
-| `/admin/insights` | Developer (Sonnet) | Architect | QA |
-| `/admin/crm` | Developer (Sonnet) | Senior Dev | QA |
-| `/apps` | Developer (Sonnet) | Architect | QA |
-| `/coach` | Developer (Sonnet) | Senior Dev | QA |
-| `/api/routes` | Developer (Sonnet) | Senior Dev | QA |
+| 모듈 | UI | Backend/Logic | Reviewer |
+|:-----|:---|:-------------|:---------|
+| `/admin/insights` | **UI Developer** (Gemini) | Developer (Sonnet) | Architect |
+| `/admin/crm` | **UI Developer** (Gemini) | Developer (Sonnet) | Senior Dev |
+| `/apps` | **UI Developer** (Gemini) | Developer (Sonnet) | Architect |
+| `/coach` | **UI Developer** (Gemini) | Developer (Sonnet) | Senior Dev |
+| `/api/routes` | - | Developer (Sonnet) | Senior Dev |
 
 **상세**: [module-assignments.json](./module-assignments.json)
 
@@ -139,7 +141,37 @@ BCL Portal의 모든 UI 개발은 **StitchMCP의 bcl-portal 프로젝트**를 �
 
 ### Critical Feature (결제, 보안, 재무)
 ```
-Architect (설계) → Stitch Design → Senior Dev (구현) → QA (테스트) → Architect (승인)
+Architect (설계) → Stitch Design → Senior Dev (구현) → Developer (테스트) → Architect (승인)
+```
+
+### Standard Feature (일반 CRUD, UI)
+```
+Architect (가이드) → Stitch Design → UI Dev (UI) + Developer (API) → Developer (테스트) → Architect (리뷰)
+```
+
+### Real-time Feature (클래스, 키오스크)
+```
+Architect (요구사항) → Stitch Design → UI Dev (UI) + Specialist (실시간) → Developer (벤치마크) → Architect (검증)
+```
+
+### Bug Fix (Critical)
+```
+Architect (분석) → Senior Dev/Developer (수정) → Developer (검증) → Architect (승인)
+```
+
+### Bug Fix (Standard)
+```
+Developer (분석 & 수정 & 검증)
+```
+
+### Bug Fix (UI)
+```
+UI Developer (분석 & 수정) → Developer (검증)
+```
+
+### Performance Optimization
+```
+Specialist (최적화) → Developer (벤치마크) → Architect (검증)
 ```
 
 **Stitch Design 단계**:
@@ -149,31 +181,6 @@ Architect (설계) → Stitch Design → Senior Dev (구현) → QA (테스트) 
 4. Screen ID 매핑
 5. 프롬프트 저장
 6. Architect 디자인 승인
-
-### Standard Feature (일반 CRUD, UI)
-```
-Architect (가이드) → Stitch Design → Developer (구현) → QA (테스트) → Architect (리뷰)
-```
-
-### Real-time Feature (클래스, 키오스크)
-```
-Architect (요구사항) → Stitch Design → Specialist (구현) → QA (벤치마크) → Architect (검증)
-```
-
-### Bug Fix (Critical)
-```
-Architect (분석) → Senior Dev/Developer (수정) → QA (검증) → Architect (승인)
-```
-
-### Bug Fix (Standard)
-```
-Developer (분석 & 수정) → QA (검증)
-```
-
-### Performance Optimization
-```
-Specialist (최적화) → QA (벤치마크) → Architect (검증)
-```
 
 **상세**: 
 - [workflows/feature-workflow.md](./workflows/feature-workflow.md) - Stitch MCP 통합 워크플로우
@@ -204,11 +211,11 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 - 성능 60fps 요구사항
 - 인터랙티브 애니메이션
 
-### QA 참여 (필수)
-- 모든 새로운 기능 개발
+### Developer QA 참여 (필수)
+- 모든 새로운 기능 개발 후 테스트
 - 버그 수정 후 검증
 - 릴리즈 전 최종 테스트
-- 사용성 검토
+- 사용성 검토 및 문서화
 
 **상세**: [communication-protocol.md](./communication-protocol.md)
 
@@ -216,23 +223,23 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 
 ## ⏱️ 응답 시간 기준
 
-| 우선순위 | Architect | Senior Dev | Developer | Specialist | QA |
-|:---------|:----------|:-----------|:----------|:-----------|:---|
-| **Critical** | 30분 | 1시간 | 2시간 | 2시간 | 1시간 |
-| **High** | 2시간 | 4시간 | 4시간 | 4시간 | 2시간 |
-| **Medium** | 4시간 | 1일 | 1일 | 1일 | 4시간 |
-| **Low** | 1일 | 2일 | 2일 | 2일 | 1일 |
+| 우선순위 | Architect | Senior Dev | Developer | UI Developer | Specialist |
+|:---------|:----------|:-----------|:----------|:-------------|:-----------|
+| **Critical** | 30분 | 1시간 | 1시간 | 2시간 | 2시간 |
+| **High** | 2시간 | 4시간 | 2시간 | 4시간 | 4시간 |
+| **Medium** | 4시간 | 1일 | 4시간 | 1일 | 1일 |
+| **Low** | 1일 | 2일 | 1일 | 2일 | 2일 |
 
 ---
 
 ## 📚 핵심 문서
 
 ### 에이전트 역할
-- [agents/architect.md](./agents/architect.md) - Opus 4.6 Thinking
-- [agents/senior-developer.md](./agents/senior-developer.md) - Opus 4.6 Thinking
-- [agents/developer.md](./agents/developer.md) - Sonnet 4.5 Thinking
-- [agents/specialist.md](./agents/specialist.md) - Gemini 3.0 Flash
-- [agents/qa.md](./agents/qa.md) - GPT OSS
+- [agents/architect.md](./agents/architect.md) - Claude Opus 4.6 (Thinking)
+- [agents/senior-developer.md](./agents/senior-developer.md) - Claude Opus 4.6 (Thinking)
+- [agents/developer.md](./agents/developer.md) - Claude Sonnet 4.6
+- [agents/ui-developer.md](./agents/ui-developer.md) - Gemini 3 Flash
+- [agents/specialist.md](./agents/specialist.md) - Gemini 3 Flash
 
 ### 설정 파일
 - [config.json](./config.json) - 에이전트 정의 및 워크플로우
@@ -260,7 +267,6 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 - **참조 방법**: 사용자가 명시적으로 요청한 경우에만 참조
   - 예시: "result 폴더의 AUTH_COMPLETE.md에서 인증 구현 내역 확인해줘"
 - **상세**: `../.docs/archive/README.md`, `../.docs/archive/result/README.md`
-
 
 ---
 
@@ -293,34 +299,43 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 
 ## 📊 성과 지표
 
-### Architect (Opus 4.6)
+### Architect (Opus 4.6 Thinking)
 - Architecture Reviews: 모든 Critical/High
 - Security Issues Caught: 100%
 - Production Approval: 24시간 이내
 
-### Senior Developer (Opus 4.6)
+### Senior Developer (Opus 4.6 Thinking)
 - Complex Features: 주 1-2개
 - Bug Fix (Critical): 4시간 이내
 - Code Quality: 0 보안 취약점
 
-### Developer (Sonnet 4.5)
+### Developer (Sonnet 4.6)
 - Standard Features: 주 3-5개
-- Code Quality: 0 lint 에러
 - Test Coverage: > 80%
+- QA Verification: 모든 기능 검증
+- Documentation: API/가이드 100% 완료
+
+### UI Developer (Gemini 3 Flash)
+- UI Features: 주 3-5 화면
+- Design System 준수율: 100%
+- Responsive: 모든 디바이스
 
 ### Specialist (Gemini 3 Flash)
 - Real-time Features: 1일 이내
 - Performance: Lighthouse > 90
 - 60 FPS: 100% 달성
 
-### QA (GPT OSS)
-- Bug Detection: 프로덕션 0건
-- Test Coverage: > 80%
-- Documentation: 100% 완료
-
 ---
 
 ## 🚀 버전 히스토리
+
+### v3.0 (2026-02-18)
+- **GPT OSS (QA) 에이전트 제거**
+- QA 역할 Developer (Sonnet 4.6)로 통합
+- 모든 모델명 통일 (Claude Opus 4.6 Thinking, Claude Sonnet 4.6, Gemini 3 Flash)
+- Developer 역할 재정의: Backend + QA 통합
+- 5 에이전트 체계 (3개 모델 기반)
+- 모듈 담당자 재배치 (UI/Backend 분리 명확화)
 
 ### v2.0 (2026-02-16)
 - 5개 에이전트 체계로 확장
@@ -335,6 +350,6 @@ Specialist (최적화) → QA (벤치마크) → Architect (검증)
 
 ---
 
-**Last Updated**: 2026-02-16  
-**Version**: 2.0  
-**Team Size**: 5 AI Agents
+**Last Updated**: 2026-02-18  
+**Version**: 3.0  
+**Team Size**: 5 AI Agents (3 Models)

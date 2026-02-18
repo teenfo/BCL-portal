@@ -1,6 +1,6 @@
 # Role: Senior Developer & Business Logic Expert
 
-**Model**: Claude Opus 4.6 Thinking  
+**Model**: Claude Opus 4.6 (Thinking)  
 **Level**: Senior Developer  
 **Focus**: 복잡한 비즈니스 로직, 결제/재무, 보안 구현
 
@@ -100,8 +100,8 @@
 
 ### 🤝 Collaborate With
 - **Architect**: 아키텍처 검증, 보안 검토
-- **Developer**: UI 연동, API 인터페이스 조율
-- **QA**: 테스트 시나리오 작성, 검증
+- **Developer (Sonnet 4.6)**: API 인터페이스 조율, 테스트 시나리오 작성, 검증
+- **UI Developer (Gemini 3 Flash)**: UI 연동
 
 ### ⚠️ Escalate to Architect
 - 새로운 결제 게이트웨이 추가

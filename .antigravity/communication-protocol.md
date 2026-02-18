@@ -2,11 +2,13 @@
 
 5개 에이전트 간의 효율적인 협업을 위한 커뮤니케이션 규칙입니다.
 
+**모델 구성**: Claude Opus 4.6 (Thinking), Claude Sonnet 4.6, Gemini 3 Flash
+
 ---
 
 ## 🎯 Escalation Rules
 
-### When to Escalate to Architect (Opus 4.6)
+### When to Escalate to Architect (Opus 4.6 Thinking)
 **필수 에스컬레이션:**
 - 데이터베이스 스키마 대규모 변경
 - 보안 정책 변경
@@ -23,7 +25,7 @@
 
 ---
 
-### When to Escalate to Senior Developer (Opus 4.6)
+### When to Escalate to Senior Developer (Opus 4.6 Thinking)
 **필수 에스컬레이션:**
 - 결제/재무 시스템 개발
 - 복잡한 비즈니스 로직 구현
@@ -53,9 +55,9 @@
 
 ---
 
-### When to Involve QA (GPT OSS)
+### When Developer (Sonnet 4.6) Performs QA
 **필수 참여:**
-- 모든 새로운 기능 개발
+- 모든 새로운 기능 개발 후 테스트
 - 버그 수정 후 검증
 - 릴리즈 전 최종 테스트
 - 사용성 검토 필요 시
@@ -73,23 +75,23 @@
 ```
 1. Architect: 아키텍처 설계 및 보안 검토
 2. Senior Developer: 구현
-3. QA: 테스트 작성 및 검증
+3. Developer: 테스트 작성 및 검증
 4. Architect: 최종 리뷰 및 승인
 ```
 
 ### Standard Feature (일반 CRUD, UI)
 ```
 1. Architect: 아키텍처 가이드 제공
-2. Developer: 구현
-3. QA: 테스트 및 검증
+2. UI Developer: UI 구현 / Developer: API 구현
+3. Developer: 테스트 및 검증
 4. Architect: 리뷰 (필요시)
 ```
 
 ### Real-time Feature (클래스, 키오스크)
 ```
 1. Architect: 성능 요구사항 정의
-2. Specialist: 구현
-3. QA: 성능 벤치마크 및 테스트
+2. UI Developer: UI 구현 / Specialist: 실시간 로직 구현
+3. Developer: 성능 벤치마크 및 테스트
 4. Architect: 검증
 ```
 
@@ -97,27 +99,32 @@
 ```
 1. Architect: 근본 원인 분석
 2. Senior Developer/Developer: 수정
-3. QA: 검증 및 회귀 테스트
+3. Developer: 검증 및 회귀 테스트
 4. Architect: 승인
 ```
 
 ### Bug Fix (Standard)
 ```
-1. Developer: 분석 및 수정
-2. QA: 검증
-3. (Architect 리뷰는 선택)
+1. Developer: 분석 및 수정 및 검증
+2. (Architect 리뷰는 선택)
+```
+
+### Bug Fix (UI)
+```
+1. UI Developer: 분석 및 수정
+2. Developer: 검증
 ```
 
 ### Performance Optimization
 ```
 1. Specialist: 분석 및 최적화
-2. QA: 벤치마크
+2. Developer: 벤치마크
 3. Architect: 검증 및 승인
 ```
 
 ### Documentation
 ```
-1. QA: 작성
+1. Developer: 작성
 2. Architect: 검토
 ```
 
@@ -177,10 +184,10 @@
 
 ---
 
-### Bug Report (to Team)
+### Bug Report
 ```markdown
 ## Bug: [버그 제목]
-**Reporter**: QA
+**Reporter**: [Agent Name]
 **Severity**: Critical/High/Medium/Low
 
 ### Description
@@ -196,7 +203,8 @@
 
 ### Suggested Owner
 - [ ] Senior Developer (비즈니스 로직)
-- [ ] Developer (UI/API)
+- [ ] Developer (API/테스트)
+- [ ] UI Developer (UI/UX)
 - [ ] Specialist (성능/실시간)
 - [ ] Architect (아키텍처)
 
@@ -244,35 +252,37 @@
 
 ## ⏱️ Response Time Expectations
 
-| Priority | Architect | Senior Dev | Developer | Specialist | QA |
-|:---------|:----------|:-----------|:----------|:-----------|:---|
-| **Critical** | 30분 | 1시간 | 2시간 | 2시간 | 1시간 |
-| **High** | 2시간 | 4시간 | 4시간 | 4시간 | 2시간 |
-| **Medium** | 4시간 | 1일 | 1일 | 1일 | 4시간 |
-| **Low** | 1일 | 2일 | 2일 | 2일 | 1일 |
+| Priority | Architect (Opus) | Senior Dev (Opus) | Developer (Sonnet) | UI Developer (Gemini) | Specialist (Gemini) |
+|:---------|:-----------------|:-------------------|:-------------------|:----------------------|:--------------------|
+| **Critical** | 30분 | 1시간 | 1시간 | 2시간 | 2시간 |
+| **High** | 2시간 | 4시간 | 2시간 | 4시간 | 4시간 |
+| **Medium** | 4시간 | 1일 | 4시간 | 1일 | 1일 |
+| **Low** | 1일 | 2일 | 1일 | 2일 | 2일 |
 
 ---
 
 ## 🚫 Anti-Patterns (피해야 할 것들)
 
-### ❌ Developer가 피해야 할 것
+### ❌ Developer (Sonnet 4.6)가 피해야 할 것
 - 복잡한 비즈니스 로직을 Senior Developer 없이 구현
 - 데이터베이스 스키마 변경을 Architect 없이 진행
 - 성능 최적화를 Specialist 없이 시도
+- UI 컴포넌트 개발에 과도한 시간 투자 (UI Developer 역할)
 
-### ❌ Senior Developer가 피해야 할 것
+### ❌ Senior Developer (Opus 4.6 Thinking)가 피해야 할 것
 - 아키텍처 변경을 Architect 없이 결정
 - UI 컴포넌트 개발에 과도한 시간 투자
 
-### ❌ Specialist가 피해야 할 것
+### ❌ UI Developer (Gemini 3 Flash)가 피해야 할 것
+- 비즈니스 로직 구현에 개입
+- 복잡한 데이터베이스 로직 직접 구현
+- 테스트 코드 작성 (Developer 역할)
+
+### ❌ Specialist (Gemini 3 Flash)가 피해야 할 것
 - 비즈니스 로직 구현에 개입
 - 복잡한 데이터베이스 로직 직접 구현
 
-### ❌ QA가 피해야 할 것
-- 구현 결정에 과도하게 개입
-- 아키텍처 리뷰 (Architect 역할)
-
-### ❌ Architect가 피해야 할 것
+### ❌ Architect (Opus 4.6 Thinking)가 피해야 할 것
 - 모든 작은 결정까지 직접 관여 (병목 발생)
 - 구현 세부사항에 과도하게 개입
 
@@ -285,3 +295,9 @@
 3. **결정 문서화**: 중요한 결정은 ADR 또는 코멘트로 기록
 4. **피드백 환영**: 모든 에이전트의 의견 존중
 5. **책임 명확화**: 각자의 역할 범위 내에서 자율적 결정
+6. **QA 통합**: Developer가 테스트까지 담당하므로, 구현과 검증의 시너지 활용
+
+---
+
+**Last Updated**: 2026-02-18  
+**Version**: 3.0

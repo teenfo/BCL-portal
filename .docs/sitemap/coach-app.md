@@ -10,27 +10,34 @@
 ## 1. 🏃 네비게이션 및 화면 구조 (Bottom Tab)
 
 코치 앱은 수업 현장에서의 신속한 조작을 위해 직관적인 바텀 탭 구조를 가집니다.
+- **Layout**: `src/app/coach/layout.tsx` (AuthGuard + CoachBottomNav)
+- **BottomNav**: `src/components/layout/CoachBottomNav.tsx`
 
-### 1) Home (`/coach/dashboard`)
+### 1) Home (`/coach/dashboard`) ✅ 구현 완료
+- **구현 파일**: `src/app/coach/dashboard/page.tsx`
 - **오늘의 수업**: 당일 배정된 수업 목록, 시간표 및 총 담당 회원수 요약.
 - **실시간 현황**: 현재 세션의 예약 인원 및 출석 대기 현황 즉시 표시.
 - **코치 공지**: 센터 관리자가 전송한 코치 전용 긴급 지시 사항 확인.
 
-### 2) Schedule (`/coach/schedule`)
-- **내 전체 일정**: 주간/월간 캘린더 형태의 본인 수업 배정 정보 조회.
+### 2) Schedule (`/coach/schedule`) ✅ 구현 완료
+- **구현 파일**: `src/app/coach/schedule/page.tsx`
+- **내 전체 일정**: 일간/주간 뷰 전환 가능한 캘린더 형태의 본인 수업 배정 정보 조회.
 - **세션 상세**: 수업 장소, 난이도, 정원 및 예약 확정 회원 명단 확인.
 
-### 3) Members (`/coach/members`)
+### 3) Members (`/coach/members`) ✅ 구현 완료
+- **구현 파일**: `src/app/coach/members/page.tsx`
 - **회원 검색**: 시설 내 전체 회원 통합 검색 및 프로필 조회.
 - **코칭 노트**: 회원의 부상 이력, 운동 특이사항 등을 기록(Coaching Notes)하고 공유.
 - **히스토리**: 특정 회원의 과거 수업 참여 및 출결 통계 분석.
 
-### 4) Race (`/coach/race`)
+### 4) Race (`/coach/race`) ✅ 구현 완료
+- **구현 파일**: `src/app/coach/race/page.tsx`
 - **기기 제어**: 로잉/와트바이크(PM5) 하드웨어 연결 모니터링 및 페어링.
 - **경기 운영**: 실시간 리더보드 중계, 경기 시작/종료 제어 및 레인 자동 배정.
 - **상세 설계**: [Race Technical Module](../technical/race/) 참조.
 
-### 5) Profile (`/coach/profile`)
+### 5) Profile (`/coach/profile`) ✅ 구현 완료
+- **구현 파일**: `src/app/coach/profile/page.tsx`
 - **코치 정보**: 본인의 전문 분야, 바이오 수정 및 월간 수업 성과 통계.
 - **급여/수당 조회** 🆕:
   - 월간 담당 수업 수 및 수당 계산

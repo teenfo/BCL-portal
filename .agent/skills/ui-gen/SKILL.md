@@ -12,8 +12,9 @@ description: BCL Portal의 프리미엄 Glassmorphism UI 컴포넌트를 생성�
 ## 📐 공식 디자인 시스템 참조 ⭐
 
 **BCL Portal Design Specifications**:
-- **Stitch Screen ID**: `95b2195d8ffb4e99af97d0da938f24ff`
-- **위치**: `.docs/stitch-screens-mapping.md` 참조
+- **Mobile Specs**: `95b2195d8ffb4e99af97d0da938f24ff` (Mobile First Base)
+- **Desktop (Admin) Specs**: `47c9afc2adc94a14b435cc696b90d1dc` (Admin UI Guide)
+- **참조 문서**: `.docs/design-system.md`
 
 **포함 내용**: 색상, 타이포, 간격, 컴포넌트, 그림자, 애니메이션 등 모든 디자인 요소
 
@@ -23,11 +24,12 @@ description: BCL Portal의 프리미엄 Glassmorphism UI 컴포넌트를 생성�
 
 ### 1-1. Glassmorphism (유리 형태)
 ```css
-.premium-card {
-  background: rgba(38, 38, 38, 0.8);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+.glass-card {
+  background: var(--surface);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 ```
 
@@ -225,17 +227,54 @@ body::before {
 
 ## 4. 기타 글로벌 컴포넌트
 
-### 4-1. `.glass-card` — 카드 컨테이너
+### 4-1. `.glass-card` — 기본 카드 컨테이너
 ```css
 .glass-card {
   background: var(--surface);
+  backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.5rem;
 }
 ```
 
-### 4-2. `.bcl-input` — 폼 인풋 (모달/폼 용)
+### 4-2. `.kpi-card` — 핵심 지표 카드 (Admin)
+```css
+.kpi-card {
+  background: var(--surface);
+  backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--border);
+  padding: 2rem;
+  border-radius: var(--radius-xl);
+  min-height: 180px;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-card:hover {
+  background: var(--surface-hover);
+  border-color: rgba(255, 107, 0, 0.3);
+  transform: translateY(-4px);
+}
+```
+
+### 4-3. `.admin-page-header` — 표준 페이지 헤더 (Admin)
+```css
+.admin-page-header {
+  height: 72px;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(13, 13, 14, 0.85);
+  backdrop-filter: blur(16px);
+}
+```
+
+### 4-4. `.bcl-input` — 폼 인풋 (모달/폼 용)
 ```css
 .bcl-input {
   background: rgba(255, 255, 255, 0.03);

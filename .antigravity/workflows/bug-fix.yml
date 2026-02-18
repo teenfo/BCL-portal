@@ -1,21 +1,32 @@
 name: Bug Fix
 
-description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전트 체계)
+description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전트 / 3개 모델 체계)
+
+---
+
+## Models
+
+| Model | Config ID | Agents |
+|:------|:----------|:-------|
+| Claude Opus 4.6 (Thinking) | `claude-opus-4.6-thinking` | Architect, Senior Developer |
+| Claude Sonnet 4.6 | `claude-sonnet-4.6` | Developer (+ QA 통합) |
+| Gemini 3 Flash | `gemini-3-flash` | UI Developer, Specialist |
 
 ---
 
 ## Workflow Variants
 
-버그의 심각도에 따라 2가지 워크플로우로 구분됩니다:
+버그의 심각도에 따라 3가지 워크플로우로 구분됩니다:
 1. **Critical Bug**: 서비스 중단, 데이터 손실, 보안 취약점 (P0/P1)
-2. **Standard Bug**: UI/UX 문제, 사소한 기능 장애 (P2/P3)
+2. **Standard Bug**: API/비즈니스 로직 문제, 사소한 기능 장애 (P2/P3)
+3. **UI Bug**: UI/UX 문제, 스타일 이슈 (P2/P3)
 
 ---
 
 ## Critical Bug Workflow
 
 ### Step 1: Root Cause Analysis
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 30분-1시간
 
 **Actions**:
@@ -33,12 +44,13 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ---
 
 ### Step 2: Fix Implementation
-**Agent**: Senior Developer (Opus 4.6) 또는 Developer (Sonnet 4.5)  
+**Agent**: Senior Developer (Opus 4.6 Thinking) 또는 Developer (Sonnet 4.6)  
 **Duration**: 1-4시간 (Critical), 반나절-1일 (High)
 
 **선택 기준**:
-- **Senior Developer** (Opus 4.6): 비즈니스 로직, 보안, 데이터베이스
-- **Developer** (Sonnet 4.5): UI/API, 일반 로직
+- **Senior Developer** (Opus 4.6 Thinking): 비즈니스 로직, 보안, 데이터베이스
+- **Developer** (Sonnet 4.6): API, 일반 로직
+- **UI Developer** (Gemini 3 Flash): UI/UX 관련 수정
 
 **Actions**:
 - Failing test 작성 (TDD)
@@ -55,7 +67,7 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ---
 
 ### Step 3: Verification
-**Agent**: QA (GPT OSS)  
+**Agent**: Developer (Sonnet 4.6)  
 **Duration**: 30분-2시간
 
 **Actions**:
@@ -73,7 +85,7 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ---
 
 ### Step 4: Final Approval
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 30분-1시간
 
 **Actions**:
@@ -92,7 +104,7 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ## Standard Bug Workflow
 
 ### Step 1: Analysis & Fix
-**Agent**: Developer (Sonnet 4.5)  
+**Agent**: Developer (Sonnet 4.6)  
 **Duration**: 2-4시간
 
 **Actions**:
@@ -101,6 +113,7 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 - Failing test 작성
 - 버그 수정
 - 테스트 통과 확인
+- 검증 (자체 QA)
 
 **Deliverables**:
 - Bug fix
@@ -109,22 +122,8 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 
 ---
 
-### Step 2: Verification
-**Agent**: QA (GPT OSS)  
-**Duration**: 1-2시간
-
-**Actions**:
-- 수정 확인
-- 기본 회귀 테스트
-- 사용자 시나리오 확인
-
-**Deliverables**:
-- Verification sign-off
-
----
-
-### Step 3: Review (Optional)
-**Agent**: Architect (Opus 4.6) - 필요시만  
+### Step 2: Review (Optional)
+**Agent**: Architect (Opus 4.6 Thinking) - 필요시만  
 **Duration**: 30분-1시간
 
 **Trigger**:
@@ -134,14 +133,43 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 
 ---
 
+## UI Bug Workflow
+
+### Step 1: Analysis & Fix
+**Agent**: UI Developer (Gemini 3 Flash)  
+**Duration**: 1-3시간
+
+**Actions**:
+- UI 버그 재현
+- 스타일/레이아웃 원인 파악
+- 수정 구현
+- 디자인 시스템 일관성 확인
+
+**Deliverables**:
+- UI fix
+- Before/After screenshots
+
+---
+
+### Step 2: Verification
+**Agent**: Developer (Sonnet 4.6)  
+**Duration**: 30분-1시간
+
+**Actions**:
+- UI 수정 확인
+- 반응형 테스트
+- 브라우저 호환성 확인
+
+---
+
 ## Bug Severity Classification
 
 | Severity | 정의 | 예시 | 워크플로우 |
 |:---------|:-----|:-----|:-----------|
 | **P0 (Critical)** | 서비스 완전 중단, 데이터 손실 | 서버 다운, DB 손상 | Critical + 즉시 처리 |
 | **P1 (High)** | 주요 기능 장애, 보안 취약점 | 결제 실패, XSS 취약점 | Critical |
-| **P2 (Medium)** | 일부 기능 문제, 사용성 저하 | UI 깨짐, 잘못된 검증 | Standard |
-| **P3 (Low)** | 사소한 문제, 불편함 | 오타, 작은 스타일 이슈 | Standard (낮은 우선순위) |
+| **P2 (Medium)** | 일부 기능 문제, 사용성 저하 | UI 깨짐, 잘못된 검증 | Standard / UI |
+| **P3 (Low)** | 사소한 문제, 불편함 | 오타, 작은 스타일 이슈 | Standard / UI (낮은 우선순위) |
 
 ---
 
@@ -150,19 +178,19 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 ### Immediate Actions (15분 이내)
 1. **Architect**: 상황 파악 및 긴급 대응 팀 소집
 2. **Senior Developer**: 롤백 여부 즉시 판단
-3. **QA**: 영향 범위 확인 및 모니터링
+3. **Developer**: 영향 범위 확인 및 모니터링
 
 ### Hotfix Process (1-2시간 이내)
 1. **Architect**: 임시 수정 vs 정식 수정 결정
 2. **Senior Developer**: 최소한의 수정으로 긴급 패치
-3. **QA**: 빠른 검증 (핵심 기능만)
+3. **Developer**: 빠른 검증 (핵심 기능만)
 4. **Architect**: 긴급 배포 승인
 
 ### Post-Incident (24시간 이내)
 1. **Architect**: Post-mortem 미팅 주재
 2. **모든 에이전트**: 원인 분석 및 재발 방지책 논의
 3. **Architect**: Post-mortem 문서 작성
-4. **QA**: 재발 방지 테스트 추가
+4. **Developer**: 재발 방지 테스트 추가
 
 ---
 
@@ -189,6 +217,12 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 - Users affected: [수치 또는 범위]
 - Business impact: [영향]
 
+### Suggested Owner
+- [ ] Senior Developer (비즈니스 로직, 보안)
+- [ ] Developer (API, 일반 로직)
+- [ ] UI Developer (UI/UX)
+- [ ] Specialist (성능, 실시간)
+
 ### Environment
 - Browser/Device:
 - Version:
@@ -203,3 +237,8 @@ description: 버그 수정 시 따르는 표준 워크플로우 (5개 에이전�
 - 모든 Critical Bug는 Post-mortem 작성
 - 재발 방지책은 문서화하여 공유
 - Known Issues 리스트 업데이트
+
+---
+
+**Last Updated**: 2026-02-18  
+**Version**: 3.0

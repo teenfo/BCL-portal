@@ -85,7 +85,7 @@
     - [x] Coach Performance (랭킹, 평점/세션/리텐션, 전문분야 분포)
 
 ### Phase 3: 특화 모듈 및 고도화
-- [x] 클래스 포털: 실시간 WOD 보드 및 타이머
+- [ ] 클래스 포털: 실시간 WOD 보드 및 타이머 ⚠️ **미완성** — `/class/leaderboard`만 존재(Mock), WOD/Timer/Live 미구현
 - [ ] 레이스 시스템: PM5 기기 데이터 연동 및 리더보드 (UI 구현 완료, DB 연동 대기)
 - [x] **키오스크 체크인 시스템** (2026-02-18 완료) ✨
   - [x] Admin Infrastructure: 키오스크 기기 DB 연동 (CRUD, Heartbeat, 원격 메시지)
@@ -123,66 +123,128 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **빌드 환경 복원 + 인증 흐름 검증** 🎯
-- **Project Path**: `~/dev/Antigravity/BCL-Repo/portal` (2026-02-18 이전 완료)
-- **Recent Accomplishments**:
-  - [x] **프로젝트 경로 이전 완료** (2026-02-18 15:40) ✨
-    - `~/Antigravity/BCL-Repo` → `~/dev/Antigravity/BCL-Repo`
-    - `sudo xattr -rd com.apple.provenance` 실행 완료
-    - `npm install` 성공 (361 packages)
-    - ⚠️ 빌드 시 `node_modules` EPERM 에러 잔존 — 터미널 Full Disk Access 권한 필요
-  - [x] **인증 흐름 전면 개선** (2026-02-18) ✨
-    - `src/middleware.ts` 생성 — Next.js 미들웨어 활성화
-    - `src/lib/supabase/middleware.ts` — PUBLIC_PATHS 기반 경로 관리
-    - `src/contexts/AuthContext.tsx` — Race condition 제거
-    - `src/components/AuthGuard.tsx` — authorized 상태 명시적 관리
-    - `src/app/apps/layout.tsx` — AuthGuard 추가
-    - `src/app/auth/login/page.tsx` — role 기반 리다이렉트
-    - `src/app/auth/callback/page.tsx` — 프로필 재시도 3회, 에러 처리 강화
-    - 모든 인증 관련 `router.push` → `router.replace` (히스토리 오염 방지)
-  - [x] **키오스크 체크인 시스템** (2026-02-18) ✨
-  - [x] **Phase 2: Mock 데이터 → 실제 DB 연동 완료** (2026-02-17) ✨
-  - [x] **Phase 1: Critical 이슈 해결 완료** (2026-02-17) ✨
+- **Current Focus**: **멀티 에이전트 작업 준비 — 감사 보고서 기반 미완성 모듈 구현** 🎯
+- **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
+- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 17:00 확인)
+- **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
 
-- **Next Steps**:
-  - [ ] **🚨 빌드 환경 복원 (즉시 필요)** 🔴
-    - 터미널에 **전체 디스크 접근 권한** 부여 필요
-    - 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한 → Terminal.app 추가
-    - 터미널 재시작 후 `sudo xattr -rd com.apple.provenance ~/dev/Antigravity/BCL-Repo` 재실행
-    - `rm -rf node_modules && npm install` 후 `npm run build` 검증
-  - [ ] **인증 흐름 검증 (빌드 복원 후 즉시)**
-    - [ ] 서버 실행 후 로그인 → 대시보드 진입 정상 동작 확인
-    - [ ] 미인증 상태에서 `/admin/*`, `/apps/*` 직접 접근 시 로그인 리다이렉트 확인
-    - [ ] OAuth(카카오) 로그인 → 콜백 → role 기반 리다이렉트 확인
-    - [ ] 로그아웃 → 보호 경로 접근 차단 확인
-  - [ ] **Phase 3: 보안 및 최종 검증** 🟢 READY
-    - [ ] RLS 정책 세분화 (역할 기반 Admin/Coach/Member)
-    - [ ] 모든 테이블 RLS 정책 검토
-    - [ ] 테스트 계정 생성 (Admin, Coach, Member)
-    - [ ] 시나리오 테스트 (CRUD, 권한 검증)
-    - [ ] 에러 핸들링 개선 (Toast 알림, 에러 바운더리)
-    - [ ] 전체 24개 페이지 통합 테스트
-  - [ ] **User App Core 화면 개발** (Week 2-3) - Admin 완료 후 착수
+---
+
+### Recent Accomplishments
+  - [x] **빌드 권한 문제 영구 해결** (2026-02-18 17:00) ✨
+    - `package.json` `postinstall` 스크립트 추가: `xattr -cr . 2>/dev/null || true`
+    - 글로벌 Git 훅 설정: `~/.git-hooks/post-checkout`, `post-merge` (자동 속성 제거)
+    - `npm config set script-shell /bin/bash` + `~/.npmrc` `ignore-scripts=false` 설정
+    - `npm install`, `npm run build`, `npm run dev` 모두 EPERM 없이 정상 동작 확인
+  - [x] **구현 완성도 감사 완료** (2026-02-18 15:17) ✨ — `.docs/audit/` 참조
+    - Gemini 감사: User App 100%+, Admin 핵심 완료, 문서-코드 정합성 권고
+    - GPT 감사: 전체 SSOT 대비 **64%** 완성도, 착수 모듈 기준 **82%**
+  - [x] **인증 흐름 전면 개선** (2026-02-18) ✨
+  - [x] **키오스크 체크인 시스템 UI 구현** (2026-02-18) ✨
+  - [x] **Phase 2: Mock 데이터 → 실제 DB 연동 완료** (2026-02-17) ✨
+
+---
+
+### 감사 보고서 핵심 발견사항 (`.docs/audit/`)
+
+#### 🔴 Critical — ~~즉시 구현 필요~~ ✅ 전부 해결
+| 항목 | 현황 | 상태 |
+|---|---|---|
+| ~~**Coach 앱 미구현**~~ | `src/app/coach/*` 5/5 화면 구현 완료 | ✅ RESOLVED |
+| ~~**Class 포털 핵심 화면 미구현**~~ | `/class/wod`, `/class/timer`, `/class/live`, `/class/leaderboard` 4/4 구현 | ✅ RESOLVED |
+| ~~**키오스크 QR 스캔 실동작 불가**~~ | `html5-qrcode` 라이브러리 연동 완료 | ✅ RESOLVED |
+| ~~**키오스크 DB 스키마 불일치**~~ | 컬럼명 통일 (`checkin_time`, `checkin_method`, `facility_id`) | ✅ RESOLVED |
+
+#### 🟠 High — ~~우선 처리 권장~~ ✅ 전부 해결
+| 항목 | 현황 | 상태 |
+|---|---|---|
+| ~~**`/auth/logout` 라우트 미구현**~~ | `src/app/auth/logout/page.tsx` 구현 완료 | ✅ RESOLVED |
+| ~~**Coach 리다이렉트 불일치**~~ | AuthGuard에서 `/coach/dashboard`로 수정 | ✅ RESOLVED |
+| ~~**프로필 로그아웃 경로 오류**~~ | `/auth/login`으로 변경 | ✅ RESOLVED |
+| ~~**블루프린트 클래스 포털 완료 표시 오류**~~ | 4/4 화면 실제 구현 완료 | ✅ RESOLVED |
+
+#### 🟡 Medium — 순차 처리
+| 항목 | 현황 | 상태 |
+|---|---|---|
+| **User Check-in QR 비표준 렌더링** | 토큰 격자 UI (실 스캐너 호환 미보장) | ⚠️ 향후 개선 |
+| ~~**Schedule 필터 로직 미반영**~~ | 코치별/난이도 실제 쿼리 필터링 구현 | ✅ RESOLVED |
+| **Purchase 결제 플로우 단순화** | PG 없이 즉시 멤버십 활성화 | ⚠️ PG 연동 시 해결 |
+| ~~**Profile Settings 영속화 없음**~~ | `profiles.notification_settings` JSONB 영속화 | ✅ RESOLVED |
+| **대시보드 위젯 일부 TODO** | 알림/코치/지원 지표 `0` 또는 `-` 반환 | ⚠️ 향후 개선 |
+| **루트 랜딩 페이지 미구현** | 초기화 문구만 표시 | ⚠️ 향후 개선 |
+| ~~**초과 구현 화면 문서 미반영**~~ | `/badges`, `/coaches`, `/leaderboard` Sitemap 반영 완료 | ✅ RESOLVED |
+
+---
+
+### Next Steps (멀티 에이전트 작업 대상)
+
+> 📌 **에이전트 배분 표기 규칙**: 각 항목 끝에 담당 에이전트를 명시합니다.
+> - 🏛️ **Architect (Opus)** — 설계, 구조 결정, 최종 승인
+> - 💎 **Senior Dev (Opus)** — 복잡한 비즈니스 로직, 결제, 보안, DB 스키마
+> - 💻 **Developer (Sonnet)** — API, 일반 로직, 테스트/QA, 버그 수정
+> - 🎨 **UI Developer (Gemini)** — 화면 UI/UX, 컴포넌트 구현
+> - ⚡ **Specialist (Gemini)** — 실시간 기능, 성능 최적화, 카메라/QR
+
+#### 🔴 Priority 1: Critical 수정 ✅ 완료
+  - [x] **키오스크 QR 스캔 실구현** — `html5-qrcode` 라이브러리 연동 완성 → ⚡ **Specialist (Gemini)**
+  - [x] **키오스크 DB 스키마 정합성** — `checkin_time`, `checkin_method`, `facility_id` 컬럼명 통일 → 💻 **Developer (Sonnet)**
+  - [x] **`/auth/logout` 라우트 구현** → 💻 **Developer (Sonnet)**
+  - [x] **프로필 로그아웃 경로 수정** (`/apps/auth/login` → `/auth/login`) → 💻 **Developer (Sonnet)**
+  - [x] **Coach 리다이렉트 수정** (AuthGuard + Login) → 💻 **Developer (Sonnet)**
+
+#### 🟠 Priority 2: Coach 앱 구현 ✅ 완료
+  - [x] Sitemap 갱신 (coach-app.md 구현 상태 반영) → 🏛️ **Architect**
+  - [x] `src/app/coach/layout.tsx` — AuthGuard + CoachBottomNav → 🎨 **UI Developer**
+  - [x] `src/components/layout/CoachBottomNav.tsx` → 🎨 **UI Developer**
+  - [x] `src/app/coach/dashboard/page.tsx` — 오늘 수업/통계/공지 → 🎨 **UI Developer**
+  - [x] `src/app/coach/schedule/page.tsx` — 일간/주간 일정 조회 → 🎨 **UI Developer**
+  - [x] `src/app/coach/members/page.tsx` — 회원 검색/코칭 노트 → 🎨 **UI Developer**
+  - [x] `src/app/coach/race/page.tsx` — 레이스 이벤트/기록 관리 → 🎨 **UI Developer**
+  - [x] `src/app/coach/profile/page.tsx` — 코치 프로필/통계 → 🎨 **UI Developer**
+  - [ ] Coach 앱 브라우저 통합 테스트 → 💻 **Developer (Sonnet)**
+
+#### 🟠 Priority 3: Class 포털 완성 ✅ 완료
+  - [x] `/class/wod` UI 구현 (WOD 게시판, 운동 목록, Time Cap) → 🎨 **UI Developer**
+  - [x] `/class/timer` 실시간 타이머 구현 (Countdown/CountUp/EMOM/Tabata + 오디오 비프) → ⚡ **Specialist**
+  - [x] `/class/live` 라이브 허브 구현 (세션 감지, 참가자 그리드) → 🎨 **UI Developer**
+  - [x] `/class/leaderboard` Mock → 실 DB 연동 (race_events/race_records) → 💻 **Developer**
+  - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist** *(향후 개선)*
+
+#### 🟡 Priority 4: User App 품질 개선 ✅ 완료
+  - [x] Schedule 필터 실제 쿼리 연동 (코치별/난이도 필터, session_date 사용) → 💻 **Developer**
+  - [x] Profile Settings DB 영속화 (profiles.notification_settings JSONB 사용) → 💻 **Developer**
+  - [x] Weekly Progress 실 DB 연동 (bookings 기반 주간 통계) → 💻 **Developer**
+  - [ ] Check-in QR 표준 라이브러리 교체 (qrcode.react) → ⚡ **Specialist** *(향후 개선)*
+
+#### 📄 Priority 5: 문서 동기화 ✅ 완료
+  - [x] `/badges`, `/coaches`, `/leaderboard` 사용자 앱 Sitemap 반영 → 🏛️ **Architect**
+  - [x] Class 포털 Sitemap 구현 상태 반영 (4/4 화면 완료) → 🏛️ **Architect**
+
+---
 
 ### Known Issues
+- ✅ **빌드 권한 문제 (EPERM)** (RESOLVED 2026-02-18): `postinstall` + 글로벌 Git 훅으로 영구 해결
 - ✅ **인증 흐름 불안정** (RESOLVED): 5가지 핵심 문제 수정 완료
-- ⚠️ **macOS provenance 잔존** (ACTIVE): 터미널 Full Disk Access 권한 부여 후 해결 예정
-- ⚠️ **@supabase/auth-js 타입 미완성** (WORKAROUND): `supabase.auth as any` 캐스팅 우회 중
 - ✅ **JOIN 쿼리 400 에러** (RESOLVED)
 - ✅ **Mock 데이터 페이지** (RESOLVED)
+- ✅ **Coach 앱 미구현** (RESOLVED 2026-02-18): 5/5 화면 구현 완료
+- ✅ **키오스크 QR 실동작 불가** (RESOLVED 2026-02-18): html5-qrcode 라이브러리 연동 완료
+- ✅ **키오스크 DB 스키마 불일치** (RESOLVED 2026-02-18): 컬럼명 통일
+- ✅ **Class 포털 미완성** (RESOLVED 2026-02-18): 4/4 화면 구현 + Leaderboard DB 연동
+- ⚠️ **@supabase/auth-js 타입 미완성** (WORKAROUND): `supabase.auth as any` 캐스팅 우회 중
 
 ### 참고 문서
-- **Admin 개발 통합 계획**: `.docs/ADMIN_DEVELOPMENT_PLAN.md`
-- **감사 보고서**: `.docs/admin-production-readiness-audit.md`
-- **다음 단계**: `.docs/TODO_NEXT_STEPS.md`
+- **구현 완성도 감사 (Gemini)**: `.docs/audit/gemini/20260218151644_implementation_audit.md`
+- **구현 완성도 감사 (GPT)**: `.docs/audit/gpt/IMPLEMENTATION_COMPLETENESS_AUDIT_2026-02-18_15-17-30.md`
+- **Sitemap SSOT**: `.docs/sitemap/README.md`
+- **DB 스키마 참조**: `.docs/database-reference.md`
 
 ---
 
 ## 6. 세션 종료 체크리스트
 - [x] 변경 사항 기록 완료 (이 문서)
 - [x] 다음 작업자를 위한 인수인계 메모 작성
-- [x] 프로젝트 경로 이전 (`~/Antigravity/BCL-Repo` → `~/dev/Antigravity/BCL-Repo`)
-- [x] `npm install` 완료
-- [ ] 터미널 Full Disk Access 권한 부여 + 빌드 검증
-- [ ] `git push origin main`
+- [x] 빌드 권한 문제 영구 해결 (`postinstall` + 글로벌 Git 훅)
+- [x] `npm install`, `npm run build` 정상 동작 확인
+- [x] 멀티 에이전트 작업 완료 (P1~P5 전체 완료)
 

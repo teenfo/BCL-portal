@@ -4,30 +4,19 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
-// ── 간단한 QR 디코더 유틸 ────────────────────────────
-// 실제 환경에서는 @aspect/qrcode-reader 나 jsQR 등 라이브러리를 사용합니다.
-// 데모용으로 화면 내 "QR 입력" 기능도 제공합니다.
-async function decodeQR(imageData: ImageData): Promise<string | null> {
-    // jsQR 등 외부 라이브러리와 연결하는 지점
-    // 현재는 null 반환 (수동 입력 모드 사용)
-    void imageData;
-    return null;
-}
-
 type ScanState = 'scanning' | 'processing' | 'error';
 
 export default function KioskScanPage() {
     const router = useRouter();
-    const videoRef = useRef<HTMLVideoElement>(null);
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+    const scannerRef = useRef<any>(null);
+    const scannerContainerId = 'qr-scanner-container';
     const [scanState, setScanState] = useState<ScanState>('scanning');
     const [errorMessage, setErrorMessage] = useState('');
     const [cameraReady, setCameraReady] = useState(false);
     const [manualMode, setManualMode] = useState(false);
     const [manualCode, setManualCode] = useState('');
     const [currentTime, setCurrentTime] = useState('');
-    const scanIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const streamRef = useRef<MediaStream | null>(null);
+    const processingRef = useRef(false);
 
     // 시각
     useEffect(() => {
@@ -39,133 +28,139 @@ export default function KioskScanPage() {
         return () => clearInterval(timer);
     }, []);
 
-    // 카메라 시작
-    const startCamera = useCallback(async () => {
+    // html5-qrcode 초기화
+    const startScanner = useCallback(async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
-            streamRef.current = stream;
-            if (videoRef.current) {
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-                setCameraReady(true);
-            }
-        } catch {
-            console.warn('카메라 접근 불가, 수동 입력 모드로 전환');
+            // Dynamic import to avoid SSR issues
+            const { Html5Qrcode } = await import('html5-qrcode');
+
+            const scanner = new Html5Qrcode(scannerContainerId, /* verbose= */ false);
+            scannerRef.current = scanner;
+
+            await scanner.start(
+                { facingMode: 'environment' },
+                {
+                    fps: 10,
+                    qrbox: { width: 280, height: 280 },
+                    aspectRatio: 1.0,
+                    disableFlip: false,
+                },
+                // onScanSuccess
+                (decodedText: string) => {
+                    if (!processingRef.current) {
+                        processingRef.current = true;
+                        processQRCode(decodedText);
+                    }
+                },
+                // onScanFailure - silent (continuously scanning)
+                () => { }
+            );
+
+            setCameraReady(true);
+        } catch (err) {
+            console.warn('카메라 접근 불가, 수동 입력 모드로 전환:', err);
             setManualMode(true);
         }
-    }, []);
-
-    // 카메라 중지
-    const stopCamera = useCallback(() => {
-        if (streamRef.current) {
-            streamRef.current.getTracks().forEach(track => track.stop());
-            streamRef.current = null;
-        }
-        if (scanIntervalRef.current) {
-            clearInterval(scanIntervalRef.current);
-            scanIntervalRef.current = null;
-        }
-    }, []);
-
-    useEffect(() => {
-        startCamera();
-        return () => stopCamera();
-    }, [startCamera, stopCamera]);
-
-    // 프레임 스캔
-    useEffect(() => {
-        if (!cameraReady || scanState !== 'scanning') return;
-
-        const scan = () => {
-            const video = videoRef.current;
-            const canvas = canvasRef.current;
-            if (!video || !canvas) return;
-
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            ctx.drawImage(video, 0, 0);
-
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            decodeQR(imageData).then(code => {
-                if (code) {
-                    processQRCode(code);
-                }
-            });
-        };
-
-        scanIntervalRef.current = setInterval(scan, 300);
-        return () => {
-            if (scanIntervalRef.current) {
-                clearInterval(scanIntervalRef.current);
-            }
-        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cameraReady, scanState]);
+    }, []);
+
+    // 스캐너 중지
+    const stopScanner = useCallback(async () => {
+        try {
+            if (scannerRef.current) {
+                const state = scannerRef.current.getState?.();
+                // Html5QrcodeScannerState.SCANNING = 2
+                if (state === 2) {
+                    await scannerRef.current.stop();
+                }
+                scannerRef.current.clear();
+                scannerRef.current = null;
+            }
+        } catch (err) {
+            console.warn('Scanner stop error:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        startScanner();
+        return () => { stopScanner(); };
+    }, [startScanner, stopScanner]);
+
+    // 에러 후 재시작
+    const restartScanner = useCallback(() => {
+        processingRef.current = false;
+        setScanState('scanning');
+        setErrorMessage('');
+        startScanner();
+    }, [startScanner]);
 
     // QR 코드 처리
     const processQRCode = async (code: string) => {
         setScanState('processing');
-        stopCamera();
+        await stopScanner();
 
         try {
             const supabase = createClient();
 
-            // QR 코드에서 회원 정보 찾기
-            const { data: qrData, error: qrError } = await supabase
-                .from('qr_codes')
-                .select('member_id, facility_id')
-                .eq('code', code)
-                .eq('is_active', true)
-                .single();
+            // QR 코드에서 회원 정보 파싱 (JSON 형식: { member_id, facility_id })
+            let memberId: string;
+            let facilityId: string;
 
-            if (qrError || !qrData) {
+            try {
+                const parsed = JSON.parse(code);
+                memberId = parsed.member_id;
+                facilityId = parsed.facility_id;
+            } catch {
+                // JSON 파싱 실패 시 QR 코드 테이블에서 조회
+                const { data: qrData, error: qrError } = await supabase
+                    .from('qr_codes')
+                    .select('facility_id')
+                    .eq('code', code)
+                    .eq('is_active', true)
+                    .single();
+
+                if (qrError || !qrData) {
+                    setScanState('error');
+                    setErrorMessage('유효하지 않은 QR 코드입니다');
+                    setTimeout(restartScanner, 3000);
+                    return;
+                }
+                memberId = code;
+                facilityId = qrData.facility_id || '';
+            }
+
+            if (!memberId || !facilityId) {
                 setScanState('error');
                 setErrorMessage('유효하지 않은 QR 코드입니다');
-                setTimeout(() => {
-                    setScanState('scanning');
-                    setErrorMessage('');
-                    startCamera();
-                }, 3000);
+                setTimeout(restartScanner, 3000);
                 return;
             }
 
             // 체크인 기록
             const { error: checkInError } = await supabase
-                .from('check_ins')
+                .from('checkins')
                 .insert({
-                    member_id: qrData.member_id,
-                    facility_id: qrData.facility_id,
-                    method: 'kiosk',
-                    checked_in_at: new Date().toISOString(),
+                    member_id: memberId,
+                    facility_id: facilityId,
+                    checkin_time: new Date().toISOString(),
+                    checkin_method: 'kiosk',
+                    notes: '키오스크 QR 체크인',
                 });
 
             if (checkInError) {
                 setScanState('error');
                 setErrorMessage('체크인 처리 중 오류가 발생했습니다');
-                setTimeout(() => {
-                    setScanState('scanning');
-                    setErrorMessage('');
-                    startCamera();
-                }, 3000);
+                setTimeout(restartScanner, 3000);
                 return;
             }
 
             // 성공 → 성공 화면으로 이동
-            router.push(`/kiosk/success?member=${qrData.member_id}`);
+            router.push(`/kiosk/success?member=${memberId}`);
 
         } catch {
             setScanState('error');
             setErrorMessage('시스템 오류가 발생했습니다');
-            setTimeout(() => {
-                setScanState('scanning');
-                setErrorMessage('');
-                startCamera();
-            }, 3000);
+            setTimeout(restartScanner, 3000);
         }
     };
 
@@ -177,19 +172,19 @@ export default function KioskScanPage() {
     };
 
     // 취소 → 대기 화면
-    const handleCancel = () => {
-        stopCamera();
+    const handleCancel = async () => {
+        await stopScanner();
         router.push('/kiosk');
     };
 
     // 자동 복귀 (30초 무동작)
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            stopCamera();
+        const timeout = setTimeout(async () => {
+            await stopScanner();
             router.push('/kiosk');
         }, 30000);
         return () => clearTimeout(timeout);
-    }, [router, stopCamera]);
+    }, [router, stopScanner]);
 
     return (
         <div style={{
@@ -260,7 +255,7 @@ export default function KioskScanPage() {
                 justifyContent: 'center',
                 position: 'relative',
             }}>
-                {/* Camera preview */}
+                {/* Camera preview via html5-qrcode */}
                 {!manualMode && (
                     <div style={{
                         position: 'relative',
@@ -269,17 +264,12 @@ export default function KioskScanPage() {
                         overflow: 'hidden',
                         background: '#111',
                     }}>
-                        <video
-                            ref={videoRef}
+                        <div
+                            id={scannerContainerId}
                             style={{
                                 width: '100%', height: '100%',
-                                objectFit: 'cover',
-                                transform: 'scaleX(-1)',
                             }}
-                            playsInline
-                            muted
                         />
-                        <canvas ref={canvasRef} style={{ display: 'none' }} />
 
                         {/* QR Guide overlay */}
                         <div style={{

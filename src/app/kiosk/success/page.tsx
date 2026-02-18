@@ -47,38 +47,23 @@ function SuccessContent() {
             setMember(memberData);
         }
 
-        // 오늘 예약
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-
-        const { data: reservationData } = await supabase
-            .from('reservations')
-            .select('class_name, start_time')
-            .eq('member_id', memberId)
-            .gte('start_time', `${todayStr}T00:00:00`)
-            .lte('start_time', `${todayStr}T23:59:59`)
-            .eq('status', 'confirmed')
-            .order('start_time', { ascending: true })
-            .limit(1);
-
-        if (reservationData && reservationData.length > 0) {
-            setReservation(reservationData[0]);
-        }
+        // 오늘 예약 (reservations 테이블이 아직 없으므로 생략)
+        // TODO: reservations 테이블 생성 후 활성화
 
         // 멤버십 잔여 횟수
         const { data: membershipData } = await supabase
             .from('memberships')
-            .select('remaining_sessions, plans(name)')
-            .eq('member_id', memberId)
+            .select('remaining_credits, status, plan_id')
+            .eq('user_id', memberId)
             .eq('status', 'active')
             .order('end_date', { ascending: false })
             .limit(1);
 
         if (membershipData && membershipData.length > 0) {
-            const m = membershipData[0] as { remaining_sessions: number | null; plans: { name: string } | null };
+            const m = membershipData[0];
             setMembership({
-                remaining_sessions: m.remaining_sessions,
-                plan_name: m.plans?.name || '일반',
+                remaining_sessions: m.remaining_credits,
+                plan_name: '회원권',
             });
         }
     }, [memberId]);

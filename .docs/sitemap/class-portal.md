@@ -9,20 +9,25 @@
 
 ## 1. 🖥️ 주요 화면 구조
 
-### 1) WOD Board (`/class/wod`)
+### 1) WOD Board (`/class/wod`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/wod/page.tsx`
 - **실시간 게시판**: 오늘 진행되는 WOD(Workout of the Day) 정보를 대형 텍스트로 노출.
 - **운동 구성**: 라운드수, 동작 목록, 시간 제한(Time Cap) 등을 시각화.
 
-### 2) Leaderboard (`/class/leaderboard`)
-- **실시간 기록**: 회원들이 모바일 앱으로 입력한 운동 기록을 즉시 정렬하여 표시.
-- **순위 정렬**: 성별, 연령대, 기록 타입(For Time, AMRAP)에 따른 자동 랭킹 시스템.
+### 2) Leaderboard (`/class/leaderboard`) ✅ 구현 완료 (DB 연동)
+- **구현 파일**: `src/app/class/leaderboard/page.tsx`
+- **실시간 기록**: race_events + race_records 기반 실 DB 연동.
+- **순위 정렬**: For Time / AMRAP / Weight 타입별 필터 지원.
 
-### 3) Timer (`/class/timer`)
-- **클래스 타이머**: 카운트다운(Count Down), 카운트업(Count Up), 에이팹(EMOM/Tabata) 타이머 기능.
-- **원격 제어**: 코치 앱에서 타이머 시작/종료를 실시간으로 조작 가능.
+### 3) Timer (`/class/timer`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/timer/page.tsx`
+- **클래스 타이머**: Countdown, Count Up, EMOM, Tabata 4가지 모드.
+- **오디오 비프**: Web Audio API 기반 3-2-1 카운트다운, 라운드 전환 비프 지원.
+- **원격 제어**: 코치 앱에서 타이머 시작/종료를 실시간으로 조작 가능 (향후 Supabase Broadcast 연동).
 
-### 4) Live Hub (`/class/live`)
-- **라이브 대시보드**: 수업 중인 회원들의 실시간 심박수 또는 레이스 기록을 통합하여 중계.
+### 4) Live Hub (`/class/live`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/live/page.tsx`
+- **라이브 대시보드**: 현재 진행 중인 세션 감지, 체크인 회원 실시간 표시.
 
 ---
 

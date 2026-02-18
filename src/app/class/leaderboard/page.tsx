@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 type RecordType = 'For Time' | 'AMRAP' | 'Weight';
 
@@ -8,44 +9,156 @@ interface Entry {
     rank: number;
     name: string;
     record: string;
-    subtext: string;
     category: 'RX' | 'Scaled';
+    is_pr: boolean;
 }
 
 export default function LeaderboardPage() {
     const [activeType, setActiveType] = useState<RecordType>('For Time');
+    const [entries, setEntries] = useState<Entry[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [currentTime, setCurrentTime] = useState('');
 
-    // Mock Data
-    const entries: Entry[] = [
-        { rank: 1, name: "Kim Choho", record: "08:42", subtext: "RX", category: 'RX' },
-        { rank: 2, name: "Lee Minji", record: "09:15", subtext: "RX", category: 'RX' },
-        { rank: 3, name: "Park Jiho", record: "10:02", subtext: "RX", category: 'RX' },
-        { rank: 4, name: "Choi Sunghoon", record: "11:20", subtext: "Scaled", category: 'Scaled' },
-        { rank: 5, name: "Jung Dana", record: "11:45", subtext: "RX", category: 'RX' },
-        { rank: 6, name: "Kang Dongwon", record: "12:10", subtext: "Scaled", category: 'Scaled' },
-    ];
+    useEffect(() => {
+        const tick = () => {
+            setCurrentTime(new Date().toLocaleTimeString('ko-KR', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+            }));
+        };
+        tick();
+        const timer = setInterval(tick, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    useEffect(() => {
+        loadLeaderboard();
+    }, [activeType]);
+
+    async function loadLeaderboard() {
+        setLoading(true);
+        const supabase: any = createClient();
+
+        try {
+            // race_records에서 최근 이벤트 기록 조회
+            const typeMap: Record<RecordType, string> = {
+                'For Time': 'for_time',
+                'AMRAP': 'amrap',
+                'Weight': 'weight',
+            };
+
+            const { data: eventData } = await supabase
+                .from('race_events')
+                .select('id')
+                .eq('event_type', typeMap[activeType])
+                .order('event_date', { ascending: false })
+                .limit(1)
+                .single();
+
+            if (eventData) {
+                const { data: records } = await supabase
+                    .from('race_records')
+                    .select('*, members!race_records_member_id_fkey(name)')
+                    .eq('event_id', eventData.id)
+                    .order('result_time', { ascending: activeType === 'For Time' })
+                    .limit(10);
+
+                if (records && records.length > 0) {
+                    const mapped: Entry[] = records.map((r: any, idx: number) => ({
+                        rank: idx + 1,
+                        name: r.members?.name || `Athlete ${idx + 1}`,
+                        record: formatResult(r.result_time, r.result_distance, activeType),
+                        category: r.notes?.includes('Scaled') ? 'Scaled' as const : 'RX' as const,
+                        is_pr: r.is_pr || false,
+                    }));
+                    setEntries(mapped);
+                    setLoading(false);
+                    return;
+                }
+            }
+
+            // Fallback: 데이터 없으면 빈 리스트
+            setEntries([]);
+        } catch (error) {
+            console.error('Leaderboard load error:', error);
+            setEntries([]);
+        }
+        setLoading(false);
+    }
+
+    function formatResult(time: number | null, distance: number | null, type: RecordType): string {
+        if (type === 'Weight' && distance) return `${distance} kg`;
+        if (type === 'AMRAP' && distance) return `${distance} reps`;
+        if (time) {
+            const m = Math.floor(time / 60);
+            const s = Math.floor(time % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+        return '-';
+    }
 
     return (
-        <main className="min-h-screen bg-black text-white p-12 flex flex-col items-center justify-start relative overflow-hidden">
-            {/* Dynamic Background Highlights */}
-            <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-neutral-900 rounded-full blur-[120px] opacity-20" />
-            <div className="absolute top-[20%] right-[-10%] w-[40vw] h-[40vw] bg-orange-950 rounded-full blur-[120px] opacity-10" />
+        <main style={{
+            minHeight: '100vh', background: '#000000', color: '#ffffff',
+            padding: '3rem', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'flex-start',
+            position: 'relative', overflow: 'hidden',
+            fontFamily: "'Lexend', sans-serif",
+        }}>
+            {/* Background */}
+            <div style={{
+                position: 'absolute', top: '-10%', left: '-10%',
+                width: '50vw', height: '50vw',
+                background: 'radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 60%)',
+                borderRadius: '50%', pointerEvents: 'none',
+            }} />
+            <div style={{
+                position: 'absolute', top: '20%', right: '-10%',
+                width: '40vw', height: '40vw',
+                background: 'radial-gradient(circle, rgba(255,107,0,0.04) 0%, transparent 60%)',
+                borderRadius: '50%', pointerEvents: 'none',
+            }} />
 
-            {/* Header Area */}
-            <header className="w-full max-w-6xl flex justify-between items-end mb-16 z-10 border-b border-white/10 pb-8">
+            {/* Header */}
+            <header style={{
+                width: '100%', maxWidth: '1400px',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                paddingBottom: '2rem', marginBottom: '2.5rem',
+                position: 'relative', zIndex: 10,
+            }}>
                 <div>
-                    <h2 className="text-orange-500 font-bold tracking-[0.2em] uppercase text-xl mb-2">Live Leaderboard</h2>
-                    <h1 className="text-7xl font-black tracking-tighter uppercase italic">The Champions</h1>
+                    <p style={{
+                        color: '#FF6B00', fontWeight: 900, letterSpacing: '0.2em',
+                        textTransform: 'uppercase', fontSize: '1.25rem', marginBottom: '0.5rem',
+                    }}>
+                        Live Leaderboard
+                    </p>
+                    <h1 style={{
+                        fontSize: 'clamp(3rem, 7vw, 5rem)',
+                        fontWeight: 900, letterSpacing: '-0.03em',
+                        textTransform: 'uppercase', fontStyle: 'italic', lineHeight: 1,
+                    }}>
+                        The Champions
+                    </h1>
                 </div>
-                <div className="flex gap-4">
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {(['For Time', 'AMRAP', 'Weight'] as RecordType[]).map((type) => (
                         <button
                             key={type}
                             onClick={() => setActiveType(type)}
-                            className={`px-8 py-3 rounded-xl text-lg font-black transition-all ${activeType === type
-                                    ? 'bg-orange-600 text-white shadow-lg scale-105'
-                                    : 'text-neutral-500 hover:text-white glass-panel'
-                                }`}
+                            style={{
+                                padding: '0.75rem 2rem',
+                                borderRadius: '0.75rem',
+                                fontSize: '1rem', fontWeight: 900,
+                                letterSpacing: '0.1em',
+                                textTransform: 'uppercase',
+                                border: activeType === type ? '2px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
+                                background: activeType === type ? '#FF6B00' : 'rgba(255,255,255,0.03)',
+                                color: activeType === type ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                boxShadow: activeType === type ? '0 0 20px rgba(255,107,0,0.3)' : 'none',
+                            }}
                         >
                             {type}
                         </button>
@@ -53,65 +166,146 @@ export default function LeaderboardPage() {
                 </div>
             </header>
 
+            {/* Live time */}
+            <div style={{
+                width: '100%', maxWidth: '1400px', textAlign: 'right',
+                marginBottom: '1rem', position: 'relative', zIndex: 10,
+            }}>
+                <span style={{
+                    fontSize: '1rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+                    color: 'rgba(255,255,255,0.2)',
+                }}>
+                    🔴 LIVE · {currentTime}
+                </span>
+            </div>
+
             {/* Ranking Table */}
-            <div className="w-full max-w-6xl z-10 space-y-4">
+            <div style={{ width: '100%', maxWidth: '1400px', position: 'relative', zIndex: 10 }}>
                 {/* Table Header */}
-                <div className="grid grid-cols-12 px-12 py-4 text-sm font-bold text-neutral-500 uppercase tracking-widest">
-                    <div className="col-span-1">Rank</div>
-                    <div className="col-span-6">Athlete</div>
-                    <div className="col-span-3 text-right">Result</div>
-                    <div className="col-span-2 text-right">Category</div>
+                <div style={{
+                    display: 'grid', gridTemplateColumns: '80px 1fr 200px 120px',
+                    padding: '1rem 2rem',
+                    fontSize: '0.75rem', fontWeight: 900,
+                    letterSpacing: '0.2em', textTransform: 'uppercase',
+                    color: 'rgba(255,255,255,0.25)',
+                }}>
+                    <span>Rank</span>
+                    <span>Athlete</span>
+                    <span style={{ textAlign: 'right' }}>Result</span>
+                    <span style={{ textAlign: 'right' }}>Category</span>
                 </div>
 
-                {/* Athletes List */}
-                {entries.map((entry) => (
-                    <div
-                        key={entry.rank}
-                        className={`grid grid-cols-12 items-center px-12 py-8 rounded-3xl glass-card border-none transition-all group ${entry.rank <= 3 ? 'bg-white/5 ring-1 ring-white/10' : ''
-                            }`}
-                    >
-                        {/* Rank Number */}
-                        <div className="col-span-1">
-                            <span className={`text-5xl font-black italic ${entry.rank === 1 ? 'text-orange-500' :
-                                    entry.rank === 2 ? 'text-neutral-300' :
-                                        entry.rank === 3 ? 'text-amber-700' : 'text-neutral-700'
-                                }`}>
-                                {entry.rank}
-                            </span>
-                        </div>
-
-                        {/* Athlete Name */}
-                        <div className="col-span-6 flex items-center gap-6">
-                            <div className="w-16 h-16 rounded-full bg-neutral-800 border border-white/10 flex items-center justify-center overflow-hidden">
-                                <span className="text-xl font-bold text-neutral-600">{entry.name[0]}</span>
-                            </div>
-                            <div className="text-4xl font-bold tracking-tight group-hover:text-orange-400 transition-colors uppercase">
-                                {entry.name}
-                            </div>
-                        </div>
-
-                        {/* Result */}
-                        <div className="col-span-3 text-right">
-                            <div className="text-5xl font-black tracking-tighter text-white/90">
-                                {entry.record}
-                            </div>
-                        </div>
-
-                        {/* Category */}
-                        <div className="col-span-2 text-right">
-                            <span className={`px-4 py-2 rounded-lg text-sm font-black tracking-widest border ${entry.category === 'RX' ? 'border-orange-500/50 text-orange-500' : 'border-neutral-700 text-neutral-500'
-                                }`}>
-                                {entry.category}
-                            </span>
-                        </div>
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '4rem' }}>
+                        <div style={{
+                            width: 50, height: 50, border: '3px solid rgba(255,107,0,0.3)',
+                            borderTopColor: '#FF6B00', borderRadius: '50%',
+                            margin: '0 auto', animation: 'spin 1s linear infinite',
+                        }} />
                     </div>
-                ))}
+                ) : entries.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '5rem' }}>
+                        <div style={{ fontSize: '4rem', marginBottom: '1rem', opacity: 0.1 }}>🏆</div>
+                        <p style={{
+                            fontSize: '1rem', fontWeight: 900, textTransform: 'uppercase',
+                            letterSpacing: '0.3em', color: 'rgba(255,255,255,0.1)',
+                        }}>
+                            No Records Yet
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {entries.map((entry) => (
+                            <div
+                                key={entry.rank}
+                                style={{
+                                    display: 'grid', gridTemplateColumns: '80px 1fr 200px 120px',
+                                    alignItems: 'center',
+                                    padding: '1.5rem 2rem',
+                                    borderRadius: '1.25rem',
+                                    background: entry.rank <= 3 ? 'rgba(255,255,255,0.04)' : 'transparent',
+                                    border: entry.rank <= 3 ? '1px solid rgba(255,255,255,0.06)' : '1px solid transparent',
+                                    transition: 'all 0.3s ease',
+                                }}
+                            >
+                                {/* Rank */}
+                                <span style={{
+                                    fontSize: '3rem', fontWeight: 900, fontStyle: 'italic',
+                                    color: entry.rank === 1 ? '#FF6B00'
+                                        : entry.rank === 2 ? '#C0C0C0'
+                                            : entry.rank === 3 ? '#CD7F32'
+                                                : 'rgba(255,255,255,0.15)',
+                                }}>
+                                    {entry.rank}
+                                </span>
+
+                                {/* Name */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{
+                                        width: 48, height: 48, borderRadius: '50%',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.08)',
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        fontWeight: 900, fontSize: '1.25rem', color: 'rgba(255,255,255,0.3)',
+                                    }}>
+                                        {entry.name.charAt(0)}
+                                    </div>
+                                    <span style={{
+                                        fontSize: '2rem', fontWeight: 800,
+                                        letterSpacing: '-0.01em', textTransform: 'uppercase',
+                                    }}>
+                                        {entry.name}
+                                    </span>
+                                    {entry.is_pr && (
+                                        <span style={{ fontSize: '1.25rem' }}>🏆</span>
+                                    )}
+                                </div>
+
+                                {/* Result */}
+                                <span style={{
+                                    fontSize: '2.5rem', fontWeight: 900,
+                                    fontVariantNumeric: 'tabular-nums',
+                                    letterSpacing: '-0.02em',
+                                    textAlign: 'right',
+                                    color: 'rgba(255,255,255,0.9)',
+                                }}>
+                                    {entry.record}
+                                </span>
+
+                                {/* Category */}
+                                <div style={{ textAlign: 'right' }}>
+                                    <span style={{
+                                        padding: '0.375rem 0.75rem',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '0.75rem', fontWeight: 900,
+                                        letterSpacing: '0.15em',
+                                        border: entry.category === 'RX' ? '1px solid rgba(255,107,0,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                        color: entry.category === 'RX' ? '#FF6B00' : 'rgba(255,255,255,0.3)',
+                                    }}>
+                                        {entry.category}
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
-            {/* Footer Visual */}
-            <div className="mt-20 opacity-30 pointer-events-none select-none">
-                <span className="text-sm font-bold tracking-[0.5em] uppercase text-neutral-500">Live Update Active • Sync via BCL Cloud</span>
+            {/* Footer */}
+            <div style={{
+                marginTop: '3rem', opacity: 0.1, pointerEvents: 'none',
+                fontSize: '0.75rem', fontWeight: 900,
+                letterSpacing: '0.5em', textTransform: 'uppercase',
+            }}>
+                Live Update Active • Sync via BCL Cloud
             </div>
+
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </main>
     );
 }

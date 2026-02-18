@@ -73,7 +73,7 @@ export default function UserProfilePage() {
     async function handleLogout() {
         const supabase = createClient();
         await supabase.auth.signOut();
-        router.push('/apps/auth/login');
+        router.push('/auth/login');
     }
 
     if (loading) {

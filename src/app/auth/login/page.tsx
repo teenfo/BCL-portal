@@ -31,7 +31,7 @@ function LoginContent() {
             } else if (profile.role === 'admin') {
                 router.replace('/admin/dashboard');
             } else if (profile.role === 'coach') {
-                router.replace('/apps/dashboard');
+                router.replace('/coach/dashboard');
             } else {
                 router.replace('/apps/dashboard');
             }
@@ -84,7 +84,7 @@ function LoginContent() {
                 if (currentRole === 'admin') {
                     router.replace('/admin/dashboard');
                 } else if (currentRole === 'coach') {
-                    router.replace('/apps/dashboard');
+                    router.replace('/coach/dashboard');
                 } else {
                     router.replace('/apps/dashboard');
                 }

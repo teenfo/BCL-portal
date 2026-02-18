@@ -15,33 +15,60 @@ interface Session {
     capacity: number;
     enrolled: number;
     category?: string;
+    session_date?: string;
 }
 
-const FILTERS = ['Filter', 'All Coaches', 'Beginner'];
+type FilterMode = 'all' | 'coach' | 'beginner';
 
 export default function UserSchedulePage() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-    const [selectedFilter, setSelectedFilter] = useState('Filter');
+    const [filterMode, setFilterMode] = useState<FilterMode>('all');
+    const [coaches, setCoaches] = useState<string[]>([]);
+    const [selectedCoach, setSelectedCoach] = useState<string>('');
+    const [showCoachDropdown, setShowCoachDropdown] = useState(false);
     const toast = useToast();
 
     const loadSessions = useCallback(async () => {
-        const supabase = createClient();
+        const supabase: any = createClient();
         setLoading(true);
-        const startOfDay = selectedDate + 'T00:00:00+09:00';
-        const endOfDay = selectedDate + 'T23:59:59+09:00';
 
-        const { data } = await supabase
+        let query = supabase
             .from('sessions')
             .select('*')
-            .gte('start_time', startOfDay)
-            .lte('start_time', endOfDay)
+            .eq('session_date', selectedDate)
             .order('start_time', { ascending: true });
 
+        // Apply filters
+        if (filterMode === 'beginner') {
+            query = query.eq('intensity', 'beginner');
+        }
+        if (filterMode === 'coach' && selectedCoach) {
+            query = query.eq('coach_name', selectedCoach);
+        }
+
+        const { data } = await query;
         if (data) setSessions(data);
         setLoading(false);
-    }, [selectedDate]);
+    }, [selectedDate, filterMode, selectedCoach]);
+
+    // Load available coaches for filter
+    useEffect(() => {
+        async function loadCoaches() {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from('sessions')
+                .select('coach_name')
+                .not('coach_name', 'is', null)
+                .limit(50);
+            if (data) {
+                const unique = [...new Set(data.map(d => d.coach_name).filter(Boolean))];
+                setCoaches(unique);
+            }
+        }
+        loadCoaches();
+    }, []);
 
     useEffect(() => {
         loadSessions();
@@ -90,8 +117,32 @@ export default function UserSchedulePage() {
         }
     }
 
-    const completedClasses = 2; // This would come from actual data
+    // Weekly progress from bookings
+    const [completedClasses, setCompletedClasses] = useState(0);
     const weeklyGoal = 4;
+
+    useEffect(() => {
+        async function loadWeeklyProgress() {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+            const weekStart = startOfWeek.toISOString().split('T')[0];
+
+            const { count } = await supabase
+                .from('bookings')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .eq('status', 'confirmed')
+                .gte('created_at', weekStart + 'T00:00:00');
+
+            setCompletedClasses(count || 0);
+        }
+        loadWeeklyProgress();
+    }, []);
 
     return (
         <div className="app-page">
@@ -117,20 +168,60 @@ export default function UserSchedulePage() {
                 })}
             </div>
 
-            {/* ── Filter Chips (Figma Style) ── */}
-            <div className="app-filter-chips">
-                {FILTERS.map(f => (
-                    <button
-                        key={f}
-                        className={`app-filter-chip ${selectedFilter === f ? 'active' : ''}`}
-                        onClick={() => setSelectedFilter(f)}
-                        style={f === 'Filter' && selectedFilter !== 'Filter' ? { color: 'var(--app-accent)', borderColor: 'var(--app-accent)' } : {}}
-                    >
-                        {f === 'Filter' ? (
-                            <span style={{ color: selectedFilter === 'Filter' ? '#fff' : 'var(--app-accent)' }}>Filter</span>
-                        ) : f}
-                    </button>
-                ))}
+            {/* ── Filter Chips ── */}
+            <div className="app-filter-chips" style={{ position: 'relative' }}>
+                <button
+                    className={`app-filter-chip ${filterMode === 'all' ? 'active' : ''}`}
+                    onClick={() => { setFilterMode('all'); setSelectedCoach(''); setShowCoachDropdown(false); }}
+                >
+                    All
+                </button>
+                <button
+                    className={`app-filter-chip ${filterMode === 'coach' ? 'active' : ''}`}
+                    onClick={() => {
+                        setFilterMode('coach');
+                        setShowCoachDropdown(!showCoachDropdown);
+                    }}
+                    style={filterMode === 'coach' ? { color: 'var(--app-accent)', borderColor: 'var(--app-accent)' } : {}}
+                >
+                    {selectedCoach || 'Coaches'} ▾
+                </button>
+                <button
+                    className={`app-filter-chip ${filterMode === 'beginner' ? 'active' : ''}`}
+                    onClick={() => { setFilterMode('beginner'); setSelectedCoach(''); setShowCoachDropdown(false); }}
+                >
+                    Beginner
+                </button>
+
+                {/* Coach Dropdown */}
+                {showCoachDropdown && coaches.length > 0 && (
+                    <div style={{
+                        position: 'absolute', top: '100%', left: 0, right: 0,
+                        marginTop: '0.25rem', zIndex: 20,
+                        background: 'var(--app-card-bg)', border: '1px solid var(--app-border)',
+                        borderRadius: 'var(--app-radius-lg)',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                        overflow: 'hidden',
+                    }}>
+                        {coaches.map(coach => (
+                            <button
+                                key={coach}
+                                onClick={() => { setSelectedCoach(coach); setShowCoachDropdown(false); }}
+                                style={{
+                                    display: 'block', width: '100%', textAlign: 'left',
+                                    padding: '0.625rem 1rem',
+                                    background: selectedCoach === coach ? 'var(--app-accent-bg)' : 'transparent',
+                                    color: selectedCoach === coach ? 'var(--app-accent)' : 'var(--app-text-primary)',
+                                    border: 'none', borderBottom: '1px solid var(--app-border)',
+                                    fontSize: '0.875rem', fontWeight: 600,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                {coach}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* ── Session List ── */}

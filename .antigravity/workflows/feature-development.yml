@@ -1,6 +1,16 @@
 name: Feature Development
 
-description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 에이전트 체계)
+description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 에이전트 / 3개 모델 체계)
+
+---
+
+## Models
+
+| Model | Config ID | Agents |
+|:------|:----------|:-------|
+| Claude Opus 4.6 (Thinking) | `claude-opus-4.6-thinking` | Architect, Senior Developer |
+| Claude Sonnet 4.6 | `claude-sonnet-4.6` | Developer (+ QA 통합) |
+| Gemini 3 Flash | `gemini-3-flash` | UI Developer, Specialist |
 
 ---
 
@@ -16,7 +26,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ## Critical Feature Workflow
 
 ### Step 1: Architecture Design
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 2-4시간
 
 **Actions**:
@@ -35,7 +45,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 2: Implementation
-**Agent**: Senior Developer (Opus 4.6)  
+**Agent**: Senior Developer (Opus 4.6 Thinking)  
 **Duration**: 1-3일
 
 **Actions**:
@@ -53,8 +63,8 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 
 ---
 
-### Step 3: Quality Assurance
-**Agent**: QA (GPT OSS)  
+### Step 3: Testing & Quality Assurance
+**Agent**: Developer (Sonnet 4.6)  
 **Duration**: 4-8시간
 
 **Actions**:
@@ -63,6 +73,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 - 사용성 테스트
 - 보안 취약점 검사
 - 엣지 케이스 확인
+- API 문서 작성
 
 **Deliverables**:
 - Test report
@@ -72,7 +83,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 4: Final Review
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 2-4시간
 
 **Actions**:
@@ -92,7 +103,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ## Standard Feature Workflow
 
 ### Step 1: Design Guidance
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 1-2시간
 
 **Actions**:
@@ -103,28 +114,26 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 2: Implementation
-**Agent**: Developer (Sonnet 4.5)  
+**Agent**: UI Developer (Gemini 3 Flash) + Developer (Sonnet 4.6)  
 **Duration**: 0.5-2일
 
 **Actions**:
-- UI 컴포넌트 구현
-- API 라우트 작성
-- 기본 테스트 작성
-- 에러 핸들링
+- **UI Developer**: UI 컴포넌트 구현, 반응형 디자인, 애니메이션
+- **Developer**: API 라우트 작성, 비즈니스 로직, 에러 핸들링
 
 **Deliverables**:
-- Working feature
-- Basic tests
-- Documentation
+- Working feature (UI + API)
+- TypeScript types/interfaces
+- Basic documentation
 
 ---
 
-### Step 3: Quality Assurance
-**Agent**: QA (GPT OSS)  
+### Step 3: Testing & Quality Assurance
+**Agent**: Developer (Sonnet 4.6)  
 **Duration**: 2-4시간
 
 **Actions**:
-- 기능 테스트
+- 기능 테스트 작성 및 검증
 - 사용성 검토
 - 브라우저 호환성 테스트
 
@@ -135,7 +144,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 4: Review (Optional)
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 1-2시간 (필요시)
 
 **Actions**:
@@ -147,7 +156,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ## Real-time Feature Workflow
 
 ### Step 1: Performance Requirements
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 1-2시간
 
 **Actions**:
@@ -158,14 +167,12 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 2: Implementation
-**Agent**: Specialist (Gemini 3 Flash)  
+**Agent**: UI Developer (Gemini 3 Flash) + Specialist (Gemini 3 Flash)  
 **Duration**: 1-2일
 
 **Actions**:
-- Supabase Realtime 구독 구현
-- React 성능 최적화
-- 애니메이션 구현
-- 에러 핸들링 및 재연결 로직
+- **UI Developer**: UI 컴포넌트, 반응형 레이아웃
+- **Specialist**: Supabase Realtime 구독, React 성능 최적화, 애니메이션
 
 **Deliverables**:
 - Optimized implementation
@@ -175,7 +182,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 3: Performance Testing
-**Agent**: QA (GPT OSS)  
+**Agent**: Developer (Sonnet 4.6)  
 **Duration**: 2-4시간
 
 **Actions**:
@@ -191,7 +198,7 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 ---
 
 ### Step 4: Verification
-**Agent**: Architect (Opus 4.6)  
+**Agent**: Architect (Opus 4.6 Thinking)  
 **Duration**: 1-2시간
 
 **Actions**:
@@ -217,3 +224,8 @@ description: 새로운 기능 개발 시 따르는 표준 워크플로우 (5개 
 - 각 단계에서 체크리스트 준수
 - Critical Issue 발견 시 즉시 Architect에게 에스컬레이션
 - 모든 테스트 통과 후 다음 단계 진행
+
+---
+
+**Last Updated**: 2026-02-18  
+**Version**: 3.0

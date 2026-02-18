@@ -67,7 +67,7 @@ export function AuthGuard({
             if (userRole !== requiredRole) {
                 // 역할에 따라 올바른 홈으로 리다이렉트
                 if (userRole === 'admin') router.replace('/admin/dashboard');
-                else if (userRole === 'coach') router.replace('/apps/dashboard');
+                else if (userRole === 'coach') router.replace('/coach/dashboard');
                 else router.replace('/apps/dashboard');
                 return;
             }

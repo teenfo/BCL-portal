@@ -6,15 +6,27 @@
                 ".docs/database/README.md",
                 ".docs/security/README.md"
             ],
-            "assignedTo": "claude-opus-4.6"
+            "assignedTo": "claude-opus-4.6-thinking"
         },
-        "frontend-common": {
+        "frontend-ui": {
             "files": [
+                "src/app/**/*.tsx",
+                "src/app/**/*.css",
                 "src/components/**/*",
-                "src/lib/**/*",
-                ".docs/design-security.md"
+                ".docs/design-security.md",
+                ".agent/skills/ui-gen/SKILL.md"
             ],
-            "assignedTo": "claude-sonnet-4.5"
+            "assignedTo": "gemini-3-flash"
+        },
+        "backend-api": {
+            "files": [
+                "src/lib/**/*",
+                "src/types/**/*",
+                "src/app/api/**/*",
+                ".docs/database-reference.md",
+                ".docs/testing/**/*.md"
+            ],
+            "assignedTo": "claude-sonnet-4.6"
         },
         "realtime-features": {
             "files": [
@@ -23,7 +35,7 @@
                 ".docs/sitemap/class-portal.md",
                 ".docs/sitemap/kiosk-app.md"
             ],
-            "assignedTo": "gemini-3.0-flash"
+            "assignedTo": "gemini-3-flash"
         }
     }
 }
