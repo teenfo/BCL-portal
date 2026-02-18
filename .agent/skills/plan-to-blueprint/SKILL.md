@@ -5,8 +5,11 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 
 # Plan to Blueprint Skill (plan-to-blueprint)
 
-이 스킬은 새로운 기능이나 아키텍처 개선이 필요할 때, **기획 문서 작성 → 블루프린트 등록**까지의 표준 절차를 정의합니다.
+이 스킬은 `.docs/planning/` 폴더의 **모든 기획 문서를 스캔**하고, 블루프린트(`.docs/project-blueprint.md`)에 아직 등록되지 않은 항목을 **자동으로 등록**하는 표준 절차를 정의합니다.
 현재 진행 중인 개발과 충돌하지 않도록 **코드 변경 없이** 기획과 작업 분배만 수행합니다.
+
+> **⚠️ 이 스킬의 모든 단계는 🏛️ Architect (Opus)가 전담 수행한다.**
+> 다른 에이전트에게 위임하지 않는다.
 
 ---
 
@@ -14,49 +17,181 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 
 - 새로운 기능/모듈을 기획할 때 (즉시 개발하지 않고 나중에 착수)
 - 아키텍처 개선이 필요하지만 다른 개발이 진행 중일 때
+- `.docs/planning/`에 기획 문서가 추가/변경되었을 때 블루프린트를 동기화할 때
 - 복잡한 기능을 여러 에이전트에게 분배하여 병렬 개발할 때
-- 기획 내용을 문서로 남겨 다음 작업자가 이어받을 수 있도록 할 때
+
+---
+
+## 핵심 원칙
+
+> **Planning 폴더 = 기획의 접수 대기열 (Inbox)**
+> **Blueprint = 기획의 실행 목록 (Execution Plan)**
+> **Archive = 등록 완료된 기획의 보관소**
+>
+> 이 스킬은 Planning → Blueprint → Archive 순서로 **단방향 흐름**을 수행한다.
+> 1. `.docs/planning/`에 새 기획 문서를 작성한다.
+> 2. 블루프린트에 등록한다.
+> 3. 등록 완료된 문서를 `.docs/archive/planning/`으로 이동한다.
+> 4. `.docs/planning/` 폴더는 항상 비어있는 것이 정상 상태이다.
 
 ---
 
 ## 스킬 실행 절차
 
-### 1️⃣ 현황 분석 (필수 선행)
+### 1️⃣ Planning 폴더 전체 스캔
 
-기획 문서 작성 전, 다음 문서를 반드시 읽어 현재 상태를 파악한다:
+`.docs/planning/` 폴더의 **모든 `.md` 파일**을 읽는다. 하나도 빠짐없이 전부 읽어야 한다.
 
-```
-1. .agent/rules/bcl-portal.rules.md     ← 프로젝트 절대 규칙
-2. .docs/project-blueprint.md           ← 현재 개발 상태 및 Priority 목록
-3. .docs/sitemap/README.md              ← 전체 라우팅 구조
-4. .docs/database-reference.md          ← DB 스키마 현황
-5. 관련 소스 파일                        ← 영향받는 코드 직접 확인
-```
+각 기획 문서에서 다음 정보를 추출한다:
 
-> ⚠️ **현황 분석 없이 기획 문서를 작성하면 안 된다.**
-> 기존 구현과 충돌하거나 이미 완료된 작업을 중복 기획할 수 있다.
+| 추출 항목 | 위치 | 필수 |
+|---|---|---|
+| **기능명** | 문서 제목 (`# BCL Portal – {기능명}`) | ✅ |
+| **Status** | YAML 헤더 (`Status: Approved / Draft / In Progress / Done`) | ✅ |
+| **문제 요약** | `## 1. 개요 및 배경` → `### 1.1 목적` | ✅ |
+| **에이전트 배분** | `## 8. 구현 단계 및 에이전트 배분` 섹션 | ✅ |
+| **블루프린트 체크리스트** | `## 9. 블루프린트 등록용 체크리스트` 섹션 | 있으면 사용 |
+| **Priority 레벨** | 문제 심각도 기반 판단 | 자동 판단 |
 
 ---
 
-### 2️⃣ 기획 문서 작성
+### 2️⃣ 블루프린트와 비교
 
-#### 저장 위치
+`.docs/project-blueprint.md`를 읽어 현재 등록된 Priority 항목 목록을 확인한다.
+
+**비교 방법**: 각 기획 문서의 파일명(`{파일명}.md`)이 블루프린트 내에 링크로 존재하는지 검색한다.
+(블루프린트에서는 `.docs/archive/planning/{파일명}.md` 경로로 저장된다)
+
+| 상태 | 판단 기준 | 액션 |
+|---|---|---|
+| **미등록** | 블루프린트에 해당 기획서 링크가 없음 | → **등록** |
+| **등록됨 + 내용 일치** | 기획서와 블루프린트 Phase가 동일 | → **스킵** |
+| **등록됨 + 내용 불일치** | 기획서의 Phase가 블루프린트와 다름 | → **갱신** |
+| **블루프린트에만 존재** | Planning에 기획서 없는데 블루프린트에 있음 | → **경고 보고** |
+
+---
+
+### 3️⃣ 블루프린트에 일괄 등록
+
+`.docs/project-blueprint.md`를 수정하여 **미등록 기획을 모두 등록**한다.
+
+#### 등록 형식 (필수 준수)
+
+```markdown
+#### {이모지} Priority {N}: {기능명} (개발 대기)
+  > **기획서**: `.docs/archive/planning/{파일명}.md`
+  > **문제**: {한 줄 문제 요약}
+  > **방안**: {한 줄 해결 방안 요약}
+
+  - [ ] Phase 1: {작업명} → 💎 **Senior Dev (Opus)**
+    - [ ] {세부 작업 1}
+    - [ ] {세부 작업 2}
+  - [ ] Phase 2: {작업명} → 🎨 **UI Developer (Gemini)**
+    - [ ] {세부 작업 1}
+  - [ ] Phase 3: {작업명} → 💻 **Developer (Sonnet)**
+    - [ ] {세부 작업 1}
+  - [ ] Phase N: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap 갱신
+    - [ ] blueprint 반영
+```
+
+#### Priority 번호 결정
+블루프린트의 기존 마지막 Priority 번호 + 1부터 순차 부여한다.
+
+#### Priority 레벨 이모지 기준
+
+| 레벨 | 이모지 | 기준 |
+|---|---|---|
+| Critical | 🔴 | 현재 기능 동작 불가 또는 보안 취약점 |
+| High | 🟠 | 핵심 사용자 경험 영향 |
+| Medium | 🟡 | 품질 개선, UX 향상 |
+| Low | 📄 | 문서화, 리팩토링 |
+
+#### Known Issues 등록 (해당 시)
+현재 동작하지 않는 기능이 있으면 `Known Issues` 섹션에도 추가:
+```markdown
+- 🔴 **{이슈명}** (ACTIVE): {설명} → [기획서](.docs/archive/planning/{파일명}.md)
+```
+
+---
+
+### 4️⃣ 정합성 최종 검증
+
+등록 완료 후 다음을 최종 확인한다:
+
+```
+[ ] .docs/planning/ 의 모든 기획 문서가 블루프린트에 1:1 대응됨
+[ ] Priority 번호가 순차적으로 증가함 (중복/누락 없음)
+[ ] 각 Priority 항목에 기획서 링크가 올바르게 걸려있음 (archive/planning 경로)
+[ ] 에이전트 배분이 기획서 내용과 일치함
+[ ] 코드 변경 없음 확인 (문서만 변경)
+```
+
+---
+
+### 5️⃣ 아카이브 이동
+
+블루프린트 등록이 완료된 기획 문서를 `.docs/archive/planning/`으로 이동한다.
+
+```bash
+# 아카이브 폴더 생성 (없으면)
+mkdir -p .docs/archive/planning
+
+# 등록 완료된 기획 문서를 아카이브로 이동
+mv .docs/planning/{파일명}.md .docs/archive/planning/
+```
+
+> ⚠️ **planning 폴더에는 아직 블루프린트에 등록되지 않은 문서만 남아야 한다.**
+> 동기화가 정상 완료되면 `.docs/planning/` 폴더는 비어있어야 한다.
+
+이동 후 최종 확인:
+```bash
+# planning 폴더가 비었는지 확인
+ls .docs/planning/
+# archive/planning에 파일이 있는지 확인
+ls .docs/archive/planning/
+```
+
+---
+
+### 결과 보고
+
+모든 단계 완료 후 사용자에게 결과를 보고한다:
+
+```
+📋 Planning → Blueprint 동기화 결과:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  전체 기획 문서:  N건
+  ✅ 신규 등록:    N건
+  ⏭️ 이미 등록됨:  N건
+  🔄 갱신:         N건
+  📦 아카이브 이동: N건
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Planning ↔ Blueprint 정합성: ✅ 일치
+  .docs/planning/ 상태: ✅ 비어있음 (모든 문서 아카이브 완료)
+```
+
+---
+
+## 기획 문서 작성 가이드 (신규 기획 시)
+
+### 저장 위치
 ```
 .docs/planning/{feature-name}.md
 ```
 
-#### 파일명 규칙
-- `snake_case` 사용
+### 파일명 규칙
+- `kebab-case` 사용 (하이픈으로 단어 구분)
 - 기능/모듈명을 명확히 표현
 - 예: `coach-account-architecture.md`, `payment-flow.md`, `race-realtime.md`
 
-#### 필수 포함 섹션 (템플릿)
+### 필수 포함 섹션 (템플릿)
 
 ```markdown
 # BCL Portal – {기능명} 기획서
 
 > **Status**: Approved (기획 승인 — 개발 대기)
-> **Author**: Agent ({역할})
+> **Author**: Agent (Architect)
 > **Date**: {YYYY-MM-DD}
 > **Related**: {관련 문서/파일 링크}
 
@@ -93,11 +228,11 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 - 담당 에이전트 명시
 
 ## 9. 블루프린트 등록용 체크리스트
-(섹션 3️⃣에서 그대로 복사하여 블루프린트에 붙여넣을 내용)
+(이 섹션의 내용을 그대로 블루프린트에 복사한다)
 
 ## 10. 테스트 시나리오
-- 정상 흐름
-- 예외 흐름
+- 정상 흐름 (최소 3건)
+- 예외 흐름 (최소 2건)
 
 ## 11. 리스크 및 완화
 
@@ -106,7 +241,7 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 **최종 업데이트**: {날짜}
 ```
 
-#### 작성 품질 기준
+### 작성 품질 기준
 
 | 항목 | 기준 |
 |---|---|
@@ -118,74 +253,11 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 
 ---
 
-### 3️⃣ 블루프린트에 등록
-
-`.docs/project-blueprint.md`의 **`Next Steps`** 섹션에 새 Priority 항목을 추가한다.
-
-#### 등록 형식 (필수 준수)
-
-```markdown
-#### 🔴 Priority {N}: {기능명} (개발 대기)
-  > **기획서**: `.docs/planning/{파일명}.md`
-  > **문제**: {한 줄 문제 요약}
-  > **방안**: {한 줄 해결 방안 요약}
-
-  - [ ] Phase 1: {작업명} → 💎 **Senior Dev (Opus)**
-    - [ ] {세부 작업 1}
-    - [ ] {세부 작업 2}
-  - [ ] Phase 2: {작업명} → 🎨 **UI Developer (Gemini)**
-    - [ ] {세부 작업 1}
-  - [ ] Phase 3: {작업명} → 💻 **Developer (Sonnet)**
-    - [ ] {세부 작업 1}
-  - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap 갱신
-    - [ ] blueprint 반영
-```
-
-#### Priority 레벨 기준
-
-| 레벨 | 이모지 | 기준 |
-|---|---|---|
-| Critical | 🔴 | 현재 기능이 동작하지 않거나 보안 취약점 |
-| High | 🟠 | 핵심 사용자 경험에 영향 |
-| Medium | 🟡 | 품질 개선, UX 향상 |
-| Low | 📄 | 문서화, 리팩토링 |
-
-#### Priority 번호 결정
-
-블루프린트의 기존 Priority 목록을 확인하고, **가장 마지막 번호 + 1**을 사용한다.
-
----
-
-### 4️⃣ Known Issues 등록 (해당 시)
-
-현재 동작하지 않는 기능이 있다면 블루프린트 `Known Issues` 섹션에 추가한다:
-
-```markdown
-- 🔴 **{이슈명}** (ACTIVE): {한 줄 설명} → [기획서](.docs/planning/{파일명}.md)
-```
-
----
-
-### 5️⃣ 완료 확인 체크리스트
-
-```
-[ ] .docs/planning/{파일명}.md 생성 완료
-[ ] 기획서에 As-Is / To-Be 다이어그램 포함
-[ ] 기획서에 에이전트별 Phase 작업 목록 포함
-[ ] 기획서에 테스트 시나리오 포함
-[ ] 블루프린트 Next Steps에 Priority 항목 추가
-[ ] 블루프린트 Known Issues에 항목 추가 (해당 시)
-[ ] 기획서 기반 코드 변경 없음 확인 (기획만 수행)
-```
-
----
-
 ## 에이전트 역할 참조
 
 | 에이전트 | 모델 | 담당 작업 |
 |---|---|---|
-| 🏛️ **Architect (Opus)** | Claude Opus | 설계, 구조 결정, 문서 동기화, 최종 승인 |
+| 🏛️ **Architect (Opus)** | Claude Opus | 설계, 구조 결정, 기획 문서, 문서 동기화, 최종 승인 |
 | 💎 **Senior Dev (Opus)** | Claude Opus | DB 스키마, RLS, 복잡한 비즈니스 로직, 보안 |
 | 💻 **Developer (Sonnet)** | Claude Sonnet | API, 일반 로직, 버그 수정, 테스트/QA |
 | 🎨 **UI Developer (Gemini)** | Gemini Flash | 화면 UI/UX, 컴포넌트, Stitch 디자인 |
@@ -193,54 +265,17 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고, 블루
 
 ---
 
-## 실제 사용 예시
-
-### 예시 1: 코치 계정 아키텍처 강화
-```
-1. 현황 분석:
-   - coaches 테이블 확인 → user_id = NULL 문제 발견
-   - AuthGuard 확인 → coach role 지원 확인
-   - Coach App 코드 확인 → user_id 의존 확인
-
-2. 기획 문서 작성:
-   .docs/planning/coach-account-architecture.md
-
-3. 블루프린트 등록:
-   Priority 6: 코치 계정 아키텍처 강화 (개발 대기)
-   - Phase 1: DB 스키마 → Senior Dev
-   - Phase 2: Admin UI → UI Developer
-   - Phase 3: 로직 변경 → Developer
-   - Phase 4: 문서 동기화 → Architect
-
-4. Known Issues 추가:
-   🔴 코치 계정 미연결 (ACTIVE)
-```
-
-### 예시 2: 결제 시스템 도입
-```
-1. 현황 분석:
-   - 현재 즉시 활성화 방식 확인
-   - transactions 테이블 구조 확인
-
-2. 기획 문서 작성:
-   .docs/planning/payment-system.md
-
-3. 블루프린트 등록:
-   Priority 7: 결제 시스템 도입 (개발 대기)
-   - Phase 1: PG사 선정 및 DB 설계 → Senior Dev
-   - Phase 2: 결제 UI → UI Developer
-   - Phase 3: 결제 API → Developer
-   - Phase 4: 테스트 → Developer
-   - Phase 5: 문서 동기화 → Architect
-```
-
----
-
 ## 주의사항
 
+- ❌ 이 스킬을 Architect 이외의 에이전트가 수행하지 않는다
+- ❌ Planning 폴더의 일부 문서만 읽고 넘어가지 않는다 (전체 스캔 필수)
 - ❌ 기획 문서 작성 중 코드를 수정하지 않는다
 - ❌ 블루프린트에 등록하지 않고 기획 문서만 작성하지 않는다
 - ❌ 에이전트 배분 없이 Phase를 정의하지 않는다
-- ✅ 기획 문서는 항상 `.docs/planning/` 에 저장한다
+- ❌ 블루프린트 등록 후 아카이브 이동 없이 planning에 파일을 남기지 않는다
+- ✅ 신규 기획 문서는 항상 `.docs/planning/`에 작성한다
+- ✅ 블루프린트 등록 완료된 문서는 `.docs/archive/planning/`으로 이동한다
+- ✅ 블루프린트 기획서 링크는 항상 `.docs/archive/planning/` 경로를 사용한다
 - ✅ 블루프린트 Priority 번호는 항상 순차적으로 증가한다
+- ✅ 동기화 완료 후 `.docs/planning/` 폴더는 비어있어야 한다
 - ✅ 기획 완료 후 `commit-bot` 스킬로 문서만 커밋한다

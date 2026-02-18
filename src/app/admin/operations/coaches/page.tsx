@@ -20,6 +20,16 @@ interface Coach {
     profile_image_url: string | null;
     status: string;
     created_at: string;
+    linked_at: string | null;
+    linked_by: string | null;
+}
+
+interface MemberProfile {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+    role: string;
 }
 
 interface CoachPerformance {
@@ -51,8 +61,14 @@ export default function OperationsCoachesPage() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    // 회원 검색/선택 state
+    const [memberSearchTerm, setMemberSearchTerm] = useState('');
+    const [memberSearchResults, setMemberSearchResults] = useState<MemberProfile[]>([]);
+    const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null);
+    const [memberSearching, setMemberSearching] = useState(false);
+    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [form, setForm] = useState({
-        name: '', email: '', phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '',
+        phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '',
     });
 
     // --- Performance State ---
@@ -86,20 +102,69 @@ export default function OperationsCoachesPage() {
         );
     });
 
+    // 회원 검색 함수
+    async function searchMembers(term: string) {
+        if (!term || term.length < 2) {
+            setMemberSearchResults([]);
+            return;
+        }
+        setMemberSearching(true);
+        const supabase = createClient();
+        // profiles에서 role='member'이고 승인된 회원만 검색 (이미 코치인 사람 제외)
+        let query: any = supabase.from('profiles').select('id, full_name, avatar_url, role');
+        query = query.eq('role', 'member').eq('approval_status', 'approved');
+        query = query.ilike('full_name', `%${term}%`).limit(5);
+        const { data: profiles } = await query;
+
+        if (profiles) {
+            // auth.users에서 이메일 가져오기 (profiles에 email 없으므로)
+            const enriched: MemberProfile[] = profiles.map(p => ({
+                ...p,
+                email: null, // 클라이언트에서 auth.users 직접 접근 불가
+            }));
+            // 이미 코치로 등록된 user_id 제외
+            const coachUserIds = coaches.filter(c => c.user_id).map(c => c.user_id);
+            const filtered = enriched.filter(p => !coachUserIds.includes(p.id));
+            setMemberSearchResults(filtered);
+        }
+        setMemberSearching(false);
+    }
+
+    function handleMemberSearch(value: string) {
+        setMemberSearchTerm(value);
+        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = setTimeout(() => searchMembers(value), 300);
+    }
+
+    function selectMember(member: MemberProfile) {
+        setSelectedMember(member);
+        setMemberSearchTerm('');
+        setMemberSearchResults([]);
+    }
+
     function openModal(coach?: Coach) {
         if (coach) {
             setEditingCoach(coach);
             setForm({
-                name: coach.name, email: coach.email || '', phone: coach.phone || '',
+                phone: coach.phone || '',
                 specialties: coach.specialties?.join(', ') || '', bio: coach.bio || '',
                 status: coach.status, profile_image_url: coach.profile_image_url || '',
             });
             setImagePreview(coach.profile_image_url || null);
+            // 편집 시 연결된 회원 정보 설정
+            if (coach.user_id) {
+                setSelectedMember({ id: coach.user_id, full_name: coach.name, email: coach.email, avatar_url: null, role: 'coach' });
+            } else {
+                setSelectedMember(null);
+            }
         } else {
             setEditingCoach(null);
-            setForm({ name: '', email: '', phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '' });
+            setForm({ phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '' });
             setImagePreview(null);
+            setSelectedMember(null);
         }
+        setMemberSearchTerm('');
+        setMemberSearchResults([]);
         setSelectedFile(null);
         setShowModal(true);
     }
@@ -168,8 +233,8 @@ export default function OperationsCoachesPage() {
     }
 
     async function saveCoach() {
-        if (!form.name.trim()) {
-            toast.warning('코치 이름을 입력해주세요.');
+        if (!editingCoach && !selectedMember) {
+            toast.warning('코치로 등록할 회원을 선택해주세요.');
             return;
         }
 
@@ -178,6 +243,8 @@ export default function OperationsCoachesPage() {
 
         try {
             let profileImageUrl = form.profile_image_url || null;
+            const coachName = selectedMember?.full_name || editingCoach?.name || '';
+            const coachEmail = selectedMember?.email || editingCoach?.email || null;
 
             if (editingCoach) {
                 if (selectedFile) {
@@ -188,26 +255,44 @@ export default function OperationsCoachesPage() {
                     profileImageUrl = null;
                 }
 
-                const coachData = {
-                    name: form.name,
-                    email: form.email || null,
+                const coachData: Record<string, unknown> = {
                     phone: form.phone || null,
                     specialties: form.specialties ? form.specialties.split(',').map(s => s.trim()) : [],
                     bio: form.bio || null,
                     status: form.status,
                     profile_image_url: profileImageUrl,
                 };
+                // 미연결 코치의 이름 수정은 허용
+                if (!editingCoach.user_id) {
+                    coachData.name = coachName;
+                    coachData.email = coachEmail;
+                }
 
                 await supabase.from('coaches').update(coachData).eq('id', editingCoach.id);
             } else {
+                // 신규 등록: 회원을 코치로 승격
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error('관리자 인증 정보를 확인할 수 없습니다.');
+
+                // 1) promote_to_coach RPC 호출 (profiles.role → 'coach')
+                const { error: promoteError } = await (supabase.rpc as any)('promote_to_coach', {
+                    target_user_id: selectedMember!.id,
+                    admin_user_id: user.id,
+                });
+                if (promoteError) throw new Error(promoteError.message);
+
+                // 2) coaches 레코드 생성
                 const coachData = {
-                    name: form.name,
-                    email: form.email || null,
+                    user_id: selectedMember!.id,
+                    name: coachName,
+                    email: coachEmail,
                     phone: form.phone || null,
                     specialties: form.specialties ? form.specialties.split(',').map(s => s.trim()) : [],
                     bio: form.bio || null,
                     status: form.status,
                     profile_image_url: null as string | null,
+                    linked_at: new Date().toISOString(),
+                    linked_by: user.id,
                 };
 
                 const { data: newCoach }: any = await supabase.from('coaches').insert(coachData).select('id').single();
@@ -218,10 +303,11 @@ export default function OperationsCoachesPage() {
                 }
             }
 
+            toast.success(editingCoach ? '코치 정보가 수정되었습니다.' : '코치가 등록되었습니다.');
             setShowModal(false);
             setSelectedFile(null);
+            setSelectedMember(null);
             loadCoaches();
-            // Invalidate performance cache so it reloads when tab switches
             setPerfLoaded(false);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.');
@@ -231,15 +317,32 @@ export default function OperationsCoachesPage() {
     }
 
     async function deleteCoach(id: string) {
-        if (!confirm('정말 이 코치를 삭제하시겠습니까?')) return;
+        if (!confirm('정말 이 코치를 삭제하시겠습니까?\n연결된 회원 계정은 일반 회원으로 되돌아갑니다.')) return;
         const supabase = createClient();
         const coach = coaches.find(c => c.id === id);
-        if (coach?.profile_image_url) {
-            await deleteOldImage(coach.profile_image_url);
+
+        try {
+            // 연결된 회원이 있으면 demote_from_coach 호출
+            if (coach?.user_id) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await (supabase.rpc as any)('demote_from_coach', {
+                        target_user_id: coach.user_id,
+                        admin_user_id: user.id,
+                    });
+                }
+            }
+
+            if (coach?.profile_image_url) {
+                await deleteOldImage(coach.profile_image_url);
+            }
+            await supabase.from('coaches').delete().eq('id', id);
+            toast.success('코치가 삭제되었습니다.');
+            loadCoaches();
+            setPerfLoaded(false);
+        } catch (error) {
+            toast.error('삭제 중 오류가 발생했습니다.');
         }
-        await supabase.from('coaches').delete().eq('id', id);
-        loadCoaches();
-        setPerfLoaded(false);
     }
 
     // --- Performance Logic ---
@@ -404,11 +507,20 @@ export default function OperationsCoachesPage() {
                                                         <h3 className="text-lg font-black text-white truncate mb-1">{coach.name}</h3>
                                                         <p className="text-[10px] text-[var(--text-muted)] truncate mb-3">{coach.email || 'No email'}</p>
 
-                                                        {/* Status & Phone */}
+                                                        {/* Status & Account Link & Phone */}
                                                         <div className="flex items-center gap-2 flex-wrap mb-3">
                                                             <span className="px-3 py-1 rounded-full text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>
                                                                 {sc.label}
                                                             </span>
+                                                            {coach.user_id ? (
+                                                                <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase" style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.3)' }}>
+                                                                    🔗 연결됨
+                                                                </span>
+                                                            ) : (
+                                                                <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.3)' }}>
+                                                                    ⚠️ 미연결
+                                                                </span>
+                                                            )}
                                                             {coach.phone && (
                                                                 <span className="text-[9px] text-[var(--text-muted)] inline-flex items-center gap-1"><IconPhone size={10} /> {coach.phone}</span>
                                                             )}
@@ -700,16 +812,71 @@ export default function OperationsCoachesPage() {
                     </div>
 
                     <div className="space-y-5">
-                        <div className="grid grid-cols-2 gap-4">
+                        {/* Step 1: 회원 선택 (신규 등록 시) */}
+                        {!editingCoach ? (
                             <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이름 *</label>
-                                <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="코치 이름" className="bcl-input w-full rounded-xl" />
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">회원 선택 *</label>
+                                {selectedMember ? (
+                                    <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black" style={{ background: 'rgba(34,197,94,0.2)', color: '#22C55E' }}>
+                                            {selectedMember.full_name?.charAt(0) || '?'}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-bold text-white">{selectedMember.full_name || '이름 없음'}</p>
+                                            <p className="text-[9px] text-[var(--text-muted)]">선택된 회원</p>
+                                        </div>
+                                        <button type="button" onClick={() => setSelectedMember(null)} className="text-[9px] text-red-400 hover:text-red-300 font-bold">변경</button>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <input
+                                            value={memberSearchTerm}
+                                            onChange={(e) => handleMemberSearch(e.target.value)}
+                                            placeholder="회원 이름을 검색하세요 (2자 이상)..."
+                                            className="bcl-input w-full rounded-xl"
+                                        />
+                                        {memberSearching && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <div className="w-4 h-4 border-2 border-white/10 border-t-[var(--primary)] rounded-full animate-spin" />
+                                            </div>
+                                        )}
+                                        {memberSearchResults.length > 0 && (
+                                            <div className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-50" style={{ background: '#1a1a1b', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+                                                {memberSearchResults.map(m => (
+                                                    <button key={m.id} type="button" onClick={() => selectMember(m)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.05] transition-all text-left">
+                                                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: 'rgba(255,107,0,0.15)', color: 'var(--primary)' }}>
+                                                            {m.full_name?.charAt(0) || '?'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-white">{m.full_name || '이름 없음'}</p>
+                                                            <p className="text-[9px] text-[var(--text-muted)]">{m.role}</p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
+                        ) : (
+                            /* 편집 시: 연결된 회원 읽기 전용 표시 */
                             <div>
-                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이메일</label>
-                                <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="coach@bcl.com" className="bcl-input w-full rounded-xl" />
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">코치 이름</label>
+                                {editingCoach.user_id ? (
+                                    <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black" style={{ background: 'rgba(59,130,246,0.2)', color: '#3B82F6' }}>
+                                            {editingCoach.name?.charAt(0) || '?'}
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-white">{editingCoach.name}</p>
+                                            <p className="text-[9px] text-[var(--text-muted)]">🔗 회원 계정 연결됨 (읽기 전용)</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <input value={editingCoach.name || ''} disabled className="bcl-input w-full rounded-xl opacity-60" />
+                                )}
                             </div>
-                        </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">전화번호</label>

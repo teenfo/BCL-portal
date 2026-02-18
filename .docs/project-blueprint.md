@@ -85,31 +85,81 @@
 > - 🎨 **UI Developer (Gemini)** — 화면 UI/UX, 컴포넌트 구현
 > - ⚡ **Specialist (Gemini)** — 실시간 기능, 성능 최적화, 카메라/QR
 
-#### 🔴 Priority 6: 코치 계정 아키텍처 강화 (개발 대기)
-  > **기획서**: `.docs/planning/coach-account-architecture.md`
+#### ✅ Priority 6: 코치 계정 아키텍처 강화 (완료)
+  > **기획서**: `.docs/archive/planning/coach-account-architecture.md`
   > **문제**: 코치가 Admin에서 콘텐츠로만 등록되어 Auth 계정 없이 Coach App 로그인 불가
   > **방안**: 기존 가입 회원을 코치로 승격 (수동 연결 방식)
 
-  - [ ] Phase 1: DB 스키마 변경 → 💎 **Senior Dev (Opus)**
-    - [ ] coaches 테이블 확장 마이그레이션 (linked_at, linked_by, UNIQUE)
-    - [ ] promote_to_coach / demote_from_coach DB 함수 생성
-    - [ ] RLS 정책 보강 (코치 본인 조회, Admin CRUD)
-    - [ ] database-reference.md 갱신
-  - [ ] Phase 2: Admin 코치 관리 UI 변경 → 🎨 **UI Developer (Gemini)**
-    - [ ] 회원 검색 컴포넌트 구현 (profiles 테이블 검색)
-    - [ ] 코치 등록 모달 레이아웃 변경 (Step 1: 회원 선택 + Step 2: 코치 정보)
-    - [ ] 코치 카드 계정 연결 상태 배지 추가
-    - [ ] 코치 편집 모달 수정 (연결된 회원 읽기 전용)
-  - [ ] Phase 3: Admin 저장/삭제 로직 변경 → 💻 **Developer (Sonnet)**
-    - [ ] saveCoach() 리팩토링 (회원 선택 기반 + promote RPC 호출)
-    - [ ] deleteCoach() 역할 복원 추가 (demote RPC 호출)
-    - [ ] 레거시 미연결 코치(user_id=NULL) 호환 처리
-  - [ ] Phase 4: Coach App 예외 처리 → 💻 **Developer (Sonnet)**
-    - [ ] 미연결 코치 안내 메시지 (Coach Layout)
-    - [ ] 5개 화면 통합 테스트
+  - [x] Phase 1: DB 스키마 변경 → 💎 **Senior Dev (Opus)**
+    - [x] coaches 테이블 확장 마이그레이션 (user_id, phone, specialties, bio, profile_image_url, linked_at, linked_by, UNIQUE)
+    - [x] promote_to_coach / demote_from_coach DB 함수 생성
+    - [x] RLS 정책 보강 (coach_update_own_record 추가)
+    - [x] database-reference.md 갱신
+  - [x] Phase 2: Admin 코치 관리 UI 변경 → 🎨 **UI Developer (Gemini)**
+    - [x] 회원 검색 컴포넌트 구현 (profiles 테이블 검색, 디바운스 적용)
+    - [x] 코치 등록 모달 레이아웃 변경 (Step 1: 회원 선택 + Step 2: 코치 정보)
+    - [x] 코치 카드 계정 연결 상태 배지 추가 (🔗 연결됨 / ⚠️ 미연결)
+    - [x] 코치 편집 모달 수정 (연결된 회원 읽기 전용)
+  - [x] Phase 3: Admin 저장/삭제 로직 변경 → 💻 **Developer (Sonnet)**
+    - [x] saveCoach() 리팩토링 (회원 선택 기반 + promote RPC 호출)
+    - [x] deleteCoach() 역할 복원 추가 (demote RPC 호출)
+    - [x] 레거시 미연결 코치(user_id=NULL) 호환 처리
+  - [x] Phase 4: Coach App 예외 처리 → 💻 **Developer (Sonnet)**
+    - [x] 미연결 코치 안내 메시지 (Coach Layout - CoachUnlinkedBanner)
+    - [ ] 5개 화면 통합 테스트 (수동 확인 필요)
+  - [x] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [x] database-reference.md 갱신
+    - [x] blueprint 반영
+
+#### 🟠 Priority 7: 알림 시스템 종합 구축 (개발 대기)
+  > **기획서**: `.docs/archive/planning/notification-system.md`
+  > **Status**: Draft (기획 검토 중)
+  > **문제**: 회원에게 수업 리마인더, 빈자리 알림, 멤버십 만료 경고 등 실시간 알림 수단이 없음
+  > **방안**: In-App 알림 (Supabase Realtime) → Web Push (PWA) → 외부 채널 (카카오) 3단계 구축
+
+  - [ ] Phase 1: In-App 알림 인프라 → 💎 **Senior Dev (Opus)** + 🎨 **UI Developer (Gemini)**
+    - [ ] notifications 테이블 스키마 확장 (category, type, channel, action_url 등)
+    - [ ] notification_preferences 테이블 생성
+    - [ ] 사용자 앱 알림 센터 UI (`/apps/notifications`)
+    - [ ] Home 헤더에 벨 아이콘 + 미읽음 배지
+    - [ ] Supabase Realtime 연동 (실시간 알림 수신)
+    - [ ] 알림 토스트 컴포넌트
+    - [ ] Profile > 알림 설정 화면
+  - [ ] Phase 2: 자동 규칙 엔진 → 💎 **Senior Dev (Opus)** + 💻 **Developer (Sonnet)**
+    - [ ] notification_rules 테이블 생성
+    - [ ] pg_cron 수업 리마인더 함수
+    - [ ] 빈자리 알림 DB Trigger
+    - [ ] 멤버십 만료 경고 크론
+    - [ ] Admin 자동 규칙 관리 UI
+    - [ ] Admin 알림 발송 대상 필터링 강화
+  - [ ] Phase 3: Web Push + PWA → ⚡ **Specialist (Gemini)** + 💻 **Developer (Sonnet)**
+    - [ ] PWA manifest.json + Service Worker 등록
+    - [ ] VAPID 키 생성 및 환경변수 설정
+    - [ ] push_subscriptions 테이블 생성
+    - [ ] 알림 허가 요청 + 구독 저장 로직
+    - [ ] Edge Function: push 발송
+    - [ ] iOS PWA 설치 유도 배너
+  - [ ] Phase 4: 외부 채널 연동 (추후) → 💻 **Developer (Sonnet)**
+    - [ ] 카카오 알림톡 연동
+    - [ ] SMS / 이메일 연동
   - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap 갱신 (coach-app.md 온보딩 흐름 추가)
+    - [ ] sitemap 갱신 (알림 센터 화면 추가)
+    - [ ] database-reference.md 갱신
     - [ ] blueprint 반영
+
+#### 🟠 Priority 8: Admin 미구현 상세 기능 완성 (개발 대기)
+  > **기획서**: `.docs/archive/planning/admin-unimplemented-features.md`
+  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63%)
+  > **방안**: Tier 1(비즈니스 핵심)부터 Tier 3(고도화)까지 4개 스프린트로 나누어 기능 완성
+
+  - [ ] Phase 1: Tier 1 비즈니스 핵심 (회원수정, 홀딩, 운영시간, CS답변 등) → 💎 **Senior Dev (Opus)** + 💻 **Dev** + 🎨 **UI**
+    - [ ] t1-1 ~ t1-6 상세 기능 구현
+  - [ ] Phase 2: Tier 2 운영 효율 (CSV 다운로드, 알림편집, 검색강화 등) → 💻 **Developer (Sonnet)** + 🎨 **UI**
+    - [ ] t2-1 ~ t2-10 상세 기능 구현
+  - [ ] Phase 3: Tier 3 고도화 (시스템연동, 히트맵, DnD 캘린더 등) → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
+    - [ ] t3-1 ~ t3-12 상세 기능 구현
+  - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap 갱신 및 blueprint 반영
 
 #### 🟡 잔여 개선 항목 (향후)
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
@@ -125,7 +175,7 @@
 
 ### Known Issues (Active)
 - ⚠️ **@supabase/auth-js 타입 미완성** (WORKAROUND): `supabase.auth as any` 캐스팅 우회 중
-- 🔴 **코치 계정 미연결** (ACTIVE): coaches.user_id=NULL → Coach App 로그인 불가 → [기획서](./planning/coach-account-architecture.md)
+- 🔴 **코치 계정 미연결** (ACTIVE): coaches.user_id=NULL → Coach App 로그인 불가 → [기획서](./archive/planning/coach-account-architecture.md)
 
 ### 참고 문서
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`

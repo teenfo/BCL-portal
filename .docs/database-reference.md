@@ -24,7 +24,7 @@
 |--------|------|-----------|
 | `facilities` | 지점 정보 | name, address, operating_hours |
 | `members` | 회원 프로필 | user_id, name, email, status |
-| `coaches` | 코치 정보 | user_id, name, specialties |
+| `coaches` | 코치 정보 | user_id, name, specialties, linked_at, linked_by |
 
 #### 멤버십 관리 (Membership)
 | 테이블 | 설명 | 주요 컬럼 |
@@ -141,6 +141,7 @@ supabase/migrations/
 ├── 20260217204100_enhance_existing_tables_columns.sql 🆕
 ├── 20260217204200_create_supplementary_tables.sql    🆕
 └── 20260217204300_fix_rls_security_issues.sql        🆕
+├── 20260218100000_coach_account_linking.sql          🆕
 ```
 
 ### 실행 방법
