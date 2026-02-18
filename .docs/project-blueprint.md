@@ -128,7 +128,7 @@
 - 🔴 **코치 계정 미연결** (ACTIVE): coaches.user_id=NULL → Coach App 로그인 불가 → [기획서](./planning/coach-account-architecture.md)
 
 ### 참고 문서
-- **완료 히스토리**: `.docs/project-complete-20260218.md`
+- **완료 히스토리**: `.docs/archive/project-complete-20260218.md`
 - **구현 완성도 감사 (Gemini)**: `.docs/audit/gemini/20260218151644_implementation_audit.md`
 - **구현 완성도 감사 (GPT)**: `.docs/audit/gpt/IMPLEMENTATION_COMPLETENESS_AUDIT_2026-02-18_15-17-30.md`
 - **Sitemap SSOT**: `.docs/sitemap/README.md`
