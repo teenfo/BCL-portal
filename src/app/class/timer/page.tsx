@@ -15,13 +15,60 @@ interface EmomConfig {
     totalRounds: number;
 }
 
+// Static styles (prevent re-creation on each render)
+const PAGE_STYLE: React.CSSProperties = {
+    minHeight: '100vh', background: '#000000', color: '#ffffff',
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    justifyContent: 'center', padding: '2rem',
+    fontFamily: "'Lexend', sans-serif",
+    position: 'relative', overflow: 'hidden',
+};
+
+const TIMER_DISPLAY_STYLE: React.CSSProperties = {
+    fontSize: 'clamp(6rem, 20vw, 14rem)',
+    fontWeight: 900,
+    fontVariantNumeric: 'tabular-nums',
+    letterSpacing: '-0.02em',
+    position: 'relative', zIndex: 10,
+    lineHeight: 1,
+    willChange: 'contents',
+};
+
+const FOOTER_STYLE: React.CSSProperties = {
+    position: 'absolute', bottom: '2rem',
+    opacity: 0.15, pointerEvents: 'none',
+    fontSize: '0.75rem', fontWeight: 900,
+    letterSpacing: '0.5em', textTransform: 'uppercase',
+};
+
+const BTN_BASE: React.CSSProperties = {
+    borderRadius: '1rem',
+    fontWeight: 900, fontSize: '1.5rem',
+    letterSpacing: '0.15em',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    transition: 'all 0.3s ease',
+};
+
+const MODE_SELECTOR_STYLE: React.CSSProperties = {
+    display: 'flex', gap: '0.5rem', marginBottom: '2rem',
+    position: 'relative', zIndex: 10,
+};
+
+const CONFIG_STYLE: React.CSSProperties = {
+    marginBottom: '2rem', textAlign: 'center', position: 'relative', zIndex: 10,
+};
+
+const INPUT_BASE: React.CSSProperties = {
+    padding: '0.5rem', borderRadius: '0.5rem',
+    fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none',
+};
+
 export default function ClassTimerPage() {
     const [mode, setMode] = useState<TimerMode>('countdown');
     const [isRunning, setIsRunning] = useState(false);
-    const [elapsed, setElapsed] = useState(0); // seconds
-    const [countdownTotal, setCountdownTotal] = useState(600); // 10 minutes default
-    const [currentRound, setCurrentRound] = useState(1);
-    const [isWork, setIsWork] = useState(true); // tabata work/rest phase
+    const [inputMinutes, setInputMinutes] = useState('10');
+    const [isComplete, setIsComplete] = useState(false);
 
     const [tabataConfig, setTabataConfig] = useState<TabataConfig>({
         workSeconds: 20, restSeconds: 10, rounds: 8,
@@ -30,132 +77,153 @@ export default function ClassTimerPage() {
         intervalSeconds: 60, totalRounds: 10,
     });
 
-    const [inputMinutes, setInputMinutes] = useState('10');
-    const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const audioRef = useRef<HTMLAudioElement | null>(null);
+    // Refs for rAF-driven timer (no state updates per tick)
+    const displayRef = useRef<HTMLDivElement>(null);
+    const phaseRef = useRef<HTMLDivElement>(null);
+    const elapsedRef = useRef(0);
+    const countdownTotalRef = useRef(600);
+    const currentRoundRef = useRef(1);
+    const isWorkRef = useRef(true);
+    const rafRef = useRef<number | null>(null);
+    const lastTickRef = useRef(0);
+    const audioCtxRef = useRef<AudioContext | null>(null);
 
-    // beep sound
-    const playBeep = useCallback(() => {
-        try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 880;
-            gain.gain.value = 0.3;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.15);
-        } catch { }
-    }, []);
-
-    const playFinalBeep = useCallback(() => {
-        try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
-            osc.frequency.value = 440;
-            gain.gain.value = 0.5;
-            osc.start();
-            osc.stop(ctx.currentTime + 0.8);
-        } catch { }
-    }, []);
-
-    // Timer logic
-    useEffect(() => {
-        if (!isRunning) {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-            return;
+    // beep (lightweight, cached AudioContext)
+    const getAudioCtx = useCallback(() => {
+        if (!audioCtxRef.current) {
+            try {
+                audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            } catch { }
         }
+        return audioCtxRef.current;
+    }, []);
 
-        intervalRef.current = setInterval(() => {
-            setElapsed(prev => {
-                const next = prev + 1;
+    const playBeep = useCallback((freq = 880, duration = 0.15, vol = 0.3) => {
+        try {
+            const ctx = getAudioCtx();
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            gain.gain.value = vol;
+            osc.start();
+            osc.stop(ctx.currentTime + duration);
+        } catch { }
+    }, [getAudioCtx]);
 
-                if (mode === 'countdown') {
-                    if (next >= countdownTotal) {
-                        setIsRunning(false);
-                        playFinalBeep();
-                        return countdownTotal;
-                    }
-                    // 3-2-1 countdown beep
-                    const remaining = countdownTotal - next;
-                    if (remaining <= 3 && remaining > 0) playBeep();
-                }
-
-                if (mode === 'emom') {
-                    const total = emomConfig.intervalSeconds * emomConfig.totalRounds;
-                    if (next >= total) {
-                        setIsRunning(false);
-                        playFinalBeep();
-                        return total;
-                    }
-                    const newRound = Math.floor(next / emomConfig.intervalSeconds) + 1;
-                    if (newRound !== currentRound) {
-                        setCurrentRound(newRound);
-                        playBeep();
-                    }
-                }
-
-                if (mode === 'tabata') {
-                    const cycleLength = tabataConfig.workSeconds + tabataConfig.restSeconds;
-                    const totalTime = cycleLength * tabataConfig.rounds;
-                    if (next >= totalTime) {
-                        setIsRunning(false);
-                        playFinalBeep();
-                        return totalTime;
-                    }
-                    const cycleElapsed = next % cycleLength;
-                    const newRound = Math.floor(next / cycleLength) + 1;
-                    const newIsWork = cycleElapsed < tabataConfig.workSeconds;
-
-                    if (newRound !== currentRound) setCurrentRound(newRound);
-                    if (newIsWork !== isWork) {
-                        setIsWork(newIsWork);
-                        playBeep();
-                    }
-                }
-
-                return next;
-            });
-        }, 1000);
-
-        return () => {
-            if (intervalRef.current) clearInterval(intervalRef.current);
-        };
-    }, [isRunning, mode, countdownTotal, emomConfig, tabataConfig, currentRound, isWork, playBeep, playFinalBeep]);
-
-    function formatTime(seconds: number) {
+    const formatTime = (seconds: number) => {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
         return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
+    };
 
-    function getDisplayTime() {
-        if (mode === 'countdown') return formatTime(Math.max(0, countdownTotal - elapsed));
-        if (mode === 'countup') return formatTime(elapsed);
-        if (mode === 'emom') {
-            const inRound = elapsed % emomConfig.intervalSeconds;
-            return formatTime(emomConfig.intervalSeconds - inRound);
+    /** rAF loop — updates DOM directly, no React state */
+    const tick = useCallback((timestamp: number) => {
+        if (!lastTickRef.current) lastTickRef.current = timestamp;
+        const delta = timestamp - lastTickRef.current;
+
+        if (delta >= 1000) {
+            lastTickRef.current = timestamp - (delta % 1000);
+            elapsedRef.current += 1;
+            const elapsed = elapsedRef.current;
+
+            let displayTime = '00:00';
+            let displayColor = '#FFFFFF';
+            let phaseText = '';
+            let done = false;
+
+            if (mode === 'countdown') {
+                const remaining = Math.max(0, countdownTotalRef.current - elapsed);
+                displayTime = formatTime(remaining);
+                if (remaining <= 0) { done = true; displayColor = '#EF4444'; }
+                else if (remaining <= 3) playBeep();
+            } else if (mode === 'countup') {
+                displayTime = formatTime(elapsed);
+            } else if (mode === 'emom') {
+                const total = emomConfig.intervalSeconds * emomConfig.totalRounds;
+                if (elapsed >= total) { done = true; displayColor = '#EF4444'; displayTime = '00:00'; }
+                else {
+                    const inRound = elapsed % emomConfig.intervalSeconds;
+                    displayTime = formatTime(emomConfig.intervalSeconds - inRound);
+                    const newRound = Math.floor(elapsed / emomConfig.intervalSeconds) + 1;
+                    if (newRound !== currentRoundRef.current) {
+                        currentRoundRef.current = newRound;
+                        playBeep();
+                    }
+                    phaseText = `ROUND ${currentRoundRef.current} / ${emomConfig.totalRounds}`;
+                    displayColor = '#FF6B00';
+                }
+            } else if (mode === 'tabata') {
+                const cycleLength = tabataConfig.workSeconds + tabataConfig.restSeconds;
+                const totalTime = cycleLength * tabataConfig.rounds;
+                if (elapsed >= totalTime) { done = true; displayColor = '#EF4444'; displayTime = '00:00'; }
+                else {
+                    const cycleElapsed = elapsed % cycleLength;
+                    const newRound = Math.floor(elapsed / cycleLength) + 1;
+                    const newIsWork = cycleElapsed < tabataConfig.workSeconds;
+                    if (newRound !== currentRoundRef.current) currentRoundRef.current = newRound;
+                    if (newIsWork !== isWorkRef.current) {
+                        isWorkRef.current = newIsWork;
+                        playBeep();
+                    }
+                    displayColor = newIsWork ? '#22C55E' : '#EF4444';
+                    if (newIsWork) displayTime = formatTime(tabataConfig.workSeconds - cycleElapsed);
+                    else displayTime = formatTime(tabataConfig.workSeconds + tabataConfig.restSeconds - cycleElapsed);
+                    phaseText = `${newIsWork ? '💪 WORK' : '😮‍💨 REST'}`;
+                }
+            }
+
+            // Direct DOM update (no setState)
+            if (displayRef.current) {
+                displayRef.current.textContent = displayTime;
+                displayRef.current.style.color = displayColor;
+                displayRef.current.style.textShadow = done ? 'none' : `0 0 60px ${displayColor}40`;
+            }
+            if (phaseRef.current) {
+                phaseRef.current.textContent = phaseText;
+                if (mode === 'tabata') phaseRef.current.style.color = isWorkRef.current ? '#22C55E' : '#EF4444';
+                else phaseRef.current.style.color = '#FF6B00';
+            }
+
+            if (done) {
+                setIsRunning(false);
+                setIsComplete(true);
+                playBeep(440, 0.8, 0.5);
+                return;
+            }
         }
-        if (mode === 'tabata') {
-            const cycleLength = tabataConfig.workSeconds + tabataConfig.restSeconds;
-            const cycleElapsed = elapsed % cycleLength;
-            if (isWork) return formatTime(tabataConfig.workSeconds - cycleElapsed);
-            return formatTime(tabataConfig.workSeconds + tabataConfig.restSeconds - cycleElapsed);
+
+        rafRef.current = requestAnimationFrame(tick);
+    }, [mode, emomConfig, tabataConfig, playBeep]);
+
+    useEffect(() => {
+        if (isRunning) {
+            lastTickRef.current = 0;
+            rafRef.current = requestAnimationFrame(tick);
         }
-        return '00:00';
-    }
+        return () => {
+            if (rafRef.current) cancelAnimationFrame(rafRef.current);
+        };
+    }, [isRunning, tick]);
 
     function handleStart() {
         if (mode === 'countdown') {
-            setCountdownTotal(parseInt(inputMinutes || '10') * 60);
+            countdownTotalRef.current = parseInt(inputMinutes || '10') * 60;
         }
-        setElapsed(0);
-        setCurrentRound(1);
-        setIsWork(true);
+        elapsedRef.current = 0;
+        currentRoundRef.current = 1;
+        isWorkRef.current = true;
+        setIsComplete(false);
+        // Set initial display
+        if (displayRef.current) {
+            if (mode === 'countdown') displayRef.current.textContent = formatTime(countdownTotalRef.current);
+            else displayRef.current.textContent = '00:00';
+            displayRef.current.style.color = '#FFFFFF';
+            displayRef.current.style.textShadow = '0 0 60px rgba(255,255,255,0.25)';
+        }
+        if (phaseRef.current) phaseRef.current.textContent = '';
         setIsRunning(true);
     }
 
@@ -165,34 +233,31 @@ export default function ClassTimerPage() {
 
     function handleReset() {
         setIsRunning(false);
-        setElapsed(0);
-        setCurrentRound(1);
-        setIsWork(true);
+        setIsComplete(false);
+        elapsedRef.current = 0;
+        currentRoundRef.current = 1;
+        isWorkRef.current = true;
+        if (displayRef.current) {
+            if (mode === 'countdown') displayRef.current.textContent = formatTime(parseInt(inputMinutes || '10') * 60);
+            else displayRef.current.textContent = '00:00';
+            displayRef.current.style.color = '#FFFFFF';
+            displayRef.current.style.textShadow = 'none';
+        }
+        if (phaseRef.current) phaseRef.current.textContent = '';
     }
 
-    const isComplete = (() => {
-        if (mode === 'countdown') return elapsed >= countdownTotal;
-        if (mode === 'emom') return elapsed >= emomConfig.intervalSeconds * emomConfig.totalRounds;
-        if (mode === 'tabata') return elapsed >= (tabataConfig.workSeconds + tabataConfig.restSeconds) * tabataConfig.rounds;
-        return false;
-    })();
-
-    const tabataColor = isWork ? '#22C55E' : '#EF4444';
-    const displayColor = mode === 'tabata' && isRunning ? tabataColor : isComplete ? '#EF4444' : '#FFFFFF';
+    // Initial display text (for SSR/first paint)
+    const initialDisplay = mode === 'countdown'
+        ? formatTime(parseInt(inputMinutes || '10') * 60)
+        : '00:00';
 
     return (
-        <main style={{
-            minHeight: '100vh', background: '#000000', color: '#ffffff',
-            display: 'flex', flexDirection: 'column', alignItems: 'center',
-            justifyContent: 'center', padding: '2rem',
-            fontFamily: "'Lexend', sans-serif",
-            position: 'relative', overflow: 'hidden',
-        }}>
+        <main style={PAGE_STYLE}>
             {/* Background pulse */}
             {isRunning && (
                 <div style={{
                     position: 'absolute', inset: 0,
-                    background: mode === 'tabata' && !isWork
+                    background: mode === 'tabata' && !isWorkRef.current
                         ? 'radial-gradient(circle at 50% 50%, rgba(239,68,68,0.05) 0%, transparent 70%)'
                         : 'radial-gradient(circle at 50% 50%, rgba(255,107,0,0.05) 0%, transparent 70%)',
                     animation: 'pulse 2s ease-in-out infinite',
@@ -202,10 +267,7 @@ export default function ClassTimerPage() {
 
             {/* Mode Selector */}
             {!isRunning && (
-                <div style={{
-                    display: 'flex', gap: '0.5rem', marginBottom: '2rem',
-                    position: 'relative', zIndex: 10,
-                }}>
+                <div style={MODE_SELECTOR_STYLE}>
                     {([
                         { key: 'countdown', label: 'COUNTDOWN' },
                         { key: 'countup', label: 'COUNT UP' },
@@ -219,13 +281,11 @@ export default function ClassTimerPage() {
                                 padding: '0.75rem 1.5rem',
                                 borderRadius: '0.75rem',
                                 fontWeight: 900, fontSize: '1rem',
-                                letterSpacing: '0.15em',
-                                textTransform: 'uppercase',
+                                letterSpacing: '0.15em', textTransform: 'uppercase',
                                 border: mode === m.key ? '2px solid #FF6B00' : '1px solid rgba(255,255,255,0.1)',
                                 background: mode === m.key ? 'rgba(255,107,0,0.15)' : 'rgba(255,255,255,0.03)',
                                 color: mode === m.key ? '#FF6B00' : 'rgba(255,255,255,0.4)',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s ease',
+                                cursor: 'pointer', transition: 'all 0.3s ease',
                             }}
                         >
                             {m.label}
@@ -236,7 +296,7 @@ export default function ClassTimerPage() {
 
             {/* Timer Config (when not running) */}
             {!isRunning && (
-                <div style={{ marginBottom: '2rem', textAlign: 'center', position: 'relative', zIndex: 10 }}>
+                <div style={CONFIG_STYLE}>
                     {mode === 'countdown' && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <input
@@ -260,12 +320,12 @@ export default function ClassTimerPage() {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 900, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>INTERVAL (SEC)</label>
                                 <input type="number" value={emomConfig.intervalSeconds} onChange={e => setEmomConfig(p => ({ ...p, intervalSeconds: +e.target.value || 60 }))}
-                                    style={{ width: 80, padding: '0.5rem', borderRadius: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none' }} />
+                                    style={{ ...INPUT_BASE, width: 80, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 900, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>ROUNDS</label>
                                 <input type="number" value={emomConfig.totalRounds} onChange={e => setEmomConfig(p => ({ ...p, totalRounds: +e.target.value || 10 }))}
-                                    style={{ width: 80, padding: '0.5rem', borderRadius: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none' }} />
+                                    style={{ ...INPUT_BASE, width: 80, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
                             </div>
                         </div>
                     )}
@@ -274,53 +334,41 @@ export default function ClassTimerPage() {
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 900, letterSpacing: '0.15em', color: '#22C55E', marginBottom: 4 }}>WORK (SEC)</label>
                                 <input type="number" value={tabataConfig.workSeconds} onChange={e => setTabataConfig(p => ({ ...p, workSeconds: +e.target.value || 20 }))}
-                                    style={{ width: 80, padding: '0.5rem', borderRadius: '0.5rem', background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22C55E', fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none' }} />
+                                    style={{ ...INPUT_BASE, width: 80, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)', color: '#22C55E' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 900, letterSpacing: '0.15em', color: '#EF4444', marginBottom: 4 }}>REST (SEC)</label>
                                 <input type="number" value={tabataConfig.restSeconds} onChange={e => setTabataConfig(p => ({ ...p, restSeconds: +e.target.value || 10 }))}
-                                    style={{ width: 80, padding: '0.5rem', borderRadius: '0.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444', fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none' }} />
+                                    style={{ ...INPUT_BASE, width: 80, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#EF4444' }} />
                             </div>
                             <div>
                                 <label style={{ display: 'block', fontSize: '0.6875rem', fontWeight: 900, letterSpacing: '0.15em', color: 'rgba(255,255,255,0.3)', marginBottom: 4 }}>ROUNDS</label>
                                 <input type="number" value={tabataConfig.rounds} onChange={e => setTabataConfig(p => ({ ...p, rounds: +e.target.value || 8 }))}
-                                    style={{ width: 80, padding: '0.5rem', borderRadius: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff', fontWeight: 900, fontSize: '1.25rem', textAlign: 'center', outline: 'none' }} />
+                                    style={{ ...INPUT_BASE, width: 80, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#fff' }} />
                             </div>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Round/Phase Display */}
-            {(mode === 'emom' || mode === 'tabata') && isRunning && (
+            {/* Round/Phase Display (rAF-driven via ref) */}
+            {(mode === 'emom' || mode === 'tabata') && (
                 <div style={{ marginBottom: '1rem', textAlign: 'center', position: 'relative', zIndex: 10 }}>
-                    <p style={{
+                    <p ref={phaseRef} style={{
                         fontSize: '2rem', fontWeight: 900, letterSpacing: '0.2em', textTransform: 'uppercase',
-                        color: mode === 'tabata' ? (isWork ? '#22C55E' : '#EF4444') : '#FF6B00',
-                    }}>
-                        {mode === 'tabata' ? (isWork ? '💪 WORK' : '😮‍💨 REST') : `ROUND ${currentRound} / ${emomConfig.totalRounds}`}
-                    </p>
-                    {mode === 'tabata' && (
+                        color: '#FF6B00', willChange: 'contents',
+                    }} />
+                    {mode === 'tabata' && isRunning && (
                         <p style={{ fontSize: '1rem', fontWeight: 700, color: 'rgba(255,255,255,0.3)', marginTop: '0.25rem' }}>
-                            Round {currentRound} / {tabataConfig.rounds}
+                            Round {currentRoundRef.current} / {tabataConfig.rounds}
                         </p>
                     )}
                 </div>
             )}
 
-            {/* Main Timer Display */}
-            <div style={{
-                fontSize: 'clamp(6rem, 20vw, 14rem)',
-                fontWeight: 900,
-                fontVariantNumeric: 'tabular-nums',
-                letterSpacing: '-0.02em',
-                color: displayColor,
-                textShadow: isRunning ? `0 0 60px ${displayColor}40` : 'none',
-                transition: 'color 0.3s ease, text-shadow 0.3s ease',
-                position: 'relative', zIndex: 10,
-                lineHeight: 1,
-            }}>
-                {getDisplayTime()}
+            {/* Main Timer Display (rAF-driven via ref) */}
+            <div ref={displayRef} style={TIMER_DISPLAY_STYLE}>
+                {initialDisplay}
             </div>
 
             {/* Controls */}
@@ -329,34 +377,23 @@ export default function ClassTimerPage() {
                     <button
                         onClick={handleStart}
                         style={{
+                            ...BTN_BASE,
                             padding: '1.25rem 3rem',
-                            borderRadius: '1rem',
-                            background: '#FF6B00',
-                            color: '#fff',
-                            fontWeight: 900, fontSize: '1.5rem',
-                            letterSpacing: '0.15em',
-                            textTransform: 'uppercase',
-                            border: 'none', cursor: 'pointer',
+                            background: '#FF6B00', color: '#fff',
+                            border: 'none',
                             boxShadow: '0 0 30px rgba(255,107,0,0.3)',
-                            transition: 'all 0.3s ease',
                         }}
                     >
-                        {elapsed > 0 && !isComplete ? 'RESUME' : 'START'}
+                        {elapsedRef.current > 0 && !isComplete ? 'RESUME' : 'START'}
                     </button>
                 ) : (
                     <button
                         onClick={handleStop}
                         style={{
+                            ...BTN_BASE,
                             padding: '1.25rem 3rem',
-                            borderRadius: '1rem',
                             background: 'rgba(239,68,68,0.15)',
-                            border: '2px solid #EF4444',
-                            color: '#EF4444',
-                            fontWeight: 900, fontSize: '1.5rem',
-                            letterSpacing: '0.15em',
-                            textTransform: 'uppercase',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
+                            border: '2px solid #EF4444', color: '#EF4444',
                         }}
                     >
                         STOP
@@ -365,16 +402,11 @@ export default function ClassTimerPage() {
                 <button
                     onClick={handleReset}
                     style={{
+                        ...BTN_BASE,
                         padding: '1.25rem 2rem',
-                        borderRadius: '1rem',
                         background: 'rgba(255,255,255,0.03)',
                         border: '1px solid rgba(255,255,255,0.1)',
                         color: 'rgba(255,255,255,0.4)',
-                        fontWeight: 900, fontSize: '1.5rem',
-                        letterSpacing: '0.15em',
-                        textTransform: 'uppercase',
-                        cursor: 'pointer',
-                        transition: 'all 0.3s ease',
                     }}
                 >
                     RESET
@@ -382,16 +414,9 @@ export default function ClassTimerPage() {
             </div>
 
             {/* Footer */}
-            <div style={{
-                position: 'absolute', bottom: '2rem',
-                opacity: 0.15, pointerEvents: 'none',
-                fontSize: '0.75rem', fontWeight: 900,
-                letterSpacing: '0.5em', textTransform: 'uppercase',
-            }}>
+            <div style={FOOTER_STYLE}>
                 BCL FITNESS • CLASS TIMER
             </div>
-
-            <audio ref={audioRef} />
 
             <style>{`
                 @keyframes pulse {

@@ -59,19 +59,34 @@ async function executeQuery(queryKey: string): Promise<number | string | unknown
 
         // ── 수업 ──
         case 'schedule_remaining_today': {
-            const { count }: any = await supabase.from('bookings').select('id', { count: 'exact', head: true })
-                .gte('created_at', today + 'T00:00:00');
+            const now = new Date();
+            const timeStr = now.toTimeString().slice(0, 8);
+            const { count }: any = await supabase.from('sessions').select('id', { count: 'exact', head: true })
+                .eq('session_date', today).gte('end_time', timeStr);
             return count ?? 0;
         }
         case 'schedule_total_today': {
-            const { count }: any = await supabase.from('bookings').select('id', { count: 'exact', head: true })
-                .gte('created_at', today + 'T00:00:00');
+            const { count }: any = await supabase.from('sessions').select('id', { count: 'exact', head: true })
+                .eq('session_date', today);
             return count ?? 0;
         }
-        case 'schedule_next_session_time':
-            return '--:--';
-        case 'schedule_avg_booking_rate':
-            return 0;
+        case 'schedule_next_session_time': {
+            const now = new Date();
+            const timeStr = now.toTimeString().slice(0, 8);
+            const { data: nextSession }: any = await supabase.from('sessions').select('start_time')
+                .eq('session_date', today).gt('start_time', timeStr)
+                .order('start_time', { ascending: true }).limit(1).single();
+            return nextSession?.start_time?.slice(0, 5) || '--:--';
+        }
+        case 'schedule_avg_booking_rate': {
+            const { data: sessions }: any = await supabase.from('sessions').select('capacity')
+                .eq('session_date', today);
+            if (!sessions || sessions.length === 0) return 0;
+            const { count: bookingCount }: any = await supabase.from('bookings').select('id', { count: 'exact', head: true })
+                .gte('created_at', today + 'T00:00:00');
+            const totalCapacity = sessions.reduce((sum: number, s: any) => sum + (s.capacity || 0), 0);
+            return totalCapacity > 0 ? Math.round(((bookingCount || 0) / totalCapacity) * 100) : 0;
+        }
         case 'schedule_upcoming_sessions': {
             const { data }: any = await supabase.from('bookings').select('*')
                 .gte('created_at', today + 'T00:00:00').order('created_at', { ascending: true }).limit(2);
@@ -144,12 +159,21 @@ async function executeQuery(queryKey: string): Promise<number | string | unknown
         }
 
         // ── 알림 ──
-        case 'notifications_unread_count':
-            return 0; // TODO: notifications 테이블 연동
-        case 'notifications_today_sent':
-            return 0;
-        case 'notifications_scheduled_count':
-            return 0;
+        case 'notifications_unread_count': {
+            const { count }: any = await supabase.from('notification_logs').select('id', { count: 'exact', head: true })
+                .eq('read', false);
+            return count ?? 0;
+        }
+        case 'notifications_today_sent': {
+            const { count }: any = await supabase.from('notification_logs').select('id', { count: 'exact', head: true })
+                .gte('sent_at', today + 'T00:00:00');
+            return count ?? 0;
+        }
+        case 'notifications_scheduled_count': {
+            const { count }: any = await supabase.from('notification_rules').select('id', { count: 'exact', head: true })
+                .eq('active', true);
+            return count ?? 0;
+        }
 
         // ── 멤버십 ──
         case 'memberships_active_count': {
@@ -163,8 +187,19 @@ async function executeQuery(queryKey: string): Promise<number | string | unknown
                 .eq('status', 'active').lte('end_date', in7days).gte('end_date', today);
             return count ?? 0;
         }
-        case 'memberships_popular_plan':
-            return '-'; // TODO: aggregate query
+        case 'memberships_popular_plan': {
+            const { data: plans }: any = await supabase.from('memberships')
+                .select('membership_plans(name)')
+                .eq('status', 'active');
+            if (!plans || plans.length === 0) return '-';
+            const countMap: Record<string, number> = {};
+            plans.forEach((p: any) => {
+                const name = p.membership_plans?.name || 'Unknown';
+                countMap[name] = (countMap[name] || 0) + 1;
+            });
+            const sorted = Object.entries(countMap).sort((a, b) => b[1] - a[1]);
+            return sorted[0]?.[0] || '-';
+        }
 
         // ── 코치 ──
         case 'coaches_active_count': {
@@ -172,10 +207,17 @@ async function executeQuery(queryKey: string): Promise<number | string | unknown
                 .eq('status', 'active');
             return count ?? 0;
         }
-        case 'coaches_assigned_today':
-            return 0; // TODO: sessions join
-        case 'coaches_unassigned_sessions':
-            return 0; // TODO: sessions where coach_id is null
+        case 'coaches_assigned_today': {
+            const { data: todaySessions }: any = await supabase.from('sessions')
+                .select('coach_id').eq('session_date', today).not('coach_id', 'is', null);
+            const uniqueCoaches = new Set((todaySessions || []).map((s: any) => s.coach_id));
+            return uniqueCoaches.size;
+        }
+        case 'coaches_unassigned_sessions': {
+            const { count }: any = await supabase.from('sessions').select('id', { count: 'exact', head: true })
+                .eq('session_date', today).is('coach_id', null);
+            return count ?? 0;
+        }
 
         // ── 고객지원 ──
         case 'support_pending_count':

@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **User App 핵심 화면 고도화 기획 완료 → `/plan-to-blueprint` 등록 대기**
+- **Current Focus**: **Priority 12, 13 블루프린트 등록 완료 → `/develop` 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: User App 기획서 작성 완료 (`.docs/planning/user-app-enhancement.md`, Status: Approved)
+- **Last Action**: `/plan-to-blueprint` 실행 — badge-system, user-app-enhancement 2건 등록 + 아카이브 이동
 
 ---
 
@@ -126,7 +126,52 @@
   - [x] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)** ✅
     - [x] sitemap/blueprint/complete 갱신
 
-  > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 → 등록 대기
+  > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 (`.docs/planning/race-system.md`) → 등록 대기
+
+#### 🟠 Priority 12: User App 핵심 화면 고도화 (개발 대기)
+  > **기획서**: `.docs/archive/planning/user-app-enhancement.md`
+  > **문제**: 5대 핵심 탭(Home, Schedule, Check-in, Facilities, Profile)의 완성도가 55~70% 수준이며, Waitlist/크레딧 차감/QR 만료 갱신/지도 연동/프로필 사진 등 핵심 기능 미구현
+  > **방안**: DB 확장(members/facilities 컬럼 추가 + 크레딧 RPC) → 공통 컴포넌트 표준화 → 5대 탭 순차 고도화 → 문서 동기화
+
+  - [ ] Phase 1: DB 확장 + RPC 함수 → 💎 **Senior Dev (Opus)**
+    - [ ] members 컬럼 추가 (preferences, phone, birthday, avatar_url 등)
+    - [ ] facilities 컬럼 추가 (latitude, longitude, photos)
+    - [ ] fn_book_with_credit / fn_cancel_booking_with_credit RPC 생성
+    - [ ] RLS/보안 검증
+  - [ ] Phase 2: 공통 컴포넌트 표준화 → 🎨 **UI Developer (Gemini)**
+    - [ ] AppSkeleton, AppEmptyState, AppErrorState 생성
+    - [ ] StatCard, MonthCalendar, SessionDetailModal 생성
+  - [ ] Phase 3: Home (Dashboard) 고도화 → 🎨 **UI Developer (Gemini)**
+    - [ ] Today's Status 위젯 + 병렬 fetch + 쿼리 수정
+  - [ ] Phase 4: Schedule 고도화 → 💻 **Developer (Sonnet)**
+    - [ ] 7일 피커 + Waitlist + 수업 모달 + 크레딧 차감/환원
+  - [ ] Phase 5: Check-in 고도화 → ⚡ **Specialist (Gemini)**
+    - [ ] QR 만료 타이머 + 월간 캘린더 + 출석 통계
+  - [ ] Phase 6: Facilities + Profile 고도화 → 🎨 **UI Developer (Gemini)**
+    - [ ] 지도 연동 + 시설 상세 + 프로필 사진 + 설정 동기화
+  - [ ] Phase 7: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap + blueprint + database-reference 갱신
+
+#### 🟠 Priority 13: 배지 시스템 고도화 (개발 대기)
+  > **기획서**: `.docs/archive/planning/badge-system.md`
+  > **문제**: 배지 15개가 코드 하드코딩(BADGE_DEFINITIONS), 달성 기록 미저장(earnedDate 항상 now()), WOD/PR 카운트 로직 버그 4건, Admin 관리 화면 없음
+  > **방안**: badge_definitions + badge_awards 테이블 신규 → DB Trigger 4개 + RPC 3개로 자동 달성 판정 → Admin CRUD 화면 → User 화면 리팩토링
+
+  - [ ] Phase 1: DB 스키마 + RPC + Trigger → 💎 **Senior Dev (Opus)**
+    - [ ] badge_definitions, badge_awards 테이블 생성
+    - [ ] RLS 정책 적용 (8개)
+    - [ ] fn_calculate_badge_progress (11 metric_type), fn_evaluate_badges, fn_get_my_badges 생성
+    - [ ] Trigger 4개 생성 (checkins, session_feedback, race_records, transactions)
+    - [ ] 총 23개 배지 초기 데이터 INSERT
+  - [ ] Phase 2: Admin 배지 관리 화면 → 🎨 **UI Developer (Gemini)**
+    - [ ] /admin/operations/badges CRUD 화면
+    - [ ] BadgeFormModal (추가/수정)
+    - [ ] Sidebar 메뉴 추가
+  - [ ] Phase 3: User 배지 화면 리팩토링 → 💻 **Developer (Sonnet)**
+    - [ ] 하드코딩 제거, RPC 호출 전환
+    - [ ] 기존 UI 유지하며 데이터 소스만 교체
+  - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap + database-reference + blueprint 갱신
 
 ---
 
@@ -134,6 +179,7 @@
 - ✅ ~~**Check-in QR 비표준 렌더링** (RESOLVED): `qrcode.react` QRCodeSVG로 교체 완료. ISO/IEC 18004 규격 QR 코드 생성, 키오스크 스캐너 인식 가능.~~
 - ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
 - 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
+- 🔴 **배지 시스템 하드코딩** (ACTIVE): `badges/page.tsx`의 BADGE_DEFINITIONS 상수 배열, earnedDate 부정확, WOD/PR 카운트 로직 오류 → [기획서](./archive/planning/badge-system.md)
 
 ### 참고 문서
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`

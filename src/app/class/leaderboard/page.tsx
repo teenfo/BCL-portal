@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 type RecordType = 'For Time' | 'AMRAP' | 'Weight';
@@ -17,18 +17,30 @@ export default function LeaderboardPage() {
     const [activeType, setActiveType] = useState<RecordType>('For Time');
     const [entries, setEntries] = useState<Entry[]>([]);
     const [loading, setLoading] = useState(true);
-    const [currentTime, setCurrentTime] = useState('');
+
+    // Clock via rAF + ref (avoid per-second state re-render)
+    const clockRef = useRef<HTMLSpanElement>(null);
+    const rafRef = useRef<number | null>(null);
+    const lastSecRef = useRef(-1);
+
+    const tickClock = useCallback(() => {
+        const now = new Date();
+        const sec = now.getSeconds();
+        if (sec !== lastSecRef.current) {
+            lastSecRef.current = sec;
+            if (clockRef.current) {
+                clockRef.current.textContent = now.toLocaleTimeString('ko-KR', {
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+                });
+            }
+        }
+        rafRef.current = requestAnimationFrame(tickClock);
+    }, []);
 
     useEffect(() => {
-        const tick = () => {
-            setCurrentTime(new Date().toLocaleTimeString('ko-KR', {
-                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-            }));
-        };
-        tick();
-        const timer = setInterval(tick, 1000);
-        return () => clearInterval(timer);
-    }, []);
+        rafRef.current = requestAnimationFrame(tickClock);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [tickClock]);
 
     useEffect(() => {
         loadLeaderboard();
@@ -171,11 +183,11 @@ export default function LeaderboardPage() {
                 width: '100%', maxWidth: '1400px', textAlign: 'right',
                 marginBottom: '1rem', position: 'relative', zIndex: 10,
             }}>
-                <span style={{
+                <span ref={clockRef} style={{
                     fontSize: '1rem', fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-                    color: 'rgba(255,255,255,0.2)',
+                    color: 'rgba(255,255,255,0.2)', willChange: 'contents',
                 }}>
-                    🔴 LIVE · {currentTime}
+                    🔴 LIVE · --:--:--
                 </span>
             </div>
 

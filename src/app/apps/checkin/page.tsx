@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
@@ -176,19 +177,14 @@ export default function UserCheckinPage() {
 
                 <div style={{ display: 'flex', justifyContent: 'center', position: 'relative' }}>
                     <div className="qr-image-area">
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(11, 1fr)', gap: 2, padding: 8 }}>
-                            {Array.from({ length: 121 }, (_, i) => (
-                                <div
-                                    key={i}
-                                    style={{
-                                        width: 14,
-                                        height: 14,
-                                        borderRadius: 2,
-                                        background: qrToken.charCodeAt(i % qrToken.length) % 3 !== 0 ? '#1A1A1A' : '#FFFFFF',
-                                    }}
-                                />
-                            ))}
-                        </div>
+                        <QRCodeSVG
+                            value={qrToken}
+                            size={200}
+                            level="M"
+                            bgColor="transparent"
+                            fgColor="#1A1A1A"
+                            style={{ display: 'block', margin: '0 auto' }}
+                        />
                     </div>
                     {/* Green dot indicator */}
                     <div style={{

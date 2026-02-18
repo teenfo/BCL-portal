@@ -14,7 +14,7 @@ export default function Logo({ className = '', variant = 'primary', collapsed = 
     const subtextColor = variant === 'light' ? '#1A1A1A' : (variant === 'white' ? '#FFFFFF' : 'var(--text-secondary)');
 
     return (
-        <div className={`flex items-center gap-4 ${className} ${!collapsed ? 'w-full justify-end' : ''}`}>
+        <div className={`flex items-center gap-4 ${className} ${!collapsed ? 'justify-center' : ''}`}>
             {!collapsed && (
                 <div className="flex flex-col leading-none animate-premium-fade text-right">
                     <span className="text-3xl font-black italic tracking-tighter" style={{ color }}>

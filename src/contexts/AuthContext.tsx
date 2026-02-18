@@ -89,52 +89,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         let mounted = true;
 
-        // 안전 장치: 8초 후에는 강제로 loading 종료 (네트워크 오류 등 대비)
+        // 안전 장치: 5초 후에는 강제로 loading 종료 (네트워크 오류 등 대비)
         const timeout = setTimeout(() => {
             if (mounted && loading) {
                 console.warn('[AuthContext] Loading timeout reached, forcing loading=false');
                 setLoading(false);
             }
-        }, 8000);
+        }, 5000);
 
-        // 1단계: 초기 세션 확인 (getUser 사용 — 서버와 동기화)
-        const initAuth = async () => {
-            try {
-                // getSession()보다 getUser()가 서버 토큰 검증에 더 안정적
-                const { data: { user: currentUser } } = await auth.getUser();
-
-                if (!mounted) return;
-
-                if (currentUser) {
-                    setUser(currentUser);
-                    // 세션도 동시에 가져오기
-                    const { data: { session: currentSession } } = await auth.getSession();
-                    if (mounted && currentSession) {
-                        setSession(currentSession);
-                    }
-                    await loadProfile(currentUser.id);
-                }
-            } catch (err) {
-                console.error('[AuthContext] Init auth error:', err);
-            } finally {
-                if (mounted) {
-                    setLoading(false);
-                    clearTimeout(timeout);
-                }
-            }
-        };
-
-        initAuth();
-
-        // 2단계: Auth 상태 변경 리스너 (토큰 갱신, 로그아웃 등)
+        // onAuthStateChange가 INITIAL_SESSION을 포함한 모든 이벤트를 처리
+        // 수동 getSession()/getUser() 호출 제거 → AbortError 방지
         const {
             data: { subscription },
         } = auth.onAuthStateChange(async (event: string, newSession: any) => {
             if (!mounted) return;
 
-            // INITIAL_SESSION 이벤트는 초기화에서 이미 처리했으므로 무시
-            if (event === 'INITIAL_SESSION') return;
+            if (event === 'INITIAL_SESSION') {
+                // 초기 세션: null이면 미로그인 → 즉시 loading 종료
+                if (!newSession) {
+                    setLoading(false);
+                    clearTimeout(timeout);
+                    return;
+                }
+                // 세션 존재 → 유저 정보 설정 후 프로필 로드
+                setSession(newSession);
+                setUser(newSession.user);
+                await loadProfile(newSession.user.id);
+                if (mounted) {
+                    setLoading(false);
+                    clearTimeout(timeout);
+                }
+                return;
+            }
 
+            // 이후 이벤트: SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED 등
             setSession(newSession);
             setUser(newSession?.user ?? null);
 
