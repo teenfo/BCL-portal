@@ -33,18 +33,27 @@ export default function UserProfilePage() {
 
         const { data: memberData }: any = await supabase
             .from('members')
-            .select('name, role')
+            .select('name')
             .eq('user_id', user.id)
             .single();
         if (memberData) {
             setUserName(memberData.name || '');
-            setIsAdmin(memberData.role === 'admin' || memberData.role === 'super_admin');
+        }
+
+        // profiles 테이블에서 role 확인 (admin 포탈 접근 권한)
+        const { data: profileData }: any = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        if (profileData) {
+            setIsAdmin(profileData.role === 'admin' || profileData.role === 'super_admin');
         }
 
         const { data: membershipData }: any = await supabase
             .from('memberships')
             .select('*, membership_plans(name)')
-            .eq('member_id', user.id)
+            .eq('user_id', user.id)
             .eq('status', 'active')
             .order('end_date', { ascending: false })
             .limit(1)

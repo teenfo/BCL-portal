@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useAdminSidebar } from '@/contexts/AdminSidebarContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Logo from '@/components/ui/Logo';
 
 interface MenuItem {
@@ -391,14 +392,25 @@ function SidebarClock({ collapsed }: { collapsed: boolean }) {
 
 export default function AdminSidebar() {
     const pathname = usePathname();
+    const router = useRouter();
     const { collapsed, setCollapsed } = useAdminSidebar();
+    const { user, profile, signOut } = useAuth();
     const [isMounted, setIsMounted] = useState(false);
+    const isDev = process.env.NEXT_PUBLIC_SUPABASE_ENV === 'dev';
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
 
     if (!isMounted) return null;
+
+    const handleSignOut = async () => {
+        await signOut();
+        router.push('/auth/login');
+    };
+
+    const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Admin';
+    const initials = displayName.slice(0, 2).toUpperCase();
 
     return (
         <aside
@@ -458,17 +470,120 @@ export default function AdminSidebar() {
                 ))}
             </nav>
 
-            {/* Footer / User Profile */}
-            <div className="admin-sidebar__footer">
-                <div className={`admin-sidebar__profile ${collapsed ? 'admin-sidebar__profile--collapsed' : ''}`}>
-                    <div className="admin-sidebar__avatar">AD</div>
+            {/* DEV 환경 표시 - 사이드바 하단, 유저 정보 위 */}
+            {isDev && (
+                <div
+                    style={{
+                        margin: collapsed ? '0 8px 8px' : '0 12px 8px',
+                        padding: collapsed ? '8px 0' : '8px 12px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, rgba(102,126,234,0.15) 0%, rgba(118,75,162,0.15) 100%)',
+                        border: '1px solid rgba(102,126,234,0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: collapsed ? 'center' : 'flex-start',
+                        gap: '8px',
+                    }}
+                    title={collapsed ? 'DEV 환경 - 개발 DB 연결' : undefined}
+                >
+                    <span style={{ fontSize: collapsed ? '16px' : '14px', lineHeight: 1 }}>🔧</span>
                     {!collapsed && (
-                        <div className="admin-sidebar__user-info">
-                            <span className="admin-sidebar__user-name">Administrator</span>
-                            <span className="admin-sidebar__user-role">Branch 01-Premium</span>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                color: '#a78bfa',
+                                letterSpacing: '0.08em',
+                                lineHeight: 1,
+                            }}>
+                                DEV 환경
+                            </div>
+                            <div style={{
+                                fontSize: '10px',
+                                color: 'rgba(255,255,255,0.4)',
+                                lineHeight: 1.3,
+                                marginTop: '2px',
+                            }}>
+                                개발 DB 연결
+                            </div>
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Footer / User Profile */}
+            <div className="admin-sidebar__footer">
+                <div className={`admin-sidebar__profile ${collapsed ? 'admin-sidebar__profile--collapsed' : ''}`}>
+                    <div className="admin-sidebar__avatar">{initials}</div>
+                    {!collapsed && (
+                        <div className="admin-sidebar__user-info" style={{ flex: 1, minWidth: 0 }}>
+                            <span className="admin-sidebar__user-name">{displayName}</span>
+                            <span className="admin-sidebar__user-role">{profile?.role || 'admin'}</span>
+                        </div>
+                    )}
+                    {!collapsed && (
+                        <button
+                            onClick={handleSignOut}
+                            title="로그아웃"
+                            style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '6px',
+                                borderRadius: '8px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'rgba(255,255,255,0.3)',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.color = '#EF4444';
+                                e.currentTarget.style.background = 'rgba(239,68,68,0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'rgba(255,255,255,0.3)';
+                                e.currentTarget.style.background = 'none';
+                            }}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                                <polyline points="16,17 21,12 16,7" />
+                                <line x1="21" y1="12" x2="9" y2="12" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+                {collapsed && (
+                    <button
+                        onClick={handleSignOut}
+                        title="로그아웃"
+                        style={{
+                            width: '100%',
+                            background: 'none',
+                            border: 'none',
+                            cursor: 'pointer',
+                            padding: '8px 0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'rgba(255,255,255,0.3)',
+                            transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#EF4444';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'rgba(255,255,255,0.3)';
+                        }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                            <polyline points="16,17 21,12 16,7" />
+                            <line x1="21" y1="12" x2="9" y2="12" />
+                        </svg>
+                    </button>
+                )}
             </div>
 
             {/* Toggle Button */}

@@ -6,8 +6,8 @@ import Link from 'next/link';
 
 interface CheckinRecord {
     id: string;
-    checkin_time: string;
-    checkin_method: string;
+    time: string;
+    status: string;
 }
 
 export default function UserCheckinPage() {
@@ -67,7 +67,7 @@ export default function UserCheckinPage() {
         const { data: membershipData }: any = await supabase
             .from('memberships')
             .select('*, membership_plans(name)')
-            .eq('member_id', user.id)
+            .eq('user_id', user.id)
             .eq('status', 'active')
             .order('end_date', { ascending: false })
             .limit(1)
@@ -85,9 +85,9 @@ export default function UserCheckinPage() {
             .from('checkins')
             .select('*')
             .eq('member_id', user.id)
-            .gte('checkin_time', firstDay.toISOString())
-            .lte('checkin_time', lastDay.toISOString())
-            .order('checkin_time', { ascending: false });
+            .gte('time', firstDay.toISOString())
+            .lte('time', lastDay.toISOString())
+            .order('time', { ascending: false });
 
         if (monthData) {
             setCheckins(monthData);
@@ -95,7 +95,7 @@ export default function UserCheckinPage() {
 
             const days = new Set<number>();
             monthData.forEach(c => {
-                const d = new Date(c.checkin_time);
+                const d = new Date(c.time);
                 days.add(d.getDate());
             });
             setCheckedDays(days);
@@ -115,7 +115,7 @@ export default function UserCheckinPage() {
             // Calculate weekly delta
             const weekAgo = new Date();
             weekAgo.setDate(weekAgo.getDate() - 7);
-            const thisWeek = monthData.filter(c => new Date(c.checkin_time) >= weekAgo).length;
+            const thisWeek = monthData.filter(c => new Date(c.time) >= weekAgo).length;
             setWeeklyDelta(thisWeek);
         }
         setLoading(false);

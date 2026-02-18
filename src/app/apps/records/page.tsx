@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 
 type TabType = 'wod' | 'pr' | 'stats';
 type WodType = 'fortime' | 'amrap' | 'weight' | 'custom';
@@ -27,6 +28,7 @@ interface PRRecord {
 
 export default function UserRecordsPage() {
     const [tab, setTab] = useState<TabType>('wod');
+    const toast = useToast();
     const [wodRecords, setWodRecords] = useState<WodRecord[]>([]);
     const [prRecords, setPrRecords] = useState<PRRecord[]>([]);
     const [monthlyStats, setMonthlyStats] = useState<{ month: string; count: number }[]>([]);
@@ -51,7 +53,7 @@ export default function UserRecordsPage() {
             .from('session_feedback')
             .select('*, sessions(title)')
             .eq('member_id', user.id)
-            .not('wod_result', 'is', null)
+            .not('comment', 'is', null)
             .order('created_at', { ascending: false })
             .limit(30);
 
@@ -62,8 +64,8 @@ export default function UserRecordsPage() {
                     id: f.id as string,
                     session_title: (s?.title as string) || 'WOD',
                     wod_type: (f.wod_type as WodType) || 'fortime',
-                    result_value: (f.wod_result as string) || '',
-                    notes: f.comments as string,
+                    result_value: (f.comment as string) || '',
+                    notes: '',
                     created_at: f.created_at as string,
                 };
             }));
@@ -73,15 +75,15 @@ export default function UserRecordsPage() {
         sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
         const { data: checkinData }: any = await supabase
             .from('checkins')
-            .select('checkin_time')
+            .select('time')
             .eq('member_id', user.id)
-            .gte('checkin_time', sixMonthsAgo.toISOString())
-            .order('checkin_time', { ascending: true });
+            .gte('time', sixMonthsAgo.toISOString())
+            .order('time', { ascending: true });
 
         if (checkinData) {
             const monthMap: Record<string, number> = {};
             checkinData.forEach((c: Record<string, unknown>) => {
-                const d = new Date(c.checkin_time as string);
+                const d = new Date(c.time as string);
                 const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                 monthMap[key] = (monthMap[key] || 0) + 1;
             });
@@ -103,15 +105,13 @@ export default function UserRecordsPage() {
         const { error }: any = await supabase.from('session_feedback').insert({
             member_id: user.id,
             rating: 5,
-            wod_type: wodType,
-            wod_result: resultValue,
-            comments: wodNotes || null,
+            comment: `[WOD:${wodType}] ${resultValue}${wodNotes ? ' | ' + wodNotes : ''}`,
         });
 
         if (error) {
-            alert('기록 저장에 실패했습니다.');
+            toast.error('기록 저장에 실패했습니다.');
         } else {
-            alert('💪 운동 기록이 저장되었습니다!');
+            toast.success('💪 운동 기록이 저장되었습니다!');
             setResultValue(''); setWodNotes('');
             loadData();
         }
@@ -128,15 +128,13 @@ export default function UserRecordsPage() {
         const { error }: any = await supabase.from('session_feedback').insert({
             member_id: user.id,
             rating: 5,
-            wod_type: 'weight',
-            wod_result: `${prExercise}: ${prValue}${prUnit}`,
-            comments: `PR - ${prExercise}`,
+            comment: `[PR] ${prExercise}: ${prValue}${prUnit}`,
         });
 
         if (error) {
-            alert('PR 저장에 실패했습니다.');
+            toast.error('PR 저장에 실패했습니다.');
         } else {
-            alert('🏆 새로운 PR이 기록되었습니다!');
+            toast.success('🏆 새로운 PR이 기록되었습니다!');
             setPrExercise(''); setPrValue(''); setShowPrForm(false);
             loadData();
         }

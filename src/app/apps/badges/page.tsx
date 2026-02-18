@@ -61,21 +61,21 @@ export default function BadgesPage() {
 
         // Get user stats for badge progress
         const [checkinRes, feedbackRes, memberRes] = await Promise.all([
-            supabase.from('checkins').select('checkin_time').eq('member_id', user.id),
-            supabase.from('session_feedback').select('id, wod_result, comments').eq('member_id', user.id),
+            supabase.from('checkins').select('time').eq('member_id', user.id),
+            supabase.from('session_feedback').select('id, rating, comment').eq('member_id', user.id),
             supabase.from('members').select('created_at').eq('user_id', user.id).single(),
         ]);
 
         const totalCheckins = checkinRes.data?.length || 0;
-        const totalFeedbacks = feedbackRes.data?.filter((f: any) => !f.wod_result).length || 0;
-        const totalWods = feedbackRes.data?.filter((f: any) => f.wod_result).length || 0;
-        const totalPRs = feedbackRes.data?.filter((f: any) => f.comments?.includes('PR')).length || 0;
+        const totalFeedbacks = feedbackRes.data?.length || 0;
+        const totalWods = feedbackRes.data?.filter((f: any) => f.rating && f.rating >= 4).length || 0;
+        const totalPRs = feedbackRes.data?.filter((f: any) => f.comment?.includes('PR')).length || 0;
         const memberSince = memberRes.data?.created_at ? Math.floor((Date.now() - new Date(memberRes.data.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0;
 
         // Calculate streak
         let streak = 0;
         if (checkinRes.data) {
-            const days = new Set(checkinRes.data.map((c: any) => new Date(c.checkin_time).toISOString().split('T')[0]));
+            const days = new Set(checkinRes.data.map((c: any) => new Date(c.time).toISOString().split('T')[0]));
             const today = new Date();
             for (let i = 0; i < 60; i++) {
                 const d = new Date(today);
@@ -88,13 +88,13 @@ export default function BadgesPage() {
         // Monthly checkins
         const now = new Date();
         const monthCheckins = checkinRes.data?.filter((c: any) => {
-            const d = new Date(c.checkin_time);
+            const d = new Date(c.time);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         }).length || 0;
 
         // Week checkins
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const weekCheckins = checkinRes.data?.filter((c: any) => new Date(c.checkin_time) >= weekAgo).length || 0;
+        const weekCheckins = checkinRes.data?.filter((c: any) => new Date(c.time) >= weekAgo).length || 0;
 
         const getProgress = (def: typeof BADGE_DEFINITIONS[0]): number => {
             switch (def.id) {

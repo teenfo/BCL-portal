@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCoach, IconPhone, IconEdit, IconTrash, IconCamera, IconTrophy, IconTarget, IconBarChart } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 const DEFAULT_COACH_IMAGE = '/images/default-coach.png';
 
@@ -37,6 +38,7 @@ type TabType = 'management' | 'performance';
 
 export default function OperationsCoachesPage() {
     const [activeTab, setActiveTab] = useState<TabType>('management');
+    const toast = useToast();
 
     // --- Management State ---
     const [coaches, setCoaches] = useState<Coach[]>([]);
@@ -108,12 +110,12 @@ export default function OperationsCoachesPage() {
 
         const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
         if (!allowedTypes.includes(file.type)) {
-            alert('지원되지 않는 이미지 형식입니다. (JPG, PNG, WebP, GIF만 가능)');
+            toast.warning('지원되지 않는 이미지 형식입니다. (JPG, PNG, WebP, GIF만 가능)');
             return;
         }
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('이미지 크기가 5MB를 초과합니다.');
+            toast.warning('이미지 크기가 5MB를 초과합니다.');
             return;
         }
 
@@ -167,7 +169,7 @@ export default function OperationsCoachesPage() {
 
     async function saveCoach() {
         if (!form.name.trim()) {
-            alert('코치 이름을 입력해주세요.');
+            toast.warning('코치 이름을 입력해주세요.');
             return;
         }
 
@@ -222,7 +224,7 @@ export default function OperationsCoachesPage() {
             // Invalidate performance cache so it reloads when tab switches
             setPerfLoaded(false);
         } catch (error) {
-            alert(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.');
+            toast.error(error instanceof Error ? error.message : '저장 중 오류가 발생했습니다.');
         } finally {
             setUploading(false);
         }

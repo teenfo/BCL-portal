@@ -34,6 +34,9 @@
 - [x] 프로젝트 구조 및 환경 설정 (Next.js + Tailwind/CSS)
 - [x] Supabase Auth 연동 (로그인/로그아웃)
 - [x] 권한 기반 미들웨어(Middleware) 설정
+  - [x] `src/middleware.ts` 활성화 (2026-02-18)
+  - [x] 서버 측 세션 토큰 갱신 + 비인증 사용자 차단
+  - [x] PUBLIC_PATHS 기반 공개/비공개 경로 관리
 
 ### Phase 2: 핵심 기능 구현 (진행 중)
 - [x] **Authentication 시스템 완료** (2026-02-17) ✨
@@ -84,6 +87,13 @@
 ### Phase 3: 특화 모듈 및 고도화
 - [x] 클래스 포털: 실시간 WOD 보드 및 타이머
 - [ ] 레이스 시스템: PM5 기기 데이터 연동 및 리더보드 (UI 구현 완료, DB 연동 대기)
+- [x] **키오스크 체크인 시스템** (2026-02-18 완료) ✨
+  - [x] Admin Infrastructure: 키오스크 기기 DB 연동 (CRUD, Heartbeat, 원격 메시지)
+  - [x] Stitch MCP 디자인: 3화면 (Idle, Scan, Success) 생성
+  - [x] Kiosk Idle Screen (`/kiosk`) - 대기 화면, 터치 인터페이스
+  - [x] Kiosk QR Scan (`/kiosk/scan`) - 카메라 QR 스캔 + 수동 입력
+  - [x] Kiosk Success (`/kiosk/success`) - 체크인 완료 + 회원 정보
+  - [x] DB 연동: kiosk_devices, qr_codes, check_ins, members, reservations, memberships
 - [x] **알림 시스템: 통합 알림 센터 및 자동화** (2026-02-17 완료) ✨
   - [x] DB 스키마 확장 (notifications, notification_rules, push_subscriptions, notification_preferences)
   - [x] User App: 알림 센터 + 알림 설정 (카테고리별 수신 on/off)
@@ -113,35 +123,39 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Admin Portal Phase 2 완료 - 모든 페이지 DB 연동 완료** 🎯
+- **Current Focus**: **빌드 환경 복원 + 인증 흐름 검증** 🎯
+- **Project Path**: `~/dev/Antigravity/BCL-Repo/portal` (2026-02-18 이전 완료)
 - **Recent Accomplishments**:
+  - [x] **프로젝트 경로 이전 완료** (2026-02-18 15:40) ✨
+    - `~/Antigravity/BCL-Repo` → `~/dev/Antigravity/BCL-Repo`
+    - `sudo xattr -rd com.apple.provenance` 실행 완료
+    - `npm install` 성공 (361 packages)
+    - ⚠️ 빌드 시 `node_modules` EPERM 에러 잔존 — 터미널 Full Disk Access 권한 필요
+  - [x] **인증 흐름 전면 개선** (2026-02-18) ✨
+    - `src/middleware.ts` 생성 — Next.js 미들웨어 활성화
+    - `src/lib/supabase/middleware.ts` — PUBLIC_PATHS 기반 경로 관리
+    - `src/contexts/AuthContext.tsx` — Race condition 제거
+    - `src/components/AuthGuard.tsx` — authorized 상태 명시적 관리
+    - `src/app/apps/layout.tsx` — AuthGuard 추가
+    - `src/app/auth/login/page.tsx` — role 기반 리다이렉트
+    - `src/app/auth/callback/page.tsx` — 프로필 재시도 3회, 에러 처리 강화
+    - 모든 인증 관련 `router.push` → `router.replace` (히스토리 오염 방지)
+  - [x] **키오스크 체크인 시스템** (2026-02-18) ✨
+  - [x] **Phase 2: Mock 데이터 → 실제 DB 연동 완료** (2026-02-17) ✨
   - [x] **Phase 1: Critical 이슈 해결 완료** (2026-02-17) ✨
-    - [x] DB 스키마 검증 및 외래 키 수정 (`checkins_member_id_fkey` 리네이밍)
-    - [x] RLS 정책 추가 (memberships, bookings, checkins, transactions)
-    - [x] Memberships 쿼리 수정 (8건 데이터 정상 표시)
-    - [x] Check-in Logs 쿼리 수정 (3건 데이터 정상 표시)
-    - [x] Transactions 쿼리 수정 (6건 데이터 정상 표시)
-    - [x] Reservations 쿼리 수정 (6건 데이터 정상 표시)
-    - [x] Members 검색 기능 확인 (이미 구현됨)
-    - [x] Members 신규 등록 기능 확인 (이미 구현됨)
-  - [x] **Phase 2: Mock 데이터 페이지 실제 DB 연동 완료** (2026-02-17 22:30) ✨
-    - [x] Race 페이지 DB 연동 (5개 이벤트, 5개 기기, 7개 기록)
-    - [x] Support Tickets DB 연동 (이미 완료)
-    - [x] Feedback DB 연동 (8건 피드백, KPI 카드)
-    - [x] Roles DB 연동 (4개 역할, 권한 매트릭스)
-    - [x] Audit Logs DB 연동 (8건 로그, TypeScript 타입 수정)
-    - [x] System Link 검증 (환경변수 기반 정적 페이지)
-    - [x] Lockers 데이터 시딩 (20개 락커)
-    - [x] Notifications 검증 (DB 연동 완료, 데이터 없음)
-    - [x] Infrastructure 검증 (5개 지점 DB 연동, 키오스크 Mock)
-  - [x] **AdminModal 컴포넌트 확장** (2026-02-17)
-    - [x] `isOpen`, `size`, `footer` props 추가
-    - [x] 하위 호환성 유지 (`show` prop 지원)
-  - [x] **브라우저 검증 완료** (2026-02-17 22:30)
-    - [x] 9개 페이지 스크린샷 확인 (Feedback, Audit, Race, Roles, Lockers, System, Notifications, Infrastructure)
-    - [x] 모든 페이지 정상 작동 확인
+
 - **Next Steps**:
-  - [ ] **Phase 3: 보안 및 최종 검증 (1일)** 🟢 READY
+  - [ ] **🚨 빌드 환경 복원 (즉시 필요)** 🔴
+    - 터미널에 **전체 디스크 접근 권한** 부여 필요
+    - 시스템 설정 → 개인정보 보호 및 보안 → 전체 디스크 접근 권한 → Terminal.app 추가
+    - 터미널 재시작 후 `sudo xattr -rd com.apple.provenance ~/dev/Antigravity/BCL-Repo` 재실행
+    - `rm -rf node_modules && npm install` 후 `npm run build` 검증
+  - [ ] **인증 흐름 검증 (빌드 복원 후 즉시)**
+    - [ ] 서버 실행 후 로그인 → 대시보드 진입 정상 동작 확인
+    - [ ] 미인증 상태에서 `/admin/*`, `/apps/*` 직접 접근 시 로그인 리다이렉트 확인
+    - [ ] OAuth(카카오) 로그인 → 콜백 → role 기반 리다이렉트 확인
+    - [ ] 로그아웃 → 보호 경로 접근 차단 확인
+  - [ ] **Phase 3: 보안 및 최종 검증** 🟢 READY
     - [ ] RLS 정책 세분화 (역할 기반 Admin/Coach/Member)
     - [ ] 모든 테이블 RLS 정책 검토
     - [ ] 테스트 계정 생성 (Admin, Coach, Member)
@@ -149,30 +163,26 @@
     - [ ] 에러 핸들링 개선 (Toast 알림, 에러 바운더리)
     - [ ] 전체 24개 페이지 통합 테스트
   - [ ] **User App Core 화면 개발** (Week 2-3) - Admin 완료 후 착수
-    - [ ] Home (Dashboard, 회원권 정보, 다음 예약)
-    - [ ] Schedule (수업 캘린더, 예약 버튼)
-    - [ ] Check-in (QR 코드 생성, 출석 기록)
-    - [ ] Facilities (지점 정보, 운영시간, 지도)
-    - [ ] Profile (개인정보 수정, 이용권 관리)
-    - [ ] Bottom Tab Navigation 구현
 
 ### Known Issues
-- ✅ **JOIN 쿼리 400 에러** (RESOLVED): Memberships, Checkins, Transactions, Reservations 페이지 데이터 로딩 실패
-  - 해결: 외래 키 컬럼명 수정 및 RLS 정책 추가 (Phase 1 완료)
-- ✅ **Members 검색 기능** (RESOLVED): 이미 구현되어 있었음
-- ✅ **Mock 데이터 페이지** (RESOLVED): 9개 페이지 모두 DB 연동 완료 (Phase 2 완료)
+- ✅ **인증 흐름 불안정** (RESOLVED): 5가지 핵심 문제 수정 완료
+- ⚠️ **macOS provenance 잔존** (ACTIVE): 터미널 Full Disk Access 권한 부여 후 해결 예정
+- ⚠️ **@supabase/auth-js 타입 미완성** (WORKAROUND): `supabase.auth as any` 캐스팅 우회 중
+- ✅ **JOIN 쿼리 400 에러** (RESOLVED)
+- ✅ **Mock 데이터 페이지** (RESOLVED)
 
 ### 참고 문서
-- **Admin 개발 통합 계획**: `.docs/ADMIN_DEVELOPMENT_PLAN.md` 🆕
-- **감사 보고서**: `.docs/admin-production-readiness-audit.md` 🆕
+- **Admin 개발 통합 계획**: `.docs/ADMIN_DEVELOPMENT_PLAN.md`
+- **감사 보고서**: `.docs/admin-production-readiness-audit.md`
 - **다음 단계**: `.docs/TODO_NEXT_STEPS.md`
 
 ---
 
 ## 6. 세션 종료 체크리스트
-- [x] 변경 사항 커밋 및 푸시
-- [x] 이 문서 업데이트 (Current Focus, Recent Accomplishments)
-- [x] 다음 작업자를 위한 간단한 인수인계 메모 작성
-- [x] Admin 개발 통합 작업 계획 수립 🆕
-- [ ] Phase 1 Critical 이슈 해결 시작
+- [x] 변경 사항 기록 완료 (이 문서)
+- [x] 다음 작업자를 위한 인수인계 메모 작성
+- [x] 프로젝트 경로 이전 (`~/Antigravity/BCL-Repo` → `~/dev/Antigravity/BCL-Repo`)
+- [x] `npm install` 완료
+- [ ] 터미널 Full Disk Access 권한 부여 + 빌드 검증
+- [ ] `git push origin main`
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 
 interface MembershipPlan {
     id: string;
@@ -9,7 +10,7 @@ interface MembershipPlan {
     type: string;
     price: number;
     duration_days: number;
-    credit_count: number;
+    credits: number;
     description: string;
     features: string[];
     is_popular?: boolean;
@@ -22,6 +23,7 @@ export default function UserPurchasePage() {
     const [filter, setFilter] = useState('전체');
     const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
     const [purchasing, setPurchasing] = useState(false);
+    const toast = useToast();
 
     useEffect(() => { loadPlans(); }, []);
 
@@ -46,7 +48,7 @@ export default function UserPurchasePage() {
     function getDefaultFeatures(plan: MembershipPlan): string[] {
         const features = ['모든 수업 참여 가능', 'QR 체크인'];
         if (plan.type === 'period' || plan.duration_days >= 30) features.push('무제한 수업');
-        if (plan.credit_count && plan.credit_count > 0) features.push(`${plan.credit_count}회 크레딧`);
+        if (plan.credits && plan.credits > 0) features.push(`${plan.credits}회 크레딧`);
         if (plan.duration_days >= 90) { features.push('PT 1회 무료 제공'); features.push('락커 무료 이용'); }
         if (plan.duration_days >= 180) { features.push('운동복 대여'); features.push('방문 주차 무료'); }
         return features;
@@ -65,8 +67,8 @@ export default function UserPurchasePage() {
     const filteredPlans = filter === '전체'
         ? plans
         : plans.filter(p => {
-            if (filter === '기간제') return p.type === 'period' || (!p.credit_count || p.credit_count <= 0);
-            if (filter === '횟수권') return p.type === 'credit' || (p.credit_count && p.credit_count > 0);
+            if (filter === '기간제') return p.type === 'period' || (!p.credits || p.credits <= 0);
+            if (filter === '횟수권') return p.type === 'credit' || (p.credits && p.credits > 0);
             return true;
         });
 
@@ -77,36 +79,44 @@ export default function UserPurchasePage() {
         const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            alert('로그인이 필요합니다.');
+            toast.warning('로그인이 필요합니다.');
             setPurchasing(false);
             return;
         }
 
+        // transactions 테이블은 member_id → members.id FK이므로 먼저 member 조회
+        const { data: memberData }: any = await supabase
+            .from('members')
+            .select('id')
+            .eq('user_id', user.id)
+            .single();
+
         const { error }: any = await supabase.from('transactions').insert({
-            member_id: user.id,
+            id: crypto.randomUUID(),
+            member_id: memberData?.id || user.id,
             amount: selectedPlan.price,
-            payment_status: 'pending',
+            status: 'pending',
             category: 'membership',
-            description: `${selectedPlan.name} 구매`,
+            date: new Date().toISOString().split('T')[0],
         });
 
         if (error) {
-            alert('결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
+            toast.error('결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
         } else {
             const startDate = new Date();
             const endDate = new Date();
             endDate.setDate(endDate.getDate() + selectedPlan.duration_days);
 
             await supabase.from('memberships').insert({
-                member_id: user.id,
+                user_id: user.id,
                 plan_id: selectedPlan.id,
                 start_date: startDate.toISOString().split('T')[0],
                 end_date: endDate.toISOString().split('T')[0],
-                remaining_credits: selectedPlan.credit_count || 0,
+                remaining_credits: selectedPlan.credits || 0,
                 status: 'active',
             });
 
-            alert('🎉 멤버십 구매가 완료되었습니다!\n소중한 회원이 되어주셔서 감사합니다.');
+            toast.success('🎉 멤버십 구매가 완료되었습니다!');
             setSelectedPlan(null);
         }
         setPurchasing(false);
@@ -213,8 +223,8 @@ export default function UserPurchasePage() {
                                 <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem' }}>
                                     {[
                                         { label: '기간', value: getDuration(plan.duration_days) },
-                                        { label: '크레딧', value: plan.credit_count > 0 ? `${plan.credit_count}회` : '무제한' },
-                                        { label: '회당', value: `₩${formatPrice(plan.credit_count > 0 ? Math.round(plan.price / plan.credit_count) : Math.round(plan.price / (plan.duration_days / 30 * 20)))}` },
+                                        { label: '크레딧', value: plan.credits > 0 ? `${plan.credits}회` : '무제한' },
+                                        { label: '회당', value: `₩${formatPrice(plan.credits > 0 ? Math.round(plan.price / plan.credits) : Math.round(plan.price / (plan.duration_days / 30 * 20)))}` },
                                     ].map((stat, i) => (
                                         <div key={i} style={{
                                             padding: '0.5rem 0.75rem',

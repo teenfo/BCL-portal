@@ -7,9 +7,9 @@ import Link from 'next/link';
 interface Transaction {
     id: string;
     amount: number;
-    payment_status: string;
+    status: string;
     category: string;
-    description: string;
+    date: string;
     created_at: string;
 }
 
@@ -23,13 +23,22 @@ export default function PaymentsPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) { setLoading(false); return; }
 
-            const { data }: any = await supabase
-                .from('transactions')
-                .select('*')
-                .eq('member_id', user.id)
-                .order('created_at', { ascending: false });
+            // transactions는 member_id → members.id FK이므로 먼저 member 조회
+            const { data: memberData }: any = await supabase
+                .from('members')
+                .select('id')
+                .eq('user_id', user.id)
+                .single();
 
-            if (data) setTransactions(data as any);
+            if (memberData) {
+                const { data }: any = await supabase
+                    .from('transactions')
+                    .select('*')
+                    .eq('member_id', memberData.id)
+                    .order('created_at', { ascending: false });
+
+                if (data) setTransactions(data as any);
+            }
             setLoading(false);
         })();
     }, []);
@@ -70,17 +79,17 @@ export default function PaymentsPage() {
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {transactions.map(t => {
-                        const badge = statusBadge(t.payment_status);
+                        const badge = statusBadge(t.status);
                         return (
                             <div key={t.id} className="app-glass-card-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 <span style={{ fontSize: '1.5rem' }}>{categoryIcon(t.category)}</span>
                                 <div style={{ flex: 1 }}>
-                                    <div style={{ color: '#fff', fontWeight: 600, fontSize: '0.9375rem' }}>{t.description || t.category}</div>
-                                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>{new Date(t.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                                    <div style={{ color: 'var(--app-text-primary)', fontWeight: 600, fontSize: '0.9375rem' }}>{t.category || '결제'}</div>
+                                    <div style={{ color: 'var(--app-text-secondary)', fontSize: '0.75rem' }}>{new Date(t.date || t.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>
-                                    <div style={{ color: t.payment_status === 'refunded' ? '#f87171' : '#fff', fontWeight: 700, fontSize: '0.9375rem' }}>
-                                        {t.payment_status === 'refunded' ? '-' : ''}₩{formatPrice(t.amount)}
+                                    <div style={{ color: t.status === 'refunded' ? '#f87171' : 'var(--app-text-primary)', fontWeight: 700, fontSize: '0.9375rem' }}>
+                                        {t.status === 'refunded' ? '-' : ''}₩{formatPrice(t.amount)}
                                     </div>
                                     <span style={{ padding: '0.0625rem 0.375rem', borderRadius: 9999, fontSize: '0.625rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
                                         {badge.label}

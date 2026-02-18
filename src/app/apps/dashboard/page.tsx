@@ -78,8 +78,8 @@ export default function UserDashboardPage() {
 
                 const { data: membershipData }: any = await supabase
                     .from('memberships')
-                    .select('*, membership_plans(name, credit_count)')
-                    .eq('member_id', user.id)
+                    .select('*, membership_plans(name, credits)')
+                    .eq('user_id', user.id)
                     .eq('status', 'active')
                     .order('end_date', { ascending: false })
                     .limit(1)
@@ -90,7 +90,7 @@ export default function UserDashboardPage() {
                         plan_name: membershipData.membership_plans?.name || '이용권',
                         end_date: membershipData.end_date,
                         remaining_credits: membershipData.remaining_credits || 0,
-                        total_credits: membershipData.membership_plans?.credit_count || 30,
+                        total_credits: membershipData.membership_plans?.credits || 30,
                         status: membershipData.status,
                     });
                 }

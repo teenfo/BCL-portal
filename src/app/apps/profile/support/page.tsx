@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 
 interface Ticket {
     id: string;
     subject: string;
-    message: string;
+    content: string | null;
     status: string;
-    priority: string;
-    admin_response?: string;
     created_at: string;
 }
 
@@ -21,6 +20,7 @@ export default function SupportPage() {
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const toast = useToast();
     const [expandedId, setExpandedId] = useState<string | null>(null);
 
     useEffect(() => { loadTickets(); }, []);
@@ -32,7 +32,7 @@ export default function SupportPage() {
         const { data }: any = await supabase
             .from('support_tickets')
             .select('*')
-            .eq('member_id', user.id)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
         if (data) setTickets(data as any);
         setLoading(false);
@@ -46,17 +46,16 @@ export default function SupportPage() {
         if (!user) { setSubmitting(false); return; }
 
         const { error }: any = await supabase.from('support_tickets').insert({
-            member_id: user.id,
+            user_id: user.id,
             subject: subject.trim(),
-            message: message.trim(),
+            content: message.trim(),
             status: 'open',
-            priority: 'medium',
         });
 
         if (error) {
-            alert('문의 등록에 실패했습니다.');
+            toast.error('문의 등록에 실패했습니다.');
         } else {
-            alert('✅ 문의가 등록되었습니다. 빠른 시일 내 답변드리겠습니다.');
+            toast.success('문의가 등록되었습니다. 빠른 시일 내 답변드리겠습니다.');
             setSubject(''); setMessage(''); setShowForm(false);
             loadTickets();
         }
@@ -132,13 +131,8 @@ export default function SupportPage() {
                                 </div>
                                 {expanded && (
                                     <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.8125rem', lineHeight: 1.6 }}>{t.message}</p>
-                                        {t.admin_response && (
-                                            <div style={{ marginTop: '0.75rem', padding: '0.75rem', borderRadius: 8, background: 'rgba(255,107,0,0.05)', border: '1px solid rgba(255,107,0,0.1)' }}>
-                                                <p style={{ fontSize: '0.6875rem', color: 'var(--primary)', fontWeight: 600, marginBottom: '0.25rem' }}>답변</p>
-                                                <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t.admin_response}</p>
-                                            </div>
-                                        )}
+                                        <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.8125rem', lineHeight: 1.6 }}>{t.content}</p>
+
                                     </div>
                                 )}
                             </div>

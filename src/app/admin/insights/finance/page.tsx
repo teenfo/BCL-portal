@@ -76,31 +76,13 @@ export default function FinanceReportPage() {
                 setGrowthRate(prev > 0 ? ((last - prev) / prev) * 100 : 0);
             }
         } else {
-            // Mock data
-            const mockMonthly: MonthlyRevenue[] = [];
-            for (let i = months - 1; i >= 0; i--) {
-                const d = new Date();
-                d.setMonth(d.getMonth() - i);
-                const base = 120000000 + Math.random() * 40000000;
-                mockMonthly.push({
-                    month: d.toISOString().substring(0, 7),
-                    revenue: Math.round(base),
-                    refund: Math.round(base * 0.03 + Math.random() * 2000000),
-                });
-            }
-            setMonthlyData(mockMonthly);
-            setCategoryData([
-                { category: 'membership', amount: 85000000 },
-                { category: 'pt', amount: 32000000 },
-                { category: 'goods', amount: 8500000 },
-                { category: 'locker', amount: 5200000 },
-                { category: 'etc', amount: 2800000 },
-            ]);
-            const mockTotal = mockMonthly.reduce((s, m) => s + m.revenue, 0);
-            setTotalRevenue(mockTotal);
-            setTotalRefund(mockMonthly.reduce((s, m) => s + m.refund, 0));
-            setAvgMonthly(Math.round(mockTotal / months));
-            setGrowthRate(12.5);
+            // No data available - show empty state
+            setMonthlyData([]);
+            setCategoryData([]);
+            setTotalRevenue(0);
+            setTotalRefund(0);
+            setAvgMonthly(0);
+            setGrowthRate(0);
         }
 
         setLoading(false);

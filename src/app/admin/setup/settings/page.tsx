@@ -116,10 +116,11 @@ const GROUPS: SettingsGroup[] = [
         title: 'Supabase 연동',
         icon: <IconZap size={18} />,
         accentColor: '#10B981',
-        desc: '보안상 직접 .env 에서만 수정 가능',
+        desc: 'Supabase 연결 정보 확인 (환경은 .env.local에서 설정)',
         fields: [
-            { key: 'NEXT_PUBLIC_SUPABASE_URL', label: 'Supabase API URL', desc: 'API 엔드포인트 (읽기 전용)', type: 'text' },
-            { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', label: 'Anon Access Key', desc: '공개 접근 키 (읽기 전용)', type: 'text' },
+            { key: 'NEXT_PUBLIC_SUPABASE_ENV', label: '활성 환경', desc: '현재 연결된 환경 (.env.local에서 설정)', type: 'text' },
+            { key: 'NEXT_PUBLIC_SUPABASE_URL', label: 'Supabase API URL', desc: '현재 연결된 API 엔드포인트 (읽기 전용)', type: 'text' },
+            { key: 'NEXT_PUBLIC_SUPABASE_ANON_KEY', label: 'Anon Access Key', desc: '현재 연결된 공개 접근 키 (읽기 전용)', type: 'text' },
         ],
     },
 ];

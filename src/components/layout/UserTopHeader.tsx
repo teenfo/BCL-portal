@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-
 import { usePathname, useRouter } from 'next/navigation';
 import { useNotifications } from '@/hooks/useNotifications';
+import BclLogo from '@/components/icons/BclLogo';
 
 // Pages where logo is shown (main tabs)
 const MAIN_PAGES = ['/apps/dashboard', '/apps/schedule', '/apps/checkin', '/apps/facilities', '/apps/profile'];
@@ -43,13 +43,7 @@ export default function UserTopHeader() {
                         <span className="uth-branch-name">BCL Gangnam</span>
                     </div>
                     <div className="uth-center">
-                        <img
-                            src="/images/logo/bcl-logo.svg"
-                            alt="BCL Logo"
-                            width={32}
-                            height={32}
-                            className="uth-logo"
-                        />
+                        <BclLogo width={32} height={32} className="uth-logo" />
                     </div>
                     <div className="uth-right">
                         <Link href="/apps/notifications" className="uth-icon-btn" aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}>

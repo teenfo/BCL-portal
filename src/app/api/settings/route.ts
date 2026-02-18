@@ -32,9 +32,9 @@ const MANAGEABLE_KEYS = [
     'NEXT_PUBLIC_SITE_NAME',         // Site display name
     'NEXT_PUBLIC_SITE_DESCRIPTION',  // Site description
 
-    // Supabase (read-only display — prevent accidental edits)
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+    'SUPABASE_ENV',
 ];
 
 // Keys that should be read-only in the UI

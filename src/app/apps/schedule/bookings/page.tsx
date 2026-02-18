@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 
 interface Booking {
@@ -21,6 +22,7 @@ export default function MyBookingsPage() {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('upcoming');
     const [cancelling, setCancelling] = useState<string | null>(null);
+    const toast = useToast();
 
     useEffect(() => { loadBookings(); }, []);
 
@@ -32,7 +34,7 @@ export default function MyBookingsPage() {
         const { data } = await supabase
             .from('bookings')
             .select('*, sessions(title, session_date, start_time, end_time, coach_name)')
-            .eq('member_id', user.id)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
 
         if (data) {
@@ -64,9 +66,9 @@ export default function MyBookingsPage() {
             .eq('id', bookingId);
 
         if (error) {
-            alert('취소에 실패했습니다.');
+            toast.error('취소에 실패했습니다.');
         } else {
-            alert('예약이 취소되었습니다.');
+            toast.success('예약이 취소되었습니다.');
             loadBookings();
         }
         setCancelling(null);

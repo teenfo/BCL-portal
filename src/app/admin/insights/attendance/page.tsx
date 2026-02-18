@@ -74,22 +74,13 @@ export default function AttendancePage() {
             const peak = daily.reduce((max, d) => d.count > max.count ? d : max, { date: '', count: 0 });
             setPeakDay(peak);
         } else {
-            // Generate mock data if no real data
-            const mockDaily: DailyCheckin[] = [];
-            for (let i = days; i >= 0; i--) {
-                const d = new Date();
-                d.setDate(d.getDate() - i);
-                mockDaily.push({ date: d.toISOString().split('T')[0], count: Math.floor(Math.random() * 80) + 40 });
-            }
-            const mockHourly = Array.from({ length: 24 }, (_, h) => ({ hour: h, count: h >= 6 && h <= 21 ? Math.floor(Math.random() * 30) + (h >= 9 && h <= 11 || h >= 18 && h <= 20 ? 40 : 10) : Math.floor(Math.random() * 5) }));
-            const mockMethods = [{ method: 'qr', count: 420 }, { method: 'kiosk', count: 280 }, { method: 'manual', count: 85 }, { method: 'face', count: 150 }];
-
-            setDailyData(mockDaily);
-            setHourlyData(mockHourly);
-            setMethodData(mockMethods);
-            setTotalCheckins(935);
-            setAvgDaily(62);
-            setPeakDay({ date: mockDaily[5]?.date || '', count: 118 });
+            // No data available - show empty state
+            setDailyData([]);
+            setHourlyData(Array.from({ length: 24 }, (_, h) => ({ hour: h, count: 0 })));
+            setMethodData([]);
+            setTotalCheckins(0);
+            setAvgDaily(0);
+            setPeakDay({ date: '', count: 0 });
         }
 
         setLoading(false);

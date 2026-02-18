@@ -48,7 +48,7 @@ export default function LeaderboardPage() {
                 const { data: checkins }: any = await supabase
                     .from('checkins')
                     .select('member_id, members(name)')
-                    .gte('checkin_time', since.toISOString());
+                    .gte('time', since.toISOString());
 
                 if (checkins) {
                     const countMap: Record<string, { count: number; name: string }> = {};
@@ -73,23 +73,23 @@ export default function LeaderboardPage() {
                 }
             } else if (type === 'streak') {
                 // Calculate streak from checkins
-                const { data: members }: any = await supabase.from('members').select('user_id, name');
+                const { data: members }: any = await supabase.from('members').select('id, name');
                 const { data: checkins }: any = await supabase
                     .from('checkins')
-                    .select('member_id, checkin_time')
-                    .gte('checkin_time', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
-                    .order('checkin_time', { ascending: false });
+                    .select('member_id, time')
+                    .gte('time', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
+                    .order('time', { ascending: false });
 
                 if (members && checkins) {
                     const streakMap: Record<string, number> = {};
                     const memberNames: Record<string, string> = {};
-                    members.forEach((m: any) => { memberNames[m.user_id] = m.name; });
+                    members.forEach((m: any) => { memberNames[m.id] = m.name; });
 
                     // Group by member
                     const memberCheckins: Record<string, string[]> = {};
                     checkins.forEach((c: any) => {
                         if (!memberCheckins[c.member_id]) memberCheckins[c.member_id] = [];
-                        memberCheckins[c.member_id].push(c.checkin_time);
+                        memberCheckins[c.member_id].push(c.time);
                     });
 
                     Object.entries(memberCheckins).forEach(([memberId, times]) => {
@@ -122,8 +122,8 @@ export default function LeaderboardPage() {
                 // WOD records
                 const { data: wods }: any = await supabase
                     .from('session_feedback')
-                    .select('member_id, wod_result, members(name)')
-                    .not('wod_result', 'is', null)
+                    .select('member_id, rating, members(name)')
+                    .not('rating', 'is', null)
                     .order('created_at', { ascending: false })
                     .limit(50);
 

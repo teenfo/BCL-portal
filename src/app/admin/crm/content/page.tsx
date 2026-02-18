@@ -45,69 +45,6 @@ interface BannerForm {
     end_date: string;
 }
 
-function generateMockBanners(): Banner[] {
-    const now = new Date();
-    const in30 = new Date();
-    in30.setDate(in30.getDate() + 30);
-    const past = new Date();
-    past.setDate(past.getDate() - 5);
-
-    return [
-        {
-            id: 'bn-1',
-            title: '🎄 크리스마스 특별 프로모션',
-            description: '12월 한 달간 신규 등록 시 20% 할인',
-            image_url: '/images/banners/christmas.jpg',
-            link_url: '/apps/promotions/christmas',
-            position: 'home_top',
-            priority_order: 1,
-            is_active: true,
-            start_date: now.toISOString(),
-            end_date: in30.toISOString(),
-            created_at: past.toISOString(),
-        },
-        {
-            id: 'bn-2',
-            title: '🏋️ 신규 PT 프로그램 오픈',
-            description: '1:1 PT 프로그램으로 목표를 달성하세요',
-            image_url: '/images/banners/pt.jpg',
-            link_url: '/apps/schedule',
-            position: 'home_middle',
-            priority_order: 2,
-            is_active: true,
-            start_date: now.toISOString(),
-            end_date: in30.toISOString(),
-            created_at: past.toISOString(),
-        },
-        {
-            id: 'bn-3',
-            title: '⏰ 운영시간 변경 안내',
-            description: '1월부터 토요일 운영시간이 08:00~18:00으로 변경됩니다',
-            image_url: '/images/banners/notice.jpg',
-            link_url: '',
-            position: 'home_top',
-            priority_order: 3,
-            is_active: false,
-            start_date: past.toISOString(),
-            end_date: now.toISOString(),
-            created_at: past.toISOString(),
-        },
-        {
-            id: 'bn-4',
-            title: '🏆 월간 챌린지 참가자 모집',
-            description: '2월 로잉 챌린지에 도전해보세요',
-            image_url: '/images/banners/challenge.jpg',
-            link_url: '/apps/race',
-            position: 'home_bottom',
-            priority_order: 4,
-            is_active: true,
-            start_date: now.toISOString(),
-            end_date: in30.toISOString(),
-            created_at: past.toISOString(),
-        },
-    ];
-}
-
 const POSITION_CONFIG: Record<string, { label: string; color: string }> = {
     home_top: { label: '홈 상단', color: '#F59E0B' },
     home_middle: { label: '홈 중단', color: '#3B82F6' },
@@ -161,8 +98,9 @@ export default function ContentPage() {
             .select('*')
             .order('priority_order', { ascending: true });
 
-        if (error || !data || data.length === 0) {
-            setBanners(generateMockBanners());
+        if (error || !data) {
+            console.error('Failed to load banners:', error);
+            setBanners([]);
         } else {
             setBanners(data);
         }
@@ -265,7 +203,7 @@ export default function ContentPage() {
     async function toggleBannerActive(banner: Banner) {
         const supabase = createClient();
         await supabase.from('banners').update({ is_active: !banner.is_active }).eq('id', banner.id);
-        // Optimistic update for mock data
+        // Optimistic update
         setBanners(prev => prev.map(b => b.id === banner.id ? { ...b, is_active: !b.is_active } : b));
     }
 

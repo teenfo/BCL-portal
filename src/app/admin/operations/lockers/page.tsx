@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconLock, IconEdit, IconTrash, IconUser, IconSearch } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 // ─── Types ──────────────────────────────────────────────
 interface Locker {
@@ -52,6 +53,7 @@ function getDaysUntil(dateStr: string | null): number | null {
 export default function LockersPage() {
     const [lockers, setLockers] = useState<Locker[]>([]);
     const [loading, setLoading] = useState(true);
+    const toast = useToast();
     const [filter, setFilter] = useState<FilterStatus>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -154,7 +156,7 @@ export default function LockersPage() {
 
     async function saveLocker() {
         if (!lockerForm.locker_number.trim()) {
-            alert('락커 번호를 입력해주세요.');
+            toast.warning('락커 번호를 입력해주세요.');
             return;
         }
         const supabase = createClient();
@@ -223,7 +225,7 @@ export default function LockersPage() {
 
     async function assignLocker() {
         if (!assigningLocker || !assignForm.member_id || !assignForm.end_date) {
-            alert('회원과 종료일을 지정해주세요.');
+            toast.warning('회원과 종료일을 지정해주세요.');
             return;
         }
         const supabase = createClient();

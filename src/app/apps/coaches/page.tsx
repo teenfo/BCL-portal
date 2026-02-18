@@ -6,13 +6,10 @@ import { createClient } from '@/lib/supabase/client';
 interface Coach {
     id: string;
     name: string;
-    specialties: string[];
-    bio?: string;
-    experience_years?: number;
-    certifications?: string[];
-    profile_image_url?: string;
-    avg_rating?: number;
-    total_sessions?: number;
+    email: string;
+    specialty: string | null;
+    status: string | null;
+    joined_date: string | null;
 }
 
 export default function CoachesPage() {
@@ -24,26 +21,32 @@ export default function CoachesPage() {
 
     async function loadCoaches() {
         const supabase: any = createClient();
-        const { data: members }: any = await supabase
-            .from('members')
-            .select('*')
-            .eq('role', 'coach');
 
-        if (members) {
-            const enriched: Coach[] = members.map((m: any) => ({
-                id: m.user_id || m.id,
-                name: m.name || 'Coach',
-                specialties: m.specialties || ['CrossFit', 'Functional Training'],
-                bio: m.bio || '열정적인 코치입니다.',
-                experience_years: m.experience_years || 3,
-                certifications: m.certifications || ['CrossFit Level 1'],
-                profile_image_url: m.profile_image_url || null,
-                avg_rating: 4.5 + Math.random() * 0.5,
-                total_sessions: Math.floor(100 + Math.random() * 500),
-            }));
-            setCoaches(enriched);
+        // coaches 테이블에서 직접 조회 (active 상태인 코치만)
+        const { data, error }: any = await supabase
+            .from('coaches')
+            .select('*')
+            .eq('status', 'active')
+            .order('name', { ascending: true });
+
+        if (data && !error) {
+            setCoaches(data);
         }
         setLoading(false);
+    }
+
+    // specialty 문자열을 배열로 변환 (쉼표 구분)
+    function getSpecialties(coach: Coach): string[] {
+        if (!coach.specialty) return ['CrossFit'];
+        return coach.specialty.split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    // 코치 경력 년수 계산
+    function getExperienceYears(coach: Coach): number {
+        if (!coach.joined_date) return 1;
+        const joined = new Date(coach.joined_date);
+        const now = new Date();
+        return Math.max(1, Math.floor((now.getTime() - joined.getTime()) / (1000 * 60 * 60 * 24 * 365)));
     }
 
     if (loading) {
@@ -108,13 +111,11 @@ export default function CoachesPage() {
                                     {coach.name} 코치
                                 </h3>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: '0.75rem', color: 'var(--app-text-secondary)', marginBottom: '0.5rem' }}>
-                                    <span>⭐</span>
-                                    <span style={{ fontWeight: 600 }}>{coach.avg_rating?.toFixed(1)}</span>
-                                    <span>·</span>
-                                    <span>{coach.total_sessions}회 수업</span>
+                                    <span>💼</span>
+                                    <span>경력 {getExperienceYears(coach)}년</span>
                                 </div>
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
-                                    {coach.specialties.slice(0, 2).map((s, i) => (
+                                    {getSpecialties(coach).slice(0, 2).map((s, i) => (
                                         <span key={i} style={{
                                             padding: '0.125rem 0.375rem',
                                             borderRadius: 6,
@@ -176,29 +177,17 @@ export default function CoachesPage() {
                                 {selectedCoach.name} 코치
                             </h2>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: '0.5rem', color: 'var(--app-text-secondary)', fontSize: '0.875rem' }}>
-                                <span>⭐ {selectedCoach.avg_rating?.toFixed(1)}</span>
+                                <span>💼 경력 {getExperienceYears(selectedCoach)}년</span>
                                 <span>·</span>
-                                <span>경력 {selectedCoach.experience_years}년</span>
-                                <span>·</span>
-                                <span>{selectedCoach.total_sessions}회</span>
+                                <span>📧 {selectedCoach.email}</span>
                             </div>
                         </div>
-
-                        {/* Bio */}
-                        {selectedCoach.bio && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <div className="app-section-label">소개</div>
-                                <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem', lineHeight: 1.7 }}>
-                                    {selectedCoach.bio}
-                                </p>
-                            </div>
-                        )}
 
                         {/* Specialties */}
                         <div style={{ marginBottom: '1.5rem' }}>
                             <div className="app-section-label">전문 분야</div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                                {selectedCoach.specialties.map((s, i) => (
+                                {getSpecialties(selectedCoach).map((s, i) => (
                                     <span key={i} style={{
                                         padding: '0.375rem 0.75rem',
                                         borderRadius: 20,
@@ -213,20 +202,26 @@ export default function CoachesPage() {
                             </div>
                         </div>
 
-                        {/* Certifications */}
-                        {selectedCoach.certifications && selectedCoach.certifications.length > 0 && (
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <div className="app-section-label">자격증</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                                    {selectedCoach.certifications.map((c, i) => (
-                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--app-text-secondary)', fontSize: '0.8125rem' }}>
-                                            <span style={{ color: 'var(--app-success)' }}>✓</span>
-                                            {c}
-                                        </div>
-                                    ))}
+                        {/* Coach Info */}
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <div className="app-section-label">코치 정보</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                {selectedCoach.joined_date && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--app-text-secondary)', fontSize: '0.8125rem' }}>
+                                        <span style={{ color: 'var(--app-success)' }}>✓</span>
+                                        합류일: {new Date(selectedCoach.joined_date).toLocaleDateString('ko-KR')}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--app-text-secondary)', fontSize: '0.8125rem' }}>
+                                    <span style={{ color: 'var(--app-success)' }}>✓</span>
+                                    이메일: {selectedCoach.email}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--app-text-secondary)', fontSize: '0.8125rem' }}>
+                                    <span style={{ color: 'var(--app-success)' }}>✓</span>
+                                    상태: {selectedCoach.status === 'active' ? '활동중' : '비활동'}
                                 </div>
                             </div>
-                        )}
+                        </div>
 
                         <button onClick={() => setSelectedCoach(null)} className="app-btn-outline" style={{ width: '100%' }}>
                             닫기

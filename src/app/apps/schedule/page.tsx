@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 
 interface Session {
     id: string;
@@ -23,6 +24,7 @@ export default function UserSchedulePage() {
     const [loading, setLoading] = useState(true);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedFilter, setSelectedFilter] = useState('Filter');
+    const toast = useToast();
 
     const loadSessions = useCallback(async () => {
         const supabase = createClient();
@@ -66,24 +68,24 @@ export default function UserSchedulePage() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            alert('Please log in first.');
+            toast.warning('로그인이 필요합니다.');
             return;
         }
 
         const { error } = await supabase.from('bookings').insert({
             session_id: sessionId,
-            member_id: user.id,
+            user_id: user.id,
             status: 'confirmed',
         });
 
         if (error) {
             if (error.code === '23505') {
-                alert('You have already booked this class.');
+                toast.info('이미 예약된 수업입니다.');
             } else {
-                alert('Booking failed. Please try again.');
+                toast.error('예약에 실패했습니다. 다시 시도해주세요.');
             }
         } else {
-            alert('Booking confirmed! ✅');
+            toast.success('예약이 완료되었습니다! ✅');
             loadSessions();
         }
     }

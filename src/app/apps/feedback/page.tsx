@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { useToast } from '@/components/ui/Toast';
 
 interface FeedbackRecord {
     id: string;
@@ -25,6 +26,7 @@ export default function UserFeedbackPage() {
     const [comments, setComments] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const toast = useToast();
 
     useEffect(() => { loadData(); }, []);
 
@@ -36,7 +38,7 @@ export default function UserFeedbackPage() {
         const { data: bookings }: any = await supabase
             .from('bookings')
             .select('id, session_id, sessions(title, start_time, coach_name)')
-            .eq('member_id', user.id)
+            .eq('user_id', user.id)
             .in('status', ['completed', 'confirmed'])
             .order('created_at', { ascending: false })
             .limit(20);
@@ -73,17 +75,17 @@ export default function UserFeedbackPage() {
         setSubmitting(true);
         const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { alert('로그인이 필요합니다.'); setSubmitting(false); return; }
+        if (!user) { toast.warning('로그인이 필요합니다.'); setSubmitting(false); return; }
 
         const { error }: any = await supabase.from('session_feedback').insert({
             session_id: selectedSession, member_id: user.id,
-            rating, coach_rating: coachRating || null, comments: comments.trim() || null,
+            rating, comment: comments.trim() || null,
         });
 
         if (error) {
-            alert(error.code === '23505' ? '이미 해당 수업에 피드백을 작성했습니다.' : '제출 실패. 다시 시도해주세요.');
+            toast.error(error.code === '23505' ? '이미 해당 수업에 피드백을 작성했습니다.' : '제출 실패. 다시 시도해주세요.');
         } else {
-            alert('✅ 피드백이 제출되었습니다!');
+            toast.success('피드백이 제출되었습니다!');
             setSelectedSession(''); setRating(0); setCoachRating(0); setComments('');
             loadData();
         }

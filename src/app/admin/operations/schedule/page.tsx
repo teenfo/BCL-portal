@@ -40,55 +40,6 @@ const INTENSITY_CONFIG: Record<string, { color: string; label: string }> = {
     advanced: { color: '#EF4444', label: 'Advanced' },
 };
 
-function generateMockSessions(weekStart: Date): Session[] {
-    const names = [
-        'CrossFit WOD', 'Olympic Lifting', 'Gymnastics', 'Endurance',
-        'HIIT Blast', 'Mobility Flow', 'Open Gym', 'Rowing Clinic',
-        'Strongman', 'Barbell Club', 'Core & Conditioning', 'Stretch & Recover'
-    ];
-    const coaches = [
-        { id: 'c1', name: 'Coach Kim' },
-        { id: 'c2', name: 'Coach Park' },
-        { id: 'c3', name: 'Coach Lee' },
-        { id: 'c4', name: 'Coach Choi' },
-    ];
-    const intensities = ['beginner', 'intermediate', 'advanced'];
-    const sessions: Session[] = [];
-
-    for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-        const date = new Date(weekStart);
-        date.setDate(date.getDate() + dayOffset);
-        const dayOfWeek = date.getDay();
-
-        // 일요일에는 적은 수업, 토요일/평일에는 다양한 시간대
-        const slotCount = dayOfWeek === 0 ? 2 : dayOfWeek === 6 ? 4 : 5;
-        const startHours = dayOfWeek === 0 ? [9, 11] : dayOfWeek === 6
-            ? [8, 10, 14, 16]
-            : [6, 7, 9, 17, 19];
-
-        for (let s = 0; s < slotCount; s++) {
-            const hour = startHours[s];
-            const coach = coaches[Math.floor(Math.random() * coaches.length)];
-            const cap = [12, 15, 20, 25][Math.floor(Math.random() * 4)];
-            const booked = Math.floor(Math.random() * (cap + 1));
-
-            sessions.push({
-                id: `mock-${dayOffset}-${s}`,
-                title: names[Math.floor(Math.random() * names.length)],
-                coach_name: coach.name,
-                coach_id: coach.id,
-                start_time: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, 0).toISOString(),
-                end_time: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour + 1, 0).toISOString(),
-                capacity: cap,
-                current_bookings: booked,
-                intensity_level: intensities[Math.floor(Math.random() * 3)],
-                status: 'scheduled',
-            });
-        }
-    }
-    return sessions;
-}
-
 function getWeekStart(date: Date): Date {
     const d = new Date(date);
     const day = d.getDay();
@@ -150,29 +101,53 @@ export default function SchedulePage() {
         const rangeEnd = new Date(weekStart);
         rangeEnd.setDate(rangeEnd.getDate() + 7);
 
-        const { data, error } = await supabase
-            .from('sessions')
-            .select('*')
-            .gte('start_time', rangeStart.toISOString())
-            .lte('start_time', rangeEnd.toISOString())
-            .order('start_time', { ascending: true });
+        try {
+            // Fetch sessions with coach name via join
+            const { data, error } = await supabase
+                .from('sessions')
+                .select('*, coaches(full_name)')
+                .gte('start_time', rangeStart.toISOString())
+                .lte('start_time', rangeEnd.toISOString())
+                .order('start_time', { ascending: true });
 
-        if (error || !data || data.length === 0) {
-            setSessions(generateMockSessions(weekStart));
-        } else {
-            setSessions(data.map((s: Record<string, unknown>) => ({
-                id: s.id as string,
-                title: (s.title as string) || '',
-                coach_name: 'Coach',
-                coach_id: (s.coach_id as string) || '',
-                start_time: s.start_time as string,
-                end_time: s.end_time as string,
-                capacity: (s.capacity as number) || 15,
-                current_bookings: 0,
-                intensity_level: (s.intensity_level as string) || 'intermediate',
-                status: (s.status as string) || 'scheduled',
-                wod_description: (s.wod_description as string) || '',
-            })));
+            if (error) {
+                console.error('Failed to load sessions:', error);
+                setSessions([]);
+            } else if (!data || data.length === 0) {
+                setSessions([]);
+            } else {
+                // Count bookings per session
+                const sessionIds = data.map((s: any) => s.id);
+                const { data: bookings } = await supabase
+                    .from('bookings')
+                    .select('session_id')
+                    .in('session_id', sessionIds)
+                    .eq('status', 'confirmed');
+
+                const bookingCounts: Record<string, number> = {};
+                if (bookings) {
+                    bookings.forEach((b: any) => {
+                        bookingCounts[b.session_id] = (bookingCounts[b.session_id] || 0) + 1;
+                    });
+                }
+
+                setSessions(data.map((s: any) => ({
+                    id: s.id,
+                    title: s.title || '',
+                    coach_name: s.coaches?.full_name || '미배정',
+                    coach_id: s.coach_id || '',
+                    start_time: s.start_time,
+                    end_time: s.end_time,
+                    capacity: s.capacity || 15,
+                    current_bookings: bookingCounts[s.id] || 0,
+                    intensity_level: s.intensity_level || 'intermediate',
+                    status: s.status || 'scheduled',
+                    wod_description: s.wod_description || '',
+                })));
+            }
+        } catch (err) {
+            console.error('Failed to load sessions:', err);
+            setSessions([]);
         }
         setLoading(false);
     }, [weekStart]);

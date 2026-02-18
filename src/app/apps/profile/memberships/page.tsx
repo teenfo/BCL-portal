@@ -27,7 +27,7 @@ export default function MembershipsPage() {
             const { data } = await supabase
                 .from('memberships')
                 .select('*, membership_plans(name, type)')
-                .eq('member_id', user.id)
+                .eq('user_id', user.id)
                 .order('start_date', { ascending: false });
 
             if (data) {
