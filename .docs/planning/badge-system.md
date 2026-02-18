@@ -162,20 +162,29 @@ To-Be 아키텍처:
                          └── 기록 등록 시         │   계산
                                                  └── 배지 수여
 
-  📊 진행도 계산 전략:
-  ┌──────────────────────────────────────────────────────────┐
-  │ metric_type → 계산 함수 매핑 (DB Function)                │
-  │                                                          │
-  │ 'total_checkins' → COUNT(*) FROM checkins                │
-  │ 'week_checkins'  → COUNT(*) WHERE last 7 days            │
-  │ 'month_checkins' → COUNT(*) WHERE this month             │
-  │ 'streak_days'    → fn_calculate_streak()                 │
-  │ 'total_feedbacks'→ COUNT(*) FROM session_feedback         │
-  │ 'member_days'    → EXTRACT(DAY FROM now()-created_at)    │
-  │ 'total_bookings' → COUNT(*) FROM bookings WHERE confirmed│
-  │ 'total_wods'     → COUNT(*) FROM wod_records (미래)      │
-  │ 'total_prs'      → COUNT(*) FROM pr_records (미래)       │
-  └──────────────────────────────────────────────────────────┘
+  📊 진행도 계산 전략 (11개 metric_type):
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ metric_type → 계산 함수 매핑 (DB Function)                        │
+  │                                                                  │
+  │ ── 출석 관련 ──                                                   │
+  │ 'total_checkins'            → COUNT(*) FROM checkins             │
+  │ 'week_checkins'             → COUNT(*) WHERE last 7 days         │
+  │ 'month_checkins'            → COUNT(*) WHERE this month          │
+  │ 'streak_days'               → fn_calculate_streak()              │
+  │                                                                  │
+  │ ── 성과 관련 ──                                                   │
+  │ 'total_feedbacks'           → COUNT(*) FROM session_feedback      │
+  │ 'total_prs'                 → COUNT(*) FROM race_records.is_pr    │
+  │ 'total_race_participations' → COUNT(*) FROM race_records          │
+  │ 'total_race_wins'           → COUNT(*) FROM race_records.rank=1   │
+  │                                                                  │
+  │ ── 활동 관련 ──                                                   │
+  │ 'total_bookings'            → COUNT(*) FROM bookings confirmed   │
+  │ 'total_purchases'           → COUNT(*) FROM transactions completed│
+  │                                                                  │
+  │ ── 시간 관련 ──                                                   │
+  │ 'member_days'               → EXTRACT(DAY FROM now()-created_at) │
+  └──────────────────────────────────────────────────────────────────┘
 ```
 
 ### 3.2 설계 원칙
@@ -232,8 +241,9 @@ CREATE TABLE public.badge_definitions (
                         'total_checkins', 'week_checkins', 'month_checkins',
                         'streak_days',
                         'total_feedbacks',
+                        'total_prs', 'total_race_participations', 'total_race_wins',
                         'member_days',
-                        'total_bookings'
+                        'total_bookings', 'total_purchases'
                     )),
     threshold       INTEGER NOT NULL DEFAULT 1 CHECK (threshold > 0),
     is_active       BOOLEAN NOT NULL DEFAULT true,
@@ -280,26 +290,32 @@ CREATE TRIGGER set_badge_definitions_updated_at
 ### 4.2 초기 데이터 (기존 하드코딩 → DB 마이그레이션)
 
 ```sql
--- 기존 BADGE_DEFINITIONS 15개를 DB로 마이그레이션
+-- 기존 15개 + 신규 8개 = 총 23개 배지를 DB로 마이그레이션
 INSERT INTO public.badge_definitions (name, description, icon, category, metric_type, threshold, sort_order) VALUES
--- attendance (출석)
+-- attendance (출석) — 6개
 ('첫 발걸음', '첫 체크인을 완료하세요', '🎯', 'attendance', 'total_checkins', 1, 10),
 ('주간 전사', '일주일에 5회 출석', '⚡', 'attendance', 'week_checkins', 5, 20),
 ('월간 마스터', '한 달에 20회 출석', '🔥', 'attendance', 'month_checkins', 20, 30),
 ('7일 연속', '7일 연속 출석', '💫', 'attendance', 'streak_days', 7, 40),
 ('30일 연속', '30일 연속 출석', '🌟', 'attendance', 'streak_days', 30, 50),
 ('100회 출석', '총 100회 출석 달성', '💯', 'attendance', 'total_checkins', 100, 60),
--- performance (성과) — 기존 buggy 로직은 total_feedbacks로 대체
-('첫 WOD', '첫 WOD 기록 완료', '🏋️', 'performance', 'total_feedbacks', 1, 110),
-('PR 헌터', 'PR 5회 달성', '🏆', 'performance', 'total_feedbacks', 5, 120),
-('WOD 마스터', 'WOD 50회 기록', '💪', 'performance', 'total_feedbacks', 50, 130),
--- community (커뮤니티)
+-- performance (성과) — 7개 (기존 buggy 3개 수정 + 신규 4개)
+('첫 레이스', '첫 레이스에 참가하세요', '🚣', 'performance', 'total_race_participations', 1, 110),
+('레이스 10회', '레이스 10회 참가', '🏁', 'performance', 'total_race_participations', 10, 115),
+('첫 우승', '레이스에서 첫 1위 달성', '🥇', 'performance', 'total_race_wins', 1, 120),
+('챔피언', '레이스 우승 5회', '🏆', 'performance', 'total_race_wins', 5, 125),
+('PR 헌터', 'PR 5회 달성', '💪', 'performance', 'total_prs', 5, 130),
+('PR 마스터', 'PR 20회 달성', '🔱', 'performance', 'total_prs', 20, 135),
+('50회 예약', '수업 50회 예약 확정', '📅', 'performance', 'total_bookings', 50, 140),
+-- community (커뮤니티) — 2개
 ('첫 피드백', '첫 수업 피드백 작성', '📝', 'community', 'total_feedbacks', 1, 210),
 ('리뷰 스타', '피드백 10개 작성', '⭐', 'community', 'total_feedbacks', 10, 220),
--- milestone (마일스톤)
+-- milestone (마일스톤) — 8개 (기존 3개 + 신규 5개)
 ('1개월 회원', '가입 후 1개월', '🎖️', 'milestone', 'member_days', 30, 310),
 ('6개월 회원', '가입 후 6개월', '🏅', 'milestone', 'member_days', 180, 320),
-('1년 회원', '가입 후 1년', '👑', 'milestone', 'member_days', 365, 330);
+('1년 회원', '가입 후 1년', '👑', 'milestone', 'member_days', 365, 330),
+('첫 결제', '첫 멤버십 결제 완료', '💳', 'milestone', 'total_purchases', 1, 340),
+('VIP 회원', '멤버십 5회 갱신', '💎', 'milestone', 'total_purchases', 5, 350);
 ```
 
 ### 4.3 RLS 정책
@@ -465,6 +481,25 @@ BEGIN
             FROM public.bookings
             WHERE member_id = p_member_id AND status = 'confirmed';
 
+        WHEN 'total_race_participations' THEN
+            SELECT COUNT(*) INTO v_progress
+            FROM public.race_records WHERE member_id = p_member_id;
+
+        WHEN 'total_race_wins' THEN
+            SELECT COUNT(*) INTO v_progress
+            FROM public.race_records
+            WHERE member_id = p_member_id AND rank = 1;
+
+        WHEN 'total_prs' THEN
+            SELECT COUNT(*) INTO v_progress
+            FROM public.race_records
+            WHERE member_id = p_member_id AND is_pr = true;
+
+        WHEN 'total_purchases' THEN
+            SELECT COUNT(*) INTO v_progress
+            FROM public.transactions
+            WHERE member_id = p_member_id AND status = 'completed';
+
         ELSE
             v_progress := 0;
     END CASE;
@@ -549,6 +584,47 @@ CREATE TRIGGER trg_check_badges_on_feedback
     AFTER INSERT ON public.session_feedback
     FOR EACH ROW
     EXECUTE FUNCTION public.fn_check_badges_on_feedback();
+
+-- ==========================================
+-- 레이스 기록 트리거
+-- ==========================================
+CREATE OR REPLACE FUNCTION public.fn_check_badges_on_race()
+RETURNS TRIGGER AS $$
+BEGIN
+    PERFORM public.fn_evaluate_badges(
+        NEW.member_id,
+        ARRAY['total_race_participations', 'total_race_wins', 'total_prs']
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_check_badges_on_race
+    AFTER INSERT ON public.race_records
+    FOR EACH ROW
+    EXECUTE FUNCTION public.fn_check_badges_on_race();
+
+-- ==========================================
+-- 결제 완료 트리거
+-- ==========================================
+CREATE OR REPLACE FUNCTION public.fn_check_badges_on_purchase()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 결제 완료(status='completed')일 때만
+    IF NEW.status = 'completed' AND (OLD IS NULL OR OLD.status != 'completed') THEN
+        PERFORM public.fn_evaluate_badges(
+            NEW.member_id,
+            ARRAY['total_purchases']
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trg_check_badges_on_purchase
+    AFTER INSERT OR UPDATE ON public.transactions
+    FOR EACH ROW
+    EXECUTE FUNCTION public.fn_check_badges_on_purchase();
 
 -- ==========================================
 -- pg_cron: 시간 기반 배지 (매일 09:00 KST)
@@ -709,15 +785,23 @@ Admin 배지 관리 화면 레이아웃:
   │        [취소]            [저장]               │
   └──────────────────────────────────────────────┘
 
-  측정 기준 드롭다운 옵션:
+  측정 기준 드롭다운 옵션 (11개):
   ┌──────────────────────────────┐
+  │ ── 출석 ──                   │
   │ 전체 체크인 횟수              │ → total_checkins
   │ 주간 체크인 횟수              │ → week_checkins
   │ 월간 체크인 횟수              │ → month_checkins
   │ 연속 출석 일수               │ → streak_days
+  │ ── 성과 ──                   │
   │ 피드백 작성 횟수              │ → total_feedbacks
-  │ 가입 후 경과일               │ → member_days
+  │ 레이스 참가 횟수              │ → total_race_participations
+  │ 레이스 우승 횟수              │ → total_race_wins
+  │ PR 달성 횟수                 │ → total_prs
+  │ ── 활동 ──                   │
   │ 확정 예약 횟수               │ → total_bookings
+  │ 결제 완료 횟수               │ → total_purchases
+  │ ── 시간 ──                   │
+  │ 가입 후 경과일               │ → member_days
   └──────────────────────────────┘
 ```
 
@@ -741,7 +825,7 @@ Admin 배지 관리 화면 레이아웃:
 | DB: `badge_definitions` | 신규 테이블 | ✅ (🆕) |
 | DB: `badge_awards` | 신규 테이블 | ✅ (🆕) |
 | DB: RPC 함수 3개 | fn_calculate_badge_progress, fn_evaluate_badges, fn_get_my_badges | ✅ (🆕) |
-| DB: Trigger 2개 | checkins AFTER INSERT, session_feedback AFTER INSERT | ✅ (🆕) |
+| DB: Trigger 4개 | checkins, session_feedback, race_records, transactions | ✅ (🆕) |
 | `.docs/sitemap/user-app.md` | 배지 화면 설명 갱신 | ✅ |
 | `.docs/sitemap/admin/03-operations.md` | 배지 관리 항목 추가 | ✅ |
 | `.docs/database-reference.md` | badge_definitions, badge_awards 추가 | ✅ |
@@ -772,10 +856,10 @@ Admin 배지 관리 화면 레이아웃:
 | # | 작업 | 상세 |
 |---|------|------|
 | 1-1 | 테이블 생성 마이그레이션 | `badge_definitions`, `badge_awards` |
-| 1-2 | RLS 정책 적용 | 5개 정책 (definitions: 3+2, awards: 2+1) |
-| 1-3 | RPC 함수 생성 | `fn_calculate_badge_progress`, `fn_evaluate_badges`, `fn_get_my_badges` |
-| 1-4 | Trigger 생성 | `trg_check_badges_on_checkin`, `trg_check_badges_on_feedback` |
-| 1-5 | 초기 데이터 INSERT | 기존 15개 배지 정의 마이그레이션 |
+| 1-2 | RLS 정책 적용 | 8개 정책 (definitions: 5, awards: 3) |
+| 1-3 | RPC 함수 생성 | `fn_calculate_badge_progress` (11 metric), `fn_evaluate_badges`, `fn_get_my_badges` |
+| 1-4 | Trigger 생성 | checkins, session_feedback, race_records, transactions (4개) |
+| 1-5 | 초기 데이터 INSERT | 총 23개 배지 정의 (기존 15개 재구성 + 신규 8개) |
 | 1-6 | pg_cron 설정 | milestone 배지 (매일 09:00 KST) |
 
 ### Phase 2: Admin 배지 관리 화면
@@ -818,10 +902,10 @@ Admin 배지 관리 화면 레이아웃:
 ```markdown
 - [ ] Phase 1: DB 스키마 + RPC + Trigger → 💎 **Senior Dev (Opus)**
   - [ ] badge_definitions, badge_awards 테이블 생성
-  - [ ] RLS 정책 적용 (5개)
-  - [ ] fn_calculate_badge_progress, fn_evaluate_badges, fn_get_my_badges 생성
-  - [ ] trg_check_badges_on_checkin, trg_check_badges_on_feedback 생성
-  - [ ] 기존 15개 배지 초기 데이터 INSERT
+  - [ ] RLS 정책 적용 (8개)
+  - [ ] fn_calculate_badge_progress (11 metric_type), fn_evaluate_badges, fn_get_my_badges 생성
+  - [ ] Trigger 4개 생성 (checkins, session_feedback, race_records, transactions)
+  - [ ] 총 23개 배지 초기 데이터 INSERT
 - [ ] Phase 2: Admin 배지 관리 화면 → 🎨 **UI Developer (Gemini)**
   - [ ] /admin/operations/badges CRUD 화면
   - [ ] BadgeFormModal (추가/수정)
@@ -839,15 +923,18 @@ Admin 배지 관리 화면 레이아웃:
 
 ### 정상 흐름
 1. **Admin 배지 등록**: Admin → 배지 관리 → "+ 배지 추가" → 이름: "200회 출석", 카테고리: 출석, 측정: 전체 체크인, 목표: 200 → 저장 → 목록에 표시
-2. **User 배지 조회**: User → 배지 탭 → DB에서 활성 배지 목록 조회 → 진행도 표시 → 달성된 배지에 ✅ 표시
-3. **자동 달성**: 회원이 체크인 → Trigger 발동 → `fn_evaluate_badges` → threshold 충족 → `badge_awards` INSERT → 다음 배지 화면 진입 시 즉시 반영
-4. **마일스톤 자동**: 가입 30일 경과 → pg_cron 배치 → "1개월 회원" 배지 자동 수여
-5. **배지 비활성화**: Admin → 배지 토글 OFF → User에게 미노출 (기존 달성 기록은 보존)
+2. **User 배지 조회**: User → 배지 탭 → DB에서 활성 배지 23개 조회 → 진행도 표시 → 달성된 배지에 ✅ 표시
+3. **체크인 자동 달성**: 회원이 체크인 → Trigger 발동 → `fn_evaluate_badges` → threshold 충족 → `badge_awards` INSERT → 다음 배지 화면 진입 시 즉시 반영
+4. **레이스 자동 달성**: 레이스 결과 기록 → `trg_check_badges_on_race` → 참가/우승/PR 배지 자동 수여
+5. **결제 자동 달성**: 멤버십 결제 완료(status=completed) → `trg_check_badges_on_purchase` → "첫 결제"/"VIP" 배지 수여
+6. **마일스톤 자동**: 가입 30일 경과 → pg_cron 배치 → "1개월 회원" 배지 자동 수여
+7. **배지 비활성화**: Admin → 배지 토글 OFF → User에게 미노출 (기존 달성 기록은 보존)
 
 ### 예외 흐름
 1. **중복 수여 방지**: 이미 달성한 배지 → Trigger가 NOT EXISTS로 스킵 → INSERT 시도 없음
 2. **배지 삭제 시**: Admin이 배지 삭제 → `badge_awards` CASCADE 삭제 → 경고 확인 필수
 3. **미인증 접근**: 비로그인 상태에서 배지 페이지 → "로그인이 필요합니다" Empty State
+4. **race_records 미존재 시**: Trigger 설치 실패 → 마이그레이션에서 IF EXISTS 체크 후 스킵
 
 ---
 
@@ -856,10 +943,11 @@ Admin 배지 관리 화면 레이아웃:
 | 리스크 | 영향 | 완화 방안 |
 |--------|------|----------|
 | streak 계산 성능 | 대량 체크인 시 CTE 쿼리 부하 | CURRENT_DATE 기준 최근 90일만 조회하도록 WHERE 제한 |
-| Trigger 부하 | 체크인마다 배지 판정 실행 | NOT EXISTS로 이미 달성 배지 스킵 + 미달성 배지만 계산 |
+| Trigger 부하 (4개) | 체크인/피드백/레이스/결제마다 배지 판정 실행 | NOT EXISTS로 이미 달성 배지 스킵 + 미달성 배지만 계산 |
 | pg_cron 미활성화 | milestone 배지 미수여 | User가 배지 화면 진입 시에도 fn_evaluate_badges 호출 (fallback) |
-| metric_type 확장 | WOD/PR 전용 테이블 미완성 | 현재는 total_feedbacks로 대체, 향후 wod_records 연동 시 metric_type 추가 |
-| 기존 배지 데이터 손실 | 마이그레이션 시 하드코딩→DB 전환 | 기존 15개 배지를 동일 구조로 INSERT, 기존 earned 상태는 `fn_evaluate_badges` 한 번 실행으로 소급 수여 |
+| race_records 테이블 의존 | Race 시스템 미구현 시 Trigger 설치 실패 | 마이그레이션에서 `IF EXISTS` 체크, 테이블 없으면 Trigger 스킵 |
+| transactions.member_id 참조 | transactions 테이블 구조 확인 필요 | member_id FK 존재 확인 후 Trigger 설치 |
+| 기존 배지 데이터 손실 | 마이그레이션 시 하드코딩→DB 전환 | 23개 배지로 재구성, 기존 earned 상태는 `fn_evaluate_badges` 한 번 실행으로 소급 수여 |
 | handle_updated_at 함수 미존재 | 마이그레이션 실패 | 기존 프로젝트에 이미 존재하는지 확인 필요 (없으면 함께 생성) |
 
 ---
@@ -879,6 +967,20 @@ Admin 배지 관리 화면 레이아웃:
   - 4 Phase, 총 예상 2.25일 공수
   - performance 카테고리 배지의 metric_type: 현재 WOD/PR 전용 테이블이 없으므로 total_feedbacks 임시 사용 → 향후 확장 대상
 
+### Session 2 — 2026-02-19 (metric_type 확장)
+- **작성 범위**: metric_type 4개 추가에 따른 전체 섹션 동기화
+- **변경 요약**:
+  - metric_type 7개 → **11개** 확장
+  - 추가: `total_race_participations`, `total_race_wins`, `total_prs`, `total_purchases`
+  - 데이터 소스: `race_records` (참가/우승/PR), `transactions` (결제)
+  - 초기 배지 15개 → **23개** 확장 (레이스 4개, PR 2개, 예약 1개, 결제 2개 추가)
+  - Trigger 2개 → **4개** 확장 (race_records, transactions 추가)
+  - performance 카테고리: total_feedbacks 임시 대체 제거 → 실제 metric 연결
+- **메모**:
+  - `race_records` 테이블이 DB에 존재 (is_pr, rank 컬럼 확인)
+  - `transactions` 테이블이 DB에 존재 (member_id, status 컬럼 확인)
+  - race_records Trigger는 Race 시스템 미구현 시 스킵 가능 (IF EXISTS 처리)
+
 ---
-**문서 버전**: 1.0.0
+**문서 버전**: 1.1.0
 **최종 업데이트**: 2026-02-19
