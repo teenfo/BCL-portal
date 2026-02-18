@@ -87,135 +87,25 @@
 > - ⚡ **Specialist (Gemini)** — 실시간 기능, 성능 최적화, 카메라/QR
 
 #### ✅ Priority 6: 코치 계정 아키텍처 강화 (완료)
-  > **기획서**: `.docs/archive/planning/coach-account-architecture.md`
-  > **문제**: 코치가 Admin에서 콘텐츠로만 등록되어 Auth 계정 없이 Coach App 로그인 불가
-  > **방안**: 기존 가입 회원을 코치로 승격 (수동 연결 방식)
+  > 기획서: `.docs/archive/planning/coach-account-architecture.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-  - [x] Phase 1: DB 스키마 변경 → 💎 **Senior Dev (Opus)**
-    - [x] coaches 테이블 확장 마이그레이션 (user_id, phone, specialties, bio, profile_image_url, linked_at, linked_by, UNIQUE)
-    - [x] promote_to_coach / demote_from_coach DB 함수 생성
-    - [x] RLS 정책 보강 (coach_update_own_record 추가)
-    - [x] database-reference.md 갱신
-  - [x] Phase 2: Admin 코치 관리 UI 변경 → 🎨 **UI Developer (Gemini)**
-    - [x] 회원 검색 컴포넌트 구현 (profiles 테이블 검색, 디바운스 적용)
-    - [x] 코치 등록 모달 레이아웃 변경 (Step 1: 회원 선택 + Step 2: 코치 정보)
-    - [x] 코치 카드 계정 연결 상태 배지 추가 (🔗 연결됨 / ⚠️ 미연결)
-    - [x] 코치 편집 모달 수정 (연결된 회원 읽기 전용)
-  - [x] Phase 3: Admin 저장/삭제 로직 변경 → 💻 **Developer (Sonnet)**
-    - [x] saveCoach() 리팩토링 (회원 선택 기반 + promote RPC 호출)
-    - [x] deleteCoach() 역할 복원 추가 (demote RPC 호출)
-    - [x] 레거시 미연결 코치(user_id=NULL) 호환 처리
-  - [x] Phase 4: Coach App 예외 처리 → 💻 **Developer (Sonnet)**
-    - [x] 미연결 코치 안내 메시지 (Coach Layout - CoachUnlinkedBanner)
-    - [ ] 5개 화면 통합 테스트 (수동 확인 필요)
-  - [x] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [x] database-reference.md 갱신
-    - [x] blueprint 반영
+#### ✅ Priority 7: 알림 시스템 종합 구축 (완료)
+  > 기획서: `.docs/archive/planning/notification-system.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-#### ✅ Priority 7: 알림 시스템 종합 구축 (완료) ✨
-  > **기획서**: `.docs/archive/planning/notification-system.md`
-  > **문제**: 회원에게 수업 리마인더, 빈자리 알림, 멤버십 만료 경고 등 실시간 알림 수단이 없음
-  > **방안**: In-App 알림 (Supabase Realtime) → Web Push (PWA) → 외부 채널 (카카오) 3단계 구축
+#### ✅ Priority 8: Admin 미구현 상세 기능 완성 (완료)
+  > 기획서: `.docs/archive/planning/admin-unimplemented-features.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-  - [x] Phase 1: In-App 알림 인프라 (완료) ✨
-  - [x] Phase 2: 자동 알림 규칙 엔진 (완료) ✨
-  - [x] Phase 3: Web Push (PWA) 통합 (완료) ✨
-  - [x] Phase 4: 외부 채널 연동 (완료) ✨
-  - [x] Phase 5: 문서 동기화 (완료) ✨
-    - [x] notifications/push_subscriptions/notification_preferences DB 스키마 검증
-    - [x] sitemap 갱신 (사용자 앱/관리자 알림 센터 구현 반영)
-    - [x] database-reference.md 갱신 (알림 시스템 테이블 5개 + 자동화 트리거 4개 반영 완료)
-    - [x] blueprint 반영
-
-#### ✅ Priority 8: Admin 미구현 상세 기능 완성 (완료) 🎉
-  > **기획서**: `.docs/archive/planning/admin-unimplemented-features.md`
-  > **문제**: Admin 내 23개 화면 중 다수의 상세 기능이 UI만 존재하거나 로직이 미비함 (완성도 63% → ~95%)
-  > **방안**: Tier 1(비즈니스 핵심)부터 Tier 3(고도화)까지 4개 스프린트로 나누어 기능 완성
-
-  - [x] Phase 1: Tier 1 비즈니스 핵심 ✅ → 💎 **Senior Dev** + 💻 **Dev** + 🎨 **UI**
-    - [x] T1-1: 환불 프로세스 (위약금 계산 + 승인)
-    - [x] T1-2: 회원 정보 수정 (이름/연락처/상태)
-    - [x] T1-3: 멤버십 홀딩 처리 (pause_count, 기간 차감)
-    - [x] T1-4: 지점 운영시간 설정 (요일별 오픈/마감, 휴무 토글)
-    - [x] T1-5: 예약 세션별 명단 + 노쇼 통제
-    - [x] T1-6: CS 티켓 답변 기능
-  - [x] Phase 2: Tier 2 운영 효율 ✅ → 💻 **Developer (Sonnet)** + 🎨 **UI**
-    - [x] T2-1: 출석 데이터 CSV 다운로드
-    - [x] T2-2: 결제 데이터 CSV 다운로드
-    - [x] T2-3: 알림 규칙 생성/수정 모달
-    - [x] T2-4: 피드백 필터(코치/수업/날짜) + 검색
-    - [x] T2-5: 멤버십 연장 커스텀 일수 (T1-3에서 구현)
-    - [x] T2-8: 예약 검색 기능 (T1-5에서 구현)
-    - [x] T2-9: 알림 KPI 대시보드 (기존 구현 확인)
-    - [x] T2-10: 감사 로그 날짜 범위 필터
-    - [x] T2-6: 요금제 정책 설정 (credit_count, max_pauses 등 필드 연동 완료) ✅
-    - [x] T2-7: 역할별 사용자 배정 UI (/admin/operations/roles 구현 완료) ✅
-  - [x] Phase 3: Tier 3 고도화 (12/12 완료) ✅ → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
-    - [x] T3-1: 시스템 설정 DB 연동 (system_config 테이블 + RLS + 연결 테스트) ✅
-    - [x] T3-2: 출석 히트맵 (요일×시간대 히트맵 구현) ✅
-    - [x] T3-3: 수업 캘린더 DnD (HTML5 Drag&Drop API, 코치 충돌 검사, 낙관적 업데이트) ✅
-    - [x] T3-4: PM5 기기 CRUD + 상태 모니터링 ✅
-    - [x] T3-5: 멤버십 양도 기능 ✅
-    - [x] T3-6: FAQ 관리 시스템 ✅
-    - [x] T3-7: 배너 이미지 업로드 (파일 업로드 + 미리보기) ✅
-    - [x] T3-8: 지점 이미지 관리 (지도 URL + 갤러리 이미지 CRUD) ✅
-    - [x] T3-9: 역할 기반 메뉴 접근 통제 (useAdminPermissions + 사이드바 잠금 + 페이지 가드) ✅
-    - [x] T3-10: 코치 급여/수당 관리 (Settlements 탭 구현) ✅
-    - [x] T3-11: 고정 QR 코드 생성/다운로드 (Canvas 기반 QR + PNG 다운로드) ✅
-    - [x] T3-12: 대시보드 트렌드 위젯 (WoW 전주 대비 % KPI 카드) ✅
-  - [x] Phase 4: 문서 동기화 및 최종 검증 ✅ → 🏛️ **Architect (Opus)**
-    - [x] sitemap 갱신 및 blueprint 반영
-
-#### 🟠 Priority 9: 결제 시스템 아키텍처 (진행 중 — Phase 1 완료) 💳
+#### 🟠 Priority 9: 결제 시스템 아키텍처 (Phase 1~3 완료, Phase 4 향후)
   > **기획서**: `.docs/archive/planning/payment-system.md`
-  > **문제**: 현재 결제가 DB 직접 INSERT로만 처리되며, 실제 PG 연동/환불/정산 기능이 없음
-  > **방안**: Toss Payments 결제위젯 연동 + 이중 안전장치 (Admin 모드 토글 + DEV 환경 강제 시뮬레이션)
+  > **상세 완료 내역**: `.docs/archive/complete/project-complete-20260218.md`
 
-  - [x] Phase 1: 결제 인프라 (DB + Edge Functions) ✅ → 💎 **Senior Dev (Opus)**
-    - [x] transactions 테이블 확장 마이그레이션
-    - [x] pg_settings + refunds 테이블 생성 + RLS
-    - [x] confirm-payment Edge Function (7단계 검증)
-    - [x] cancel-payment Edge Function (관리자 전용)
-    - [x] toss-webhook Edge Function (서명 검증)
-    - [x] sync-pg-settings Edge Function (암복호화)
-  - [x] Phase 2: 사용자 결제 화면 ✅ → 🎨 **UI Dev (Gemini)** + 💻 **Developer (Sonnet)**
-    - [x] /apps/purchase Toss 결제위젯 통합 (3단계 확인 플로우)
-    - [x] /apps/purchase/success, /apps/purchase/fail 페이지
-    - [x] 결제 성공 시 알림 연동
-    - [x] /apps/profile/payments 영수증 링크
-  - [x] Phase 3: 관리자 환불 & 매출 관리 ✅ → 🎨 **UI Dev** + 💎 **Senior Dev**
-    - [x] Admin PG 설정 UI (모드 토글 + 키 입력)
-    - [x] Admin 환불 모달 (위약금 계산, 2단계 확인)
-    - [x] Admin 거래 상세 모달 (Toss 상태 표시)
-    - [x] 매출 리포트 source 필터
   - [ ] Phase 4 (향후): POS 매출 연동 → 💎 **Senior Dev**
     - [ ] Toss POS API 연동 EF
     - [ ] POS 매출 동기화 크론
     - [ ] 매출 리포트 POS 통합
-  - [x] Phase 5: 문서 동기화 ✅ → 🏛️ **Architect (Opus)**
-    - [x] sitemap/database-reference/blueprint 갱신
 
-#### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료) 🎉
-  > **기획서**: `.docs/archive/planning/landing-page.md` ✅ Approved
-  > **문제**: 루트 URL(`/`)에 플레이스홀더만 존재하여 잠재 회원에게 짐 정보 전달 불가
-  > **방안**: Hero + Features + Programs + Coaches(DB) + Pricing(DB) + Facility(DB) + CTA + Footer
-
-  - [x] Phase 1: RLS 정책 확인 및 보완 ✅ → 💎 **Senior Dev (Opus)**
-    - [x] anon 역할 SELECT 정책 확인 (coaches, facilities, membership_plans)
-    - [x] 누락된 RLS 정책 마이그레이션 (anon_read_coaches, anon_read_facilities, anon_read_membership_plans)
-  - [x] Phase 2: 랜딩 페이지 UI 구현 ✅ → 🎨 **UI Developer (Gemini)**
-    - [x] Hero Section (풀스크린 + 태그라인 + CTA)
-    - [x] Features Section (4개 카드, Glassmorphism)
-    - [x] Programs Section (4개 프로그램 소개)
-    - [x] Coaches Section (Supabase DB 연동, 아바타)
-    - [x] Pricing Section (Supabase DB 연동, 요금표 카드)
-    - [x] Facility Section (Supabase DB 연동, 지점 정보)
-    - [x] CTA Banner + Footer + Sticky Navbar
-    - [x] 반응형 (모바일 햄버거 메뉴) + IntersectionObserver 스크롤 애니메이션
-  - [x] Phase 3: SEO 최적화 ✅ → 💻 **Developer (Sonnet)**
-    - [x] SEO 메타태그 강화 (title, description, OG, keywords, robots)
-  - [x] Phase 4: 문서 동기화 ✅ → 🏛️ **Architect (Opus)**
-    - [x] blueprint 반영
+#### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료)
+  > 기획서: `.docs/archive/planning/landing-page.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
 #### 🟡 잔여 개선 항목 (향후)
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
