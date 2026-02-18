@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
+import { loadPaymentWidget } from '@tosspayments/payment-widget-sdk';
 
 interface MembershipPlan {
     id: string;
@@ -23,6 +24,7 @@ export default function UserPurchasePage() {
     const [filter, setFilter] = useState('전체');
     const [selectedPlan, setSelectedPlan] = useState<MembershipPlan | null>(null);
     const [purchasing, setPurchasing] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const toast = useToast();
 
     useEffect(() => { loadPlans(); }, []);
@@ -74,52 +76,80 @@ export default function UserPurchasePage() {
 
     async function handlePurchase() {
         if (!selectedPlan || purchasing) return;
+
+        // 1단계: 사용자 확인 다이얼로그 (간단히 상태 변경으로 모달 표시)
+        setShowConfirmModal(true);
+    }
+
+    async function startPaymentFlow() {
         setPurchasing(true);
+        const supabase = createClient();
 
-        const supabase: any = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-            toast.warning('로그인이 필요합니다.');
-            setPurchasing(false);
-            return;
-        }
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
+                toast.warning('로그인이 필요합니다.');
+                setPurchasing(false);
+                return;
+            }
 
-        // transactions 테이블은 member_id → members.id FK이므로 먼저 member 조회
-        const { data: memberData }: any = await supabase
-            .from('members')
-            .select('id')
-            .eq('user_id', user.id)
-            .single();
+            // 2단계: 거래 기록 생성 (Pending)
+            const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-        const { error }: any = await supabase.from('transactions').insert({
-            id: crypto.randomUUID(),
-            member_id: memberData?.id || user.id,
-            amount: selectedPlan.price,
-            status: 'pending',
-            category: 'membership',
-            date: new Date().toISOString().split('T')[0],
-        });
+            const { data: memberData } = await supabase
+                .from('members')
+                .select('id, facility_id')
+                .eq('user_id', user.id)
+                .single() as any;
 
-        if (error) {
-            toast.error('결제 처리 중 오류가 발생했습니다. 다시 시도해주세요.');
-        } else {
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setDate(endDate.getDate() + selectedPlan.duration_days);
-
-            await supabase.from('memberships').insert({
+            const { error: txnError } = await (supabase as any).from('transactions').insert({
+                id: orderId, // Use orderId as ID or separate
+                member_id: memberData?.id,
                 user_id: user.id,
-                plan_id: selectedPlan.id,
-                start_date: startDate.toISOString().split('T')[0],
-                end_date: endDate.toISOString().split('T')[0],
-                remaining_credits: selectedPlan.credits || 0,
-                status: 'active',
+                amount: selectedPlan!.price,
+                status: 'pending',
+                category: 'Membership',
+                order_id: orderId,
+                plan_id: selectedPlan!.id,
+                facility_id: memberData?.facility_id,
+                source: 'online'
             });
 
-            toast.success('🎉 멤버십 구매가 완료되었습니다!');
-            setSelectedPlan(null);
+            if (txnError) throw txnError;
+
+            // 3단계: Toss 위젯 초기화 및 요청
+            // PG 설정 로드 (기본 키 or DB 키)
+            const { data: pgSettings }: any = await (supabase as any)
+                .from('pg_settings')
+                .select('test_client_key, live_client_key, payment_mode')
+                .eq('is_active', true)
+                .limit(1)
+                .single();
+
+            const clientKey = pgSettings?.payment_mode === 'live'
+                ? pgSettings.live_client_key
+                : (pgSettings?.test_client_key || 'test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm');
+
+            const paymentWidget = await loadPaymentWidget(clientKey, user.id);
+
+            // 결제 수단 렌더링 (UI가 필요하다면 여기서 renderPaymentMethods 호출 가능)
+            // 여기서는 가장 심플한 requestPayment 직접 호출 방식 (인증창 바로 띔)
+            // 또는 모달 내부에 위젯을 렌더링하는 것을 권장.
+
+            await paymentWidget.requestPayment({
+                orderId: orderId,
+                orderName: selectedPlan!.name,
+                customerName: user.user_metadata?.full_name || '회원',
+                customerEmail: user.email,
+                successUrl: `${window.location.origin}/apps/purchase/success`,
+                failUrl: `${window.location.origin}/apps/purchase/fail`,
+            } as any);
+
+        } catch (err: any) {
+            console.error('Payment error:', err);
+            toast.error('결제 준비 중 오류가 발생했습니다: ' + err.message);
+            setPurchasing(false);
         }
-        setPurchasing(false);
     }
 
     if (loading) {
@@ -296,6 +326,73 @@ export default function UserPurchasePage() {
                     <li>결제에 문제가 있으시면 고객센터로 연락해주세요</li>
                 </ul>
             </div>
+            {/* ── Confirmation Modal ── */}
+            {showConfirmModal && selectedPlan && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    background: 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 1000,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1.25rem',
+                }}>
+                    <div className="app-glass-card" style={{
+                        width: '100%',
+                        maxWidth: '400px',
+                        padding: '2rem',
+                        animation: 'modalIn 0.3s ease-out'
+                    }}>
+                        <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--app-text-primary)' }}>결제 확인</h2>
+                        <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.9375rem', marginBottom: '1.5rem' }}>
+                            아래 내용을 확인하신 후 결제를 진행해주세요.
+                        </p>
+
+                        <div style={{ background: 'var(--app-accent-light)', padding: '1rem', borderRadius: 12, marginBottom: '1.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <span style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem' }}>플랜명</span>
+                                <span style={{ color: 'var(--app-text-primary)', fontWeight: 600 }}>{selectedPlan.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                <span style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem' }}>이용 기간</span>
+                                <span style={{ color: 'var(--app-text-primary)', fontWeight: 600 }}>{getDuration(selectedPlan.duration_days)}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '0.5rem', borderTop: '1px solid var(--app-border)' }}>
+                                <span style={{ color: 'var(--app-text-secondary)', fontSize: '0.9375rem', fontWeight: 600 }}>최종 결제 금액</span>
+                                <span style={{ color: 'var(--app-accent)', fontSize: '1.125rem', fontWeight: 800 }}>₩{formatPrice(selectedPlan.price)}</span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem' }}>
+                            <button
+                                className="app-btn-secondary"
+                                style={{ flex: 1, background: 'rgba(255,255,255,0.05)', color: 'var(--app-text-secondary)' }}
+                                onClick={() => setShowConfirmModal(false)}
+                                disabled={purchasing}
+                            >
+                                취소
+                            </button>
+                            <button
+                                className="app-btn-primary"
+                                style={{ flex: 2 }}
+                                onClick={startPaymentFlow}
+                                disabled={purchasing}
+                            >
+                                {purchasing ? '준비 중...' : '결제 진행'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style jsx>{`
+                @keyframes modalIn {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `}</style>
         </div>
     );
 }

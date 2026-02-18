@@ -1091,6 +1091,80 @@ export type Database = {
           },
         ]
       }
+      pg_settings: {
+        Row: {
+          created_at: string | null
+          facility_id: string | null
+          id: string
+          is_active: boolean | null
+          live_client_key: string | null
+          payment_mode: string
+          test_client_key: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          facility_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          live_client_key?: string | null
+          payment_mode?: string
+          test_client_key: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          facility_id?: string | null
+          id?: string
+          is_active?: boolean | null
+          live_client_key?: string | null
+          payment_mode?: string
+          test_client_key?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pg_settings_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_config: {
+        Row: {
+          category: string
+          config_key: string
+          config_value: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_secret: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          config_key: string
+          config_value: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_secret?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          config_key?: string
+          config_value?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_secret?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       race_events: {
         Row: {
           created_at: string | null

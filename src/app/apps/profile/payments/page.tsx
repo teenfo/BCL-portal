@@ -11,6 +11,8 @@ interface Transaction {
     category: string;
     date: string;
     created_at: string;
+    receipt_url?: string;
+    toss_raw_data?: any;
 }
 
 export default function PaymentsPage() {
@@ -30,14 +32,15 @@ export default function PaymentsPage() {
                 .eq('user_id', user.id)
                 .single();
 
-            if (memberData) {
-                const { data }: any = await supabase
+            if (user) {
+                // user_id 또는 member_id 둘 다 체크 (회원 데이터 정합 성 확보)
+                const { data }: any = await (supabase as any)
                     .from('transactions')
                     .select('*')
-                    .eq('member_id', memberData.id)
+                    .or(`user_id.eq.${user.id},member_id.eq.${memberData?.id}`)
                     .order('created_at', { ascending: false });
 
-                if (data) setTransactions(data as any);
+                if (data) setTransactions(data);
             }
             setLoading(false);
         })();
@@ -81,20 +84,40 @@ export default function PaymentsPage() {
                     {transactions.map(t => {
                         const badge = statusBadge(t.status);
                         return (
-                            <div key={t.id} className="app-glass-card-sm" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <span style={{ fontSize: '1.5rem' }}>{categoryIcon(t.category)}</span>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ color: 'var(--app-text-primary)', fontWeight: 600, fontSize: '0.9375rem' }}>{t.category || '결제'}</div>
-                                    <div style={{ color: 'var(--app-text-secondary)', fontSize: '0.75rem' }}>{new Date(t.date || t.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ color: t.status === 'refunded' ? '#f87171' : 'var(--app-text-primary)', fontWeight: 700, fontSize: '0.9375rem' }}>
-                                        {t.status === 'refunded' ? '-' : ''}₩{formatPrice(t.amount)}
+                            <div key={t.id} className="app-glass-card-sm" style={{ padding: '1rem', marginBottom: '0.75rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontSize: '1.5rem' }}>{categoryIcon(t.category)}</span>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div style={{ color: 'var(--app-text-primary)', fontWeight: 600, fontSize: '0.9375rem' }}>{t.category || '결제'}</div>
+                                            {t.toss_raw_data?.mode === 'simulation' && (
+                                                <span style={{ fontSize: '0.625rem', padding: '0.125rem 0.375rem', borderRadius: 4, background: 'rgba(250,204,21,0.1)', color: '#facc15', border: '1px solid rgba(250,204,21,0.2)' }}>시뮬레이션</span>
+                                            )}
+                                        </div>
+                                        <div style={{ color: 'var(--app-text-secondary)', fontSize: '0.75rem' }}>{new Date(t.date || t.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                                     </div>
-                                    <span style={{ padding: '0.0625rem 0.375rem', borderRadius: 9999, fontSize: '0.625rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
-                                        {badge.label}
-                                    </span>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ color: t.status === 'refunded' ? '#f87171' : 'var(--app-text-primary)', fontWeight: 700, fontSize: '0.9375rem' }}>
+                                            {t.status === 'refunded' ? '-' : ''}₩{formatPrice(t.amount)}
+                                        </div>
+                                        <span style={{ padding: '0.0625rem 0.375rem', borderRadius: 9999, fontSize: '0.625rem', fontWeight: 600, background: badge.bg, color: badge.color }}>
+                                            {badge.label}
+                                        </span>
+                                    </div>
                                 </div>
+
+                                {t.receipt_url && (
+                                    <div style={{ borderTop: '1px solid var(--app-border)', marginTop: '0.75rem', paddingTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                                        <a
+                                            href={t.receipt_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            style={{ fontSize: '0.75rem', color: 'var(--app-accent)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                        >
+                                            📄 영수증 보기
+                                        </a>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

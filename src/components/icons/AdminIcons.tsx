@@ -136,6 +136,20 @@ export const IconCheckCircle = ({ size = 20, className }: IconProps) => (
     </svg>
 );
 
+export const IconCheck = ({ size = 20, className }: IconProps) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...defaultProps}>
+        <polyline points="20 6 9 17 4 12" />
+    </svg>
+);
+
+export const IconAlertCircle = ({ size = 20, className }: IconProps) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...defaultProps}>
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+);
+
 // ─── QR & Devices ───────────────────────────────────────
 export const IconQRCode = ({ size = 20, className }: IconProps) => (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} {...defaultProps}>

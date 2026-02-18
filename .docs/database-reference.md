@@ -43,7 +43,9 @@
 #### 결제 및 금융 (Finance)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `transactions` | 거래 내역 | member_id, amount, payment_status, category, pg_transaction_id |
+| `transactions` | 거래 내역 | member_id, amount, status, order_id, payment_key, source, toss_status |
+| `pg_settings` | PG사 설정 (Toss) | facility_id, test_client_key, live_client_key, payment_mode |
+| `refunds` | 환불 이력 | transaction_id, amount, reason, status, processed_by |
 
 #### 커뮤니케이션 (Communication)
 | 테이블 | 설명 | 주요 컬럼 |
@@ -104,6 +106,7 @@
 | `qr_codes` | QR 코드 관리 | code, qr_type, facility_id, expires_at, is_active |
 | `kiosk_devices` | 키오스크 기기 | device_name, device_ip, status, last_heartbeat |
 | `audit_logs` | 감사 로그 | user_id, action, table_name, old_values, new_values |
+| `system_config` | 시스템 설정 | config_key, config_value, category, is_secret | 🆕
 
 ### 상세 스키마
 - **마이그레이션 파일**: `supabase/migrations/` 디렉토리
@@ -150,7 +153,10 @@ supabase/migrations/
 ├── 20260217204100_enhance_existing_tables_columns.sql 🆕
 ├── 20260217204200_create_supplementary_tables.sql    🆕
 └── 20260217204300_fix_rls_security_issues.sql        🆕
-├── 20260218100000_coach_account_linking.sql          🆕
+├── 20260218100000_coach_account_linking.sql (Coach Account Architecture)
+├── 20260218230000_payment_system_phase1.sql (Payment Phase 1 Infrastructure)
+├── 20260218230100_payment_rpc_helpers.sql (Payment RPC Helpers)
+├── 20260218231500_create_system_config_table.sql (System Config Table) 🆕
 ```
 
 ### 실행 방법

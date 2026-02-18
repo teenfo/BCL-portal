@@ -83,11 +83,50 @@ export default function MemberDetailPage() {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birth_date: '', status: '' });
     const [saving, setSaving] = useState(false);
+
+    // T3-5: Membership Transfer state
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [selectedMembership, setSelectedMembership] = useState<Membership | null>(null);
+    const [targetMemberSearch, setTargetMemberSearch] = useState('');
+    const [targetMembers, setTargetMembers] = useState<any[]>([]);
+    const [selectedTargetMember, setSelectedTargetMember] = useState<any | null>(null);
+    const [transferring, setTransferring] = useState(false);
+
     const { success, error: toastError } = useToast();
 
     useEffect(() => {
         loadMemberData();
     }, [memberId]);
+
+    // T3-5: Search target members for transfer
+    useEffect(() => {
+        if (targetMemberSearch.length < 2) {
+            setTargetMembers([]);
+            return;
+        }
+        const delaySearch = setTimeout(async () => {
+            const supabase = createClient();
+            const { data } = await supabase
+                .from('members')
+                .select('id, name, email')
+                .ilike('name', `%${targetMemberSearch}%`)
+                .neq('id', memberId) // Cannot transfer to self
+                .limit(5);
+            if (data) setTargetMembers(data);
+        }, 500);
+        return () => clearTimeout(delaySearch);
+    }, [targetMemberSearch, memberId]);
+
+    // T1-2: Open edit modal
+
+    // T1-2: Save member edit
+
+    // T1-2: Open edit modal
+    function openEditModal() {
+        if (!member) return;
+        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birth_date: member.birth_date || '', status: member.status || 'Active' });
+        setShowEditModal(true);
+    }
 
     async function loadMemberData() {
         const supabase = createClient();
@@ -108,6 +147,74 @@ export default function MemberDetailPage() {
         if (membershipsRes.data) setMemberships(membershipsRes.data as unknown as Membership[]);
 
         setLoading(false);
+    }
+
+    // T1-2: Save member edit
+    async function saveMemberEdit() {
+        if (!member) return;
+        setSaving(true);
+        const supabase = createClient();
+        const { error } = await supabase.from('members').update({
+            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birth_date: editForm.birth_date || null, status: editForm.status,
+        }).eq('id', member.id);
+        if (!error) {
+            setShowEditModal(false);
+            success('회원 목록이 업데이트되었습니다.');
+            loadMemberData();
+        } else {
+            toastError(`회원 정보 수정 실패: ${error.message}`);
+        }
+        setSaving(false);
+    }
+
+    async function handleTransfer() {
+        if (!selectedMembership || !selectedTargetMember) return;
+        setTransferring(true);
+        const supabase = createClient();
+
+        try {
+            // 1. Deactivate current membership
+            const { error: deactivateError } = await (supabase as any)
+                .from('memberships')
+                .update({ status: 'transferred', updated_at: new Date().toISOString() })
+                .eq('id', selectedMembership.id);
+
+            if (deactivateError) throw deactivateError;
+
+            // 2. Create new membership for target
+            const { error: createError } = await (supabase as any)
+                .from('memberships')
+                .insert({
+                    user_id: selectedTargetMember.id,
+                    plan_id: (selectedMembership as any).plan_id,
+                    status: 'active',
+                    start_date: new Date().toISOString().split('T')[0],
+                    end_date: selectedMembership.end_date,
+                    remaining_credits: selectedMembership.remaining_credits,
+                    pause_count: selectedMembership.pause_count,
+                });
+
+            if (createError) throw createError;
+
+            // 3. Log the transfer
+            await (supabase as any).from('member_notes').insert({
+                member_id: memberId,
+                content: `[회원권 양도] ${selectedMembership.membership_plans?.name} -> ${selectedTargetMember.name} (${selectedTargetMember.email})`,
+            });
+
+            await (supabase as any).from('member_notes').insert({
+                member_id: selectedTargetMember.id,
+                content: `[회원권 양수] ${selectedMembership.membership_plans?.name} <- ${member?.name} (${member?.email})`,
+            });
+
+            success('회원권 양도가 완료되었습니다.');
+            setShowTransferModal(false);
+            loadMemberData();
+        } catch (e: any) {
+            toastError(`양도 실패: ${e.message}`);
+        } finally {
+            setTransferring(false);
+        }
     }
 
     async function addNote() {
@@ -133,29 +240,8 @@ export default function MemberDetailPage() {
     }
 
     // T1-2: Open edit modal
-    function openEditModal() {
-        if (!member) return;
-        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birth_date: member.birth_date || '', status: member.status || 'Active' });
-        setShowEditModal(true);
-    }
 
     // T1-2: Save member edit
-    async function saveMemberEdit() {
-        if (!member) return;
-        setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('members').update({
-            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birth_date: editForm.birth_date || null, status: editForm.status,
-        }).eq('id', member.id);
-        if (!error) {
-            setShowEditModal(false);
-            success('회원 목록이 업데이트되었습니다.');
-            loadMemberData();
-        } else {
-            toastError(`회원 정보 수정 실패: ${error.message}`);
-        }
-        setSaving(false);
-    }
 
     if (loading) {
         return (
@@ -338,6 +424,18 @@ export default function MemberDetailPage() {
                                         <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                                             <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>이전 멤버십 {memberships.length - 1}건</p>
                                         </div>
+                                    )}
+                                    {activeMembership && activeMembership.status === 'active' && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedMembership(activeMembership);
+                                                setShowTransferModal(true);
+                                            }}
+                                            className="w-full mt-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-white/[0.05]"
+                                            style={{ color: 'var(--primary)', border: '1px solid rgba(255,107,0,0.2)' }}
+                                        >
+                                            🤝 회원권 양도
+                                        </button>
                                     )}
                                 </div>
                             );
@@ -542,6 +640,64 @@ export default function MemberDetailPage() {
                 <div className="flex gap-3 mt-8">
                     <button onClick={() => setShowEditModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
                     <button onClick={saveMemberEdit} disabled={saving || !editForm.name.trim()} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-50" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>{saving ? '저장 중...' : '저장'}</button>
+                </div>
+            </AdminModal>
+
+            {/* T3-5: Membership Transfer Modal */}
+            <AdminModal show={showTransferModal} onClose={() => setShowTransferModal(false)} title="회원권 양도" subtitle={selectedMembership?.membership_plans?.name || ''}>
+                <div className="space-y-5">
+                    <p className="text-xs text-white/60 leading-relaxed">
+                        선택한 회원권을 다른 회원에게 양도합니다. 양도 완료 후 현재 회원의 회원권은 <span className="text-red-400 font-bold">양도됨(transferred)</span> 상태로 변경되며, 대상 회원에게 동일한 조건의 새 회원권이 부여됩니다.
+                    </p>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">대상 회원 검색 (이름 2자 이상)</label>
+                        <input
+                            type="text"
+                            value={targetMemberSearch}
+                            onChange={(e) => setTargetMemberSearch(e.target.value)}
+                            placeholder="이름으로 검색..."
+                            className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                        />
+                    </div>
+
+                    {targetMembers.length > 0 && (
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                            {targetMembers.map((m) => (
+                                <button
+                                    key={m.id}
+                                    onClick={() => setSelectedTargetMember(m)}
+                                    className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${selectedTargetMember?.id === m.id ? 'bg-[var(--primary)]/20 border border-[var(--primary)]/50' : 'bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.05]'}`}
+                                >
+                                    <div className="text-left">
+                                        <p className="text-xs font-bold text-white">{m.name}</p>
+                                        <p className="text-[10px] text-white/40">{m.email}</p>
+                                    </div>
+                                    {selectedTargetMember?.id === m.id && <span className="text-xs">✅</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {selectedTargetMember && (
+                        <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                            <p className="text-[10px] font-bold text-green-400 uppercase tracking-widest mb-1">양도 대상 선택됨</p>
+                            <p className="text-sm font-bold text-white">{selectedTargetMember.name} ({selectedTargetMember.email})</p>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowTransferModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                    <button
+                        onClick={handleTransfer}
+                        disabled={transferring || !selectedTargetMember}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-50"
+                        style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}
+                    >
+                        {transferring ? '처리 중...' : '양도 실행'}
+                    </button>
                 </div>
             </AdminModal>
         </div>

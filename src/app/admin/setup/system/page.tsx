@@ -6,6 +6,7 @@ import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconDatabase, IconCreditCard, IconBell, IconRadio, IconSettings, IconLink, IconEdit } from '@/components/icons/AdminIcons';
 import { useToast } from '@/components/ui/Toast';
+import PGSettings from './PGSettings';
 
 interface SystemConfig {
     id: string;
@@ -40,13 +41,15 @@ export default function SystemPage() {
         const supabase = createClient();
         setLoading(true);
         try {
-            const { data, error } = await (supabase as any)
+            const { data, error } = await supabase
                 .from('system_config')
                 .select('*')
                 .order('category')
                 .order('config_key');
             if (!error && data) {
                 setDbConfigs(data as SystemConfig[]);
+            } else if (error) {
+                console.error('Error loading system_config:', error);
             }
         } catch (e) {
             console.error('Error loading configs:', e);
@@ -66,11 +69,21 @@ export default function SystemPage() {
         if (!editingConfig) return;
         setSaving(true);
         const supabase = createClient();
-        const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-        if (editForm.config_value) updates.config_value = editForm.config_value;
-        updates.description = editForm.description;
+        const updates: any = {
+            updated_at: new Date().toISOString(),
+            description: editForm.description
+        };
 
-        const { error } = await (supabase as any).from('system_config').update(updates).eq('id', editingConfig.id);
+        // Only update value if it's not a secret being left empty
+        if (!editingConfig.is_secret || editForm.config_value) {
+            updates.config_value = editForm.config_value;
+        }
+
+        const { error } = await supabase
+            .from('system_config')
+            .update(updates)
+            .eq('id', editingConfig.id);
+
         setSaving(false);
         if (!error) {
             setShowEditModal(false);
@@ -85,7 +98,7 @@ export default function SystemPage() {
         if (!addForm.config_key.trim()) return;
         setSaving(true);
         const supabase = createClient();
-        const { error } = await (supabase as any).from('system_config').insert({
+        const { error } = await supabase.from('system_config').insert({
             config_key: addForm.config_key,
             config_value: addForm.config_value,
             category: addForm.category,
@@ -106,7 +119,7 @@ export default function SystemPage() {
     async function deleteConfig(id: string) {
         if (!confirm('이 설정을 삭제하시겠습니까?')) return;
         const supabase = createClient();
-        const { error } = await (supabase as any).from('system_config').delete().eq('id', id);
+        const { error } = await supabase.from('system_config').delete().eq('id', id);
         if (error) {
             toastError(`삭제 실패: ${error.message}`);
         } else {
@@ -126,28 +139,39 @@ export default function SystemPage() {
                 setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: '연결 성공 ✓' } }));
                 success('Supabase 연결에 성공했습니다.');
             } else if (service === 'pg') {
-                // Simulate PG payment gateway check
-                await new Promise(r => setTimeout(r, 2000));
-                const isHealthy = Math.random() > 0.1;
-                if (isHealthy) {
-                    setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: 'PG 서비스 정상 ✓' } }));
-                    success('결제 대행사(PG) 서버와 정상적으로 통신 중입니다.');
-                } else {
-                    throw new Error('PG 서버 응답 지연 (Timeout)');
-                }
+                const supabase = createClient();
+                const { data, error: err } = await supabase.from('pg_settings').select('id, payment_mode').eq('is_active', true).maybeSingle();
+                if (err) throw err;
+                if (!data) throw new Error('활성화된 PG 설정이 없습니다.');
+
+                const statusMsg = data.payment_mode === 'simulation' ? '시뮬레이션 모드 활성 ✓' : '운영(Live) 모드 활성 ✓';
+                setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: statusMsg } }));
+                success(`결제 서비스 상태: ${data.payment_mode === 'simulation' ? 'Simulation' : 'Live'}`);
             } else if (service === 'pm5') {
-                // Simulate PM5 WebSocket check
-                await new Promise(r => setTimeout(r, 2000));
-                setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: '시뮬레이터 활성 ✓' } }));
-                info('PM5 시뮬레이터 서버가 8001 포트에서 대기 중입니다.');
+                // Check if pm5_api_endpoint exists in configs
+                const endpoint = dbConfigs.find(c => c.config_key === 'pm5_api_endpoint')?.config_value || 'http://localhost:8001';
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                    await fetch(`${endpoint}/health`, { mode: 'no-cors', signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: '시뮬레이터 활성 ✓' } }));
+                    info(`PM5 시뮬레이터 서버(${endpoint}) 연결됨.`);
+                } catch (e) {
+                    throw new Error('시뮬레이터 서버 응답 없음 (CORS/Offline)');
+                }
             }
         } catch (err: any) {
             setConnectionTests(prev => ({ ...prev, [service]: { status: 'error', message: err.message || '연결 실패' } }));
+            toastError(`테스트 실패: ${err.message}`);
         }
 
         setTimeout(() => {
             setConnectionTests(prev => ({ ...prev, [service]: { status: 'idle' } }));
-        }, 5000);
+        }, 8000);
     }
 
     const dbCategories = [...new Set(dbConfigs.map(c => c.category))];
@@ -243,6 +267,9 @@ export default function SystemPage() {
                                 <p className="text-[9px] text-white/30 mt-2">+ 설정 추가 버튼으로 새 설정을 등록하세요</p>
                             </div>
                         )}
+
+                        {/* PG Settings (Toss) */}
+                        <PGSettings />
 
                         {/* Connection Test */}
                         <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.03]">

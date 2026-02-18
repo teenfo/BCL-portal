@@ -20,8 +20,9 @@ interface DashboardStats {
     expiredMembers: number;
     activeMemberships: number;
     totalCoaches: number;
-    revenueYoY: number;
-    membersYoY: number;
+    revenueWoW: number;
+    membersWoW: number;
+    checkinsWoW: number;
 }
 
 interface RecentTransaction {
@@ -46,7 +47,7 @@ export default function AdminDashboardPage() {
         todayBookings: 0, todayCheckins: 0, monthlyRevenue: 0,
         activeMembers: 0, totalMembers: 0, expiredMembers: 0,
         activeMemberships: 0, totalCoaches: 0,
-        revenueYoY: 0, membersYoY: 0,
+        revenueWoW: 0, membersWoW: 0, checkinsWoW: 0
     });
     const [recentTx, setRecentTx] = useState<RecentTransaction[]>([]);
     const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
@@ -54,8 +55,13 @@ export default function AdminDashboardPage() {
 
     const loadDashboard = useCallback(async () => {
         const supabase = createClient();
-        const today = new Date().toISOString().split('T')[0];
-        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+
+        // Time ranges for WoW
+        const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
+        const fourteenDaysAgo = new Date(now.getTime() - 14 * 86400000).toISOString();
 
         try {
             const [
@@ -63,28 +69,49 @@ export default function AdminDashboardPage() {
                 checkinsRes, bookingsRes,
                 txRes, membershipRes, coachRes,
                 recentTxRes, recentCheckinRes,
-                lastYearTxRes, lastYearMembersRes
+                // WoW Queries
+                thisWeekTxRes, prevWeekTxRes,
+                thisWeekCheckinsRes, prevWeekCheckinsRes,
+                thisWeekMembersRes, prevWeekMembersRes
             ] = await Promise.all([
                 supabase.from('members').select('id', { count: 'exact', head: true }),
                 supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
                 supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Expired'),
-                supabase.from('checkins').select('id', { count: 'exact', head: true }).or(`checkin_time.gte.${today}T00:00:00,time.gte.${today}T00:00:00`),
-                supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', today + 'T00:00:00'),
+                supabase.from('checkins').select('id', { count: 'exact', head: true }).or(`checkin_time.gte.${todayStr}T00:00:00,time.gte.${todayStr}T00:00:00`),
+                supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', todayStr + 'T00:00:00'),
                 supabase.from('transactions').select('amount').gte('created_at', startOfMonth + 'T00:00:00').or('payment_status.eq.completed,status.eq.completed'),
                 supabase.from('memberships').select('id', { count: 'exact', head: true }).eq('status', 'active'),
                 supabase.from('coaches').select('id', { count: 'exact', head: true }).eq('status', 'active'),
                 supabase.from('transactions').select('id, amount, payment_status, status, category, created_at, member_id, members!transactions_member_id_fkey(name)').order('created_at', { ascending: false }).limit(5),
                 supabase.from('checkins').select('id, checkin_time, time, checkin_method, member_id, member_name, members!checkins_member_id_fkey(name), facility_id, facility, facilities!checkins_facility_id_fkey(name)').order('created_at', { ascending: false }).limit(6),
 
-                // YoY Data
-                supabase.from('transactions').select('amount').gte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString()).lte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 0).toISOString()).or('payment_status.eq.completed,status.eq.completed'),
-                supabase.from('members').select('id', { count: 'exact', head: true }).lte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString())
+                // Revenue WoW
+                supabase.from('transactions').select('amount').gte('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
+                supabase.from('transactions').select('amount').gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
+
+                // Checkins WoW
+                supabase.from('checkins').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+                supabase.from('checkins').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
+
+                // Members WoW
+                supabase.from('members').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+                supabase.from('members').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
             ]);
 
             const monthlyRevenue = txRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
-            const lastYearRevenue = lastYearTxRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
-            const revenueYoY = lastYearRevenue > 0 ? ((monthlyRevenue - lastYearRevenue) / lastYearRevenue) * 100 : 0;
-            const membersYoY = lastYearMembersRes.count && lastYearMembersRes.count > 0 ? ((membersRes.count! - lastYearMembersRes.count) / lastYearMembersRes.count) * 100 : 0;
+
+            // WoW Calculations
+            const thisWeekRev = thisWeekTxRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
+            const prevWeekRev = prevWeekTxRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
+            const revenueWoW = prevWeekRev > 0 ? ((thisWeekRev - prevWeekRev) / prevWeekRev) * 100 : thisWeekRev > 0 ? 100 : 0;
+
+            const checkinsWoW = (prevWeekCheckinsRes.count && prevWeekCheckinsRes.count > 0)
+                ? ((thisWeekCheckinsRes.count! - prevWeekCheckinsRes.count) / prevWeekCheckinsRes.count) * 100
+                : (thisWeekCheckinsRes.count! > 0 ? 100 : 0);
+
+            const membersWoW = (prevWeekMembersRes.count && prevWeekMembersRes.count > 0)
+                ? ((thisWeekMembersRes.count! - prevWeekMembersRes.count) / prevWeekMembersRes.count) * 100
+                : (thisWeekMembersRes.count! > 0 ? 100 : 0);
 
             setStats({
                 todayBookings: bookingsRes.count || 0,
@@ -95,8 +122,9 @@ export default function AdminDashboardPage() {
                 expiredMembers: expiredRes.count || 0,
                 activeMemberships: membershipRes.count || 0,
                 totalCoaches: coachRes.count || 0,
-                revenueYoY,
-                membersYoY
+                revenueWoW,
+                membersWoW,
+                checkinsWoW
             });
 
             if (recentTxRes.data) {
@@ -163,9 +191,9 @@ export default function AdminDashboardPage() {
                             {/* KPI Grid */}
                             <div className="grid grid-cols-12 gap-6">
                                 {[
-                                    { label: 'Monthly Revenue', value: stats.monthlyRevenue > 0 ? `₩${(stats.monthlyRevenue / 10000).toFixed(0)}만` : '₩0', delta: stats.revenueYoY >= 0 ? `▲ ${stats.revenueYoY.toFixed(1)}%` : `▼ ${Math.abs(stats.revenueYoY).toFixed(1)}%`, deltaColor: stats.revenueYoY >= 0 ? 'text-green-400' : 'text-red-400', sub: `${new Date().getMonth() + 1}월 누적 (YoY)`, type: 'revenue' },
-                                    { label: 'Active Members', value: `${stats.activeMembers} / ${stats.totalMembers}`, delta: stats.membersYoY >= 0 ? `▲ ${stats.membersYoY.toFixed(1)}%` : `▼ ${Math.abs(stats.membersYoY).toFixed(1)}%`, deltaColor: stats.membersYoY >= 0 ? 'text-blue-400' : 'text-red-400', sub: `성장률 (YoY)`, progress: stats.totalMembers > 0 ? (stats.activeMembers / stats.totalMembers) * 100 : 0, type: 'capacity' },
-                                    { label: 'Today Check-ins', value: stats.todayCheckins.toLocaleString(), delta: 'Live', deltaColor: 'text-[var(--primary)]', sub: `Today Bookings: ${stats.todayBookings}`, type: 'checkin' },
+                                    { label: 'Monthly Revenue', value: stats.monthlyRevenue > 0 ? `₩${(stats.monthlyRevenue / 10000).toFixed(0)}만` : '₩0', delta: stats.revenueWoW >= 0 ? `▲ ${stats.revenueWoW.toFixed(1)}%` : `▼ ${Math.abs(stats.revenueWoW).toFixed(1)}%`, deltaColor: stats.revenueWoW >= 0 ? 'text-green-400' : 'text-red-400', sub: `${new Date().getMonth() + 1}월 누적 (Week WoW)`, type: 'revenue' },
+                                    { label: 'Active Members', value: `${stats.activeMembers} / ${stats.totalMembers}`, delta: stats.membersWoW >= 0 ? `▲ ${stats.membersWoW.toFixed(1)}%` : `▼ ${Math.abs(stats.membersWoW).toFixed(1)}%`, deltaColor: stats.membersWoW >= 0 ? 'text-blue-400' : 'text-red-400', sub: `성장률 (Week WoW)`, progress: stats.totalMembers > 0 ? (stats.activeMembers / stats.totalMembers) * 100 : 0, type: 'capacity' },
+                                    { label: 'Today Check-ins', value: stats.todayCheckins.toLocaleString(), delta: stats.checkinsWoW >= 0 ? `▲ ${stats.checkinsWoW.toFixed(1)}%` : `▼ ${Math.abs(stats.checkinsWoW).toFixed(1)}%`, deltaColor: stats.checkinsWoW >= 0 ? 'text-green-400' : 'text-red-400', sub: `성장률 (Week WoW)`, type: 'checkin' },
                                     { label: 'System Status', value: `${stats.totalCoaches} Coaches`, delta: `${stats.expiredMembers} Expired`, deltaColor: stats.expiredMembers > 5 ? 'text-red-500' : 'text-yellow-400', sub: 'Active Resources', type: 'alerts' },
                                 ].map((kpi, i) => (
                                     <div key={i} className="col-span-12 md:col-span-6 xl:col-span-3 animate-scale-in" style={{ animationDelay: `${i * 0.1}s` }}>

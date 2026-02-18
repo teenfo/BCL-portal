@@ -180,17 +180,22 @@ Agent가 판단에 사용할 문서 우선순위:
 
 ---
 
-## 12) 기획-개발 파이프라인 규칙 (Plan → Build)
-- 새로운 기능/아키텍처 변경은 **반드시 기획 문서를 먼저 작성**한다.
-- 기획은 **🏛️ Architect (Opus)**가 전담한다 (다른 에이전트 위임 금지).
-- 기획-개발 파이프라인:
-  1. **`/plan`** → 기획 문서 작성 (`.docs/planning/`에 저장)
-     - 스킬: `.agent/skills/feature-planning/SKILL.md`
-  2. **`/plan-to-blueprint`** → 블루프린트 등록 (`.docs/archive/planning/`으로 이동)
-     - 스킬: `.agent/skills/plan-to-blueprint/SKILL.md`
+## 13) 감사 및 품질 보증 규칙 (Audit)
+- 개발된 모든 기능은 **반드시 `/audit` 워크플로우를 통해 검토**를 거쳐야 한다.
+- Agent는:
+  - 기획서 및 Sitemap과 구현 내용의 일치 여부를 검증한다.
+  - `.agent/skills/ui-gen/SKILL.md`의 UI 표준 준수 여부를 확인한다.
+  - RLS 정책 등 보안 설정의 누락 여부를 확인한다.
+  - 감사 결과를 `.docs/audit/` 폴더에 보고서로 기록한다.
+
+---
+
+## 14) 기획-개발-감사 파이프라인 규칙 (Plan → Build → Audit)
+- 새로운 기능/아키텍처 변경은 다음 파이프라인을 따른다:
+  1. **`/plan`** → 기획 문서 작성
+  2. **`/plan-to-blueprint`** → 블루프린트 등록
   3. **`/develop`** → Phase별 개발 실행
+  4. **`/audit`** → 개발 내용 검사 및 보고서 생성
 - Agent 금지 사항:
-  - ❌ 기획 문서 없이 대규모 기능 개발 착수
-  - ❌ 기획 문서를 `.docs/planning/` 외의 위치에 저장
-  - ❌ Architect 외의 에이전트가 기획 문서 작성
-  - ❌ 블루프린트 등록 없이 개발 착수 (단순 버그 수정 제외)
+  - ❌ 감사 보고서 생성 없이 개발 완료 보고 (대규모 기능 대상)
+  - ❌ 기획 문서 없이 개발 착수

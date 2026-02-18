@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Build Type Error Resolution completed** ✅
-- **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
-- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 23:45 확인 - 15+ Type Errors Resolved)
+- **Current Focus**: **Admin Advanced Features & Content Management (Tier 3)** ✅
+- **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
+- **Build Status**: ✅ `npm run build` 성공 (System Config DB Integration 완료)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Resolved "Type instantiation is excessively deep" and DB schema mismatch errors across the project.
+- **Last Action**: Successfully integrated `system_config` table with UI and improved connection tests. Resolved Admin Dashboard build errors.
 
 ---
 
@@ -151,38 +151,41 @@
     - [x] T2-6: 요금제 정책 설정 (credit_count, max_pauses 등 필드 연동 완료) ✅
     - [x] T2-7: 역할별 사용자 배정 UI (/admin/operations/roles 구현 완료) ✅
   - [ ] Phase 3: Tier 3 고도화 (시스템연동, 히트맵, DnD 캘린더 등) → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
-    - [ ] t3-1 ~ t3-12 상세 기능 구현
+    - [x] T3-5: 회원권 양도 기능 (완료) ✅
+    - [x] T3-6: FAQ 관리 시스템 (완료) ✅
+    - [x] T3-9: 시스템 설정 DB 연동 (System Config DB Integration) ✅
+    - [ ] t3-1 ~ t3-12 기타 상세 기능 구현
   - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**
     - [ ] sitemap 갱신 및 blueprint 반영
 
-#### 🟠 Priority 9: 결제 시스템 아키텍처 (개발 대기) 💳
+#### 🟠 Priority 9: 결제 시스템 아키텍처 (진행 중 — Phase 1 완료) 💳
   > **기획서**: `.docs/archive/planning/payment-system.md`
   > **문제**: 현재 결제가 DB 직접 INSERT로만 처리되며, 실제 PG 연동/환불/정산 기능이 없음
   > **방안**: Toss Payments 결제위젯 연동 + 이중 안전장치 (Admin 모드 토글 + DEV 환경 강제 시뮬레이션)
 
-  - [ ] Phase 1: 결제 인프라 (DB + Edge Functions) → 💎 **Senior Dev (Opus)**
-    - [ ] transactions 테이블 확장 마이그레이션
-    - [ ] pg_settings + refunds 테이블 생성 + RLS
-    - [ ] confirm-payment Edge Function (7단계 검증)
-    - [ ] cancel-payment Edge Function (관리자 전용)
-    - [ ] toss-webhook Edge Function (서명 검증)
-    - [ ] sync-pg-settings Edge Function (암복호화)
-  - [ ] Phase 2: 사용자 결제 화면 → 🎨 **UI Dev (Gemini)** + 💻 **Developer (Sonnet)**
-    - [ ] /apps/purchase Toss 결제위젯 통합 (3단계 확인 플로우)
-    - [ ] /apps/purchase/success, /apps/purchase/fail 페이지
-    - [ ] 결제 성공 시 알림 연동
-    - [ ] /apps/profile/payments 영수증 링크
-  - [ ] Phase 3: 관리자 환불 & 매출 관리 → 🎨 **UI Dev** + 💎 **Senior Dev**
-    - [ ] Admin PG 설정 UI (모드 토글 + 키 입력)
-    - [ ] Admin 환불 모달 (위약금 계산, 2단계 확인)
-    - [ ] Admin 거래 상세 모달 (Toss 상태 표시)
-    - [ ] 매출 리포트 source 필터
+  - [x] Phase 1: 결제 인프라 (DB + Edge Functions) ✅ → 💎 **Senior Dev (Opus)**
+    - [x] transactions 테이블 확장 마이그레이션
+    - [x] pg_settings + refunds 테이블 생성 + RLS
+    - [x] confirm-payment Edge Function (7단계 검증)
+    - [x] cancel-payment Edge Function (관리자 전용)
+    - [x] toss-webhook Edge Function (서명 검증)
+    - [x] sync-pg-settings Edge Function (암복호화)
+  - [x] Phase 2: 사용자 결제 화면 ✅ → 🎨 **UI Dev (Gemini)** + 💻 **Developer (Sonnet)**
+    - [x] /apps/purchase Toss 결제위젯 통합 (3단계 확인 플로우)
+    - [x] /apps/purchase/success, /apps/purchase/fail 페이지
+    - [x] 결제 성공 시 알림 연동
+    - [x] /apps/profile/payments 영수증 링크
+  - [x] Phase 3: 관리자 환불 & 매출 관리 ✅ → 🎨 **UI Dev** + 💎 **Senior Dev**
+    - [x] Admin PG 설정 UI (모드 토글 + 키 입력)
+    - [x] Admin 환불 모달 (위약금 계산, 2단계 확인)
+    - [x] Admin 거래 상세 모달 (Toss 상태 표시)
+    - [x] 매출 리포트 source 필터
   - [ ] Phase 4 (향후): POS 매출 연동 → 💎 **Senior Dev**
     - [ ] Toss POS API 연동 EF
     - [ ] POS 매출 동기화 크론
     - [ ] 매출 리포트 POS 통합
-  - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap/database-reference/blueprint 갱신
+  - [x] Phase 5: 문서 동기화 ✅ → 🏛️ **Architect (Opus)**
+    - [x] sitemap/database-reference/blueprint 갱신
 
 #### 🟡 잔여 개선 항목 (향후)
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
