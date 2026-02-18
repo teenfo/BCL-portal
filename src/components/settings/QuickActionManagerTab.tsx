@@ -107,11 +107,11 @@ export default function QuickActionManagerTab() {
         const supabase = createClient();
 
         const [widgetRes, logRes] = await Promise.all([
-            supabase
+            (supabase as any)
                 .from('widget_definitions')
                 .select('id, title, description, category, icon, icon_color, default_enabled, default_order, source, created_at')
                 .order('default_order', { ascending: true }),
-            supabase
+            (supabase as any)
                 .from('ai_widget_generation_logs')
                 .select('id, prompt, model_used, generated_widget_id, generated_modal_ids, status, error_message, created_at')
                 .order('created_at', { ascending: false })
@@ -129,13 +129,13 @@ export default function QuickActionManagerTab() {
     const handleDeleteWidget = async (widgetId: string, title: string) => {
         if (!confirm(`"${title}" 위젯을 영구 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
         const supabase = createClient();
-        await supabase.from('widget_definitions').delete().eq('id', widgetId);
+        await (supabase as any).from('widget_definitions').delete().eq('id', widgetId);
         fetchAll();
     };
 
     const handleToggleEnabled = async (widgetId: string, current: boolean) => {
         const supabase = createClient();
-        await supabase.from('widget_definitions').update({ default_enabled: !current }).eq('id', widgetId);
+        await (supabase as any).from('widget_definitions').update({ default_enabled: !current }).eq('id', widgetId);
         fetchAll();
     };
 

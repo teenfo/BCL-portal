@@ -22,6 +22,8 @@ interface Coach {
     created_at: string;
     linked_at: string | null;
     linked_by: string | null;
+    base_salary?: number;
+    session_allowance?: number;
 }
 
 interface MemberProfile {
@@ -44,7 +46,7 @@ interface CoachPerformance {
     retention: number;
 }
 
-type TabType = 'management' | 'performance';
+type TabType = 'management' | 'performance' | 'settlements';
 
 export default function OperationsCoachesPage() {
     const [activeTab, setActiveTab] = useState<TabType>('management');
@@ -69,7 +71,12 @@ export default function OperationsCoachesPage() {
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [form, setForm] = useState({
         phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '',
+        base_salary: 0, session_allowance: 0,
     });
+
+    // --- Settlements State ---
+    const [showSalaryModal, setShowSalaryModal] = useState(false);
+    const [salaryForm, setSalaryForm] = useState({ base_salary: 0, session_allowance: 0 });
 
     // --- Performance State ---
     const [perfCoaches, setPerfCoaches] = useState<CoachPerformance[]>([]);
@@ -149,6 +156,7 @@ export default function OperationsCoachesPage() {
                 phone: coach.phone || '',
                 specialties: coach.specialties?.join(', ') || '', bio: coach.bio || '',
                 status: coach.status, profile_image_url: coach.profile_image_url || '',
+                base_salary: coach.base_salary || 0, session_allowance: coach.session_allowance || 0,
             });
             setImagePreview(coach.profile_image_url || null);
             // 편집 시 연결된 회원 정보 설정
@@ -159,7 +167,7 @@ export default function OperationsCoachesPage() {
             }
         } else {
             setEditingCoach(null);
-            setForm({ phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '' });
+            setForm({ phone: '', specialties: '', bio: '', status: 'active', profile_image_url: '', base_salary: 0, session_allowance: 0 });
             setImagePreview(null);
             setSelectedMember(null);
         }
@@ -261,6 +269,8 @@ export default function OperationsCoachesPage() {
                     bio: form.bio || null,
                     status: form.status,
                     profile_image_url: profileImageUrl,
+                    base_salary: form.base_salary,
+                    session_allowance: form.session_allowance,
                 };
                 // 미연결 코치의 이름 수정은 허용
                 if (!editingCoach.user_id) {
@@ -291,6 +301,8 @@ export default function OperationsCoachesPage() {
                     bio: form.bio || null,
                     status: form.status,
                     profile_image_url: null as string | null,
+                    base_salary: form.base_salary,
+                    session_allowance: form.session_allowance,
                     linked_at: new Date().toISOString(),
                     linked_by: user.id,
                 };
@@ -416,6 +428,9 @@ export default function OperationsCoachesPage() {
         'Pilates': '#06B6D4',
     };
 
+    // T3-10: Salary formatting
+    const formatCurrency = (val: number) => new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(val);
+
     const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
         { key: 'management', label: '코치 관리', icon: <IconCoach size={14} /> },
         { key: 'performance', label: '성과 분석', icon: <IconBarChart size={14} /> },
@@ -430,6 +445,11 @@ export default function OperationsCoachesPage() {
                 actions={
                     activeTab === 'management' ? (
                         <button onClick={() => openModal()} className="admin-action-btn">+ 신규 코치</button>
+                    ) : activeTab === 'settlements' ? (
+                        <div className="flex gap-2">
+                            <button className="admin-filter-btn">정산 내역 다운로드</button>
+                            <button className="admin-action-btn">월 정산 실행</button>
+                        </div>
                     ) : undefined
                 }
             />
@@ -452,6 +472,17 @@ export default function OperationsCoachesPage() {
                             {tab.label}
                         </button>
                     ))}
+                    <button
+                        onClick={() => setActiveTab('settlements')}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
+                        style={{
+                            background: activeTab === 'settlements' ? 'rgba(255,107,0,0.15)' : 'transparent',
+                            color: activeTab === 'settlements' ? 'var(--primary)' : 'var(--text-muted)',
+                            border: activeTab === 'settlements' ? '1px solid rgba(255,107,0,0.3)' : '1px solid transparent',
+                        }}
+                    >
+                        <IconTarget size={14} /> 정산 관리
+                    </button>
                 </div>
 
                 {/* ========== Management Tab ========== */}
@@ -754,6 +785,75 @@ export default function OperationsCoachesPage() {
                     </>
                 )}
 
+                {/* ========== Settlements Tab ========== */}
+                {activeTab === 'settlements' && (
+                    <div className="space-y-8">
+                        {/* Summary KPI */}
+                        <div className="grid grid-cols-4 gap-4">
+                            {[
+                                { label: '총 예상 지급액', value: formatCurrency(coaches.reduce((sum, c) => sum + (c.base_salary || 0), 0)), color: '#3B82F6' },
+                                { label: '평균 기본급', value: formatCurrency(coaches.length ? coaches.reduce((sum, c) => sum + (c.base_salary || 0), 0) / coaches.length : 0), color: '#22C55E' },
+                                { label: '전월 정산 완료', value: '12명', color: '#8B5CF6' },
+                                { label: '미정산 건수', value: '2건', color: '#EF4444' },
+                            ].map((kpi) => (
+                                <div key={kpi.label} className="glass-card p-5">
+                                    <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-3">{kpi.label}</p>
+                                    <p className="text-2xl font-black text-white" style={{ borderLeft: `3px solid ${kpi.color}`, paddingLeft: '12px' }}>{kpi.value}</p>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Salary Management Table */}
+                        <div className="glass-card overflow-hidden">
+                            <div className="p-6 border-b border-white/[0.05] flex justify-between items-center">
+                                <h3 className="text-sm font-black text-white uppercase tracking-tight">Coach Salary Settings</h3>
+                                <div className="flex gap-2">
+                                    <input placeholder="코치명 검색..." className="admin-search-input py-1 px-3 text-[10px]" />
+                                </div>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="border-b border-white/[0.03]">
+                                            <th className="p-6 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">코치 정보</th>
+                                            <th className="p-6 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">상태</th>
+                                            <th className="p-6 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">기본급 (Month)</th>
+                                            <th className="p-6 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">수업당 수당</th>
+                                            <th className="p-6 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/[0.02]">
+                                        {coaches.map(coach => {
+                                            const sc = statusConfig[coach.status] || statusConfig.active;
+                                            return (
+                                                <tr key={coach.id} className="hover:bg-white/[0.01] transition-colors">
+                                                    <td className="p-6">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-black text-[var(--primary)]">{coach.name.charAt(0)}</div>
+                                                            <div>
+                                                                <p className="text-sm font-black text-white">{coach.name}</p>
+                                                                <p className="text-[9px] text-[var(--text-muted)]">{coach.email}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-6 text-center">
+                                                        <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
+                                                    </td>
+                                                    <td className="p-6 text-right font-black text-white text-sm">{formatCurrency(coach.base_salary || 0)}</td>
+                                                    <td className="p-6 text-right font-black text-[var(--primary)] text-sm">{formatCurrency(coach.session_allowance || 0)}</td>
+                                                    <td className="p-6 text-right">
+                                                        <button onClick={() => openModal(coach)} className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase border border-white/10 hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all">설정 변경</button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Modal – positioned in content area, fixed size */}
                 <AdminModal show={showModal} onClose={() => setShowModal(false)} title={editingCoach ? '코치 수정' : '새 코치 등록'}>
                     {/* Profile Image Upload */}
@@ -812,6 +912,28 @@ export default function OperationsCoachesPage() {
                     </div>
 
                     <div className="space-y-5">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">기본급 (월)</label>
+                                <input
+                                    type="number"
+                                    value={form.base_salary}
+                                    onChange={(e) => setForm({ ...form, base_salary: parseInt(e.target.value) || 0 })}
+                                    className="w-full admin-search-input"
+                                    placeholder="0"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">수업당 수당</label>
+                                <input
+                                    type="number"
+                                    value={form.session_allowance}
+                                    onChange={(e) => setForm({ ...form, session_allowance: parseInt(e.target.value) || 0 })}
+                                    className="w-full admin-search-input"
+                                    placeholder="0"
+                                />
+                            </div>
+                        </div>
                         {/* Step 1: 회원 선택 (신규 등록 시) */}
                         {!editingCoach ? (
                             <div>

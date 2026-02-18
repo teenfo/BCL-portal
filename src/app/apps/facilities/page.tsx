@@ -8,7 +8,7 @@ interface Facility {
     name: string;
     address: string;
     phone?: string;
-    operating_hours: string;
+    operating_hours: any;
     amenities?: string[];
     description?: string;
 }
@@ -41,11 +41,11 @@ export default function UserFacilitiesPage() {
             .from('facilities')
             .select('*')
             .order('name');
-        if (data) setFacilities(data);
+        if (data) setFacilities(data as any);
         setLoading(false);
     }
 
-    function getOperatingHoursDisplay(hours: string) {
+    function getOperatingHoursDisplay(hours: any) {
         if (!hours) return null;
         return [
             { day: 'Weekdays (Mon-Fri)', time: hours },

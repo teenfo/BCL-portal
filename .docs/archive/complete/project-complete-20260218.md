@@ -203,3 +203,13 @@
 | `src/app/admin/memberships/page.tsx` | T1-3: 홀딩/연장 |
 | `src/app/admin/operations/reservations/page.tsx` | T1-5: 명단/노쇼 |
 
+
+## 2026-02-18 23:50 세션 작업 내역
+### [Build Error Resolution]
+- [x] "Type instantiation is excessively deep" 빌드 에러 해결 (15+ 파일)
+- [x] Supabase DB 스키마 변경 사항과 맞지 않는 코드 수정
+  - [x] notifications: content -> message 필드명 수정
+  - [x] push_subscriptions: JSON 컬럼(subscription, device_info) 기반으로 리팩토링
+  - [x] notification_preferences: categories JSON 컬럼 매핑 로직 수정
+  - [x] members: birth_date, profile_image_url 등 필드명 정합성 확보
+- [x] npm run build 최종 성공 확인

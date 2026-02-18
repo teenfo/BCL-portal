@@ -4,14 +4,17 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
-import { IconBuilding, IconPhone, IconCalendar, IconMapPin } from '@/components/icons/AdminIcons';
+import { IconBuilding, IconPhone, IconCalendar, IconMapPin, IconEdit, IconTrash } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Facility {
     id: string;
     name: string;
     address: string | null;
     phone: string | null;
-    operating_hours: Record<string, unknown> | null;
+    operating_hours: any;
+    map_image_url: string | null;
+    gallery_images: any;
     created_at: string;
 }
 
@@ -20,7 +23,14 @@ export default function BranchSetupPage() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingFacility, setEditingFacility] = useState<Facility | null>(null);
-    const [form, setForm] = useState({ name: '', address: '', phone: '' });
+    const [form, setForm] = useState({ name: '', address: '', phone: '', map_image_url: '' });
+
+    // T3-8: Image management state
+    const [showImageModal, setShowImageModal] = useState(false);
+    const [imageTarget, setImageTarget] = useState<Facility | null>(null);
+    const [mapUrl, setMapUrl] = useState('');
+    const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+    const [newGalleryUrl, setNewGalleryUrl] = useState('');
 
     // T1-4: Operating hours state
     const DAYS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -30,6 +40,7 @@ export default function BranchSetupPage() {
     const [showHoursModal, setShowHoursModal] = useState(false);
     const [hoursTarget, setHoursTarget] = useState<Facility | null>(null);
     const [hoursForm, setHoursForm] = useState<Record<string, { open: string; close: string; closed: boolean }>>(defaultHours);
+    const { success, error: toastError, info } = useToast();
 
     useEffect(() => { loadFacilities(); }, []);
 
@@ -37,28 +48,34 @@ export default function BranchSetupPage() {
         const supabase = createClient();
         setLoading(true);
         const { data } = await supabase.from('facilities').select('*').order('name');
-        if (data) setFacilities(data as any);
+        if (data) {
+            setFacilities(data as any);
+        }
         setLoading(false);
     }
 
     function openModal(facility?: Facility) {
         if (facility) {
             setEditingFacility(facility);
-            setForm({ name: facility.name, address: facility.address || '', phone: facility.phone || '' });
+            setForm({ name: facility.name, address: facility.address || '', phone: facility.phone || '', map_image_url: facility.map_image_url || '' });
         } else {
             setEditingFacility(null);
-            setForm({ name: '', address: '', phone: '' });
+            setForm({ name: '', address: '', phone: '', map_image_url: '' });
         }
         setShowModal(true);
     }
 
     async function saveFacility() {
         const supabase = createClient();
-        const data = { name: form.name, address: form.address || null, phone: form.phone || null };
+        const data = { name: form.name, address: form.address || null, phone: form.phone || null, map_image_url: form.map_image_url || null };
         if (editingFacility) {
-            await supabase.from('facilities').update(data).eq('id', editingFacility.id);
+            const { error } = await supabase.from('facilities').update(data).eq('id', editingFacility.id);
+            if (error) toastError(`지점 정보 수정 실패: ${error.message}`);
+            else success('지점 정보가 수정되었습니다.');
         } else {
-            await supabase.from('facilities').insert(data);
+            const { error } = await supabase.from('facilities').insert(data);
+            if (error) toastError(`지점 등록 실패: ${error.message}`);
+            else success('새 지점이 등록되었습니다.');
         }
         setShowModal(false);
         loadFacilities();
@@ -67,8 +84,13 @@ export default function BranchSetupPage() {
     async function deleteFacility(id: string) {
         if (!confirm('이 지점을 삭제하시겠습니까? 관련 데이터가 모두 영향을 받을 수 있습니다.')) return;
         const supabase = createClient();
-        await supabase.from('facilities').delete().eq('id', id);
-        loadFacilities();
+        const { error } = await supabase.from('facilities').delete().eq('id', id);
+        if (error) {
+            toastError(`지점 삭제 실패: ${error.message}`);
+        } else {
+            success('지점이 삭제되었습니다.');
+            loadFacilities();
+        }
     }
 
     // T1-4: Open operating hours modal
@@ -89,10 +111,52 @@ export default function BranchSetupPage() {
     async function saveOperatingHours() {
         if (!hoursTarget) return;
         const supabase = createClient();
-        await (supabase as any).from('facilities').update({ operating_hours: hoursForm }).eq('id', hoursTarget.id);
-        setShowHoursModal(false);
-        setHoursTarget(null);
-        loadFacilities();
+        const { error } = await (supabase as any).from('facilities').update({ operating_hours: hoursForm }).eq('id', hoursTarget.id);
+        if (error) {
+            toastError(`운영시간 저장 실패: ${error.message}`);
+        } else {
+            success('운영시간이 저장되었습니다.');
+            setShowHoursModal(false);
+            setHoursTarget(null);
+            loadFacilities();
+        }
+    }
+
+    // T3-8: Image management functions
+    function openImageModal(facility: Facility) {
+        setImageTarget(facility);
+        setMapUrl(facility.map_image_url || '');
+        setGalleryUrls(facility.gallery_images || []);
+        setNewGalleryUrl('');
+        setShowImageModal(true);
+    }
+
+    function addGalleryImage() {
+        if (!newGalleryUrl.trim()) return;
+        setGalleryUrls([...galleryUrls, newGalleryUrl.trim()]);
+        setNewGalleryUrl('');
+    }
+
+    function removeGalleryImage(idx: number) {
+        setGalleryUrls(galleryUrls.filter((_, i) => i !== idx));
+    }
+
+    async function saveImages() {
+        if (!imageTarget) return;
+        const supabase = createClient();
+        const { error } = await (supabase as any).from('facilities').update({
+            map_image_url: mapUrl || null,
+            gallery_images: galleryUrls.length > 0 ? galleryUrls : null,
+        }).eq('id', imageTarget.id);
+
+        if (error) {
+            toastError(`이미지 저장 실패: ${error.message}`);
+        } else {
+            success('지점 이미지가 업데이트되었습니다.');
+            setShowImageModal(false);
+            setImageTarget(null);
+            loadFacilities();
+        }
     }
 
     // T1-4: Format operating hours summary
@@ -135,13 +199,30 @@ export default function BranchSetupPage() {
                                     <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconPhone size={14} /></span><span className="text-white/60">{f.phone || '번호 미설정'}</span></div>
                                     <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconCalendar size={14} /></span><span className="text-white/60">{getHoursSummary(f)}</span></div>
                                 </div>
-                                {/* T1-4: Operating hours button */}
-                                <button
-                                    onClick={() => openHoursModal(f)}
-                                    className="mt-4 w-full py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white/50 hover:border-[var(--primary)]/30 hover:text-[var(--primary)] transition-all"
-                                >
-                                    ⏰ 운영시간 설정
-                                </button>
+                                {f.map_image_url && (
+                                    <div className="mt-4 rounded-xl overflow-hidden border border-white/5" style={{ height: '80px' }}>
+                                        <img src={f.map_image_url} alt="지도" className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
+                                    </div>
+                                )}
+
+                                {f.gallery_images && f.gallery_images.length > 0 && (
+                                    <p className="text-[8px] text-[var(--primary)] mt-2">📸 갤러리 이미지 {f.gallery_images.length}개</p>
+                                )}
+
+                                <div className="flex gap-2 mt-4">
+                                    <button
+                                        onClick={() => openHoursModal(f)}
+                                        className="flex-1 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white/50 hover:border-[var(--primary)]/30 hover:text-[var(--primary)] transition-all"
+                                    >
+                                        ⏰ 운영시간
+                                    </button>
+                                    <button
+                                        onClick={() => openImageModal(f)}
+                                        className="flex-1 py-2.5 rounded-xl text-[8px] font-black uppercase tracking-widest bg-white/[0.03] border border-white/5 text-white/50 hover:border-blue-400/30 hover:text-blue-400 transition-all"
+                                    >
+                                        🖼 이미지 관리
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -168,7 +249,6 @@ export default function BranchSetupPage() {
                     </div>
                 </AdminModal>
 
-                {/* T1-4: Operating Hours Modal */}
                 <AdminModal show={showHoursModal && !!hoursTarget} onClose={() => { setShowHoursModal(false); setHoursTarget(null); }} title="운영 시간 설정" subtitle={hoursTarget?.name || ''}>
                     <div className="space-y-3">
                         {DAY_KEYS.map((d, i) => (
@@ -201,23 +281,48 @@ export default function BranchSetupPage() {
                                 )}
                             </div>
                         ))}
-                        {/* Quick presets */}
-                        <div className="flex gap-2 pt-2">
-                            <button onClick={() => {
-                                const preset: Record<string, any> = {};
-                                DAY_KEYS.forEach((d, i) => { preset[d] = i < 5 ? { open: '06:00', close: '22:00', closed: false } : { open: '09:00', close: '18:00', closed: false }; });
-                                setHoursForm(preset);
-                            }} className="px-3 py-1.5 rounded-lg text-[7px] font-black uppercase bg-white/[0.03] border border-white/5 text-white/50 hover:text-white transition-all">기본 프리셋</button>
-                            <button onClick={() => {
-                                const preset: Record<string, any> = {};
-                                DAY_KEYS.forEach((d, i) => { preset[d] = i < 6 ? { open: '06:00', close: '22:00', closed: false } : { open: '06:00', close: '22:00', closed: true }; });
-                                setHoursForm(preset);
-                            }} className="px-3 py-1.5 rounded-lg text-[7px] font-black uppercase bg-white/[0.03] border border-white/5 text-white/50 hover:text-white transition-all">일요일 휴무</button>
-                        </div>
                     </div>
                     <div className="flex gap-3 mt-8">
                         <button onClick={() => { setShowHoursModal(false); setHoursTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
                         <button onClick={saveOperatingHours} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>저장</button>
+                    </div>
+                </AdminModal>
+
+                <AdminModal show={showImageModal && !!imageTarget} onClose={() => { setShowImageModal(false); setImageTarget(null); }} title="이미지 관리" subtitle={imageTarget?.name || ''} size="lg">
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">지도 이미지 URL</label>
+                            <input
+                                value={mapUrl}
+                                onChange={(e) => setMapUrl(e.target.value)}
+                                placeholder="https://example.com/map-image.jpg"
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none font-mono transition-all"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">갤러리 이미지 ({galleryUrls.length}개)</label>
+                            <div className="flex gap-2">
+                                <input
+                                    value={newGalleryUrl}
+                                    onChange={(e) => setNewGalleryUrl(e.target.value)}
+                                    placeholder="이미지 URL 입력"
+                                    className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none font-mono transition-all"
+                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                />
+                                <button
+                                    onClick={addGalleryImage}
+                                    className="px-4 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all"
+                                    style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}
+                                >
+                                    추가
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-8">
+                        <button onClick={() => { setShowImageModal(false); setImageTarget(null); }} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                        <button onClick={saveImages} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>저장</button>
                     </div>
                 </AdminModal>
             </div>

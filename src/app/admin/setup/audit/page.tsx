@@ -96,6 +96,24 @@ export default function AuditLogsPage() {
         return { color: '#3B82F6', bg: 'rgba(59,130,246,0.15)', label: 'INFO' };
     }
 
+    // T2-1: CSV Download helper
+    function downloadCSV() {
+        if (logs.length === 0) return;
+        const rows = [['Time', 'Action', 'Resource', 'IP Address', 'New Values']];
+        filtered.forEach(l => {
+            const ts = l.created_at ? new Date(l.created_at).toLocaleString('ko-KR') : '';
+            rows.push([ts, l.action, l.table_name || '', l.ip_address || '', JSON.stringify(l.new_values || {})]);
+        });
+        const csvContent = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `audit_logs_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     return (
         <div className="transition-all duration-500">
             <AdminPageHeader
@@ -137,9 +155,12 @@ export default function AuditLogsPage() {
                     </div>
                     <input type="text" placeholder="테이블, 내용, IP 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1 admin-search-input" />
                     {/* T2-10: Date range */}
-                    <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
-                    <span className="text-white/30 text-xs">~</span>
-                    <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
+                    <div className="flex items-center gap-2">
+                        <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
+                        <span className="text-white/30 text-xs">~</span>
+                        <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="admin-search-input" style={{ maxWidth: 150 }} />
+                    </div>
+                    <button onClick={downloadCSV} disabled={logs.length === 0} className="admin-action-btn disabled:opacity-40">⬇ CSV 내보내기</button>
                 </div>
 
                 {/* Loading */}

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconMegaphone, IconPalette } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Notice {
     id: string;
@@ -80,6 +81,8 @@ export default function ContentPage() {
         end_date: new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
     };
     const [bannerForm, setBannerForm] = useState<BannerForm>(emptyBannerForm);
+    const [uploading, setUploading] = useState(false);
+    const { success, error: toastError, info } = useToast();
 
     const loadNotices = useCallback(async () => {
         const supabase = createClient();
@@ -127,9 +130,13 @@ export default function ContentPage() {
         const supabase = createClient();
         const data = { ...form, published_at: form.is_published ? new Date().toISOString() : null };
         if (editingNotice) {
-            await supabase.from('notices').update(data).eq('id', editingNotice.id);
+            const { error } = await supabase.from('notices').update(data).eq('id', editingNotice.id);
+            if (error) toastError(`공지 수정 실패: ${error.message}`);
+            else success('공지가 수정되었습니다.');
         } else {
-            await supabase.from('notices').insert(data);
+            const { error } = await supabase.from('notices').insert(data);
+            if (error) toastError(`공지 등록 실패: ${error.message}`);
+            else success('새 공지가 등록되었습니다.');
         }
         setShowModal(false);
         loadNotices();
@@ -138,14 +145,24 @@ export default function ContentPage() {
     async function deleteNotice(id: string) {
         if (!confirm('이 공지를 삭제하시겠습니까?')) return;
         const supabase = createClient();
-        await supabase.from('notices').delete().eq('id', id);
-        loadNotices();
+        const { error } = await supabase.from('notices').delete().eq('id', id);
+        if (error) {
+            toastError(`공지 삭제 실패: ${error.message}`);
+        } else {
+            success('공지가 삭제되었습니다.');
+            loadNotices();
+        }
     }
 
     async function togglePublish(notice: Notice) {
         const supabase = createClient();
-        await supabase.from('notices').update({ is_published: !notice.is_published, published_at: !notice.is_published ? new Date().toISOString() : null }).eq('id', notice.id);
-        loadNotices();
+        const { error } = await supabase.from('notices').update({ is_published: !notice.is_published, published_at: !notice.is_published ? new Date().toISOString() : null }).eq('id', notice.id);
+        if (error) {
+            toastError(`상태 변경 실패: ${error.message}`);
+        } else {
+            success(`공지가 ${!notice.is_published ? '공개' : '비공개'} 상태로 변경되었습니다.`);
+            loadNotices();
+        }
     }
 
     const priorityConfig: Record<string, { color: string; label: string }> = {
@@ -185,9 +202,13 @@ export default function ContentPage() {
             end_date: new Date(bannerForm.end_date).toISOString(),
         };
         if (editingBanner) {
-            await supabase.from('banners').update(payload).eq('id', editingBanner.id);
+            const { error } = await supabase.from('banners').update(payload).eq('id', editingBanner.id);
+            if (error) toastError(`배너 수정 실패: ${error.message}`);
+            else success('배너가 수정되었습니다.');
         } else {
-            await supabase.from('banners').insert(payload);
+            const { error } = await supabase.from('banners').insert(payload);
+            if (error) toastError(`배너 등록 실패: ${error.message}`);
+            else success('새 배너가 등록되었습니다.');
         }
         setShowBannerModal(false);
         loadBanners();
@@ -196,8 +217,13 @@ export default function ContentPage() {
     async function deleteBanner(id: string) {
         if (!confirm('이 배너를 삭제하시겠습니까?')) return;
         const supabase = createClient();
-        await supabase.from('banners').delete().eq('id', id);
-        loadBanners();
+        const { error } = await supabase.from('banners').delete().eq('id', id);
+        if (error) {
+            toastError(`배너 삭제 실패: ${error.message}`);
+        } else {
+            success('배너가 삭제되었습니다.');
+            loadBanners();
+        }
     }
 
     async function toggleBannerActive(banner: Banner) {
@@ -205,6 +231,33 @@ export default function ContentPage() {
         await supabase.from('banners').update({ is_active: !banner.is_active }).eq('id', banner.id);
         // Optimistic update
         setBanners(prev => prev.map(b => b.id === banner.id ? { ...b, is_active: !b.is_active } : b));
+    }
+
+    async function handleBannerImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await fetch('/api/upload/image', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+            if (data.url) {
+                setBannerForm(prev => ({ ...prev, image_url: data.url }));
+            } else {
+                alert('업로드 실패: ' + (data.error || '알 수 없는 오류'));
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            alert('업로드 중 오류가 발생했습니다.');
+        } finally {
+            setUploading(false);
+        }
     }
 
     function moveBannerOrder(bannerId: string, direction: 'up' | 'down') {
@@ -490,13 +543,19 @@ export default function ContentPage() {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">이미지 URL</label>
-                                <input
-                                    value={bannerForm.image_url}
-                                    onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })}
-                                    placeholder="/images/banners/..."
-                                    className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                                    style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
-                                />
+                                <div className="flex gap-2">
+                                    <input
+                                        value={bannerForm.image_url}
+                                        onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })}
+                                        placeholder="/images/banners/..."
+                                        className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none transition-all font-mono"
+                                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                    />
+                                    <label className={`px-4 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center min-w-[100px] ${uploading ? 'opacity-50 pointer-events-none' : ''}`} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        {uploading ? '...' : '업로드'}
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleBannerImageUpload} disabled={uploading} />
+                                    </label>
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">링크 URL</label>
@@ -509,6 +568,11 @@ export default function ContentPage() {
                                 />
                             </div>
                         </div>
+                        {bannerForm.image_url && (
+                            <div className="rounded-xl overflow-hidden border border-white/5 bg-black/20" style={{ maxHeight: '180px' }}>
+                                <img src={bannerForm.image_url} alt="Banner Preview" className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
+                            </div>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">노출 위치</label>

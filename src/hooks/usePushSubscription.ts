@@ -90,18 +90,17 @@ export function usePushSubscription(): UsePushSubscriptionReturn {
                 .eq('user_id', user.id)
                 .single();
 
-            await supabase.from('push_subscriptions').upsert({
+            await (supabase as any).from('push_subscriptions').upsert({
                 user_id: user.id,
-                member_id: member?.id,
-                endpoint: subJson.endpoint!,
-                p256dh_key: subJson.keys!.p256dh!,
-                auth_key: subJson.keys!.auth!,
-                device_type: getDeviceType(),
-                user_agent: navigator.userAgent,
-                is_active: true,
-                last_used_at: new Date().toISOString(),
+                subscription: subJson as any,
+                device_info: {
+                    device_type: getDeviceType(),
+                    user_agent: navigator.userAgent,
+                    last_used_at: new Date().toISOString(),
+                } as any,
+                updated_at: new Date().toISOString(),
             }, {
-                onConflict: 'user_id,endpoint',
+                onConflict: 'user_id',
             });
 
             setIsSubscribed(true);
@@ -124,11 +123,10 @@ export function usePushSubscription(): UsePushSubscriptionReturn {
                 const supabase = createClient();
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    await supabase
+                    await (supabase as any)
                         .from('push_subscriptions')
-                        .update({ is_active: false })
-                        .eq('user_id', user.id)
-                        .eq('endpoint', subscription.endpoint);
+                        .delete()
+                        .eq('user_id', user.id);
                 }
             }
             setIsSubscribed(false);

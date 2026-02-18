@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconFileText } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Transaction {
     id: string;
@@ -37,6 +38,7 @@ export default function TransactionsPage() {
     const [refundReason, setRefundReason] = useState('');
     const [refundFeePercent, setRefundFeePercent] = useState(10);
     const [processing, setProcessing] = useState(false);
+    const { success, error: toastError, info } = useToast();
 
     const loadTransactions = useCallback(async () => {
         const supabase = createClient();
@@ -117,12 +119,17 @@ export default function TransactionsPage() {
         const refundAmount = Number(refundTarget.amount) - feeAmount;
 
         // Mark original transaction as refunded
-        await (supabase as any).from('transactions').update({
+        const { error: err1 } = await (supabase as any).from('transactions').update({
             status: 'refunded',
         }).eq('id', refundTarget.id);
+        if (err1) {
+            toastError(`환불 상태 업데이트 실패: ${err1.message}`);
+            setProcessing(false);
+            return;
+        }
 
         // Create refund transaction record
-        await (supabase as any).from('transactions').insert({
+        const { error: err2 } = await (supabase as any).from('transactions').insert({
             member_id: refundTarget.member_id,
             amount: refundAmount,
             method: refundTarget.payment_method,
@@ -130,6 +137,15 @@ export default function TransactionsPage() {
             category: refundTarget.category,
             date: new Date().toISOString().split('T')[0],
         });
+
+        if (err2) {
+            toastError(`환불 기록 생성 실패: ${err2.message}`);
+        } else {
+            success('환불 처리가 완료되었습니다.');
+            setShowRefundModal(false);
+            setRefundTarget(null);
+            loadTransactions();
+        }
 
         setShowRefundModal(false);
         setRefundTarget(null);

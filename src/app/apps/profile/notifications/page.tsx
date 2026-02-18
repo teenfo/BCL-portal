@@ -63,19 +63,20 @@ export default function NotificationSettingsPage() {
             .single();
 
         if (data) {
+            const cats = (data.categories as any) || {};
             setPrefs({
-                class_reminder: data.class_reminder ?? true,
-                waitlist_vacancy: data.waitlist_vacancy ?? true,
-                membership_expiry: data.membership_expiry ?? true,
-                promotion: data.promotion ?? true,
-                checkin: data.checkin ?? true,
-                system_notification: data.system_notification ?? true,
+                class_reminder: cats.class_reminder ?? true,
+                waitlist_vacancy: cats.waitlist_vacancy ?? true,
+                membership_expiry: cats.membership_expiry ?? true,
+                promotion: cats.promotion ?? true,
+                checkin: cats.checkin ?? true,
+                system_notification: cats.system_notification ?? true,
                 push_enabled: data.push_enabled ?? true,
                 kakao_enabled: data.kakao_enabled ?? false,
                 sms_enabled: data.sms_enabled ?? false,
                 email_enabled: data.email_enabled ?? false,
-                quiet_hours_start: data.quiet_hours_start,
-                quiet_hours_end: data.quiet_hours_end,
+                quiet_hours_start: (data as any).quiet_hours_start || null,
+                quiet_hours_end: (data as any).quiet_hours_end || null,
             });
         }
         setLoading(false);
@@ -107,10 +108,21 @@ export default function NotificationSettingsPage() {
             .eq('user_id', user.id)
             .single();
 
-        await supabase.from('notification_preferences').upsert({
+        await (supabase as any).from('notification_preferences').upsert({
             user_id: user.id,
-            member_id: member?.id,
-            ...newPrefs,
+            push_enabled: newPrefs.push_enabled,
+            kakao_enabled: newPrefs.kakao_enabled,
+            sms_enabled: newPrefs.sms_enabled,
+            email_enabled: newPrefs.email_enabled,
+            categories: {
+                class_reminder: newPrefs.class_reminder,
+                waitlist_vacancy: newPrefs.waitlist_vacancy,
+                membership_expiry: newPrefs.membership_expiry,
+                promotion: newPrefs.promotion,
+                checkin: newPrefs.checkin,
+                system_notification: newPrefs.system_notification,
+            },
+            updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
 
         setSaving(false);

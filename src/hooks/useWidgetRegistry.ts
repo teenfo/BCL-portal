@@ -22,7 +22,7 @@ export function useWidgetRegistry() {
             const supabase = createClient();
 
             // AI/커스텀 위젯 로드
-            const { data: widgetRows } = await supabase
+            const { data: widgetRows } = await (supabase as any)
                 .from('widget_definitions')
                 .select('*')
                 .in('source', ['ai_generated', 'custom'])
@@ -50,7 +50,7 @@ export function useWidgetRegistry() {
             }
 
             // AI/커스텀 모달 로드
-            const { data: modalRows } = await supabase
+            const { data: modalRows } = await (supabase as any)
                 .from('modal_definitions')
                 .select('*')
                 .in('source', ['ai_generated', 'custom']);

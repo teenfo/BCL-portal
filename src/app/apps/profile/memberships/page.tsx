@@ -24,7 +24,7 @@ export default function MembershipsPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) { setLoading(false); return; }
 
-            const { data } = await supabase
+            const { data } = await (supabase as any)
                 .from('memberships')
                 .select('*, membership_plans(name, type)')
                 .eq('user_id', user.id)

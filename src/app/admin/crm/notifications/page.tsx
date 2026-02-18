@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCircle, IconFlag, IconStar, IconClock, IconSettings, IconSend, IconBell } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 // ── Types ──
 interface Notification {
@@ -12,7 +13,7 @@ interface Notification {
     user_id: string | null;
     member_id: string | null;
     title: string;
-    content: string;
+    message: string;
     category: string;
     type: string;
     channel: string;
@@ -80,7 +81,7 @@ export default function NotificationsPage() {
     const [members, setMembers] = useState<{ id: string; name: string; user_id: string }[]>([]);
     const [sendForm, setSendForm] = useState({
         title: '',
-        content: '',
+        message: '',
         category: 'general' as string,
         type: 'info',
         channel: 'in_app',
@@ -94,6 +95,7 @@ export default function NotificationsPage() {
     const defaultRuleForm = { name: '', description: '', trigger_type: 'time_before_session', category: 'class_reminder', channels: ['in_app'] as string[], title_template: '', message_template: '', is_active: true };
     const [ruleForm, setRuleForm] = useState(defaultRuleForm);
     const [savingRule, setSavingRule] = useState(false);
+    const { success, error: toastError, info } = useToast();
 
     // ── Load Data ──
     const loadNotifications = useCallback(async () => {
@@ -144,7 +146,7 @@ export default function NotificationsPage() {
 
     // ── Actions ──
     async function sendNotification() {
-        if (!sendForm.title || !sendForm.content) return;
+        if (!sendForm.title || !sendForm.message) return;
         setSending(true);
         const supabase = createClient();
 
@@ -153,32 +155,45 @@ export default function NotificationsPage() {
                 user_id: m.user_id,
                 member_id: m.id,
                 title: sendForm.title,
-                content: sendForm.content,
+                message: sendForm.message,
                 category: sendForm.category,
                 type: sendForm.type,
                 channel: sendForm.channel,
                 sent_at: new Date().toISOString(),
-                sent_via: [sendForm.channel],
+                sent_via: sendForm.channel,
             }));
-            if (inserts.length > 0) await supabase.from('notifications').insert(inserts);
+            if (inserts.length > 0) {
+                const { error } = await supabase.from('notifications').insert(inserts);
+                if (error) {
+                    toastError(`전송 실패: ${error.message}`);
+                    setSending(false);
+                    return;
+                }
+            }
         } else if (sendForm.targetMemberId) {
             const member = members.find(m => m.id === sendForm.targetMemberId);
             if (member) {
-                await supabase.from('notifications').insert({
+                const { error } = await supabase.from('notifications').insert({
                     user_id: member.user_id,
                     member_id: member.id,
                     title: sendForm.title,
-                    content: sendForm.content,
+                    message: sendForm.message,
                     category: sendForm.category,
                     type: sendForm.type,
                     channel: sendForm.channel,
                     sent_at: new Date().toISOString(),
-                    sent_via: [sendForm.channel],
+                    sent_via: sendForm.channel,
                 });
+                if (error) {
+                    toastError(`전송 실패: ${error.message}`);
+                    setSending(false);
+                    return;
+                }
             }
         }
 
-        setSendForm({ title: '', content: '', category: 'general', type: 'info', channel: 'in_app', target: 'all', targetMemberId: '' });
+        success('알림이 전송되었습니다.');
+        setSendForm({ title: '', message: '', category: 'general', type: 'info', channel: 'in_app', target: 'all', targetMemberId: '' });
         setSending(false);
         setActiveTab('history');
         loadNotifications();
@@ -186,8 +201,13 @@ export default function NotificationsPage() {
 
     async function toggleRule(rule: NotifRule) {
         const supabase = createClient();
-        await supabase.from('notification_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
-        loadRules();
+        const { error } = await supabase.from('notification_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
+        if (error) {
+            toastError(`변경 실패: ${error.message}`);
+        } else {
+            success(`규칙이 ${!rule.is_active ? '활성화' : '비활성화'}되었습니다.`);
+            loadRules();
+        }
     }
 
     // T2-3: Open rule modal for create/edit
@@ -331,7 +351,7 @@ export default function NotificationsPage() {
                                             </div>
                                             <div className="col-span-4">
                                                 <h4 className="text-xs font-black text-white">{n.title}</h4>
-                                                <p className="text-[9px] text-[var(--text-muted)] mt-0.5 line-clamp-1">{n.content}</p>
+                                                <p className="text-[9px] text-[var(--text-muted)] mt-0.5 line-clamp-1">{n.message}</p>
                                             </div>
                                             <div className="col-span-2">
                                                 <span className="text-[10px] text-white">{n.members?.name || '전체'}</span>
@@ -453,8 +473,8 @@ export default function NotificationsPage() {
                                 <div>
                                     <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">메시지</label>
                                     <textarea
-                                        value={sendForm.content}
-                                        onChange={(e) => setSendForm({ ...sendForm, content: e.target.value })}
+                                        value={sendForm.message}
+                                        onChange={(e) => setSendForm({ ...sendForm, message: e.target.value })}
                                         placeholder="알림 내용 입력"
                                         rows={4}
                                         className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
@@ -548,7 +568,7 @@ export default function NotificationsPage() {
                                 </button>
                                 <button
                                     onClick={sendNotification}
-                                    disabled={sending || !sendForm.title || !sendForm.content}
+                                    disabled={sending || !sendForm.title || !sendForm.message}
                                     className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-30"
                                     style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}
                                 >

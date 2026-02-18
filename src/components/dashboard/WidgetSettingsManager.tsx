@@ -36,12 +36,12 @@ export default function WidgetSettingsManager({ isOpen, onClose }: WidgetSetting
         const supabase = createClient();
 
         const [logResult, widgetResult] = await Promise.all([
-            supabase
+            (supabase as any)
                 .from('ai_widget_generation_logs')
                 .select('id, prompt, model_used, generated_widget_id, generated_modal_ids, status, error_message, created_at')
                 .order('created_at', { ascending: false })
                 .limit(20),
-            supabase
+            (supabase as any)
                 .from('widget_definitions')
                 .select('id, title, source, created_at')
                 .order('default_order', { ascending: true }),
@@ -59,7 +59,7 @@ export default function WidgetSettingsManager({ isOpen, onClose }: WidgetSetting
     const handleDeleteWidget = async (widgetId: string) => {
         if (!confirm(`위젯 "${widgetId}"을 삭제하시겠습니까?`)) return;
         const supabase = createClient();
-        await supabase.from('widget_definitions').delete().eq('id', widgetId);
+        await (supabase as any).from('widget_definitions').delete().eq('id', widgetId);
         fetchData();
     };
 
@@ -116,8 +116,8 @@ export default function WidgetSettingsManager({ isOpen, onClose }: WidgetSetting
                                 <div key={w.id} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-2 h-2 rounded-full ${w.source === 'system' ? 'bg-blue-400' :
-                                                w.source === 'ai_generated' ? 'bg-purple-400' :
-                                                    'bg-green-400'
+                                            w.source === 'ai_generated' ? 'bg-purple-400' :
+                                                'bg-green-400'
                                             }`} />
                                         <div>
                                             <p className="text-sm font-bold text-white">{w.title}</p>

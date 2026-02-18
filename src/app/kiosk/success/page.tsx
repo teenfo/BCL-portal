@@ -37,7 +37,7 @@ function SuccessContent() {
         const supabase = createClient();
 
         // 회원 기본 정보
-        const { data: memberData } = await supabase
+        const { data: memberData } = await (supabase as any)
             .from('members')
             .select('name, phone')
             .eq('id', memberId)
@@ -51,7 +51,7 @@ function SuccessContent() {
         // TODO: reservations 테이블 생성 후 활성화
 
         // 멤버십 잔여 횟수
-        const { data: membershipData } = await supabase
+        const { data: membershipData } = await (supabase as any)
             .from('memberships')
             .select('remaining_credits, status, plan_id')
             .eq('user_id', memberId)

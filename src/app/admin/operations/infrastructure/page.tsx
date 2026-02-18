@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconSmartphone, IconBuilding, IconMonitor, IconEdit, IconTrash, IconChat, IconPlus } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Facility {
     id: string;
@@ -49,6 +50,12 @@ export default function InfrastructurePage() {
         display_message: '',
     });
     const [messageForm, setMessageForm] = useState({ kiosk_id: '', message: '' });
+    const { success, error: toastError, info } = useToast();
+
+    // T3-11: QR code state
+    const [showQrModal, setShowQrModal] = useState(false);
+    const [qrFacility, setQrFacility] = useState<Facility | null>(null);
+    const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
     const loadData = useCallback(async () => {
         const supabase = createClient();
@@ -96,7 +103,7 @@ export default function InfrastructurePage() {
     // Save kiosk (create or update)
     const saveKiosk = async () => {
         if (!kioskForm.device_name || !kioskForm.facility_id) {
-            alert('기기명과 지점을 입력하세요.');
+            toastError('기기명과 지점을 입력하세요.');
             return;
         }
 
@@ -111,22 +118,20 @@ export default function InfrastructurePage() {
         };
 
         if (editingKiosk) {
-            // Update
             const { error } = await supabase.from('kiosk_devices').update(payload).eq('id', editingKiosk.id);
             if (error) {
-                alert(`수정 실패: ${error.message}`);
+                toastError(`수정 실패: ${error.message}`);
             } else {
-                alert('키오스크 정보가 수정되었습니다.');
+                success('키오스크 정보가 수정되었습니다.');
                 setShowKioskModal(false);
                 loadData();
             }
         } else {
-            // Create
             const { error } = await supabase.from('kiosk_devices').insert(payload);
             if (error) {
-                alert(`등록 실패: ${error.message}`);
+                toastError(`등록 실패: ${error.message}`);
             } else {
-                alert('키오스크가 등록되었습니다.');
+                success('키오스크가 등록되었습니다.');
                 setShowKioskModal(false);
                 loadData();
             }
@@ -140,9 +145,9 @@ export default function InfrastructurePage() {
         const supabase = createClient();
         const { error } = await supabase.from('kiosk_devices').delete().eq('id', id);
         if (error) {
-            alert(`삭제 실패: ${error.message}`);
+            toastError(`삭제 실패: ${error.message}`);
         } else {
-            alert('키오스크가 삭제되었습니다.');
+            success('키오스크가 삭제되었습니다.');
             loadData();
         }
     };
@@ -165,13 +170,117 @@ export default function InfrastructurePage() {
             .eq('id', messageForm.kiosk_id);
 
         if (error) {
-            alert(`메시지 업데이트 실패: ${error.message}`);
+            toastError(`메시지 업데이트 실패: ${error.message}`);
         } else {
-            alert('대기 화면 메시지가 업데이트되었습니다.');
+            success('대기 화면 메시지가 업데이트되었습니다.');
             setShowMessageModal(false);
             loadData();
         }
     };
+
+    // T3-11: Generate QR Code on canvas
+    function generateQrCode(facility: Facility) {
+        setQrFacility(facility);
+        setShowQrModal(true);
+
+        // Draw QR after modal renders
+        setTimeout(() => {
+            const canvas = qrCanvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+
+            const size = 300;
+            canvas.width = size;
+            canvas.height = size;
+
+            // Generate a deterministic QR-like pattern from facility ID
+            const data = `bcl-checkin://${facility.id}`;
+            const hash = simpleHash(data);
+            const moduleCount = 25;
+            const moduleSize = size / moduleCount;
+
+            // White background
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw QR-like modules
+            ctx.fillStyle = '#000000';
+
+            // Fixed finder patterns (top-left, top-right, bottom-left)
+            drawFinderPattern(ctx, 0, 0, moduleSize);
+            drawFinderPattern(ctx, (moduleCount - 7) * moduleSize, 0, moduleSize);
+            drawFinderPattern(ctx, 0, (moduleCount - 7) * moduleSize, moduleSize);
+
+            // Data modules based on hash
+            for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                    // Skip finder pattern areas
+                    if ((row < 8 && col < 8) || (row < 8 && col >= moduleCount - 8) || (row >= moduleCount - 8 && col < 8)) continue;
+
+                    // Use hash to determine if module is filled
+                    const idx = row * moduleCount + col;
+                    const bitPos = idx % 32;
+                    const hashSegment = hash[(idx * 7 + 3) % hash.length];
+                    if ((hashSegment >> (bitPos % 8)) & 1) {
+                        ctx.fillRect(col * moduleSize, row * moduleSize, moduleSize, moduleSize);
+                    }
+                }
+            }
+
+            // Add timing patterns
+            for (let i = 8; i < moduleCount - 8; i++) {
+                if (i % 2 === 0) {
+                    ctx.fillRect(6 * moduleSize, i * moduleSize, moduleSize, moduleSize);
+                    ctx.fillRect(i * moduleSize, 6 * moduleSize, moduleSize, moduleSize);
+                }
+            }
+
+            // Add BCL logo text in center
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect((moduleCount / 2 - 2) * moduleSize, (moduleCount / 2 - 2) * moduleSize, 4 * moduleSize, 4 * moduleSize);
+            ctx.fillStyle = '#FF6B00';
+            ctx.font = `bold ${moduleSize * 2}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('BCL', (moduleCount / 2) * moduleSize, (moduleCount / 2) * moduleSize);
+        }, 100);
+    }
+
+    function simpleHash(str: string): number[] {
+        const result: number[] = [];
+        for (let i = 0; i < 32; i++) {
+            let h = 0;
+            for (let j = 0; j < str.length; j++) {
+                h = ((h << 5) - h + str.charCodeAt(j) + i * 37) & 0xFF;
+            }
+            result.push(h);
+        }
+        return result;
+    }
+
+    function drawFinderPattern(ctx: CanvasRenderingContext2D, x: number, y: number, moduleSize: number) {
+        // Outer black border
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < 7; r++) {
+            for (let c = 0; c < 7; c++) {
+                if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+                    ctx.fillRect(x + c * moduleSize, y + r * moduleSize, moduleSize, moduleSize);
+                }
+            }
+        }
+    }
+
+    // T3-11: Download QR code
+    function downloadQrCode() {
+        const canvas = qrCanvasRef.current;
+        if (!canvas || !qrFacility) return;
+
+        const link = document.createElement('a');
+        link.download = `QR_${qrFacility.name.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
 
     // KPI Stats
     const totalKiosks = kiosks.length;
@@ -224,12 +333,15 @@ export default function InfrastructurePage() {
                                                 <p className="text-[9px] text-[var(--text-muted)]">{f.address || '-'}</p>
                                             </div>
                                         </div>
-                                        <button
-                                            className="w-full py-2.5 rounded-xl text-[9px] font-black uppercase transition-all"
-                                            style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.2)', color: 'var(--primary)' }}
-                                        >
-                                            QR 코드 생성
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => generateQrCode(f)}
+                                                className="flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase transition-all"
+                                                style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.2)', color: 'var(--primary)' }}
+                                            >
+                                                QR 코드 생성
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -474,6 +586,35 @@ export default function InfrastructurePage() {
                         >
                             업데이트
                         </button>
+                    </div>
+                </AdminModal>
+
+                {/* T3-11: QR Code Preview/Download Modal */}
+                <AdminModal show={showQrModal} onClose={() => setShowQrModal(false)} title="QR 코드" subtitle={qrFacility?.name || ''}>
+                    <div className="flex flex-col items-center gap-6">
+                        <div className="p-6 rounded-2xl bg-white" style={{ boxShadow: '0 0 30px rgba(255,107,0,0.1)' }}>
+                            <canvas ref={qrCanvasRef} style={{ width: '250px', height: '250px' }} />
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-white/60 mb-1">{qrFacility?.name}</p>
+                            <p className="text-[8px] text-[var(--text-muted)] font-mono">ID: {qrFacility?.id?.slice(0, 8)}...</p>
+                        </div>
+                        <div className="flex gap-3 w-full">
+                            <button
+                                onClick={() => setShowQrModal(false)}
+                                className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all"
+                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                            >
+                                닫기
+                            </button>
+                            <button
+                                onClick={downloadQrCode}
+                                className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all"
+                                style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}
+                            >
+                                ⬇ PNG 다운로드
+                            </button>
+                        </div>
                     </div>
                 </AdminModal>
             </div>

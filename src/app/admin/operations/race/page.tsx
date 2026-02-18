@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconFlag, IconRadio, IconTrophy, IconRowing } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface RaceEvent {
     id: string;
@@ -51,6 +52,13 @@ export default function RacePage() {
     const [saving, setSaving] = useState(false);
     const [eventForm, setEventForm] = useState({ name: '', date: '', sport: 'rowing', distance: '', duration: '', description: '' });
 
+    // T3-4: Device CRUD state
+    const [showDeviceModal, setShowDeviceModal] = useState(false);
+    const [editingDevice, setEditingDevice] = useState<PM5Device | null>(null);
+    const [deviceForm, setDeviceForm] = useState({ serial_number: '', device_type: 'rower', status: 'online', facility_id: '', firmware_version: '' });
+    const [facilities, setFacilities] = useState<any[]>([]);
+    const { success, error: toastError, info } = useToast();
+
     const loadData = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
@@ -73,18 +81,7 @@ export default function RacePage() {
                 setEvents(eventsData.map((e: any) => ({ ...e, participantCount: counts[e.id] || 0 })));
             }
 
-            // Load devices
-            const { data: devicesData, error: devErr } = await supabase
-                .from('pm5_devices')
-                .select('*, facilities(name)')
-                .order('serial_number');
-
-            if (devErr) {
-                const { data: fallbackDevices } = await supabase.from('pm5_devices').select('*').order('serial_number');
-                if (fallbackDevices) setDevices(fallbackDevices as any);
-            } else if (devicesData) {
-                setDevices(devicesData as any);
-            }
+            loadDevices(supabase);
 
             // Load records with member names
             const { data: recordsData, error: recErr } = await supabase
@@ -99,11 +96,29 @@ export default function RacePage() {
             } else if (recordsData) {
                 setRecords(recordsData as any);
             }
+
+            // Load facilities for device mapping
+            const { data: facData } = await supabase.from('facilities').select('id, name').order('name');
+            if (facData) setFacilities(facData);
         } catch (e) {
             console.error('Error loading race data:', e);
         }
         setLoading(false);
     }, []);
+
+    const loadDevices = async (supabase: any) => {
+        const { data: devicesData, error: devErr } = await supabase
+            .from('pm5_devices')
+            .select('*, facilities(name)')
+            .order('serial_number');
+
+        if (devErr) {
+            const { data: fallbackDevices } = await supabase.from('pm5_devices').select('*').order('serial_number');
+            if (fallbackDevices) setDevices(fallbackDevices as any);
+        } else if (devicesData) {
+            setDevices(devicesData as any);
+        }
+    };
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -124,6 +139,79 @@ export default function RacePage() {
         if (!error) {
             setShowEventModal(false);
             setEventForm({ name: '', date: '', sport: 'rowing', distance: '', duration: '', description: '' });
+            success('새 레이스 이벤트가 등록되었습니다.');
+            loadData();
+        } else {
+            toastError(`등록 실패: ${error.message}`);
+        }
+    }
+
+    // T3-4: Device CRUD functions
+    function openDeviceModal(device?: PM5Device) {
+        if (device) {
+            setEditingDevice(device);
+            setDeviceForm({
+                serial_number: device.serial_number,
+                device_type: device.device_type,
+                status: device.status,
+                facility_id: (device as any).facility_id || '',
+                firmware_version: device.firmware_version || '',
+            });
+        } else {
+            setEditingDevice(null);
+            setDeviceForm({ serial_number: '', device_type: 'rower', status: 'online', facility_id: '', firmware_version: '' });
+        }
+        setShowDeviceModal(true);
+    }
+
+    async function saveDevice() {
+        if (!deviceForm.serial_number.trim()) return;
+        setSaving(true);
+        const supabase = createClient();
+        const payload = {
+            serial_number: deviceForm.serial_number,
+            device_type: deviceForm.device_type,
+            status: deviceForm.status,
+            facility_id: deviceForm.facility_id || null,
+            firmware_version: deviceForm.firmware_version || null,
+            updated_at: new Date().toISOString(),
+        };
+
+        if (editingDevice) {
+            const { error } = await supabase.from('pm5_devices').update(payload).eq('id', editingDevice.id);
+            if (error) toastError(`수정 실패: ${error.message}`);
+            else success('기기 정보가 수정되었습니다.');
+        } else {
+            const { error } = await supabase.from('pm5_devices').insert(payload);
+            if (error) toastError(`등록 실패: ${error.message}`);
+            else success('새 기기가 등록되었습니다.');
+        }
+        setSaving(false);
+        setShowDeviceModal(false);
+        loadData();
+    }
+
+    async function deleteDevice(id: string) {
+        if (!confirm('이 기기를 삭제하시겠습니까? 관련 데이터가 소실될 수 있습니다.')) return;
+        const supabase = createClient();
+        const { error } = await supabase.from('pm5_devices').delete().eq('id', id);
+        if (error) {
+            toastError(`삭제 실패: ${error.message}`);
+        } else {
+            success('기기가 삭제되었습니다.');
+            loadData();
+        }
+    }
+
+    // T3-4: Rapid status toggle for monitoring simulation
+    async function toggleDeviceStatus(device: PM5Device) {
+        const nextStatus = device.status === 'online' ? 'offline' : device.status === 'offline' ? 'maintenance' : 'online';
+        const supabase = createClient();
+        const { error } = await supabase.from('pm5_devices').update({ status: nextStatus, last_sync_at: new Date().toISOString() }).eq('id', device.id);
+        if (error) {
+            toastError(`상태 변경 실패: ${error.message}`);
+        } else {
+            success(`기기 상태가 ${nextStatus}로 변경되었습니다.`);
             loadData();
         }
     }
@@ -163,7 +251,12 @@ export default function RacePage() {
                 category="Operations"
                 title="Race"
                 subtitle="Management"
-                actions={<button onClick={() => setShowEventModal(true)} className="admin-action-btn">+ 이벤트 생성</button>}
+                actions={
+                    <div className="flex gap-2">
+                        {activeTab === 'devices' && <button onClick={() => openDeviceModal()} className="admin-filter-btn" style={{ background: 'rgba(255,107,0,0.1)', color: 'var(--primary)', border: '1px solid rgba(255,107,0,0.2)' }}>+ 기기 등록</button>}
+                        <button onClick={() => setShowEventModal(true)} className="admin-action-btn">+ 이벤트 생성</button>
+                    </div>
+                }
             />
 
             <div className="p-10 max-w-[1400px] mx-auto">
@@ -278,26 +371,40 @@ export default function RacePage() {
                                         const syncTime = device.last_sync_at ? new Date(device.last_sync_at).toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
 
                                         return (
-                                            <div key={device.id} className="glass-card p-6 rounded-2xl group">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <span className="text-xl"><IconRowing size={20} /></span>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`w-2 h-2 rounded-full bg-${statusColor}-500 ${device.status === 'online' ? 'animate-pulse' : ''}`}></span>
-                                                        <span className={`text-[8px] font-black uppercase tracking-widest text-${statusColor}-400`}>{device.status}</span>
+                                            <div key={device.id} className="glass-card p-6 rounded-2xl group flex flex-col justify-between">
+                                                <div>
+                                                    <div className="flex items-center justify-between mb-4">
+                                                        <span className="text-xl text-white/40"><IconRowing size={20} /></span>
+                                                        <div className="flex flex-col items-end cursor-pointer group/status" onClick={() => toggleDeviceStatus(device)} title="클릭하여 상태 변경">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`w-2 h-2 rounded-full bg-${statusColor}-500 ${device.status === 'online' ? 'animate-pulse' : ''}`}></span>
+                                                                <span className={`text-[8px] font-black uppercase tracking-widest text-${statusColor}-400 group-hover/status:underline`}>{device.status}</span>
+                                                            </div>
+                                                            {device.status === 'online' && (
+                                                                <div className="flex items-center gap-1 mt-1">
+                                                                    <span className="text-[6px] font-black text-blue-400 uppercase tracking-tighter bg-blue-400/10 px-1 rounded">Simulating</span>
+                                                                    <span className="text-[6px] text-white/30 font-mono">8001</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <h4 className="text-sm font-black text-white mb-1">{device.serial_number}</h4>
+                                                    <p className="text-[9px] text-[var(--text-muted)] mb-1 uppercase tracking-widest">{branchName}</p>
+                                                    <p className="text-[10px] text-[var(--primary)] font-black uppercase tracking-tighter">{deviceTypeLabel[device.device_type] || device.device_type}</p>
+                                                    <div className="space-y-2 pt-3 mt-3 border-t border-white/[0.03]">
+                                                        <div className="flex justify-between text-[9px]">
+                                                            <span className="text-[var(--text-muted)]">Firmware</span>
+                                                            <span className="text-white font-bold">v{device.firmware_version || '-'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-[9px]">
+                                                            <span className="text-[var(--text-muted)]">Last Sync</span>
+                                                            <span className="text-white font-bold">{syncTime}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <h4 className="text-sm font-black text-white mb-1">{device.serial_number}</h4>
-                                                <p className="text-[9px] text-[var(--text-muted)] mb-1">{branchName}</p>
-                                                <p className="text-[8px] text-[var(--primary)]">{deviceTypeLabel[device.device_type] || device.device_type}</p>
-                                                <div className="space-y-2 pt-3 mt-3 border-t border-white/[0.03]">
-                                                    <div className="flex justify-between text-[9px]">
-                                                        <span className="text-[var(--text-muted)]">Firmware</span>
-                                                        <span className="text-white font-bold">v{device.firmware_version || '-'}</span>
-                                                    </div>
-                                                    <div className="flex justify-between text-[9px]">
-                                                        <span className="text-[var(--text-muted)]">Last Sync</span>
-                                                        <span className="text-white font-bold">{syncTime}</span>
-                                                    </div>
+                                                <div className="flex gap-2 mt-5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => openDeviceModal(device)} className="flex-1 py-2 rounded-lg text-[8px] font-black uppercase bg-white/[0.05] border border-white/5 text-white/50 hover:text-white hover:border-white/20 transition-all">수정</button>
+                                                    <button onClick={() => deleteDevice(device.id)} className="px-3 py-2 rounded-lg text-[8px] font-black uppercase bg-red-500/10 border border-red-500/20 text-red-500/50 hover:text-red-500 hover:bg-red-500/20 transition-all">삭제</button>
                                                 </div>
                                             </div>
                                         );
@@ -413,6 +520,56 @@ export default function RacePage() {
                         <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">설명</label>
                         <textarea value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })} placeholder="이벤트 설명..." rows={3} className="w-full admin-search-input resize-none" />
                     </div>
+                </div>
+            </AdminModal>
+
+            {/* PM5 Device Modal */}
+            <AdminModal
+                show={showDeviceModal}
+                onClose={() => setShowDeviceModal(false)}
+                title={editingDevice ? 'PM5 기기 수정' : '새 PM5 기기 등록'}
+                size="md"
+            >
+                <div className="space-y-5">
+                    <div>
+                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">시리얼 번호 *</label>
+                        <input value={deviceForm.serial_number} onChange={(e) => setDeviceForm({ ...deviceForm, serial_number: e.target.value })} placeholder="PM5-XXXXXXXX" className="w-full admin-search-input" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">기기 종목</label>
+                            <select value={deviceForm.device_type} onChange={(e) => setDeviceForm({ ...deviceForm, device_type: e.target.value })} className="w-full admin-search-input">
+                                <option value="rower">Rower</option>
+                                <option value="bike">BikeErg</option>
+                                <option value="skierg">SkiErg</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">지점 연결</label>
+                            <select value={deviceForm.facility_id} onChange={(e) => setDeviceForm({ ...deviceForm, facility_id: e.target.value })} className="w-full admin-search-input">
+                                <option value="">미지정</option>
+                                {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">초기 상태</label>
+                            <select value={deviceForm.status} onChange={(e) => setDeviceForm({ ...deviceForm, status: e.target.value })} className="w-full admin-search-input">
+                                <option value="online">Online</option>
+                                <option value="offline">Offline</option>
+                                <option value="maintenance">Maintenance</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">펌웨어 버전</label>
+                            <input value={deviceForm.firmware_version} onChange={(e) => setDeviceForm({ ...deviceForm, firmware_version: e.target.value })} placeholder="v31.02" className="w-full admin-search-input" />
+                        </div>
+                    </div>
+                </div>
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowDeviceModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                    <button onClick={saveDevice} disabled={saving || !deviceForm.serial_number.trim()} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-50" style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.3)' }}>{saving ? '저장 중...' : '기기 저장'}</button>
                 </div>
             </AdminModal>
         </div>

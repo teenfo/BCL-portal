@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Member {
     id: string;
@@ -13,16 +14,16 @@ interface Member {
     email: string;
     phone: string;
     gender: string;
-    birthdate: string;
+    birth_date: string;
     status: string;
-    plan: string;
-    credits: number;
+    plan?: string;
+    credits?: number;
     joined_date: string;
-    membership_start_date: string;
-    membership_end_date: string;
+    membership_start_date?: string;
+    membership_end_date?: string;
     locker_number: string;
     locker_end_date: string;
-    profile_image: string;
+    profile_image_url: string;
 }
 
 interface Checkin {
@@ -80,8 +81,9 @@ export default function MemberDetailPage() {
 
     // T1-2: Edit member modal state
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birthdate: '', status: '' });
+    const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birth_date: '', status: '' });
     const [saving, setSaving] = useState(false);
+    const { success, error: toastError } = useToast();
 
     useEffect(() => {
         loadMemberData();
@@ -93,13 +95,13 @@ export default function MemberDetailPage() {
 
         const [memberRes, checkinsRes, txRes, notesRes, membershipsRes] = await Promise.all([
             supabase.from('members').select('*').eq('id', memberId).single(),
-            supabase.from('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
-            supabase.from('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
-            supabase.from('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
-            supabase.from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('user_id', memberId).order('created_at', { ascending: false }),
+            (supabase as any).from('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
+            (supabase as any).from('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
+            (supabase as any).from('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
+            (supabase as any).from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('user_id', memberId).order('created_at', { ascending: false }),
         ]);
 
-        if (memberRes.data) setMember(memberRes.data);
+        if (memberRes.data) setMember(memberRes.data as any);
         if (checkinsRes.data) setCheckins(checkinsRes.data);
         if (txRes.data) setTransactions(txRes.data);
         if (notesRes.data) setNotes(notesRes.data);
@@ -111,13 +113,16 @@ export default function MemberDetailPage() {
     async function addNote() {
         if (!newNote.trim()) return;
         const supabase = createClient();
-        const { error } = await supabase.from('member_notes').insert({
+        const { error } = await (supabase as any).from('member_notes').insert({
             member_id: memberId,
             content: newNote,
         });
         if (!error) {
             setNewNote('');
+            success('메모가 저장되었습니다.');
             loadMemberData();
+        } else {
+            toastError(`메모 저장 실패: ${error.message}`);
         }
     }
 
@@ -130,7 +135,7 @@ export default function MemberDetailPage() {
     // T1-2: Open edit modal
     function openEditModal() {
         if (!member) return;
-        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birthdate: member.birthdate || '', status: member.status || 'Active' });
+        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birth_date: member.birth_date || '', status: member.status || 'Active' });
         setShowEditModal(true);
     }
 
@@ -140,9 +145,15 @@ export default function MemberDetailPage() {
         setSaving(true);
         const supabase = createClient();
         const { error } = await supabase.from('members').update({
-            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birthdate: editForm.birthdate || null, status: editForm.status,
+            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birth_date: editForm.birth_date || null, status: editForm.status,
         }).eq('id', member.id);
-        if (!error) { setShowEditModal(false); loadMemberData(); }
+        if (!error) {
+            setShowEditModal(false);
+            success('회원 목록이 업데이트되었습니다.');
+            loadMemberData();
+        } else {
+            toastError(`회원 정보 수정 실패: ${error.message}`);
+        }
         setSaving(false);
     }
 
@@ -168,7 +179,7 @@ export default function MemberDetailPage() {
         );
     }
 
-    const daysRemaining = getDaysRemaining(member.membership_end_date);
+    const daysRemaining = getDaysRemaining(member.membership_end_date || '');
     const statusColor = member.status === 'Active' ? '#22C55E' : member.status === 'Expired' ? '#EF4444' : '#F59E0B';
     const statusBg = member.status === 'Active' ? 'rgba(34,197,94,0.15)' : member.status === 'Expired' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)';
 
@@ -241,7 +252,7 @@ export default function MemberDetailPage() {
                                 {member.gender === 'M' ? '남성' : member.gender === 'F' ? '여성' : '-'}
                             </span>
                             <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                {member.birthdate ? new Date(member.birthdate).toLocaleDateString('ko-KR') : '-'}
+                                {member.birth_date ? new Date(member.birth_date).toLocaleDateString('ko-KR') : '-'}
                             </span>
                             <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
                                 가입: {member.joined_date ? new Date(member.joined_date).toLocaleDateString('ko-KR') : '-'}
@@ -261,7 +272,7 @@ export default function MemberDetailPage() {
                                 {daysRemaining > 0 ? `D-${daysRemaining}` : '만료됨'}
                             </p>
                         )}
-                        {member.credits > 0 && (
+                        {member.credits !== undefined && member.credits > 0 && (
                             <p className="text-[10px] font-bold mt-1" style={{ color: 'var(--primary)' }}>{member.credits}회 남음</p>
                         )}
                     </div>
@@ -524,7 +535,7 @@ export default function MemberDetailPage() {
                     <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">전화번호</label><input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="010-0000-0000" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                     <div className="grid grid-cols-2 gap-4">
                         <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">성별</label><select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="">미지정</option><option value="M">남성</option><option value="F">여성</option></select></div>
-                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">생년월일</label><input type="date" value={editForm.birthdate} onChange={(e) => setEditForm({ ...editForm, birthdate: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">생년월일</label><input type="date" value={editForm.birth_date} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                     </div>
                     <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">상태</label><select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="Active">활성</option><option value="Inactive">비활성</option><option value="Expired">만료</option><option value="Suspended">정지</option></select></div>
                 </div>

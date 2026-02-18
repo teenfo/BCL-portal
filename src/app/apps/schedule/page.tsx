@@ -57,13 +57,13 @@ export default function UserSchedulePage() {
     useEffect(() => {
         async function loadCoaches() {
             const supabase = createClient();
-            const { data } = await supabase
+            const { data } = await (supabase as any)
                 .from('sessions')
                 .select('coach_name')
                 .not('coach_name', 'is', null)
                 .limit(50);
             if (data) {
-                const unique = [...new Set(data.map(d => d.coach_name).filter(Boolean))];
+                const unique = [...new Set((data as any[]).map(d => d.coach_name).filter(Boolean))];
                 setCoaches(unique);
             }
         }
@@ -132,7 +132,7 @@ export default function UserSchedulePage() {
             startOfWeek.setDate(now.getDate() - now.getDay() + 1);
             const weekStart = startOfWeek.toISOString().split('T')[0];
 
-            const { count } = await supabase
+            const { count } = await (supabase as any)
                 .from('bookings')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)

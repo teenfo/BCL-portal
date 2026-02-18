@@ -127,6 +127,21 @@ export default function FinanceReportPage() {
         );
     }
 
+    // T2-1: CSV Download helper
+    function downloadCSV() {
+        if (monthlyData.length === 0) return;
+        const rows = [['Month', 'Revenue', 'Refund']];
+        monthlyData.forEach(m => rows.push([m.month, String(m.revenue), String(m.refund)]));
+        const csvContent = rows.map(r => r.join(',')).join('\n');
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `finance_${period}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     return (
         <div className="transition-all duration-500">
             <AdminPageHeader
@@ -145,6 +160,7 @@ export default function FinanceReportPage() {
                             </button>
                         ))}
                     </div>
+                    <button onClick={downloadCSV} disabled={monthlyData.length === 0} className="admin-action-btn disabled:opacity-40">⬇ CSV 다운로드</button>
                 </div>
 
                 {loading ? (

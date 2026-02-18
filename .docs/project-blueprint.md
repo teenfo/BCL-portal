@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **랜딩 페이지 기획 완료 → 블루프린트 등록 대기** 📝
+- **Current Focus**: **Build Type Error Resolution completed** ✅
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
-- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 17:00 확인)
+- **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 23:45 확인 - 15+ Type Errors Resolved)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 랜딩 페이지 기획서 작성 완료 — `.docs/planning/landing-page.md` (Status: Approved) (2026-02-18 22:00)
+- **Last Action**: Resolved "Type instantiation is excessively deep" and DB schema mismatch errors across the project.
 
 ---
 
@@ -148,8 +148,8 @@
     - [x] T2-8: 예약 검색 기능 (T1-5에서 구현)
     - [x] T2-9: 알림 KPI 대시보드 (기존 구현 확인)
     - [x] T2-10: 감사 로그 날짜 범위 필터
-    - [ ] T2-6: 요금제 정책 설정 (DB 스키마 변경 필요) → 💎 **Senior Dev**
-    - [ ] T2-7: 역할별 사용자 배정 UI → 🎨 **UI Dev**
+    - [x] T2-6: 요금제 정책 설정 (credit_count, max_pauses 등 필드 연동 완료) ✅
+    - [x] T2-7: 역할별 사용자 배정 UI (/admin/operations/roles 구현 완료) ✅
   - [ ] Phase 3: Tier 3 고도화 (시스템연동, 히트맵, DnD 캘린더 등) → ⚡ **Specialist (Gemini)** + 🎨 **UI** + 💻 **Dev**
     - [ ] t3-1 ~ t3-12 상세 기능 구현
   - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**
@@ -196,7 +196,7 @@
 ---
 
 ### Known Issues (Active)
-- ⚠️ **@supabase/auth-js 타입 미완성** (WORKAROUND): `supabase.auth as any` 캐스팅 우회 중
+- ⚠️ **@supabase/supabase-js 타입 복잡도** (WORKAROUND): `supabase.from(...) as any` 캐스팅 우회 중 (Type instantiation is excessively deep 이슈)
 - 🔴 **코치 계정 미연결** (ACTIVE): coaches.user_id=NULL → Coach App 로그인 불가 → [기획서](./archive/planning/coach-account-architecture.md)
 
 ### 참고 문서

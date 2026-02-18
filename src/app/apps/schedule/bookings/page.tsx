@@ -31,7 +31,7 @@ export default function MyBookingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        const { data } = await supabase
+        const { data } = await (supabase as any)
             .from('bookings')
             .select('*, sessions(title, session_date, start_time, end_time, coach_name)')
             .eq('user_id', user.id)
@@ -60,7 +60,7 @@ export default function MyBookingsPage() {
         if (!confirm('예약을 취소하시겠습니까?')) return;
         setCancelling(bookingId);
         const supabase = createClient();
-        const { error } = await supabase
+        const { error } = await (supabase as any)
             .from('bookings')
             .update({ status: 'cancelled' })
             .eq('id', bookingId);

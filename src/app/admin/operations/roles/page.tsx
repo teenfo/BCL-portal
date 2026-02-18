@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
-import { IconShield } from '@/components/icons/AdminIcons';
+import { IconShield, IconMembers } from '@/components/icons/AdminIcons';
+import { useToast } from '@/components/ui/Toast';
 
 interface Role {
     id: string;
@@ -15,6 +16,13 @@ interface Role {
     is_system_role: boolean;
     created_at: string;
     userCount?: number;
+}
+
+interface AdminUser {
+    id: string;
+    user_id: string;
+    role_id: string;
+    profiles?: { full_name: string | null; email: string | null; avatar_url: string | null };
 }
 
 const PERMISSION_GROUPS = {
@@ -36,6 +44,14 @@ export default function RolesPage() {
         display_name: '',
         description: '',
     });
+    const { success, error: toastError } = useToast();
+
+    // T2-7: User assignment states
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [assignedUsers, setAssignedUsers] = useState<AdminUser[]>([]);
+    const [availableUsers, setAvailableUsers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+    const [assignSearch, setAssignSearch] = useState('');
+    const [loadingUsers, setLoadingUsers] = useState(false);
 
     const loadRoles = useCallback(async () => {
         const supabase = createClient();
@@ -85,6 +101,26 @@ export default function RolesPage() {
         if (!error) {
             setShowAddModal(false);
             setAddForm({ name: '', display_name: '', description: '' });
+            success('새 역할이 생성되었습니다.');
+            loadRoles();
+        } else {
+            toastError(`역할 생성 실패: ${error.message}`);
+        }
+    }
+
+    async function deleteRole(roleId: string) {
+        const role = roles.find(r => r.id === roleId);
+        if (!role || role.is_system_role) return;
+        if (!confirm(`"${role.display_name}" 역할을 삭제하시겠습니까?`)) return;
+        const supabase = createClient();
+        const { error: err1 } = await supabase.from('admin_user_roles').delete().eq('role_id', roleId);
+        const { error: err2 } = await supabase.from('admin_roles').delete().eq('id', roleId);
+
+        if (err1 || err2) {
+            toastError('역할 삭제 중 오류가 발생했습니다.');
+        } else {
+            success('역할이 삭제되었습니다.');
+            if (selectedRole?.id === roleId) setSelectedRole(null);
             loadRoles();
         }
     }
@@ -104,8 +140,11 @@ export default function RolesPage() {
         const supabase = createClient();
         const { error } = await supabase.from('admin_roles').update({ permissions: updated }).eq('id', roleId);
         if (!error) {
+            success('권한 설정이 변경되었습니다.');
             setRoles(roles.map(r => r.id === roleId ? { ...r, permissions: updated } : r));
             if (selectedRole?.id === roleId) setSelectedRole({ ...selectedRole, permissions: updated });
+        } else {
+            toastError(`저장 실패: ${error.message}`);
         }
     }
 
@@ -114,6 +153,72 @@ export default function RolesPage() {
         if (!groupPerms) return false;
         return groupPerms.includes(perm);
     }
+
+    // T2-7: Open user assignment modal
+    async function openAssignModal(role: Role) {
+        setSelectedRole(role);
+        setShowAssignModal(true);
+        setLoadingUsers(true);
+        setAssignSearch('');
+
+        const supabase = createClient();
+
+        // Load users assigned to this role
+        const { data: assigned } = await supabase
+            .from('admin_user_roles')
+            .select('*, profiles(full_name, email, avatar_url)')
+            .eq('role_id', role.id);
+        setAssignedUsers((assigned || []) as unknown as AdminUser[]);
+
+        // Load available profiles
+        const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email')
+            .order('full_name');
+        setAvailableUsers((profiles || []) as any);
+
+        setLoadingUsers(false);
+    }
+
+    async function assignUser(userId: string) {
+        if (!selectedRole) return;
+        const supabase = createClient();
+        const { error } = await supabase.from('admin_user_roles').insert({
+            user_id: userId,
+            role_id: selectedRole.id,
+        });
+        if (!error) {
+            success('사용자가 역할에 배정되었습니다.');
+            openAssignModal(selectedRole);
+            loadRoles();
+        } else {
+            toastError(`배정 실패: ${error.message}`);
+        }
+    }
+
+    async function unassignUser(userId: string) {
+        if (!selectedRole) return;
+        const supabase = createClient();
+        const { error } = await supabase.from('admin_user_roles').delete()
+            .eq('user_id', userId)
+            .eq('role_id', selectedRole.id);
+
+        if (!error) {
+            success('역할 배정이 해제되었습니다.');
+            openAssignModal(selectedRole);
+            loadRoles();
+        } else {
+            toastError(`해제 실패: ${error.message}`);
+        }
+    }
+
+    const filteredAvailable = availableUsers.filter(u => {
+        const assigned = assignedUsers.some(a => a.user_id === u.id);
+        if (assigned) return false;
+        if (!assignSearch) return true;
+        const term = assignSearch.toLowerCase();
+        return (u.full_name?.toLowerCase().includes(term)) || (u.email?.toLowerCase().includes(term));
+    });
 
     const levelColors: Record<string, string> = {
         super_admin: '#EF4444',
@@ -159,32 +264,47 @@ export default function RolesPage() {
                                 {roles.map((role) => {
                                     const levelColor = levelColors[role.name] || '#6B7280';
                                     return (
-                                        <button
-                                            key={role.id}
-                                            onClick={() => setSelectedRole(role)}
-                                            className="w-full text-left p-5 rounded-2xl transition-all hover:scale-[1.01]"
+                                        <div key={role.id} className="rounded-2xl transition-all hover:scale-[1.01] group"
                                             style={selectedRole?.id === role.id
                                                 ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,107,0,0.3)' }
                                                 : { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }
                                             }
                                         >
-                                            <div className="flex items-center justify-between mb-2">
-                                                <h4 className="text-sm font-black text-white uppercase">{role.display_name}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    {role.is_system_role && (
-                                                        <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-white/[0.05] border border-white/10 text-white/30">SYS</span>
-                                                    )}
-                                                    <span className="w-3 h-3 rounded-full" style={{ background: levelColor }}></span>
+                                            <button
+                                                onClick={() => setSelectedRole(role)}
+                                                className="w-full text-left p-5"
+                                            >
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <h4 className="text-sm font-black text-white uppercase">{role.display_name}</h4>
+                                                    <div className="flex items-center gap-2">
+                                                        {role.is_system_role && (
+                                                            <span className="px-1.5 py-0.5 rounded text-[7px] font-black uppercase bg-white/[0.05] border border-white/10 text-white/30">SYS</span>
+                                                        )}
+                                                        <span className="w-3 h-3 rounded-full" style={{ background: levelColor }}></span>
+                                                    </div>
                                                 </div>
+                                                <p className="text-[10px] mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{role.description || '-'}</p>
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                                        {role.name}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold" style={{ color: 'var(--primary)' }}>{role.userCount || 0}명</span>
+                                                </div>
+                                            </button>
+                                            {/* Action buttons */}
+                                            <div className="flex gap-2 px-5 pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => openAssignModal(role)}
+                                                    className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
+                                                    <IconMembers size={12} /> 사용자 배정
+                                                </button>
+                                                {!role.is_system_role && (
+                                                    <button onClick={() => deleteRole(role.id)}
+                                                        className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
+                                                        삭제
+                                                    </button>
+                                                )}
                                             </div>
-                                            <p className="text-[10px] mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{role.description || '-'}</p>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                                    {role.name}
-                                                </span>
-                                                <span className="text-[9px] font-bold" style={{ color: 'var(--primary)' }}>{role.userCount || 0}명</span>
-                                            </div>
-                                        </button>
+                                        </div>
                                     );
                                 })}
                             </div>
@@ -199,9 +319,15 @@ export default function RolesPage() {
                                             <h3 className="text-xl font-black text-white uppercase">{selectedRole.display_name}</h3>
                                             <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{selectedRole.description}</p>
                                         </div>
-                                        {selectedRole.is_system_role && (
-                                            <span className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">System Role</span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => openAssignModal(selectedRole)}
+                                                className="px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
+                                                사용자 관리 ({selectedRole.userCount || 0})
+                                            </button>
+                                            {selectedRole.is_system_role && (
+                                                <span className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">System Role</span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="space-y-6">
@@ -282,6 +408,86 @@ export default function RolesPage() {
                         <input value={addForm.description} onChange={e => setAddForm({ ...addForm, description: e.target.value })} placeholder="역할에 대한 설명" className="w-full admin-search-input" />
                     </div>
                 </div>
+            </AdminModal>
+
+            {/* T2-7: User Assignment Modal */}
+            <AdminModal
+                isOpen={showAssignModal}
+                onClose={() => setShowAssignModal(false)}
+                title={`사용자 배정 — ${selectedRole?.display_name || ''}`}
+                size="md"
+            >
+                {loadingUsers ? (
+                    <div className="flex justify-center py-12">
+                        <div className="w-8 h-8 rounded-xl border-2 border-white/5 border-t-[var(--primary)] animate-spin"></div>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Assigned Users */}
+                        <div>
+                            <h4 className="text-[10px] font-black text-[var(--primary)] uppercase tracking-widest mb-3">
+                                배정된 사용자 ({assignedUsers.length})
+                            </h4>
+                            {assignedUsers.length === 0 ? (
+                                <p className="text-[10px] text-white/30 py-4 text-center">배정된 사용자가 없습니다</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    {assignedUsers.map((u) => (
+                                        <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/[0.03]">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-[var(--primary)]/10 flex items-center justify-center text-[10px] font-black text-[var(--primary)]">
+                                                    {((u.profiles as any)?.full_name || '?')[0]?.toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-white">{(u.profiles as any)?.full_name || 'Unknown'}</p>
+                                                    <p className="text-[9px] text-white/30">{(u.profiles as any)?.email || '-'}</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => unassignUser(u.user_id)}
+                                                className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
+                                                해제
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Add User Section */}
+                        <div className="pt-4 border-t border-white/[0.05]">
+                            <h4 className="text-[10px] font-black text-white uppercase tracking-widest mb-3">사용자 추가</h4>
+                            <input
+                                value={assignSearch}
+                                onChange={(e) => setAssignSearch(e.target.value)}
+                                placeholder="이름 또는 이메일로 검색..."
+                                className="w-full admin-search-input mb-4"
+                            />
+                            <div className="max-h-[200px] overflow-y-auto space-y-2 custom-scrollbar">
+                                {filteredAvailable.length === 0 ? (
+                                    <p className="text-[10px] text-white/30 py-4 text-center">검색 결과가 없습니다</p>
+                                ) : (
+                                    filteredAvailable.slice(0, 20).map((u) => (
+                                        <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-white/[0.01] border border-white/[0.03] hover:border-white/10 transition-all">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-white/[0.03] flex items-center justify-center text-[10px] font-black text-white/30">
+                                                    {(u.full_name || '?')[0]?.toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-white">{u.full_name || 'Unknown'}</p>
+                                                    <p className="text-[9px] text-white/30">{u.email || '-'}</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => assignUser(u.id)}
+                                                className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20 transition-all">
+                                                배정
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </AdminModal>
         </div>
     );

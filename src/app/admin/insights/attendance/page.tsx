@@ -20,6 +20,13 @@ interface MethodBreakdown {
     count: number;
 }
 
+// T3-2: Heatmap data
+interface HeatmapCell {
+    day: number; // 0=Mon, 6=Sun
+    hour: number;
+    count: number;
+}
+
 export default function AttendancePage() {
     const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
     const [dailyData, setDailyData] = useState<DailyCheckin[]>([]);
@@ -29,6 +36,8 @@ export default function AttendancePage() {
     const [avgDaily, setAvgDaily] = useState(0);
     const [peakDay, setPeakDay] = useState({ date: '', count: 0 });
     const [loading, setLoading] = useState(true);
+    // T3-2: Heatmap state
+    const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([]);
 
     const loadData = useCallback(async () => {
         const supabase = createClient();
@@ -53,12 +62,25 @@ export default function AttendancePage() {
 
             for (let i = 0; i < 24; i++) hourlyMap[i] = 0;
 
-            checkins.forEach((c) => {
-                const d = new Date(c.checkin_time);
-                const dateKey = d.toISOString().split('T')[0];
+            // T3-2: Heatmap aggregation (day × hour)
+            const heatmap: Record<string, number> = {};
+            for (let d = 0; d < 7; d++) {
+                for (let h = 0; h < 24; h++) {
+                    heatmap[`${d}-${h}`] = 0;
+                }
+            }
+
+            checkins.forEach((c: any) => {
+                const dt = new Date(c.checkin_time);
+                const dateKey = dt.toISOString().split('T')[0];
                 dailyMap[dateKey] = (dailyMap[dateKey] || 0) + 1;
-                hourlyMap[d.getHours()] = (hourlyMap[d.getHours()] || 0) + 1;
+                hourlyMap[dt.getHours()] = (hourlyMap[dt.getHours()] || 0) + 1;
                 methodMap[c.checkin_method] = (methodMap[c.checkin_method] || 0) + 1;
+
+                // T3-2: Map JS getDay() (0=Sun) to (0=Mon)
+                const jsDay = dt.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+                const dayIdx = jsDay === 0 ? 6 : jsDay - 1; // 0=Mon, ..., 6=Sun
+                heatmap[`${dayIdx}-${dt.getHours()}`]++;
             });
 
             const daily = Object.entries(dailyMap).map(([date, count]) => ({ date, count }));
@@ -73,6 +95,15 @@ export default function AttendancePage() {
 
             const peak = daily.reduce((max, d) => d.count > max.count ? d : max, { date: '', count: 0 });
             setPeakDay(peak);
+
+            // T3-2: Set heatmap data
+            const cells: HeatmapCell[] = [];
+            for (let d = 0; d < 7; d++) {
+                for (let h = 0; h < 24; h++) {
+                    cells.push({ day: d, hour: h, count: heatmap[`${d}-${h}`] });
+                }
+            }
+            setHeatmapData(cells);
         } else {
             // No data available - show empty state
             setDailyData([]);
@@ -81,6 +112,14 @@ export default function AttendancePage() {
             setTotalCheckins(0);
             setAvgDaily(0);
             setPeakDay({ date: '', count: 0 });
+            // T3-2: Empty heatmap
+            const cells: HeatmapCell[] = [];
+            for (let d = 0; d < 7; d++) {
+                for (let h = 0; h < 24; h++) {
+                    cells.push({ day: d, hour: h, count: 0 });
+                }
+            }
+            setHeatmapData(cells);
         }
 
         setLoading(false);
@@ -107,6 +146,19 @@ export default function AttendancePage() {
     const maxDailyCount = Math.max(...dailyData.map(d => d.count), 1);
     const maxHourlyCount = Math.max(...hourlyData.map(h => h.count), 1);
     const totalMethodCount = methodData.reduce((s, m) => s + m.count, 0) || 1;
+
+    // T3-2: Heatmap helpers
+    const maxHeatmapCount = Math.max(...heatmapData.map(c => c.count), 1);
+    const DAY_LABELS = ['월', '화', '수', '목', '금', '토', '일'];
+
+    function getHeatmapColor(count: number): string {
+        if (count === 0) return 'rgba(255,255,255,0.02)';
+        const intensity = count / maxHeatmapCount;
+        if (intensity < 0.25) return 'rgba(255,107,0,0.1)';
+        if (intensity < 0.5) return 'rgba(255,107,0,0.25)';
+        if (intensity < 0.75) return 'rgba(255,107,0,0.5)';
+        return 'rgba(255,107,0,0.8)';
+    }
 
     const methodConfig: Record<string, { label: string; color: string }> = {
         qr: { label: 'QR Code', color: '#22C55E' },
@@ -205,6 +257,72 @@ export default function AttendancePage() {
                                 <span>{dailyData[0]?.date}</span>
                                 <span>{dailyData[Math.floor(dailyData.length / 2)]?.date}</span>
                                 <span>{dailyData[dailyData.length - 1]?.date}</span>
+                            </div>
+                        </div>
+
+                        {/* T3-2: Attendance Heatmap (Day × Hour) */}
+                        <div className="glass-card p-8">
+                            <h3 className="text-xl font-black text-white uppercase tracking-tight mb-3 inline-flex items-center gap-2">
+                                <IconClock size={20} /> Attendance Heatmap
+                            </h3>
+                            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest mb-6">요일 × 시간대 체크인 밀도</p>
+
+                            <div className="overflow-x-auto">
+                                <div style={{ minWidth: '700px' }}>
+                                    {/* Hour labels (top) */}
+                                    <div className="flex items-center mb-1">
+                                        <div className="w-10 flex-shrink-0" />
+                                        {Array.from({ length: 24 }, (_, h) => (
+                                            <div key={h} className="flex-1 text-center">
+                                                <span className="text-[7px] font-bold text-[var(--text-muted)]">{h}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Heatmap rows */}
+                                    {DAY_LABELS.map((dayLabel, dayIdx) => (
+                                        <div key={dayIdx} className="flex items-center gap-0 mb-[2px]">
+                                            <div className="w-10 flex-shrink-0 text-right pr-2">
+                                                <span className="text-[9px] font-black text-white/60">{dayLabel}</span>
+                                            </div>
+                                            {Array.from({ length: 24 }, (_, h) => {
+                                                const cell = heatmapData.find(c => c.day === dayIdx && c.hour === h);
+                                                const count = cell?.count || 0;
+                                                return (
+                                                    <div
+                                                        key={h}
+                                                        className="flex-1 aspect-square rounded-sm mx-[1px] transition-all hover:scale-125 hover:z-10 cursor-pointer relative group"
+                                                        style={{
+                                                            background: getHeatmapColor(count),
+                                                            border: '1px solid rgba(255,255,255,0.02)',
+                                                            minHeight: '18px',
+                                                        }}
+                                                        title={`${dayLabel}요일 ${h}시: ${count}건`}
+                                                    >
+                                                        {/* Tooltip on hover */}
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 rounded-md text-[8px] font-bold text-white whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20"
+                                                            style={{ background: 'rgba(0,0,0,0.9)', border: '1px solid rgba(255,107,0,0.3)' }}>
+                                                            {dayLabel} {h}시 — {count}건
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+
+                                    {/* Legend */}
+                                    <div className="flex items-center justify-end gap-3 mt-4">
+                                        <span className="text-[8px] text-[var(--text-muted)]">적음</span>
+                                        {[0.02, 0.1, 0.25, 0.5, 0.8].map((opacity, i) => (
+                                            <div
+                                                key={i}
+                                                className="w-4 h-4 rounded-sm"
+                                                style={{ background: i === 0 ? 'rgba(255,255,255,0.02)' : `rgba(255,107,0,${opacity})` }}
+                                            />
+                                        ))}
+                                        <span className="text-[8px] text-[var(--text-muted)]">많음</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 

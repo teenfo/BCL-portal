@@ -20,6 +20,8 @@ interface DashboardStats {
     expiredMembers: number;
     activeMemberships: number;
     totalCoaches: number;
+    revenueYoY: number;
+    membersYoY: number;
 }
 
 interface RecentTransaction {
@@ -44,6 +46,7 @@ export default function AdminDashboardPage() {
         todayBookings: 0, todayCheckins: 0, monthlyRevenue: 0,
         activeMembers: 0, totalMembers: 0, expiredMembers: 0,
         activeMemberships: 0, totalCoaches: 0,
+        revenueYoY: 0, membersYoY: 0,
     });
     const [recentTx, setRecentTx] = useState<RecentTransaction[]>([]);
     const [recentCheckins, setRecentCheckins] = useState<RecentCheckin[]>([]);
@@ -59,7 +62,8 @@ export default function AdminDashboardPage() {
                 membersRes, activeRes, expiredRes,
                 checkinsRes, bookingsRes,
                 txRes, membershipRes, coachRes,
-                recentTxRes, recentCheckinRes
+                recentTxRes, recentCheckinRes,
+                lastYearTxRes, lastYearMembersRes
             ] = await Promise.all([
                 supabase.from('members').select('id', { count: 'exact', head: true }),
                 supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
@@ -71,9 +75,16 @@ export default function AdminDashboardPage() {
                 supabase.from('coaches').select('id', { count: 'exact', head: true }).eq('status', 'active'),
                 supabase.from('transactions').select('id, amount, payment_status, status, category, created_at, member_id, members!transactions_member_id_fkey(name)').order('created_at', { ascending: false }).limit(5),
                 supabase.from('checkins').select('id, checkin_time, time, checkin_method, member_id, member_name, members!checkins_member_id_fkey(name), facility_id, facility, facilities!checkins_facility_id_fkey(name)').order('created_at', { ascending: false }).limit(6),
+
+                // YoY Data
+                supabase.from('transactions').select('amount').gte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth(), 1).toISOString()).lte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth() + 1, 0).toISOString()).or('payment_status.eq.completed,status.eq.completed'),
+                supabase.from('members').select('id', { count: 'exact', head: true }).lte('created_at', new Date(new Date().getFullYear() - 1, new Date().getMonth(), new Date().getDate()).toISOString())
             ]);
 
             const monthlyRevenue = txRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
+            const lastYearRevenue = lastYearTxRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;
+            const revenueYoY = lastYearRevenue > 0 ? ((monthlyRevenue - lastYearRevenue) / lastYearRevenue) * 100 : 0;
+            const membersYoY = lastYearMembersRes.count && lastYearMembersRes.count > 0 ? ((membersRes.count! - lastYearMembersRes.count) / lastYearMembersRes.count) * 100 : 0;
 
             setStats({
                 todayBookings: bookingsRes.count || 0,
@@ -84,6 +95,8 @@ export default function AdminDashboardPage() {
                 expiredMembers: expiredRes.count || 0,
                 activeMemberships: membershipRes.count || 0,
                 totalCoaches: coachRes.count || 0,
+                revenueYoY,
+                membersYoY
             });
 
             if (recentTxRes.data) {
@@ -150,8 +163,8 @@ export default function AdminDashboardPage() {
                             {/* KPI Grid */}
                             <div className="grid grid-cols-12 gap-6">
                                 {[
-                                    { label: 'Monthly Revenue', value: stats.monthlyRevenue > 0 ? `₩${(stats.monthlyRevenue / 10000).toFixed(0)}만` : '₩0', delta: '+15.2%', deltaColor: 'text-green-400', sub: `${new Date().getMonth() + 1}월 누적`, type: 'revenue' },
-                                    { label: 'Active Members', value: `${stats.activeMembers} / ${stats.totalMembers}`, delta: stats.totalMembers > 0 ? `${((stats.activeMembers / stats.totalMembers) * 100).toFixed(0)}%` : '0%', deltaColor: 'text-blue-400', sub: `활성 멤버십 ${stats.activeMemberships}건`, progress: stats.totalMembers > 0 ? (stats.activeMembers / stats.totalMembers) * 100 : 0, type: 'capacity' },
+                                    { label: 'Monthly Revenue', value: stats.monthlyRevenue > 0 ? `₩${(stats.monthlyRevenue / 10000).toFixed(0)}만` : '₩0', delta: stats.revenueYoY >= 0 ? `▲ ${stats.revenueYoY.toFixed(1)}%` : `▼ ${Math.abs(stats.revenueYoY).toFixed(1)}%`, deltaColor: stats.revenueYoY >= 0 ? 'text-green-400' : 'text-red-400', sub: `${new Date().getMonth() + 1}월 누적 (YoY)`, type: 'revenue' },
+                                    { label: 'Active Members', value: `${stats.activeMembers} / ${stats.totalMembers}`, delta: stats.membersYoY >= 0 ? `▲ ${stats.membersYoY.toFixed(1)}%` : `▼ ${Math.abs(stats.membersYoY).toFixed(1)}%`, deltaColor: stats.membersYoY >= 0 ? 'text-blue-400' : 'text-red-400', sub: `성장률 (YoY)`, progress: stats.totalMembers > 0 ? (stats.activeMembers / stats.totalMembers) * 100 : 0, type: 'capacity' },
                                     { label: 'Today Check-ins', value: stats.todayCheckins.toLocaleString(), delta: 'Live', deltaColor: 'text-[var(--primary)]', sub: `Today Bookings: ${stats.todayBookings}`, type: 'checkin' },
                                     { label: 'System Status', value: `${stats.totalCoaches} Coaches`, delta: `${stats.expiredMembers} Expired`, deltaColor: stats.expiredMembers > 5 ? 'text-red-500' : 'text-yellow-400', sub: 'Active Resources', type: 'alerts' },
                                 ].map((kpi, i) => (

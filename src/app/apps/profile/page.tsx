@@ -31,7 +31,7 @@ export default function UserProfilePage() {
 
         setUserEmail(user.email || '');
 
-        const { data: memberData }: any = await supabase
+        const { data: memberData }: any = await (supabase as any)
             .from('members')
             .select('name')
             .eq('user_id', user.id)
@@ -41,7 +41,7 @@ export default function UserProfilePage() {
         }
 
         // profiles 테이블에서 role 확인 (admin 포탈 접근 권한)
-        const { data: profileData }: any = await supabase
+        const { data: profileData }: any = await (supabase as any)
             .from('profiles')
             .select('role')
             .eq('id', user.id)
@@ -50,7 +50,7 @@ export default function UserProfilePage() {
             setIsAdmin(profileData.role === 'admin' || profileData.role === 'super_admin');
         }
 
-        const { data: membershipData }: any = await supabase
+        const { data: membershipData }: any = await (supabase as any)
             .from('memberships')
             .select('*, membership_plans(name)')
             .eq('user_id', user.id)
