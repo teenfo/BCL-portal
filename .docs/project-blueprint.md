@@ -69,10 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **코치 계정 아키텍처 강화 (Priority 6)** 🎯
+- **Current Focus**: **결제 시스템 기획 완료 → Priority 9 등록** 💳
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal` (2026-02-18 경로 확정)
 - **Build Status**: ✅ `npm run build` 정상 완료 (2026-02-18 17:00 확인)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
+- **Last Action**: 결제 시스템 기획서 작성 완료 → Blueprint Priority 9 등록 → Archive 이동 (2026-02-18 21:37)
 
 ---
 
@@ -111,37 +112,19 @@
     - [x] database-reference.md 갱신
     - [x] blueprint 반영
 
-#### 🟠 Priority 7: 알림 시스템 종합 구축 (개발 대기)
+#### ✅ Priority 7: 알림 시스템 종합 구축 (완료) ✨
   > **기획서**: `.docs/archive/planning/notification-system.md`
-  > **Status**: Draft (기획 검토 중)
   > **문제**: 회원에게 수업 리마인더, 빈자리 알림, 멤버십 만료 경고 등 실시간 알림 수단이 없음
   > **방안**: In-App 알림 (Supabase Realtime) → Web Push (PWA) → 외부 채널 (카카오) 3단계 구축
 
-  - [ ] Phase 1: In-App 알림 인프라 → 💎 **Senior Dev (Opus)** + 🎨 **UI Developer (Gemini)**
-    - [ ] notifications 테이블 스키마 확장 (category, type, channel, action_url 등)
-    - [ ] notification_preferences 테이블 생성
-    - [ ] 사용자 앱 알림 센터 UI (`/apps/notifications`)
-    - [ ] Home 헤더에 벨 아이콘 + 미읽음 배지
-    - [ ] Supabase Realtime 연동 (실시간 알림 수신)
-    - [ ] 알림 토스트 컴포넌트
-    - [ ] Profile > 알림 설정 화면
-  - [ ] Phase 2: 자동 규칙 엔진 → 💎 **Senior Dev (Opus)** + 💻 **Developer (Sonnet)**
-    - [ ] notification_rules 테이블 생성
-    - [ ] pg_cron 수업 리마인더 함수
-    - [ ] 빈자리 알림 DB Trigger
-    - [ ] 멤버십 만료 경고 크론
-    - [ ] Admin 자동 규칙 관리 UI
-    - [ ] Admin 알림 발송 대상 필터링 강화
-  - [ ] Phase 3: Web Push + PWA → ⚡ **Specialist (Gemini)** + 💻 **Developer (Sonnet)**
-    - [ ] PWA manifest.json + Service Worker 등록
-    - [ ] VAPID 키 생성 및 환경변수 설정
-    - [ ] push_subscriptions 테이블 생성
-    - [ ] 알림 허가 요청 + 구독 저장 로직
-    - [ ] Edge Function: push 발송
-    - [ ] iOS PWA 설치 유도 배너
-  - [ ] Phase 4: 외부 채널 연동 (추후) → 💻 **Developer (Sonnet)**
-    - [ ] 카카오 알림톡 연동
-    - [ ] SMS / 이메일 연동
+  - [x] Phase 1: In-App 알림 인프라 (완료) ✨
+  - [x] Phase 2: 자동 알림 규칙 엔진 (완료) ✨
+  - [x] Phase 3: Web Push (PWA) 통합 (완료) ✨
+  - [x] Phase 4: 외부 채널 연동 (완료) ✨
+  - [ ] Phase 5: 문서 동기화 (진행 중)
+    - [x] notifications/push_subscriptions/notification_preferences DB 스키마 검증
+    - [x] sitemap 갱신 (사용자 앱/관리자 알림 센터 구현 반영)
+    - [ ] `database-reference.md` 유실 데이터 복구 및 최신화
   - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
     - [ ] sitemap 갱신 (알림 센터 화면 추가)
     - [ ] database-reference.md 갱신
@@ -161,11 +144,39 @@
   - [ ] Phase 4: 문서 동기화 및 최종 검증 → 🏛️ **Architect (Opus)**
     - [ ] sitemap 갱신 및 blueprint 반영
 
+#### 🟠 Priority 9: 결제 시스템 아키텍처 (개발 대기) 💳
+  > **기획서**: `.docs/archive/planning/payment-system.md`
+  > **문제**: 현재 결제가 DB 직접 INSERT로만 처리되며, 실제 PG 연동/환불/정산 기능이 없음
+  > **방안**: Toss Payments 결제위젯 연동 + 이중 안전장치 (Admin 모드 토글 + DEV 환경 강제 시뮬레이션)
+
+  - [ ] Phase 1: 결제 인프라 (DB + Edge Functions) → 💎 **Senior Dev (Opus)**
+    - [ ] transactions 테이블 확장 마이그레이션
+    - [ ] pg_settings + refunds 테이블 생성 + RLS
+    - [ ] confirm-payment Edge Function (7단계 검증)
+    - [ ] cancel-payment Edge Function (관리자 전용)
+    - [ ] toss-webhook Edge Function (서명 검증)
+    - [ ] sync-pg-settings Edge Function (암복호화)
+  - [ ] Phase 2: 사용자 결제 화면 → 🎨 **UI Dev (Gemini)** + 💻 **Developer (Sonnet)**
+    - [ ] /apps/purchase Toss 결제위젯 통합 (3단계 확인 플로우)
+    - [ ] /apps/purchase/success, /apps/purchase/fail 페이지
+    - [ ] 결제 성공 시 알림 연동
+    - [ ] /apps/profile/payments 영수증 링크
+  - [ ] Phase 3: 관리자 환불 & 매출 관리 → 🎨 **UI Dev** + 💎 **Senior Dev**
+    - [ ] Admin PG 설정 UI (모드 토글 + 키 입력)
+    - [ ] Admin 환불 모달 (위약금 계산, 2단계 확인)
+    - [ ] Admin 거래 상세 모달 (Toss 상태 표시)
+    - [ ] 매출 리포트 source 필터
+  - [ ] Phase 4 (향후): POS 매출 연동 → 💎 **Senior Dev**
+    - [ ] Toss POS API 연동 EF
+    - [ ] POS 매출 동기화 크론
+    - [ ] 매출 리포트 POS 통합
+  - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap/database-reference/blueprint 갱신
+
 #### 🟡 잔여 개선 항목 (향후)
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
   - [ ] Check-in QR 표준 라이브러리 교체 (qrcode.react) → ⚡ **Specialist**
   - [ ] User Check-in QR 비표준 렌더링 개선 → ⚡ **Specialist**
-  - [ ] Purchase PG 결제 연동 → 💎 **Senior Dev (Opus)**
   - [ ] 루트 랜딩 페이지 구현 → 🎨 **UI Developer**
   - [ ] 대시보드 위젯 실 데이터 완성 → 💻 **Developer**
   - [ ] 레이스 시스템 PM5 기기 데이터 연동 → ⚡ **Specialist**
