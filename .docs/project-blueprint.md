@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Admin 미구현 기능 Phase 3+4 완료 → 커밋 대기**
+- **Current Focus**: **Priority 10: 랠딩 페이지 구현 완료 → 커밋 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 성공 (T3-3 DnD + T3-9 RBAC 구현 완료)
+- **Build Status**: ✅ `npm run build` 성공 (랠딩 페이지 + SEO 구현 완료)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: T3-3(캘린더 DnD) HTML5 Drag&Drop API 구현, T3-9(역할 기반 접근 통제) useAdminPermissions 훅 + 사이드바 필터링 + 페이지 가드 구현 완료.
+- **Last Action**: 루트 랠딩 페이지 전체 구현 (Hero + Features + Programs + Coaches/Pricing/Facility DB연동 + CTA + Footer + 반응형 + 스크롤 애니메이션 + SEO + anon RLS 정책).
 
 ---
 
@@ -195,11 +195,32 @@
   - [x] Phase 5: 문서 동기화 ✅ → 🏛️ **Architect (Opus)**
     - [x] sitemap/database-reference/blueprint 갱신
 
+#### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료) 🎉
+  > **기획서**: `.docs/planning/landing-page.md` ✅ Approved
+  > **문제**: 루트 URL(`/`)에 플레이스홀더만 존재하여 잠재 회원에게 짐 정보 전달 불가
+  > **방안**: Hero + Features + Programs + Coaches(DB) + Pricing(DB) + Facility(DB) + CTA + Footer
+
+  - [x] Phase 1: RLS 정책 확인 및 보완 ✅ → 💎 **Senior Dev (Opus)**
+    - [x] anon 역할 SELECT 정책 확인 (coaches, facilities, membership_plans)
+    - [x] 누락된 RLS 정책 마이그레이션 (anon_read_coaches, anon_read_facilities, anon_read_membership_plans)
+  - [x] Phase 2: 랜딩 페이지 UI 구현 ✅ → 🎨 **UI Developer (Gemini)**
+    - [x] Hero Section (풀스크린 + 태그라인 + CTA)
+    - [x] Features Section (4개 카드, Glassmorphism)
+    - [x] Programs Section (4개 프로그램 소개)
+    - [x] Coaches Section (Supabase DB 연동, 아바타)
+    - [x] Pricing Section (Supabase DB 연동, 요금표 카드)
+    - [x] Facility Section (Supabase DB 연동, 지점 정보)
+    - [x] CTA Banner + Footer + Sticky Navbar
+    - [x] 반응형 (모바일 햄버거 메뉴) + IntersectionObserver 스크롤 애니메이션
+  - [x] Phase 3: SEO 최적화 ✅ → 💻 **Developer (Sonnet)**
+    - [x] SEO 메타태그 강화 (title, description, OG, keywords, robots)
+  - [x] Phase 4: 문서 동기화 ✅ → 🏛️ **Architect (Opus)**
+    - [x] blueprint 반영
+
 #### 🟡 잔여 개선 항목 (향후)
   - [ ] Class 포털 성능 최적화 (60fps) → ⚡ **Specialist**
   - [ ] Check-in QR 표준 라이브러리 교체 (qrcode.react) → ⚡ **Specialist**
   - [ ] User Check-in QR 비표준 렌더링 개선 → ⚡ **Specialist**
-  - [ ] 루트 랜딩 페이지 구현 → 🎨 **UI Developer** (기획서: `.docs/planning/landing-page.md` ✅ Approved)
   - [ ] 대시보드 위젯 실 데이터 완성 → 💻 **Developer**
   - [ ] 레이스 시스템 PM5 기기 데이터 연동 → ⚡ **Specialist**
   - [ ] Coach 앱 브라우저 통합 테스트 → 💻 **Developer**

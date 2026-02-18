@@ -247,3 +247,30 @@
 - [x] `npm run build` 성공 (83개 라우트 전체 정상)
 - [x] Priority 8 전체 완료 (Tier 1, 2, 3 + Phase 4 문서 동기화)
 
+### [Priority 10 완료 — 루트 랜딩 페이지] 🎉
+
+#### Phase 1: RLS 정책
+- [x] `anon` 역할 SELECT 정책 추가 (coaches, facilities, membership_plans)
+- [x] Supabase 마이그레이션 `add_anon_read_policies_for_landing` 적용
+- **목적**: 비인증 사용자가 랜딩 페이지에서 공개 데이터를 읽을 수 있도록 허용
+
+#### Phase 2: 랜딩 페이지 UI 구현
+- [x] Hero Section: 풀스크린 + "Beyond CrossFit Limits" 태그라인 + CTA 버튼
+- [x] Features Section: 4개 서비스 카드 (예약/체크인/기록/레이스)
+- [x] Programs Section: 4개 프로그램 소개 (CrossFit/Strength/Rowing/OpenGym)
+- [x] Coaches Section: Supabase DB 연동, 프로필 아바타, 전문분야 태그
+- [x] Pricing Section: Supabase DB 연동, 요금표 카드 (인기 플랜 하이라이트)
+- [x] Facility Section: Supabase DB 연동, 지점 주소/연락처/편의시설
+- [x] CTA Banner: 최종 전환 유도 배너
+- [x] Footer: 4컬럼 (브랜드/서비스/고객지원/SNS)
+- [x] Sticky Navbar: 스크롤 시 배경 전환 + 모바일 햄버거 메뉴
+- [x] IntersectionObserver 기반 fade-in 스크롤 애니메이션
+- [x] Glassmorphism 디자인 시스템 준수
+- **변경 파일**: `src/app/page.tsx` (전면 교체)
+
+#### Phase 3: SEO 최적화
+- [x] title, description, keywords, Open Graph, robots 메타데이터
+- **변경 파일**: `src/app/layout.tsx`
+
+#### 빌드 검증
+- [x] `npm run build` 성공 (83개 라우트 전체 정상)
