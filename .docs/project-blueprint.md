@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 10: 랠딩 페이지 구현 완료 → 커밋 대기**
+- **Current Focus**: **Priority 9 Phase 4 완료 + Known Issues 점검 → 커밋 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공 (랠딩 페이지 + SEO 구현 완료)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 루트 랠딩 페이지 전체 구현 (Hero + Features + Programs + Coaches/Pricing/Facility DB연동 + CTA + Footer + 반응형 + 스크롤 애니메이션 + SEO + anon RLS 정책).
+- **Last Action**: POS 매출 연동 (Edge Function 2개 + pg_cron + Admin Finance POS 필터 + POS 동기화 UI). Known Issues 점검 완료.
 
 ---
 
@@ -95,17 +95,8 @@
 #### ✅ Priority 8: Admin 미구현 상세 기능 완성 (완료)
   > 기획서: `.docs/archive/planning/admin-unimplemented-features.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-#### 🟠 Priority 9: 결제 시스템 아키텍처 (Phase 1~3 완료, Phase 4 개발 대기)
-  > **기획서**: `.docs/archive/planning/payment-system.md`
-  > **상세 완료 내역**: `.docs/archive/complete/project-complete-20260218.md`
-  > **전략**: 실 API 키 발급은 향후 진행. 개발/테스트 단계에서는 **Toss 테스트 키** 사용.
-  > Admin PG Settings UI에서 키를 설정/교체할 수 있도록 이미 분리 구축됨 (Phase 3 완료).
-
-  - [ ] Phase 4: POS 매출 연동 (테스트 키로 개발 가능) → 💎 **Senior Dev**
-    - [ ] Toss POS API 연동 Edge Function (테스트 키 기반)
-    - [ ] POS 매출 동기화 크론 (pg_cron / Edge Function)
-    - [ ] 매출 리포트 POS 통합 (Admin 매출 화면에 POS 소스 추가)
-    - [ ] ※ 실 API 키 전환: Admin > Settings > PG 설정에서 교체 (별도 배포 불필요)
+#### ✅ Priority 9: 결제 시스템 아키텍처 (완료)
+  > 기획서: `.docs/archive/planning/payment-system.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
 #### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료)
   > 기획서: `.docs/archive/planning/landing-page.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
@@ -121,8 +112,8 @@
 ---
 
 ### Known Issues (Active)
-- ⚠️ **@supabase/supabase-js 타입 복잡도** (WORKAROUND): `supabase.from(...) as any` 캐스팅 우회 중 (Type instantiation is excessively deep 이슈)
-- 🔴 **코치 계정 미연결** (ACTIVE): coaches.user_id=NULL → Coach App 로그인 불가 → [기획서](./archive/planning/coach-account-architecture.md)
+- ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
+- 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
 
 ### 참고 문서
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`

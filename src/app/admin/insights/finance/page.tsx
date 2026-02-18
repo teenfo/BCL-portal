@@ -16,12 +16,16 @@ interface CategoryRevenue {
     amount: number;
 }
 
+type SourceFilter = 'all' | 'online' | 'pos' | 'manual';
+
 export default function FinanceReportPage() {
     const [period, setPeriod] = useState<'3m' | '6m' | '12m'>('6m');
+    const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
     const [monthlyData, setMonthlyData] = useState<MonthlyRevenue[]>([]);
     const [categoryData, setCategoryData] = useState<CategoryRevenue[]>([]);
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [totalRefund, setTotalRefund] = useState(0);
+    const [posRevenue, setPosRevenue] = useState(0);
     const [avgMonthly, setAvgMonthly] = useState(0);
     const [growthRate, setGrowthRate] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -34,11 +38,16 @@ export default function FinanceReportPage() {
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - months);
 
-        const { data: transactions }: any = await supabase
-            .from('transactions')
-            .select('amount, payment_status, transaction_type, category, created_at')
+        let query = (supabase.from('transactions') as any)
+            .select('amount, payment_status, transaction_type, category, source, created_at')
             .gte('created_at', startDate.toISOString())
             .order('created_at', { ascending: true });
+
+        if (sourceFilter !== 'all') {
+            query = query.eq('source', sourceFilter);
+        }
+
+        const { data: transactions }: any = await query;
 
         if (transactions && transactions.length > 0) {
             // Monthly aggregation
@@ -66,8 +75,10 @@ export default function FinanceReportPage() {
 
             const rev = transactions.filter(t => t.payment_status === 'completed' && t.transaction_type === 'purchase').reduce((s, t) => s + Number(t.amount), 0);
             const ref = transactions.filter(t => t.transaction_type === 'refund' || t.payment_status === 'refunded').reduce((s, t) => s + Number(t.amount), 0);
+            const posRev = transactions.filter(t => t.source === 'pos' && t.payment_status === 'completed' && t.transaction_type === 'purchase').reduce((s, t) => s + Number(t.amount), 0);
             setTotalRevenue(rev);
             setTotalRefund(ref);
+            setPosRevenue(posRev);
             setAvgMonthly(Math.round(rev / months));
 
             if (monthly.length >= 2) {
@@ -81,12 +92,13 @@ export default function FinanceReportPage() {
             setCategoryData([]);
             setTotalRevenue(0);
             setTotalRefund(0);
+            setPosRevenue(0);
             setAvgMonthly(0);
             setGrowthRate(0);
         }
 
         setLoading(false);
-    }, [period]);
+    }, [period, sourceFilter]);
 
     useEffect(() => { loadData(); }, [loadData]);
 
@@ -98,6 +110,8 @@ export default function FinanceReportPage() {
         pt: { label: 'PT', color: '#3B82F6' },
         goods: { label: '상품', color: '#22C55E' },
         locker: { label: '락커', color: '#8B5CF6' },
+        pos: { label: 'POS', color: '#F59E0B' },
+        Membership: { label: '멤버십', color: '#FF6B00' },
         etc: { label: '기타', color: '#6B7280' },
     };
 
@@ -151,8 +165,8 @@ export default function FinanceReportPage() {
             />
 
             <div className="p-10 max-w-[1400px] mx-auto">
-                {/* Period Filter */}
-                <div className="flex items-center gap-4 mb-8">
+                {/* Period + Source Filter */}
+                <div className="flex items-center gap-4 mb-8 flex-wrap">
                     <div className="flex gap-2">
                         {(['3m', '6m', '12m'] as const).map((p) => (
                             <button key={p} onClick={() => setPeriod(p)} className={`admin-filter-btn ${period === p ? 'active' : ''}`}>
@@ -160,6 +174,15 @@ export default function FinanceReportPage() {
                             </button>
                         ))}
                     </div>
+                    <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.06)' }} />
+                    <div className="flex gap-2">
+                        {([['all', '전체'], ['online', 'Online'], ['pos', 'POS'], ['manual', 'Manual']] as const).map(([key, label]) => (
+                            <button key={key} onClick={() => setSourceFilter(key as SourceFilter)} className={`admin-filter-btn ${sourceFilter === key ? 'active' : ''}`}>
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    <div style={{ flex: 1 }} />
                     <button onClick={downloadCSV} disabled={monthlyData.length === 0} className="admin-action-btn disabled:opacity-40">⬇ CSV 다운로드</button>
                 </div>
 
@@ -171,7 +194,7 @@ export default function FinanceReportPage() {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
                             {[
                                 { label: 'Total Revenue', value: `₩${(totalRevenue / 100000000).toFixed(1)}억`, sub: '총 매출', color: 'var(--primary)' },
-                                { label: 'Avg Monthly', value: `₩${(avgMonthly / 10000).toFixed(0)}만`, sub: '월 평균', color: '#22C55E' },
+                                { label: 'POS Revenue', value: `₩${(posRevenue / 10000).toFixed(0)}만`, sub: 'POS 매출', color: '#F59E0B' },
                                 { label: 'Growth Rate', value: `${growthRate >= 0 ? '+' : ''}${growthRate.toFixed(1)}%`, sub: '전월 대비', color: growthRate >= 0 ? '#22C55E' : '#EF4444' },
                                 { label: 'Total Refund', value: `₩${(totalRefund / 10000).toFixed(0)}만`, sub: '환불 합계', color: '#8B5CF6' },
                             ].map((kpi, i) => (

@@ -274,3 +274,23 @@
 
 #### 빌드 검증
 - [x] `npm run build` 성공 (83개 라우트 전체 정상)
+
+### [Priority 9 Phase 4 완료 — POS 매출 연동] 💳
+
+#### Phase 4: POS 매출 연동
+- [x] `sync-pos-sales` Edge Function 배포 (Toss POS API 조회 → transactions INSERT, 중복 방지)
+- [x] `cron-pos-sync` Edge Function 배포 (전체 시설 일괄 동기화, audit_logs 기록)
+- [x] pg_cron 작업 등록 (`pos-sales-sync-daily`, 매일 06:00 KST = UTC 21:00)
+- [x] Admin Finance 리포트에 소스 필터 추가 (전체/Online/POS/Manual)
+- [x] Finance KPI 카드에 POS Revenue 항목 추가 (카테고리에 `pos` 추가)
+- [x] Admin PG Settings에 POS API Key 입력 필드 추가
+- [x] POS 수동 동기화 버튼 + 결과 피드백 UI 추가
+- **전략**: 실 API 키 발급 전까지 테스트 키 사용, Admin Settings에서 키 교체만으로 전환 가능
+- **변경 파일**: `src/app/admin/insights/finance/page.tsx`, `src/app/admin/setup/system/PGSettings.tsx`
+
+#### Known Issues 점검
+- [x] **Supabase 타입 복잡도** → MITIGATED: `src/lib/supabase/query.ts` 헬퍼 생성 (`as any` 캡슐화)
+- [x] **코치 계정 미연결** → OPERATIONAL: 코드적 해결 완료, 운영 단계 수동 연결 필요
+
+#### 빌드 검증
+- [x] `npm run build` 성공 (83개 라우트 전체 정상, 에러/경고 0건)

@@ -22,10 +22,13 @@ export default function PGSettings() {
     const [keys, setKeys] = useState({
         test_secret: '',
         live_secret: '',
-        webhook_secret: ''
+        webhook_secret: '',
+        pos_api_key: ''
     });
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<any>(null);
     const { success, error: toastError } = useToast();
     const env = process.env.NEXT_PUBLIC_SUPABASE_ENV || 'dev';
 
@@ -88,7 +91,7 @@ export default function PGSettings() {
             const result = await response.json();
             if (response.ok) {
                 success('PG 설정이 암호화되어 저장되었습니다.');
-                setKeys({ test_secret: '', live_secret: '', webhook_secret: '' }); // Clear secrets from memory
+                setKeys({ test_secret: '', live_secret: '', webhook_secret: '', pos_api_key: '' }); // Clear secrets from memory
                 loadSettings();
             } else {
                 throw new Error(result.error || '저장 실패');
@@ -226,6 +229,82 @@ export default function PGSettings() {
                             {saving ? <div className="w-3 h-3 border border-white/20 border-t-white animate-spin rounded-full"></div> : <IconCheck size={16} />}
                             {saving ? 'Saving...' : '저장하기'}
                         </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* POS Integration */}
+            <div className="glass-card rounded-2xl p-6 border-l-4 border-amber-500/30">
+                <div className="flex items-center gap-2 mb-4">
+                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <h4 className="text-[10px] font-black text-white uppercase tracking-widest">POS 매출 연동</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-[8px] font-black text-white/40 uppercase mb-1.5 ml-1 inline-flex items-center gap-1">
+                            <IconLock size={8} /> POS API Key (Toss)
+                        </label>
+                        <input
+                            type="password"
+                            value={keys.pos_api_key}
+                            onChange={e => setKeys({ ...keys, pos_api_key: e.target.value })}
+                            className="admin-search-input w-full font-mono text-xs"
+                            placeholder="POS API Secret Key"
+                        />
+                        <p className="text-[8px] text-white/30 mt-2 ml-1 italic">Toss POS Open API 키. 테스트 키로 개발 가능합니다.</p>
+                    </div>
+                    <div className="flex flex-col justify-end gap-3">
+                        <button
+                            onClick={async () => {
+                                setSyncing(true);
+                                setSyncResult(null);
+                                try {
+                                    const supabase = createClient();
+                                    const { data: { session } } = await supabase.auth.getSession();
+                                    if (!session) throw new Error('Not authenticated');
+
+                                    const { data: fac } = await (supabase as any)
+                                        .from('facilities')
+                                        .select('id')
+                                        .limit(1)
+                                        .single();
+
+                                    const resp = await fetch(
+                                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-pos-sales`,
+                                        {
+                                            method: 'POST',
+                                            headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': `Bearer ${session.access_token}`
+                                            },
+                                            body: JSON.stringify({ facility_id: fac?.id })
+                                        }
+                                    );
+                                    const result = await resp.json();
+                                    setSyncResult(result);
+                                    if (result.success) {
+                                        success(`POS 동기화 완료: ${result.result?.new_inserted || 0}건 추가`);
+                                    } else {
+                                        toastError(result.result?.errors?.[0] || result.error || '동기화 실패');
+                                    }
+                                } catch (err: any) {
+                                    toastError(err.message);
+                                }
+                                setSyncing(false);
+                            }}
+                            disabled={syncing}
+                            className="admin-filter-btn flex items-center justify-center gap-2"
+                        >
+                            {syncing ? <div className="w-3 h-3 border border-white/20 border-t-amber-400 animate-spin rounded-full"></div> : '🔄'}
+                            {syncing ? '동기화 중...' : 'POS 매출 수동 동기화'}
+                        </button>
+                        {syncResult && (
+                            <div className={`p-3 rounded-xl text-[9px] font-mono ${syncResult.success ? 'bg-green-500/10 text-green-300 border border-green-500/20' : 'bg-red-500/10 text-red-300 border border-red-500/20'}`}>
+                                {syncResult.success
+                                    ? `✅ Fetched: ${syncResult.result?.total_fetched}, New: ${syncResult.result?.new_inserted}, Exists: ${syncResult.result?.already_exists}`
+                                    : `❌ ${syncResult.result?.errors?.[0] || syncResult.error}`}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
