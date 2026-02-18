@@ -146,8 +146,8 @@ Agent가 판단에 사용할 문서 우선순위:
   - 아카이브 구조:
     - `.docs/archive/` - 초기 분석 리포트, 상세 가이드, 기술 문서
     - `.docs/archive/result/` - 개발 과정 결과물 (리뷰, 완료 리포트, 구현 계획)
-    - `.docs/archive/project-complete-*.md` - 날짜별 완료 작업 히스토리
-  - 예시: "archive의 project-complete-20260218.md에서 키오스크 작업 내역 확인해줘"
+    - `.docs/archive/complete/project-complete-*.md` - 날짜별 완료 작업 히스토리
+  - 예시: "archive/complete의 project-complete-20260218.md에서 키오스크 작업 내역 확인해줘"
 
 상위 문서와 충돌 시 **상위 문서가 항상 우선**이다.
 ---

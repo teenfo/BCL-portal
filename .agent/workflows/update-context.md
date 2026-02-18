@@ -36,7 +36,7 @@ description: 현재 작업의 진행 상황과 컨텍스트를 프로젝트 블�
 **담당**: 💻 **Developer (Sonnet 4.6)**
 
 > ⚠️ **이원화 규칙**: 블루프린트는 **미구현 항목만** 유지합니다.
-> 완료된 작업은 `.docs/archive/project-complete-YYYYMMDD.md`로 이동합니다.
+> 완료된 작업은 `.docs/archive/complete/project-complete-YYYYMMDD.md`로 이동합니다.
 
 #### A. `.docs/project-blueprint.md` (활성 문서)
 - **Active Context(Section 5)만 갱신**:
@@ -46,8 +46,8 @@ description: 현재 작업의 진행 상황과 컨텍스트를 프로젝트 블�
 - **완료된 항목 제거**: `- [x]` 체크된 항목은 blueprint에서 삭제 (complete 파일로 이동)
 - **구현 상태 요약(Section 3) 테이블 갱신**: 모듈 완료 상태만 간결하게 유지
 
-#### B. `.docs/archive/project-complete-YYYYMMDD.md` (히스토리)
-- **오늘 날짜 파일 확인**: `.docs/archive/project-complete-YYYYMMDD.md` (예: `project-complete-20260218.md`)
+#### B. `.docs/archive/complete/project-complete-YYYYMMDD.md` (히스토리)
+- **오늘 날짜 파일 확인**: `.docs/archive/complete/project-complete-YYYYMMDD.md` (예: `project-complete-20260218.md`)
   - 파일이 없으면 새로 생성 (날짜가 바뀌 경우)
   - 파일이 이미 있으면 하단에 **이번 세션 작업 내역 추가**
 - **기록 형식**:
