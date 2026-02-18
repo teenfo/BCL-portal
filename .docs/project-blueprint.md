@@ -95,14 +95,17 @@
 #### ✅ Priority 8: Admin 미구현 상세 기능 완성 (완료)
   > 기획서: `.docs/archive/planning/admin-unimplemented-features.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
 
-#### 🟠 Priority 9: 결제 시스템 아키텍처 (Phase 1~3 완료, Phase 4 향후)
+#### 🟠 Priority 9: 결제 시스템 아키텍처 (Phase 1~3 완료, Phase 4 개발 대기)
   > **기획서**: `.docs/archive/planning/payment-system.md`
   > **상세 완료 내역**: `.docs/archive/complete/project-complete-20260218.md`
+  > **전략**: 실 API 키 발급은 향후 진행. 개발/테스트 단계에서는 **Toss 테스트 키** 사용.
+  > Admin PG Settings UI에서 키를 설정/교체할 수 있도록 이미 분리 구축됨 (Phase 3 완료).
 
-  - [ ] Phase 4 (향후): POS 매출 연동 → 💎 **Senior Dev**
-    - [ ] Toss POS API 연동 EF
-    - [ ] POS 매출 동기화 크론
-    - [ ] 매출 리포트 POS 통합
+  - [ ] Phase 4: POS 매출 연동 (테스트 키로 개발 가능) → 💎 **Senior Dev**
+    - [ ] Toss POS API 연동 Edge Function (테스트 키 기반)
+    - [ ] POS 매출 동기화 크론 (pg_cron / Edge Function)
+    - [ ] 매출 리포트 POS 통합 (Admin 매출 화면에 POS 소스 추가)
+    - [ ] ※ 실 API 키 전환: Admin > Settings > PG 설정에서 교체 (별도 배포 불필요)
 
 #### ✅ Priority 10: 루트 랜딩 페이지 구현 (완료)
   > 기획서: `.docs/archive/planning/landing-page.md` | 상세: `.docs/archive/complete/project-complete-20260218.md`
