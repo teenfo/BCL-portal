@@ -22,8 +22,8 @@
 #### 운영 핵심 (Core Operations)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `facilities` | 지점 정보 | name, address, operating_hours |
-| `members` | 회원 프로필 | user_id, name, email, status |
+| `facilities` | 지점 정보 | name, address, operating_hours, latitude, longitude, photos(TEXT[]) |
+| `members` | 회원 프로필 | user_id, name, email, status, phone, birthday, emergency_contact, avatar_url, preferences(JSONB) |
 | `coaches` | 코치 정보 | user_id, name, specialties, linked_at, linked_by |
 
 #### 멤버십 관리 (Membership)
@@ -99,6 +99,8 @@
 | `fn_send_class_reminders` | Cron Function | `sessions` | 수업 시작 1시간 전 예약자에게 알림 발송 |
 | `fn_notify_waitlist_on_vacancy` | Trigger Function | `bookings` | 예약 취소 시 대기열 상위 인원에게 알림 발송 |
 | `fn_send_membership_expiry_reminders` | Cron Function | `memberships` | 멤버십 만료 전 d-7, d-3, d-1 알림 발송 |
+| `fn_book_with_credit` | RPC Function | `bookings`, `memberships` | 예약 생성 + 크레딧 차감 + 정원 초과 시 Waitlist 자동 분기 |
+| `fn_cancel_booking_with_credit` | RPC Function | `bookings`, `memberships` | 예약 취소 + 크레딧 환원 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
@@ -157,6 +159,7 @@ supabase/migrations/
 ├── 20260218230000_payment_system_phase1.sql (Payment Phase 1 Infrastructure)
 ├── 20260218230100_payment_rpc_helpers.sql (Payment RPC Helpers)
 ├── 20260218231500_create_system_config_table.sql (System Config Table) 🆕
+└── 20260219165300_user_app_enhancement_phase1.sql (User App Enhancement Phase 1) 🆕
 ```
 
 ### 실행 방법

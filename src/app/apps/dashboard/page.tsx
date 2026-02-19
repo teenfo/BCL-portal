@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import AppSkeleton from '@/components/apps/AppSkeleton';
+import StatCard from '@/components/apps/StatCard';
+import AppErrorState from '@/components/apps/AppErrorState';
 
 interface Session {
     id: string;
@@ -13,6 +16,7 @@ interface Session {
     intensity: string;
     capacity: number;
     enrolled: number;
+    session_date?: string;
 }
 
 interface Notice {
@@ -31,6 +35,14 @@ interface Membership {
     remaining_credits: number;
     total_credits: number;
     status: string;
+}
+
+interface TodayStatus {
+    checkedInToday: boolean;
+    weeklyClasses: number;
+    weeklyGoal: number;
+    streakDays: number;
+    unreadNotifications: number;
 }
 
 const NOTICE_ICONS: Record<string, string> = {
@@ -53,11 +65,19 @@ function timeAgo(dateStr: string) {
 }
 
 export default function UserDashboardPage() {
-    const [upcomingSessions, setUpcomingSessions] = useState<Session[]>([]);
+    const [nextSession, setNextSession] = useState<Session | null>(null);
     const [notices, setNotices] = useState<Notice[]>([]);
     const [membership, setMembership] = useState<Membership | null>(null);
     const [userName, setUserName] = useState('회원');
+    const [todayStatus, setTodayStatus] = useState<TodayStatus>({
+        checkedInToday: false,
+        weeklyClasses: 0,
+        weeklyGoal: 4,
+        streakDays: 0,
+        unreadNotifications: 0,
+    });
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         loadDashboard();
@@ -65,55 +85,145 @@ export default function UserDashboardPage() {
 
     async function loadDashboard() {
         const supabase: any = createClient();
+        setLoading(true);
+        setError(false);
 
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: memberData }: any = await supabase
-                    .from('members')
-                    .select('name')
-                    .eq('user_id', user.id)
-                    .single();
-                if (memberData?.name) setUserName(memberData.name);
+            if (!user) {
+                setLoading(false);
+                return;
+            }
 
-                const { data: membershipData }: any = await supabase
+            const todayStr = new Date().toISOString().split('T')[0];
+            const now = new Date();
+            const startOfWeek = new Date(now);
+            startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
+            const weekStart = startOfWeek.toISOString().split('T')[0];
+
+            // ── 병렬 데이터 로딩 ──
+            const [
+                memberResult,
+                membershipResult,
+                sessionResult,
+                noticesResult,
+                checkinTodayResult,
+                weeklyBookingsResult,
+                streakResult,
+                unreadResult,
+            ] = await Promise.all([
+                // 1. 회원 정보
+                supabase.from('members').select('name').eq('user_id', user.id).single(),
+                // 2. 멤버십
+                supabase
                     .from('memberships')
                     .select('*, membership_plans(name, credits)')
                     .eq('user_id', user.id)
                     .eq('status', 'active')
                     .order('end_date', { ascending: false })
                     .limit(1)
-                    .single();
-                if (membershipData) {
-                    setMembership({
-                        id: membershipData.id,
-                        plan_name: membershipData.membership_plans?.name || '이용권',
-                        end_date: membershipData.end_date,
-                        remaining_credits: membershipData.remaining_credits || 0,
-                        total_credits: membershipData.membership_plans?.credits || 30,
-                        status: membershipData.status,
-                    });
+                    .single(),
+                // 3. 다음 수업 (session_date = today AND start_time > now)
+                supabase
+                    .from('sessions')
+                    .select('*')
+                    .eq('session_date', todayStr)
+                    .gte('start_time', now.toISOString())
+                    .order('start_time', { ascending: true })
+                    .limit(1),
+                // 4. 공지사항
+                supabase
+                    .from('notices')
+                    .select('*')
+                    .eq('is_published', true)
+                    .order('created_at', { ascending: false })
+                    .limit(3),
+                // 5. 오늘 체크인 여부
+                supabase
+                    .from('checkins')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('member_id', user.id)
+                    .gte('checkin_time', todayStr + 'T00:00:00')
+                    .lte('checkin_time', todayStr + 'T23:59:59'),
+                // 6. 이번 주 수업 수
+                supabase
+                    .from('bookings')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .in('status', ['confirmed', 'attended'])
+                    .gte('created_at', weekStart + 'T00:00:00'),
+                // 7. 연속 출석일 (최근 30일 체크인에서 계산)
+                supabase
+                    .from('checkins')
+                    .select('checkin_time')
+                    .eq('member_id', user.id)
+                    .order('checkin_time', { ascending: false })
+                    .limit(30),
+                // 8. 미읽음 알림 수
+                supabase
+                    .from('notifications')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('is_read', false),
+            ]);
+
+            // 회원 이름
+            if (memberResult.data?.name) setUserName(memberResult.data.name);
+
+            // 멤버십
+            if (membershipResult.data) {
+                const md = membershipResult.data;
+                setMembership({
+                    id: md.id,
+                    plan_name: md.membership_plans?.name || '이용권',
+                    end_date: md.end_date,
+                    remaining_credits: md.remaining_credits || 0,
+                    total_credits: md.membership_plans?.credits || 30,
+                    status: md.status,
+                });
+            }
+
+            // 다음 수업
+            if (sessionResult.data?.[0]) {
+                setNextSession(sessionResult.data[0]);
+            }
+
+            // 공지
+            if (noticesResult.data) setNotices(noticesResult.data);
+
+            // Today's Status 계산
+            const checkedInToday = (checkinTodayResult.count || 0) > 0;
+            const weeklyClasses = weeklyBookingsResult.count || 0;
+            const unreadNotifications = unreadResult.count || 0;
+
+            // 연속 출석일 계산
+            let streakDays = 0;
+            if (streakResult.data?.length) {
+                const checkinDates = new Set(
+                    streakResult.data.map((c: any) => new Date(c.checkin_time).toISOString().split('T')[0])
+                );
+                const checkDate = new Date();
+                // 오늘 체크인 안했으면 어제부터 카운트
+                if (!checkinDates.has(checkDate.toISOString().split('T')[0])) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                }
+                while (checkinDates.has(checkDate.toISOString().split('T')[0])) {
+                    streakDays++;
+                    checkDate.setDate(checkDate.getDate() - 1);
                 }
             }
 
-            const { data: sessionsData }: any = await supabase
-                .from('sessions')
-                .select('*')
-                .gte('start_time', new Date().toISOString())
-                .order('start_time', { ascending: true })
-                .limit(1);
-            if (sessionsData) setUpcomingSessions(sessionsData);
+            setTodayStatus({
+                checkedInToday,
+                weeklyClasses,
+                weeklyGoal: 4,
+                streakDays,
+                unreadNotifications,
+            });
 
-            const { data: noticesData }: any = await supabase
-                .from('notices')
-                .select('*')
-                .eq('is_published', true)
-                .order('created_at', { ascending: false })
-                .limit(3);
-            if (noticesData) setNotices(noticesData);
-
-        } catch (error) {
-            console.error('Dashboard load error:', error);
+        } catch (err) {
+            console.error('Dashboard load error:', err);
+            setError(true);
         }
         setLoading(false);
     }
@@ -138,15 +248,30 @@ export default function UserDashboardPage() {
                     <div className="app-skeleton" style={{ width: '40%', height: 14, marginBottom: 8 }} />
                     <div className="app-skeleton" style={{ width: '60%', height: 28 }} />
                 </div>
-                <div className="app-skeleton" style={{ height: 200, marginBottom: '1.5rem', borderRadius: 20 }} />
-                <div className="app-skeleton" style={{ height: 80, marginBottom: '1.5rem', borderRadius: 16 }} />
-                <div className="app-skeleton" style={{ height: 100, marginBottom: 12, borderRadius: 16 }} />
-                <div className="app-skeleton" style={{ height: 100, borderRadius: 16 }} />
+                <AppSkeleton variant="card" count={1} />
+                <div style={{ marginTop: '0.75rem' }}>
+                    <AppSkeleton variant="stat" count={4} />
+                </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                    <AppSkeleton variant="card" count={1} />
+                </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                    <AppSkeleton variant="list" count={3} />
+                </div>
             </div>
         );
     }
 
-    const nextSession = upcomingSessions[0];
+    if (error) {
+        return (
+            <div className="app-page">
+                <AppErrorState
+                    message="대시보드 데이터를 불러오는 중 오류가 발생했습니다."
+                    onRetry={loadDashboard}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="app-page">
@@ -195,13 +320,43 @@ export default function UserDashboardPage() {
                 <div className="next-class-card" style={{ textAlign: 'center' }}>
                     <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.25 }}>📭</div>
                     <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                        No upcoming classes
+                        No upcoming classes today
                     </p>
                     <Link href="/apps/schedule" className="app-btn-primary" style={{ textDecoration: 'none' }}>
                         Browse Schedule
                     </Link>
                 </div>
             )}
+
+            {/* ── Today's Status (NEW) ── */}
+            <div style={{ marginBottom: '1.5rem' }}>
+                <h2 className="app-section-title" style={{ marginBottom: '0.75rem' }}>Today&apos;s Status</h2>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
+                    <StatCard
+                        icon={todayStatus.checkedInToday ? '✅' : '⬜'}
+                        value={todayStatus.checkedInToday ? '완료' : '미완료'}
+                        label="오늘 체크인"
+                        accent={todayStatus.checkedInToday}
+                    />
+                    <StatCard
+                        icon="📊"
+                        value={`${todayStatus.weeklyClasses}/${todayStatus.weeklyGoal}`}
+                        label="이번 주 수업"
+                    />
+                    <StatCard
+                        icon="🔥"
+                        value={`${todayStatus.streakDays}일`}
+                        label="연속 출석"
+                        accent={todayStatus.streakDays >= 7}
+                    />
+                    <StatCard
+                        icon="📬"
+                        value={todayStatus.unreadNotifications}
+                        label="미읽음 알림"
+                        onClick={() => window.location.href = '/apps/notifications'}
+                    />
+                </div>
+            </div>
 
             {/* ── Membership Summary (Figma Style) ── */}
             <div style={{ marginBottom: '1.5rem' }}>

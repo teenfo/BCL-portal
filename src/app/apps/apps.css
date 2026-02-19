@@ -1073,6 +1073,16 @@
     }
 }
 
+@keyframes skeletonPulse {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
 /* ── Bottom Nav ── */
 .user-bottom-nav {
     position: fixed;

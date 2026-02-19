@@ -46,12 +46,6 @@
 | Class 포털 | ✅ 완료 | 4/4 화면, DB 연동 |
 | User App 품질 개선 | ✅ 완료 | 필터, Settings 영속화 |
 
-### 미구현 (User App 핵심 화면)
-- [ ] Home (대시보드) — 기본 UI 존재, 개선 필요
-- [ ] Schedule (수업 일정) — 기본 구현 완료, 고도화 대기
-- [ ] Check-in (QR 체크인) — QR 표준 라이브러리 교체 필요
-- [ ] Facilities (지점 정보) — 기본 구현 완료
-- [ ] Profile (프로필 관리) — 기본 구현 완료
 
 ---
 
@@ -69,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Admin 락커 관리 UI 개선 완료 → 커밋 대기**
+- **Current Focus**: **Priority 12: User App 핵심 화면 고도화 — Phase 1~3 완료, Phase 4~7 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Admin 락커 관리 페이지 KPI 카드 필터링, 만료 배지, 컬럼 레이아웃 개선
+- **Last Action**: Priority 12 Phase 1~3 완료 — DB 마이그레이션 생성, 공통 컴포넌트 6개 생성, Dashboard 고도화 (Today's Status 위젯 + Promise.all 병렬 로딩)
 
 ---
 
@@ -128,29 +122,54 @@
 
   > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 (`.docs/planning/race-system.md`) → 등록 대기
 
-#### 🟠 Priority 12: User App 핵심 화면 고도화 (개발 대기)
+#### 🔵 Priority 12: User App 핵심 화면 고도화 (개발 진행 중)
   > **기획서**: `.docs/archive/planning/user-app-enhancement.md`
   > **문제**: 5대 핵심 탭(Home, Schedule, Check-in, Facilities, Profile)의 완성도가 55~70% 수준이며, Waitlist/크레딧 차감/QR 만료 갱신/지도 연동/프로필 사진 등 핵심 기능 미구현
   > **방안**: DB 확장(members/facilities 컬럼 추가 + 크레딧 RPC) → 공통 컴포넌트 표준화 → 5대 탭 순차 고도화 → 문서 동기화
 
-  - [ ] Phase 1: DB 확장 + RPC 함수 → 💎 **Senior Dev (Opus)**
-    - [ ] members 컬럼 추가 (preferences, phone, birthday, avatar_url 등)
-    - [ ] facilities 컬럼 추가 (latitude, longitude, photos)
-    - [ ] fn_book_with_credit / fn_cancel_booking_with_credit RPC 생성
-    - [ ] RLS/보안 검증
-  - [ ] Phase 2: 공통 컴포넌트 표준화 → 🎨 **UI Developer (Gemini)**
-    - [ ] AppSkeleton, AppEmptyState, AppErrorState 생성
-    - [ ] StatCard, MonthCalendar, SessionDetailModal 생성
-  - [ ] Phase 3: Home (Dashboard) 고도화 → 🎨 **UI Developer (Gemini)**
-    - [ ] Today's Status 위젯 + 병렬 fetch + 쿼리 수정
+  - [x] Phase 1: DB 확장 + RPC 함수 → 💎 **Senior Dev (Opus)** ✅
+    - [x] members 컬럼 추가 (preferences, phone, birthday, emergency_contact, avatar_url)
+    - [x] facilities 컬럼 추가 (latitude, longitude, photos)
+    - [x] fn_book_with_credit / fn_cancel_booking_with_credit RPC 생성 (Waitlist 자동 분기 포함)
+    - [x] RLS/보안 검증 (기존 정책으로 커버 확인)
+    > 마이그레이션: `supabase/migrations/20260219165300_user_app_enhancement_phase1.sql`
+  - [x] Phase 2: 공통 컴포넌트 표준화 → 🎨 **UI Developer (Gemini)** ✅
+    - [x] AppSkeleton (card/list/stat/text 4가지 변형) ✅
+    - [x] AppEmptyState (아이콘 + 메시지 + CTA 버튼) ✅
+    - [x] AppErrorState (에러 메시지 + 재시도 버튼) ✅
+    - [x] StatCard (숫자 + 라벨 + 아이콘 미니 카드) ✅
+    - [x] MonthCalendar (출석 월간 캘린더 그리드) ✅
+    - [x] SessionDetailModal (수업 상세 바텀시트 모달) ✅
+    > 경로: `src/components/apps/` (6개 컴포넌트 + barrel export)
+  - [x] Phase 3: Home (Dashboard) 고도화 → 🎨 **UI Developer (Gemini)** ✅
+    - [x] Today's Status 위젯 (체크인, 주간 진행, 연속 출석일, 미읽음 알림) ✅
+    - [x] 병렬 데이터 로딩 (Promise.all 8개 쿼리 동시 실행) ✅
+    - [x] 다음 수업 쿼리 수정 (session_date=today + start_time>now) ✅
+    - [x] 공통 컴포넌트 적용 (AppSkeleton, AppErrorState, StatCard) ✅
   - [ ] Phase 4: Schedule 고도화 → 💻 **Developer (Sonnet)**
-    - [ ] 7일 피커 + Waitlist + 수업 모달 + 크레딧 차감/환원
+    - [ ] 7일 날짜 피커 (월~일 확장, 주 단위 좌우 이동)
+    - [ ] Waitlist 로직 (정원 초과 시 waitlisted 상태 INSERT)
+    - [ ] 수업 상세 모달 (SessionDetailModal 연동)
+    - [ ] 크레딧 차감 연동 (fn_book_with_credit RPC 호출)
+    - [ ] 예약 취소 크레딧 환원 (fn_cancel_booking_with_credit RPC 호출)
   - [ ] Phase 5: Check-in 고도화 → ⚡ **Specialist (Gemini)**
-    - [ ] QR 만료 타이머 + 월간 캘린더 + 출석 통계
+    - [ ] QR 만료 타이머 (5분 만료 + 프로그레스 바 + 자동 갱신)
+    - [ ] 월간 출석 캘린더 (MonthCalendar 컴포넌트 바인딩)
+    - [ ] 출석 통계 패널 (이번 달 출석일, 연속 출석일)
+    - [ ] 체크인 이력 월 필터 (월 선택 셀렉트)
   - [ ] Phase 6: Facilities + Profile 고도화 → 🎨 **UI Developer (Gemini)**
-    - [ ] 지도 연동 + 시설 상세 + 프로필 사진 + 설정 동기화
+    - [ ] 시설 지도 연동 (카카오맵 SDK 임베드)
+    - [ ] 시설 상세 확장 뷰 (전화 걸기, 길찾기, 사진 갤러리)
+    - [ ] 영업 중/종료 뱃지 (현재 시간 기반)
+    - [ ] 주소 복사 (navigator.clipboard)
+    - [ ] 프로필 사진 업로드 (Supabase Storage 연동)
+    - [ ] 프로필 편집 필드 확장 (전화번호, 생일, 긴급 연락처)
+    - [ ] 설정 서버 동기화 (members.preferences 사용)
+    - [ ] 메뉴 뱃지 (미읽음 알림 카운트, 멤버십 만료 경고)
   - [ ] Phase 7: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap + blueprint + database-reference 갱신
+    - [ ] sitemap/user-app.md 갱신 (완성도 마커 업데이트)
+    - [ ] project-blueprint.md 갱신 (미구현 항목 완료 처리)
+    - [ ] database-reference.md 갱신 (신규 컬럼/RPC 반영)
 
 #### 🟠 Priority 13: 배지 시스템 고도화 (개발 대기)
   > **기획서**: `.docs/archive/planning/badge-system.md`
