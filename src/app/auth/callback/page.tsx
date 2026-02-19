@@ -142,11 +142,17 @@ export default function AuthCallbackPage() {
         const redirectByApproval = (profile: { approval_status: string; role: string }) => {
             if (!mounted) return;
 
+            // redirect 파라미터가 있으면 그쪽으로 보내기
+            const urlParams = new URLSearchParams(window.location.search);
+            const redirectTo = urlParams.get('redirect');
+
             if (profile.approval_status === 'approved') {
-                if (profile.role === 'admin') {
+                if (redirectTo && !redirectTo.startsWith('/auth')) {
+                    router.replace(redirectTo);
+                } else if (profile.role === 'admin') {
                     router.replace('/admin/dashboard');
                 } else if (profile.role === 'coach') {
-                    router.replace('/apps/dashboard');
+                    router.replace('/coach/dashboard');
                 } else {
                     router.replace('/apps/dashboard');
                 }

@@ -6,6 +6,18 @@ import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+/* ─── Role-based dashboard path helper ─── */
+function getDashboardPath(role?: string): string {
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'coach') return '/coach/dashboard';
+    return '/apps/dashboard';
+}
+
+function getDashboardLabel(role?: string): string {
+    if (role === 'admin') return '관리자';
+    if (role === 'coach') return '코치';
+    return '내 대시보드';
+}
 /* ─────────────────────── Types ─────────────────────── */
 interface Coach {
     id: string;
@@ -57,7 +69,7 @@ function useScrollReveal() {
    ═══════════════════════════════════════════════════════ */
 
 /* ─────── Sticky Navbar ─────── */
-function Navbar({ user }: { user: any }) {
+function Navbar({ user, profile }: { user: any; profile: any }) {
     const [scrolled, setScrolled] = useState(false);
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -102,10 +114,10 @@ function Navbar({ user }: { user: any }) {
                         >{l.label}</a>
                     ))}
                     {user ? (
-                        <Link href="/apps/dashboard" style={{
+                        <Link href={getDashboardPath(profile?.role)} style={{
                             fontSize: 13, fontWeight: 700, color: '#0a0a0f', background: 'var(--primary)',
                             padding: '8px 20px', borderRadius: 8, textDecoration: 'none', transition: 'all 0.2s',
-                        }}>Dashboard</Link>
+                        }}>{getDashboardLabel(profile?.role)}</Link>
                     ) : (
                         <div style={{ display: 'flex', gap: 10 }}>
                             <Link href="/auth/login" style={{
@@ -146,8 +158,14 @@ function Navbar({ user }: { user: any }) {
                         >{l.label}</a>
                     ))}
                     <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-                        <Link href="/auth/login" style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: 'white', padding: '10px', borderRadius: 8, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.15)' }}>로그인</Link>
-                        <Link href="/auth/signup" style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#0a0a0f', background: 'var(--primary)', padding: '10px', borderRadius: 8, textDecoration: 'none' }}>회원가입</Link>
+                        {user ? (
+                            <Link href={getDashboardPath(profile?.role)} style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#0a0a0f', background: 'var(--primary)', padding: '10px', borderRadius: 8, textDecoration: 'none' }}>{getDashboardLabel(profile?.role)}</Link>
+                        ) : (
+                            <>
+                                <Link href="/auth/login" style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 600, color: 'white', padding: '10px', borderRadius: 8, textDecoration: 'none', border: '1px solid rgba(255,255,255,0.15)' }}>로그인</Link>
+                                <Link href="/auth/signup" style={{ flex: 1, textAlign: 'center', fontSize: 14, fontWeight: 700, color: '#0a0a0f', background: 'var(--primary)', padding: '10px', borderRadius: 8, textDecoration: 'none' }}>회원가입</Link>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
@@ -591,7 +609,7 @@ function Footer() {
    MAIN PAGE
    ═══════════════════════════════════════════════════════ */
 export default function HomePage() {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [coaches, setCoaches] = useState<Coach[]>([]);
     const [plans, setPlans] = useState<Plan[]>([]);
     const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -630,7 +648,7 @@ export default function HomePage() {
                     .landing-nav-mobile-menu { display: flex !important; }
                 }
             `}</style>
-            <Navbar user={user} />
+            <Navbar user={user} profile={profile} />
             <HeroSection />
             <FeaturesSection />
             <ProgramsSection />
