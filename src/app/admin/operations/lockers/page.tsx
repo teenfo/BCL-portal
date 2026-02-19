@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
@@ -31,7 +32,7 @@ interface MemberOption {
     email: string;
 }
 
-type FilterStatus = 'all' | 'available' | 'occupied' | 'expiring' | 'broken';
+type FilterStatus = 'all' | 'available' | 'occupied' | 'expiring' | 'expired' | 'broken';
 
 // ─── Helpers ────────────────────────────────────────────
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
@@ -54,6 +55,7 @@ export default function LockersPage() {
     const [lockers, setLockers] = useState<Locker[]>([]);
     const [loading, setLoading] = useState(true);
     const toast = useToast();
+    const router = useRouter();
     const [filter, setFilter] = useState<FilterStatus>('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -115,6 +117,10 @@ export default function LockersPage() {
             const days = getDaysUntil(l.assignment_end_date);
             if (days === null || days > 7 || days < 0) return false;
         }
+        if (filter === 'expired') {
+            const days = getDaysUntil(l.assignment_end_date);
+            if (days === null || days >= 0) return false;
+        }
 
         // Search filter
         if (searchTerm) {
@@ -131,10 +137,17 @@ export default function LockersPage() {
     const totalLockers = lockers.length;
     const occupiedCount = lockers.filter((l) => l.status === 'occupied').length;
     const availableCount = lockers.filter((l) => l.status === 'available').length;
-    const expiringCount = lockers.filter((l) => {
+    const expiringLockers = lockers.filter((l) => {
         const days = getDaysUntil(l.assignment_end_date);
         return days !== null && days >= 0 && days <= 7;
-    }).length;
+    });
+    const expiringCount = expiringLockers.length;
+    const expiredLockers = lockers.filter((l) => {
+        const days = getDaysUntil(l.assignment_end_date);
+        return days !== null && days < 0;
+    });
+    const expiredCount = expiredLockers.length;
+    const brokenCount = lockers.filter((l) => l.status === 'broken' || l.status === 'maintenance').length;
 
     // ─── Locker CRUD ────────────────────────────────────
     function openLockerModal(locker?: Locker) {
@@ -288,13 +301,6 @@ export default function LockersPage() {
     }
 
     // ─── Render ─────────────────────────────────────────
-    const filterButtons: { key: FilterStatus; label: string }[] = [
-        { key: 'all', label: '전체' },
-        { key: 'available', label: '사용가능' },
-        { key: 'occupied', label: '사용중' },
-        { key: 'expiring', label: '만료예정' },
-        { key: 'broken', label: '고장/정비' },
-    ];
 
     return (
         <div className="transition-all duration-500">
@@ -310,35 +316,42 @@ export default function LockersPage() {
             />
 
             <div className="p-10 max-w-[1400px] mx-auto">
-                {/* KPI Cards */}
-                <div className="grid grid-cols-4 gap-6 mb-8">
+                {/* KPI Cards + Search */}
+                <div className="flex items-center gap-3 mb-8 flex-wrap">
                     {[
-                        { label: 'TOTAL LOCKERS', value: totalLockers, color: 'text-white' },
-                        { label: 'OCCUPIED', value: occupiedCount, color: 'text-blue-400' },
-                        { label: 'AVAILABLE', value: availableCount, color: 'text-green-400' },
-                        { label: 'EXPIRING SOON', value: expiringCount, color: expiringCount > 0 ? 'text-amber-400' : 'text-white/30' },
+                        { label: 'TOTAL', value: totalLockers, valueColor: '#FFFFFF', filterKey: 'all' as FilterStatus },
+                        { label: 'OCCUPIED', value: occupiedCount, valueColor: '#60A5FA', filterKey: 'occupied' as FilterStatus },
+                        { label: 'AVAILABLE', value: availableCount, valueColor: '#4ADE80', filterKey: 'available' as FilterStatus },
+                        { label: 'EXPIRING', value: expiringCount, valueColor: expiringCount > 0 ? '#FBBF24' : 'rgba(255,255,255,0.3)', filterKey: 'expiring' as FilterStatus },
+                        { label: 'EXPIRED', value: expiredCount, valueColor: expiredCount > 0 ? '#F87171' : 'rgba(255,255,255,0.3)', filterKey: 'expired' as FilterStatus },
+                        { label: 'BROKEN', value: brokenCount, valueColor: brokenCount > 0 ? '#FBBF24' : 'rgba(255,255,255,0.3)', filterKey: 'broken' as FilterStatus },
                     ].map((kpi) => (
-                        <div key={kpi.label} className="glass-card p-6">
-                            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 mb-3">{kpi.label}</p>
-                            <p className={`text-3xl font-black ${kpi.color}`}>{kpi.value}</p>
+                        <div
+                            key={kpi.label}
+                            onClick={() => setFilter(kpi.filterKey)}
+                            className={`glass-card px-5 py-3 cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-3`}
+                            style={{
+                                ...(filter === kpi.filterKey ? {
+                                    borderColor: kpi.filterKey === 'occupied' ? 'rgba(59,130,246,0.5)'
+                                        : kpi.filterKey === 'available' ? 'rgba(34,197,94,0.5)'
+                                            : kpi.filterKey === 'expiring' ? 'rgba(245,158,11,0.5)'
+                                                : kpi.filterKey === 'expired' ? 'rgba(239,68,68,0.5)'
+                                                    : kpi.filterKey === 'broken' ? 'rgba(244,63,94,0.5)'
+                                                        : 'rgba(255,255,255,0.2)',
+                                    background: kpi.filterKey === 'occupied' ? 'rgba(59,130,246,0.05)'
+                                        : kpi.filterKey === 'available' ? 'rgba(34,197,94,0.05)'
+                                            : kpi.filterKey === 'expiring' ? 'rgba(245,158,11,0.05)'
+                                                : kpi.filterKey === 'expired' ? 'rgba(239,68,68,0.05)'
+                                                    : kpi.filterKey === 'broken' ? 'rgba(244,63,94,0.05)'
+                                                        : 'rgba(255,255,255,0.03)',
+                                } : {}),
+                            }}
+                        >
+                            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-white/40">{kpi.label}</span>
+                            <span className="text-xl font-black" style={{ color: kpi.valueColor }}>{kpi.value}</span>
                         </div>
                     ))}
-                </div>
-
-                {/* Filters + Search */}
-                <div className="flex items-center gap-4 mb-8">
-                    <div className="flex gap-2">
-                        {filterButtons.map((f) => (
-                            <button
-                                key={f.key}
-                                onClick={() => setFilter(f.key)}
-                                className={`admin-filter-btn ${filter === f.key ? 'active' : ''}`}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-[200px]">
                         <input
                             type="text"
                             placeholder="락커 번호, 회원 이름으로 검색..."
@@ -369,13 +382,12 @@ export default function LockersPage() {
                         {/* Table Header */}
                         <div className="grid grid-cols-12 gap-4 px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-white/30" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                             <span className="col-span-1">번호</span>
-                            <span className="col-span-1">크기</span>
+                            <span className="col-span-1">크기/금액</span>
                             <span className="col-span-1">상태</span>
                             <span className="col-span-2">배정 회원</span>
-                            <span className="col-span-1 text-right">월 이용료</span>
                             <span className="col-span-2">시작일</span>
                             <span className="col-span-2">종료일</span>
-                            <span className="col-span-2 text-right">액션</span>
+                            <span className="col-span-3 text-right">액션</span>
                         </div>
 
                         {/* Table Rows */}
@@ -394,11 +406,20 @@ export default function LockersPage() {
                                     <div className="col-span-1">
                                         <div className="flex items-center gap-2">
                                             <div
-                                                className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-black"
+                                                className="min-w-[44px] min-h-[36px] px-2.5 py-1.5 rounded-lg flex items-center justify-center text-xs font-black whitespace-nowrap"
                                                 style={{
-                                                    background: locker.status === 'occupied' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
-                                                    color: locker.status === 'occupied' ? '#3B82F6' : 'white',
-                                                    border: `1px solid ${locker.status === 'occupied' ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                                    background: isExpiringSoon ? 'rgba(245,158,11,0.15)'
+                                                        : (daysLeft !== null && daysLeft < 0) ? 'rgba(239,68,68,0.15)'
+                                                            : locker.status === 'occupied' ? 'rgba(59,130,246,0.15)'
+                                                                : 'rgba(255,255,255,0.05)',
+                                                    color: isExpiringSoon ? '#F59E0B'
+                                                        : (daysLeft !== null && daysLeft < 0) ? '#EF4444'
+                                                            : locker.status === 'occupied' ? '#3B82F6'
+                                                                : 'white',
+                                                    border: `1px solid ${isExpiringSoon ? 'rgba(245,158,11,0.3)'
+                                                        : (daysLeft !== null && daysLeft < 0) ? 'rgba(239,68,68,0.3)'
+                                                            : locker.status === 'occupied' ? 'rgba(59,130,246,0.3)'
+                                                                : 'rgba(255,255,255,0.08)'}`,
                                                 }}
                                             >
                                                 {locker.locker_number}
@@ -406,9 +427,12 @@ export default function LockersPage() {
                                         </div>
                                     </div>
 
-                                    {/* Size */}
+                                    {/* Size + Fee */}
                                     <div className="col-span-1">
                                         <span className="text-xs text-white/60">{sizeLabels[locker.size]}</span>
+                                        <p className="text-[10px] text-white/30">
+                                            {locker.monthly_fee > 0 ? `₩${Number(locker.monthly_fee).toLocaleString()}` : '-'}
+                                        </p>
                                     </div>
 
                                     {/* Status */}
@@ -424,20 +448,16 @@ export default function LockersPage() {
                                     {/* Assigned Member */}
                                     <div className="col-span-2">
                                         {locker.member_name ? (
-                                            <div>
-                                                <p className="text-sm font-bold text-white truncate">{locker.member_name}</p>
+                                            <div
+                                                className="cursor-pointer group"
+                                                onClick={() => locker.assigned_member_id && router.push(`/admin/members/${locker.assigned_member_id}`)}
+                                            >
+                                                <p className="text-sm font-bold text-white truncate group-hover:text-[var(--primary)] transition-colors">{locker.member_name}</p>
                                                 <p className="text-[10px] text-white/40 truncate">{locker.member_email}</p>
                                             </div>
                                         ) : (
                                             <span className="text-xs text-white/20 italic">미배정</span>
                                         )}
-                                    </div>
-
-                                    {/* Monthly Fee */}
-                                    <div className="col-span-1 text-right">
-                                        <span className="text-sm text-white">
-                                            {locker.monthly_fee > 0 ? `₩${Number(locker.monthly_fee).toLocaleString()}` : '-'}
-                                        </span>
                                     </div>
 
                                     {/* Start Date */}
@@ -449,25 +469,23 @@ export default function LockersPage() {
 
                                     {/* End Date */}
                                     <div className="col-span-2">
-                                        <div className="flex items-center gap-2">
-                                            <span className={`text-sm ${isExpiringSoon ? 'text-amber-400 font-bold' : 'text-white/60'}`}>
-                                                {locker.assignment_end_date || '-'}
-                                            </span>
-                                            {isExpiringSoon && (
-                                                <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30">
-                                                    D-{daysLeft}
-                                                </span>
-                                            )}
-                                            {daysLeft !== null && daysLeft < 0 && (
-                                                <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase bg-red-500/15 text-red-400 border border-red-500/30">
-                                                    만료
-                                                </span>
-                                            )}
-                                        </div>
+                                        <span className={`text-sm ${isExpiringSoon ? 'text-amber-400 font-bold' : 'text-white/60'}`}>
+                                            {locker.assignment_end_date || '-'}
+                                        </span>
                                     </div>
 
                                     {/* Actions */}
-                                    <div className="col-span-2 flex gap-2 justify-end">
+                                    <div className="col-span-3 flex gap-2 justify-end items-center">
+                                        {isExpiringSoon && (
+                                            <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 shrink-0">
+                                                D-{daysLeft}
+                                            </span>
+                                        )}
+                                        {daysLeft !== null && daysLeft < 0 && (
+                                            <span className="px-2 py-0.5 rounded-full text-[7px] font-black uppercase bg-red-500/15 text-red-400 border border-red-500/30 shrink-0">
+                                                만료
+                                            </span>
+                                        )}
                                         {locker.status === 'available' && (
                                             <button
                                                 onClick={() => openAssignModal(locker)}
@@ -615,18 +633,20 @@ export default function LockersPage() {
                             {memberOptions.length > 0 && (
                                 <div
                                     className="absolute z-50 w-full mt-2 rounded-xl overflow-hidden"
-                                    style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}
+                                    style={{ background: '#222222', border: '1px solid rgba(255,255,255,0.15)', boxShadow: '0 10px 30px rgba(0,0,0,0.7)', colorScheme: 'dark' }}
                                 >
                                     {memberOptions.map((m) => (
                                         <button
                                             key={m.id}
                                             onClick={() => selectMember(m)}
-                                            className="w-full text-left px-4 py-3 hover:bg-white/[0.05] transition-all flex justify-between items-center"
-                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                                            className="w-full text-left px-4 py-3 transition-all flex justify-between items-center"
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'transparent' }}
+                                            onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.08)')}
+                                            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                                         >
                                             <div>
-                                                <p className="text-sm font-bold text-white">{m.name}</p>
-                                                <p className="text-[10px] text-white/40">{m.email}</p>
+                                                <p style={{ fontSize: '0.875rem', fontWeight: 700, color: '#ffffff' }}>{m.name}</p>
+                                                <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{m.email}</p>
                                             </div>
                                         </button>
                                     ))}

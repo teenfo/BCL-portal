@@ -4,11 +4,6 @@ import { getSupabaseConfig } from './client';
 
 /**
  * 인증이 필요하지 않은 공개 경로 목록
- * - /auth/* : 로그인, 회원가입, 콜백 등
- * - /api/* : API 라우트 (자체적으로 인증 처리)
- * - / : 홈 페이지
- * - /kiosk/* : 키오스크 (공개)
- * - /class/* : Class 관련 공개 경로
  */
 const PUBLIC_PATHS = ['/auth', '/api', '/kiosk', '/class'];
 
@@ -47,21 +42,17 @@ export async function updateSession(request: NextRequest) {
         }
     );
 
-    // IMPORTANT: Do not run code between createServerClient and
-    // supabase.auth.getUser(). A simple mistake could make it very hard to debug
-    // issues with users being randomly logged out.
-
-    // IMPORTANT: This refreshes the auth token if expired and keeps
-    // the browser and server in sync
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const auth = supabase.auth as any;
+    // ─── 핵심: getUser()로 토큰 갱신 ───
+    // createServerClient와 getUser() 사이에 다른 코드를 넣지 마세요!
+    // getUser()는 JWT를 서버 측에서 검증하고, 만료된 토큰을 갱신합니다.
+    // 갱신된 토큰은 setAll() 콜백을 통해 response 쿠키에 기록됩니다.
     const {
         data: { user },
-    } = await auth.getUser();
+    } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
 
-    // 공개 경로는 인증 불필요
+    // 공개 경로는 인증 불필요 — 하지만 쿠키 갱신은 수행됨
     if (isPublicPath(pathname)) {
         return supabaseResponse;
     }
@@ -74,12 +65,9 @@ export async function updateSession(request: NextRequest) {
         return NextResponse.redirect(redirectUrl);
     }
 
-    // IMPORTANT: You *must* return the supabaseResponse object as it is.
-    // If you're creating a new response object with NextResponse.next() make sure to:
-    // 1. Pass the request in it
-    // 2. Copy over the cookies
-    // 3. Then change the response as needed
-    // If this is not done, you may be causing the browser and server to go out
-    // of sync and terminate the user's session prematurely!
+    // ─── 중요 ───
+    // supabaseResponse를 그대로 반환해야 합니다.
+    // 새 NextResponse를 만들면 쿠키가 유실되어
+    // 브라우저-서버 세션이 불일치할 수 있습니다.
     return supabaseResponse;
 }

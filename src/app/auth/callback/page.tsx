@@ -13,9 +13,12 @@ export default function AuthCallbackPage() {
 
         const handleCallback = async () => {
             const supabase = createClient();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const auth = supabase.auth as any;
             const url = new URL(window.location.href);
+
+            // ─── 팝업 컨텍스트 감지 ───
+            // window.opener가 존재하면 팝업에서 열린 것
+            const isPopup = !!window.opener && window.opener !== window;
+
 
             // PKCE flow: code exchange
             const code = url.searchParams.get('code');
@@ -25,32 +28,46 @@ export default function AuthCallbackPage() {
 
             try {
                 if (code) {
-                    const { data, error } = await auth.exchangeCodeForSession(code);
+                    // PKCE 인증 코드 교환
+                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
                     if (error) {
-                        console.error('Auth callback error:', error);
+                        console.error('[Callback] Code exchange error:', error);
+                        if (isPopup) { window.close(); return; }
                         if (mounted) router.replace('/auth/login?error=auth_callback_failed');
                         return;
                     }
 
                     if (data.session) {
+                        // 팝업에서는 세션만 설정하고 닫기
+                        if (isPopup) {
+                            setStatus('로그인 완료! 창을 닫는 중...');
+                            setTimeout(() => window.close(), 300);
+                            return;
+                        }
                         await handlePostAuth(supabase, data.session.user.id);
                     }
                 } else if (accessToken) {
-                    // Implicit flow — session is auto-set by Supabase
-                    const { data: { session }, error } = await auth.getSession();
+                    // Implicit flow — 세션이 자동으로 설정됨
+                    const { data: { session }, error } = await supabase.auth.getSession();
 
                     if (error || !session) {
-                        console.error('Auth session error:', error);
+                        console.error('[Callback] Session error:', error);
+                        if (isPopup) { window.close(); return; }
                         if (mounted) router.replace('/auth/login?error=auth_callback_failed');
                         return;
                     }
 
+                    if (isPopup) {
+                        setStatus('로그인 완료! 창을 닫는 중...');
+                        setTimeout(() => window.close(), 300);
+                        return;
+                    }
                     await handlePostAuth(supabase, session.user.id);
                 } else {
-                    // No code or token — try getting current session (for OAuth redirect)
+                    // code도 token도 없는 경우 — 현재 세션 확인
                     if (mounted) setStatus('세션 확인 중...');
-                    const { data: { session } } = await auth.getSession();
+                    const { data: { session } } = await supabase.auth.getSession();
 
                     if (session?.user) {
                         await handlePostAuth(supabase, session.user.id);
@@ -59,8 +76,28 @@ export default function AuthCallbackPage() {
                     }
                 }
             } catch (err) {
-                console.error('Auth callback unexpected error:', err);
-                if (mounted) router.replace('/auth/login?error=auth_callback_failed');
+                console.error('[Callback] Unexpected error:', err);
+                // AbortError는 무시 — 세션은 이미 설정되었을 수 있음
+                if (err instanceof DOMException && err.name === 'AbortError') {
+                    if (mounted) {
+                        setStatus('세션 확인 중...');
+                        // 약간의 딜레이 후 세션 재확인
+                        setTimeout(async () => {
+                            try {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (session?.user) {
+                                    await handlePostAuth(supabase, session.user.id);
+                                } else {
+                                    if (mounted) router.replace('/auth/login');
+                                }
+                            } catch {
+                                if (mounted) router.replace('/auth/login');
+                            }
+                        }, 500);
+                    }
+                } else {
+                    if (mounted) router.replace('/auth/login?error=auth_callback_failed');
+                }
             }
         };
 

@@ -111,7 +111,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                                 animation: 'toastSlideIn 0.3s ease',
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
-                                color: 'var(--app-text-primary, #1a1a1a)',
+                                color: c.text,
                                 lineHeight: 1.4,
                             }}
                         >

@@ -69,11 +69,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 12, 13 블루프린트 등록 완료 → `/develop` 대기**
+- **Current Focus**: **Admin 락커 관리 UI 개선 완료 → 커밋 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: `/plan-to-blueprint` 실행 — badge-system, user-app-enhancement 2건 등록 + 아카이브 이동
+- **Last Action**: Admin 락커 관리 페이지 KPI 카드 필터링, 만료 배지, 컬럼 레이아웃 개선
 
 ---
 

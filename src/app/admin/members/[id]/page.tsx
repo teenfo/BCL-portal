@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import AdminModal from '@/components/layout/AdminModal';
-import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes } from '@/components/icons/AdminIcons';
+import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes, IconEdit, IconLock } from '@/components/icons/AdminIcons';
 import { useToast } from '@/components/ui/Toast';
 
 interface Member {
@@ -14,7 +14,7 @@ interface Member {
     email: string;
     phone: string;
     gender: string;
-    birth_date: string;
+    birthdate: string;
     status: string;
     plan?: string;
     credits?: number;
@@ -81,7 +81,7 @@ export default function MemberDetailPage() {
 
     // T1-2: Edit member modal state
     const [showEditModal, setShowEditModal] = useState(false);
-    const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birth_date: '', status: '' });
+    const [editForm, setEditForm] = useState({ name: '', phone: '', gender: '', birthdate: '', status: '' });
     const [saving, setSaving] = useState(false);
 
     // T3-5: Membership Transfer state
@@ -91,6 +91,25 @@ export default function MemberDetailPage() {
     const [targetMembers, setTargetMembers] = useState<any[]>([]);
     const [selectedTargetMember, setSelectedTargetMember] = useState<any | null>(null);
     const [transferring, setTransferring] = useState(false);
+
+    // Inline editing states
+    const [inlineEdit, setInlineEdit] = useState<string | null>(null); // 'ms_start' | 'ms_end' | 'locker_end' | 'locker_number'
+    const [inlineValue, setInlineValue] = useState('');
+    const [inlineSaving, setInlineSaving] = useState(false);
+
+    // Locker assign from member detail state
+    const [showLockerAssignModal, setShowLockerAssignModal] = useState(false);
+    const [lockerAssignForm, setLockerAssignForm] = useState({ locker_number: '', start_date: new Date().toISOString().split('T')[0], end_date: '' });
+    const [availableLockers, setAvailableLockers] = useState<{ id: string; locker_number: string; size: string }[]>([]);
+    const [savingLocker, setSavingLocker] = useState(false);
+
+    // Locker change modal state (for switching locker number)
+    const [showLockerChangeModal, setShowLockerChangeModal] = useState(false);
+    const [selectedNewLocker, setSelectedNewLocker] = useState('');
+
+    // Locker release confirm modal state
+    const [showLockerReleaseConfirm, setShowLockerReleaseConfirm] = useState(false);
+    const [releasingLocker, setReleasingLocker] = useState(false);
 
     const { success, error: toastError } = useToast();
 
@@ -124,7 +143,7 @@ export default function MemberDetailPage() {
     // T1-2: Open edit modal
     function openEditModal() {
         if (!member) return;
-        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birth_date: member.birth_date || '', status: member.status || 'Active' });
+        setEditForm({ name: member.name || '', phone: member.phone || '', gender: member.gender || '', birthdate: member.birthdate || '', status: member.status || 'Active' });
         setShowEditModal(true);
     }
 
@@ -137,8 +156,10 @@ export default function MemberDetailPage() {
             (supabase as any).from('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
             (supabase as any).from('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
             (supabase as any).from('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
-            (supabase as any).from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('user_id', memberId).order('created_at', { ascending: false }),
+            (supabase as any).from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('member_id', memberId).order('created_at', { ascending: false }),
         ]);
+
+        console.log('[MemberDetail] membershipsRes:', { data: membershipsRes.data, error: membershipsRes.error, memberId });
 
         if (memberRes.data) setMember(memberRes.data as any);
         if (checkinsRes.data) setCheckins(checkinsRes.data);
@@ -155,7 +176,7 @@ export default function MemberDetailPage() {
         setSaving(true);
         const supabase = createClient();
         const { error } = await supabase.from('members').update({
-            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birth_date: editForm.birth_date || null, status: editForm.status,
+            name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birthdate: editForm.birthdate || null, status: editForm.status,
         }).eq('id', member.id);
         if (!error) {
             setShowEditModal(false);
@@ -185,7 +206,7 @@ export default function MemberDetailPage() {
             const { error: createError } = await (supabase as any)
                 .from('memberships')
                 .insert({
-                    user_id: selectedTargetMember.id,
+                    member_id: selectedTargetMember.id,
                     plan_id: (selectedMembership as any).plan_id,
                     status: 'active',
                     start_date: new Date().toISOString().split('T')[0],
@@ -239,9 +260,268 @@ export default function MemberDetailPage() {
         return Math.ceil(diff / (1000 * 60 * 60 * 24));
     }
 
-    // T1-2: Open edit modal
+    // Inline edit helpers
+    function startInlineEdit(field: string, currentValue: string) {
+        setInlineEdit(field);
+        // Clean display-only values like '-' so date input gets empty string
+        setInlineValue(currentValue === '-' ? '' : (currentValue || ''));
+    }
 
-    // T1-2: Save member edit
+    function cancelInlineEdit() {
+        setInlineEdit(null);
+        setInlineValue('');
+    }
+
+    async function saveInlineEdit() {
+        if (!member) return;
+
+        // Validate: if editing a date field, require a valid date value
+        const isDateField = inlineEdit === 'ms_start' || inlineEdit === 'ms_end' || inlineEdit === 'locker_end';
+        if (isDateField && !inlineValue) {
+            toastError('날짜를 입력해주세요.');
+            return;
+        }
+
+        setInlineSaving(true);
+        const supabase = createClient();
+        const activeMembership = memberships.find(m => m.status === 'active') || memberships[0];
+
+        try {
+            let error: any = null;
+            let updated = false;
+
+            if (inlineEdit === 'ms_start') {
+                if (activeMembership) {
+                    // Update memberships table
+                    const res = await (supabase as any).from('memberships')
+                        .update({ start_date: inlineValue })
+                        .eq('id', activeMembership.id)
+                        .select();
+                    error = res.error;
+                    updated = !error && res.data && res.data.length > 0;
+                    // Also sync members table for consistency
+                    if (updated) {
+                        await (supabase as any).from('members')
+                            .update({ membership_start_date: inlineValue })
+                            .eq('id', member.id);
+                    }
+                    console.log('[saveInlineEdit] memberships start_date update:', { error: res.error, data: res.data, updated, value: inlineValue });
+                } else {
+                    // Fallback: update members table directly
+                    const res = await (supabase as any).from('members')
+                        .update({ membership_start_date: inlineValue })
+                        .eq('id', member.id)
+                        .select();
+                    error = res.error;
+                    updated = !error && res.data && res.data.length > 0;
+                    console.log('[saveInlineEdit] members fallback start_date update:', { error: res.error, data: res.data, updated, value: inlineValue });
+                }
+                if (updated) success('시작일이 수정되었습니다.');
+                else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }
+            } else if (inlineEdit === 'ms_end') {
+                if (activeMembership) {
+                    const res = await (supabase as any).from('memberships')
+                        .update({ end_date: inlineValue })
+                        .eq('id', activeMembership.id)
+                        .select();
+                    error = res.error;
+                    updated = !error && res.data && res.data.length > 0;
+                    // Also sync members table for consistency
+                    if (updated) {
+                        await (supabase as any).from('members')
+                            .update({ membership_end_date: inlineValue })
+                            .eq('id', member.id);
+                    }
+                } else {
+                    const res = await (supabase as any).from('members')
+                        .update({ membership_end_date: inlineValue })
+                        .eq('id', member.id)
+                        .select();
+                    error = res.error;
+                    updated = !error && res.data && res.data.length > 0;
+                }
+                if (updated) success('종료일이 수정되었습니다.');
+                else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }
+            } else if (inlineEdit === 'locker_end') {
+                const { data: lockerData } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+                if (lockerData) {
+                    await (supabase as any).from('lockers').update({ assignment_end_date: inlineValue }).eq('id', lockerData.id);
+                    await (supabase as any).from('locker_assignments').update({ end_date: inlineValue }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
+                }
+                const res = await (supabase as any).from('members')
+                    .update({ locker_end_date: inlineValue })
+                    .eq('id', member.id)
+                    .select();
+                error = res.error;
+                updated = !error && res.data && res.data.length > 0;
+                if (updated) success('락커 만료일이 수정되었습니다.');
+                else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }
+            }
+
+            if (error) {
+                toastError(`수정 실패: ${error.message}`);
+            } else if (updated) {
+                cancelInlineEdit();
+                loadMemberData();
+            }
+        } catch (e: any) {
+            toastError(`수정 실패: ${e.message}`);
+        }
+        setInlineSaving(false);
+    }
+
+    // Locker assignment from member detail
+    async function openLockerAssignModal() {
+        setLockerAssignForm({ locker_number: '', start_date: new Date().toISOString().split('T')[0], end_date: '' });
+        setShowLockerAssignModal(true);
+        // Load available lockers
+        const supabase = createClient();
+        const { data } = await (supabase as any)
+            .from('lockers')
+            .select('id, locker_number, size')
+            .eq('status', 'available')
+            .order('locker_number');
+        if (data) setAvailableLockers(data);
+    }
+
+    async function assignLockerToMember() {
+        if (!lockerAssignForm.locker_number || !lockerAssignForm.end_date || !member) return;
+        setSavingLocker(true);
+        const supabase = createClient();
+        const selectedLocker = availableLockers.find(l => l.locker_number === lockerAssignForm.locker_number);
+        if (!selectedLocker) {
+            toastError('선택한 락커를 찾을 수 없습니다.');
+            setSavingLocker(false);
+            return;
+        }
+
+        // 1. Update locker status
+        await (supabase as any).from('lockers').update({
+            status: 'occupied',
+            assigned_member_id: member.id,
+            assignment_start_date: lockerAssignForm.start_date,
+            assignment_end_date: lockerAssignForm.end_date,
+        }).eq('id', selectedLocker.id);
+
+        // 2. Create assignment record
+        await (supabase as any).from('locker_assignments').insert({
+            locker_id: selectedLocker.id,
+            member_id: member.id,
+            start_date: lockerAssignForm.start_date,
+            end_date: lockerAssignForm.end_date,
+            status: 'active',
+        });
+
+        // 3. Update member locker info
+        await (supabase as any).from('members').update({
+            locker_number: lockerAssignForm.locker_number,
+            locker_end_date: lockerAssignForm.end_date,
+        }).eq('id', member.id);
+
+        setShowLockerAssignModal(false);
+        success(`락커 ${lockerAssignForm.locker_number}번이 배정되었습니다.`);
+        loadMemberData();
+        setSavingLocker(false);
+    }
+
+    // Release locker from member - show confirm modal
+    function releaseLockerFromMember() {
+        if (!member || !member.locker_number) return;
+        setShowLockerReleaseConfirm(true);
+    }
+
+    // Confirm locker release
+    async function confirmReleaseLocker() {
+        if (!member || !member.locker_number) return;
+        setReleasingLocker(true);
+
+        const supabase = createClient();
+        const { data: lockerData } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+        if (lockerData) {
+            await (supabase as any).from('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', lockerData.id);
+            await (supabase as any).from('locker_assignments').update({ status: 'released' }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
+        }
+        await (supabase as any).from('members').update({ locker_number: null, locker_end_date: null }).eq('id', member.id);
+        setShowLockerReleaseConfirm(false);
+        setReleasingLocker(false);
+        success('락커 배정이 해제되었습니다.');
+        loadMemberData();
+    }
+
+    // Open locker change modal (for changing locker number)
+    async function openLockerEditModal(_mode: string) {
+        setSelectedNewLocker('');
+        setShowLockerChangeModal(true);
+        const supabase = createClient();
+        const { data } = await (supabase as any).from('lockers').select('id, locker_number, size').eq('status', 'available').order('locker_number');
+        if (data) setAvailableLockers(data);
+    }
+
+    // Execute locker number change
+    async function changeLockerNumber() {
+        if (!member || !member.locker_number || !selectedNewLocker) return;
+        setSavingLocker(true);
+        const supabase = createClient();
+        const newLocker = availableLockers.find(l => l.locker_number === selectedNewLocker);
+        if (!newLocker) { toastError('선택한 락커를 찾을 수 없습니다.'); setSavingLocker(false); return; }
+
+        // Release old
+        const { data: oldLocker } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+        if (oldLocker) {
+            await (supabase as any).from('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', oldLocker.id);
+            await (supabase as any).from('locker_assignments').update({ status: 'released' }).eq('locker_id', oldLocker.id).eq('member_id', member.id).eq('status', 'active');
+        }
+
+        // Assign new
+        const startDate = new Date().toISOString().split('T')[0];
+        const endDate = member.locker_end_date || null;
+        await (supabase as any).from('lockers').update({ status: 'occupied', assigned_member_id: member.id, assignment_start_date: startDate, assignment_end_date: endDate }).eq('id', newLocker.id);
+        await (supabase as any).from('locker_assignments').insert({ locker_id: newLocker.id, member_id: member.id, start_date: startDate, end_date: endDate, status: 'active' });
+        await (supabase as any).from('members').update({ locker_number: selectedNewLocker }).eq('id', member.id);
+
+        setShowLockerChangeModal(false);
+        success(`락커가 ${selectedNewLocker}번으로 변경되었습니다.`);
+        loadMemberData();
+        setSavingLocker(false);
+    }
+
+    // Inline edit row helper component
+    function InlineEditRow({ label, value, editKey, type = 'date' }: { label: string; value: string; editKey: string; type?: string }) {
+        const isEditing = inlineEdit === editKey;
+        return (
+            <div className="flex justify-between items-center gap-2 min-h-[32px]">
+                <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>{label}</span>
+                <div className="flex items-center gap-1.5">
+                    {isEditing ? (
+                        <>
+                            <input
+                                type={type}
+                                value={inlineValue}
+                                onChange={(e) => setInlineValue(e.target.value)}
+                                autoFocus
+                                className="px-2 py-1 rounded-lg text-xs text-white outline-none w-[130px]"
+                                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,107,0,0.4)', colorScheme: 'dark' }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') saveInlineEdit(); if (e.key === 'Escape') cancelInlineEdit(); }}
+                            />
+                            <button onClick={saveInlineEdit} disabled={inlineSaving} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#22C55E' }} title="저장">✓</button>
+                            <button onClick={cancelInlineEdit} className="text-[10px] px-1.5 py-0.5 rounded" style={{ color: '#f87171' }} title="취소">✕</button>
+                        </>
+                    ) : (
+                        <>
+                            <span className="text-sm font-bold text-white">{value || '-'}</span>
+                            <button
+                                onClick={() => startInlineEdit(editKey, value)}
+                                className="opacity-30 hover:opacity-80 transition-opacity p-0.5"
+                                title="수정"
+                            >
+                                <IconEdit size={12} />
+                            </button>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     if (loading) {
         return (
@@ -319,7 +599,7 @@ export default function MemberDetailPage() {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
+                        <div className="flex items-center gap-3 mb-3">
                             <h2 className="text-2xl font-black text-white tracking-tight">{member.name}</h2>
                             <span
                                 className="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest"
@@ -327,22 +607,37 @@ export default function MemberDetailPage() {
                             >
                                 {member.status}
                             </span>
-                            <button onClick={openEditModal} className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white/[0.05] border border-white/5 text-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all">✏️ 수정</button>
+                            <button onClick={openEditModal} className="px-3 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest bg-white/[0.05] border border-white/5 text-white hover:border-[var(--primary)] hover:text-[var(--primary)] transition-all"><IconEdit size={10} className="inline mr-1" /> 수정</button>
                         </div>
-                        <div className="flex items-center gap-4 flex-wrap">
-                            <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>{member.email}</span>
-                            {member.phone && <span className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>· {member.phone}</span>}
-                        </div>
-                        <div className="flex items-center gap-4 mt-2 flex-wrap">
-                            <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                {member.gender === 'M' ? '남성' : member.gender === 'F' ? '여성' : '-'}
-                            </span>
-                            <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                {member.birth_date ? new Date(member.birth_date).toLocaleDateString('ko-KR') : '-'}
-                            </span>
-                            <span className="text-[10px] uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
-                                가입: {member.joined_date ? new Date(member.joined_date).toLocaleDateString('ko-KR') : '-'}
-                            </span>
+
+                        {/* Member Detail Grid */}
+                        <div className="grid grid-cols-2 gap-x-8 gap-y-1.5">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'rgba(255,255,255,0.25)', width: '36px' }}>Email</span>
+                                <span className="text-sm text-white/60 truncate">{member.email || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'rgba(255,255,255,0.25)', width: '36px' }}>Tel</span>
+                                <span className="text-sm text-white/60">{member.phone || '-'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'rgba(255,255,255,0.25)', width: '36px' }}>성별</span>
+                                <span className="text-sm text-white/60">
+                                    {member.gender === 'M' ? '남성' : member.gender === 'F' ? '여성' : member.gender || '-'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'rgba(255,255,255,0.25)', width: '36px' }}>생년</span>
+                                <span className="text-sm text-white/60">
+                                    {member.birthdate ? new Date(member.birthdate).toLocaleDateString('ko-KR') : '-'}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-2 col-span-2">
+                                <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: 'rgba(255,255,255,0.25)', width: '36px' }}>가입</span>
+                                <span className="text-sm text-white/60">
+                                    {member.joined_date ? new Date(member.joined_date).toLocaleDateString('ko-KR') : '-'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -387,55 +682,167 @@ export default function MemberDetailPage() {
                 <div className="grid grid-cols-3 gap-6">
                     {/* Membership Card */}
                     <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <h3 className="text-[10px] font-black uppercase tracking-widest mb-5" style={{ color: 'rgba(255,255,255,0.3)' }}>멤버십 정보</h3>
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>멤버십 정보</h3>
+                            {(() => {
+                                const am = memberships.find(m => m.status === 'active') || memberships[0];
+                                return am && am.status === 'active' ? (
+                                    <button
+                                        onClick={() => { setSelectedMembership(am); setShowTransferModal(true); }}
+                                        className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider transition-all hover:opacity-80"
+                                        style={{ color: 'var(--primary)', border: '1px solid rgba(255,107,0,0.25)' }}
+                                    >양도</button>
+                                ) : null;
+                            })()}
+                        </div>
                         {(() => {
                             const activeMembership = memberships.find(m => m.status === 'active') || memberships[0];
                             const planName = activeMembership?.membership_plans?.name || member.plan || '-';
                             const startDate = activeMembership?.start_date || member.membership_start_date || '-';
                             const endDate = activeMembership?.end_date || member.membership_end_date || '-';
-                            const credits = activeMembership?.remaining_credits ?? member.credits;
+                            const remainingCredits = activeMembership?.remaining_credits ?? member.credits ?? 0;
+                            const totalCredits = activeMembership?.membership_plans?.credits || 0;
                             const pauseCount = activeMembership?.pause_count || 0;
                             const maxPauses = activeMembership?.membership_plans?.max_pauses || 0;
+                            const price = activeMembership?.membership_plans?.price || 0;
+                            const durationDays = activeMembership?.membership_plans?.duration_days || 0;
+                            const msStatus = activeMembership?.status || 'none';
+
+                            // Calculate remaining days
+                            const daysLeft = endDate !== '-' ? Math.ceil((new Date(endDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+                            // Status badge config
+                            const statusConfig: Record<string, { label: string; bg: string; color: string }> = {
+                                active: { label: '이용중', bg: 'rgba(34,197,94,0.15)', color: '#22C55E' },
+                                paused: { label: '일시정지', bg: 'rgba(245,158,11,0.15)', color: '#F59E0B' },
+                                expired: { label: '만료', bg: 'rgba(239,68,68,0.15)', color: '#EF4444' },
+                                cancelled: { label: '취소', bg: 'rgba(156,163,175,0.15)', color: '#9CA3AF' },
+                                none: { label: '없음', bg: 'rgba(156,163,175,0.1)', color: '#6B7280' },
+                            };
+                            const badge = statusConfig[msStatus] || statusConfig.none;
+
                             return (
-                                <div className="space-y-4">
-                                    {[
-                                        { label: '플랜', value: planName, highlight: true },
-                                        { label: '시작일', value: startDate },
-                                        { label: '종료일', value: endDate },
-                                    ].map((item, i) => (
-                                        <div key={i} className="flex justify-between items-center">
-                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{item.label}</span>
-                                            <span className={`text-sm font-bold ${item.highlight ? '' : 'text-white'}`} style={item.highlight ? { color: 'var(--primary)' } : {}}>{item.value}</span>
+                                <div className="space-y-3">
+                                    {/* Plan name + Status badge */}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>플랜</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-bold" style={{ color: 'var(--primary)' }}>{planName}</span>
+                                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase" style={{ background: badge.bg, color: badge.color }}>{badge.label}</span>
                                         </div>
-                                    ))}
-                                    {credits > 0 && (
+                                    </div>
+
+                                    {/* Start / End dates */}
+                                    <InlineEditRow label="시작일" value={startDate} editKey="ms_start" />
+                                    <InlineEditRow label="종료일" value={endDate} editKey="ms_end" />
+
+                                    {/* Remaining days */}
+                                    {daysLeft !== null && msStatus === 'active' && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>잔여일</span>
+                                            <span className="text-sm font-black" style={{ color: daysLeft > 30 ? '#22C55E' : daysLeft > 7 ? '#F59E0B' : '#EF4444' }}>
+                                                {daysLeft > 0 ? `D-${daysLeft}` : daysLeft === 0 ? '오늘 만료' : `D+${Math.abs(daysLeft)} (초과)`}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Credits (always show if totalCredits > 0) */}
+                                    {totalCredits > 0 && (
                                         <div className="flex justify-between items-center">
                                             <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>잔여 횟수</span>
-                                            <span className="text-sm font-black text-white">{credits}회</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm font-black" style={{ color: remainingCredits > 0 ? '#fff' : '#EF4444' }}>
+                                                    {remainingCredits}회
+                                                </span>
+                                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>/ {totalCredits}회</span>
+                                            </div>
                                         </div>
                                     )}
-                                    {activeMembership?.status === 'paused' && (
+                                    {/* Credits bar */}
+                                    {totalCredits > 0 && (
+                                        <div className="w-full h-1.5 rounded-full" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                            <div
+                                                className="h-full rounded-full transition-all"
+                                                style={{
+                                                    width: `${Math.min((remainingCredits / totalCredits) * 100, 100)}%`,
+                                                    background: remainingCredits / totalCredits > 0.3 ? 'var(--primary)' : '#EF4444',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Price / Duration */}
+                                    {price > 0 && (
                                         <div className="flex justify-between items-center">
-                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>홀딩 상태</span>
-                                            <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B' }}>일시정지 ({pauseCount}/{maxPauses})</span>
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>이용권 금액</span>
+                                            <span className="text-sm font-bold text-white">₩{price.toLocaleString()}</span>
                                         </div>
                                     )}
+                                    {durationDays > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>이용 기간</span>
+                                            <span className="text-sm text-white">{durationDays}일</span>
+                                        </div>
+                                    )}
+
+                                    {/* Pause info */}
+                                    {msStatus === 'paused' && (
+                                        <div className="pt-2 mt-1 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>홀딩 횟수</span>
+                                                <span className="text-sm font-bold" style={{ color: '#F59E0B' }}>{pauseCount} / {maxPauses}회</span>
+                                            </div>
+                                            {activeMembership?.paused_at && (
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>홀딩 시작</span>
+                                                    <span className="text-xs text-white/60">{new Date(activeMembership.paused_at).toLocaleDateString('ko-KR')}</span>
+                                                </div>
+                                            )}
+                                            {activeMembership?.pause_reason && (
+                                                <div className="flex justify-between items-start">
+                                                    <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>사유</span>
+                                                    <span className="text-xs text-white/60 text-right max-w-[60%]">{activeMembership.pause_reason}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Max pauses info (when active) */}
+                                    {msStatus === 'active' && maxPauses > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>홀딩 가능</span>
+                                            <span className="text-xs text-white/50">{maxPauses - pauseCount}회 남음</span>
+                                        </div>
+                                    )}
+
+                                    {/* Past memberships */}
                                     {memberships.length > 1 && (
-                                        <div className="pt-3 mt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                            <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>이전 멤버십 {memberships.length - 1}건</p>
+                                        <div className="pt-3 mt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'rgba(255,255,255,0.25)' }}>이전 멤버십</p>
+                                            <div className="space-y-1.5">
+                                                {memberships.slice(1, 4).map((ms) => (
+                                                    <div key={ms.id} className="flex justify-between items-center py-1 px-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                                        <span className="text-[10px] text-white/40">{ms.membership_plans?.name || '-'}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-white/30">{ms.start_date?.slice(0, 10) || '-'} ~ {ms.end_date?.slice(0, 10) || '-'}</span>
+                                                            <span className="text-[8px] px-1.5 py-0.5 rounded-full font-bold"
+                                                                style={{ background: (statusConfig[ms.status] || statusConfig.none).bg, color: (statusConfig[ms.status] || statusConfig.none).color }}
+                                                            >{(statusConfig[ms.status] || statusConfig.none).label}</span>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {memberships.length > 4 && (
+                                                    <p className="text-[9px] text-white/20 text-center pt-1">외 {memberships.length - 4}건</p>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
-                                    {activeMembership && activeMembership.status === 'active' && (
-                                        <button
-                                            onClick={() => {
-                                                setSelectedMembership(activeMembership);
-                                                setShowTransferModal(true);
-                                            }}
-                                            className="w-full mt-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-white/[0.05]"
-                                            style={{ color: 'var(--primary)', border: '1px solid rgba(255,107,0,0.2)' }}
-                                        >
-                                            🤝 회원권 양도
-                                        </button>
+
+                                    {/* No membership */}
+                                    {!activeMembership && (
+                                        <div className="py-4 text-center">
+                                            <p className="text-xs text-white/30">등록된 멤버십이 없습니다</p>
+                                        </div>
                                     )}
                                 </div>
                             );
@@ -468,16 +875,44 @@ export default function MemberDetailPage() {
 
                     {/* Locker Card */}
                     <div className="rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <h3 className="text-[10px] font-black uppercase tracking-widest mb-5" style={{ color: 'rgba(255,255,255,0.3)' }}>부가 정보</h3>
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>락커 번호</span>
-                                <span className="text-sm font-bold text-white">{member.locker_number || '미배정'}</span>
+                        <div className="flex items-center justify-between mb-5">
+                            <h3 className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>부가 정보</h3>
+                            {member.locker_number && (
+                                <button
+                                    onClick={releaseLockerFromMember}
+                                    className="px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider transition-all hover:opacity-80"
+                                    style={{ color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }}
+                                >해제</button>
+                            )}
+                        </div>
+                        <div className="space-y-3">
+                            <div className="flex justify-between items-center gap-2 min-h-[32px]">
+                                <span className="text-xs shrink-0" style={{ color: 'rgba(255,255,255,0.4)' }}>락커 번호</span>
+                                {member.locker_number ? (
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-black" style={{ background: 'rgba(59,130,246,0.15)', color: '#3B82F6', border: '1px solid rgba(59,130,246,0.3)' }}>{member.locker_number}</span>
+                                        <button
+                                            onClick={() => openLockerEditModal('change_number')}
+                                            className="opacity-30 hover:opacity-80 transition-opacity p-0.5"
+                                            title="락커 변경"
+                                        >
+                                            <IconEdit size={12} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <span className="text-sm text-white/30 italic">미배정</span>
+                                )}
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>락커 만료</span>
-                                <span className="text-sm text-white">{member.locker_end_date || '-'}</span>
-                            </div>
+                            <InlineEditRow label="락커 만료" value={member.locker_end_date || ''} editKey="locker_end" />
+                            {!member.locker_number && (
+                                <button
+                                    onClick={openLockerAssignModal}
+                                    className="w-full mt-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:bg-white/[0.05]"
+                                    style={{ color: '#22C55E', border: '1px solid rgba(34,197,94,0.2)' }}
+                                >
+                                    <IconLock size={12} className="inline mr-1" /> 락커 배정
+                                </button>
+                            )}
                         </div>
                     </div>
 
@@ -521,110 +956,117 @@ export default function MemberDetailPage() {
                         )}
                     </div>
                 </div>
-            )}
+            )
+            }
 
             {/* Attendance Tab */}
-            {activeTab === 'attendance' && (
-                <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    {/* Table Header */}
-                    <div className="grid grid-cols-4 gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        {['날짜', '시간', '지점', '상태'].map((h) => (
-                            <span key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>{h}</span>
-                        ))}
-                    </div>
-                    {checkins.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>출석 기록이 없습니다</p>
+            {
+                activeTab === 'attendance' && (
+                    <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {/* Table Header */}
+                        <div className="grid grid-cols-4 gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            {['날짜', '시간', '지점', '상태'].map((h) => (
+                                <span key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>{h}</span>
+                            ))}
                         </div>
-                    ) : (
-                        checkins.map((c) => (
-                            <div key={c.id} className="grid grid-cols-4 gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                <span className="text-sm text-white">{new Date(c.time).toLocaleDateString('ko-KR')}</span>
-                                <span className="text-sm text-white">{new Date(c.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
-                                <span className="text-sm text-white">{c.facility}</span>
-                                <span><span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>{c.status}</span></span>
+                        {checkins.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>출석 기록이 없습니다</p>
                             </div>
-                        ))
-                    )}
-                </div>
-            )}
-
-            {/* Payments Tab */}
-            {activeTab === 'payments' && (
-                <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                    {/* Table Header */}
-                    <div className="grid grid-cols-6 gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                        {['결제 ID', '금액', '카테고리', '결제 수단', '날짜', '상태'].map((h) => (
-                            <span key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>{h}</span>
-                        ))}
-                    </div>
-                    {transactions.length === 0 ? (
-                        <div className="p-12 text-center">
-                            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>결제 기록이 없습니다</p>
-                        </div>
-                    ) : (
-                        transactions.map((t) => (
-                            <div key={t.id} className="grid grid-cols-6 gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                <span className="text-xs text-white truncate">{t.id}</span>
-                                <span className="text-sm font-bold text-white">₩{Number(t.amount).toLocaleString()}</span>
-                                <span className="text-sm text-white">{t.category}</span>
-                                <span className="text-sm text-white">{t.method}</span>
-                                <span className="text-sm text-white">{t.date}</span>
-                                <span>
-                                    <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase"
-                                        style={{ background: t.status === 'completed' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: t.status === 'completed' ? '#22C55E' : '#EF4444' }}>
-                                        {t.status}
-                                    </span>
-                                </span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-
-            {/* Notes Tab */}
-            {activeTab === 'notes' && (
-                <div>
-                    {/* Add Note */}
-                    <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <div className="flex gap-3">
-                            <input
-                                type="text"
-                                placeholder="새 메모를 입력하세요..."
-                                value={newNote}
-                                onChange={(e) => setNewNote(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && addNote()}
-                                className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
-                            />
-                            <button
-                                onClick={addNote}
-                                disabled={!newNote.trim()}
-                                className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all disabled:opacity-40"
-                                style={{ background: 'var(--primary)', boxShadow: '0 0 15px rgba(255,107,0,0.3)' }}
-                            >
-                                추가
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Notes List */}
-                    <div className="space-y-3">
-                        {notes.map((n) => (
-                            <div key={n.id} className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                <p className="text-sm text-white mb-2">{n.content}</p>
-                                <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{new Date(n.created_at).toLocaleString('ko-KR')}</p>
-                            </div>
-                        ))}
-                        {notes.length === 0 && (
-                            <div className="py-12 text-center">
-                                <span className="text-3xl mb-3 block"><IconNotes size={32} /></span>
-                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>메모가 없습니다</p>
-                            </div>
+                        ) : (
+                            checkins.map((c) => (
+                                <div key={c.id} className="grid grid-cols-4 gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <span className="text-sm text-white">{new Date(c.time).toLocaleDateString('ko-KR')}</span>
+                                    <span className="text-sm text-white">{new Date(c.time).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                    <span className="text-sm text-white">{c.facility}</span>
+                                    <span><span className="px-3 py-1 rounded-full text-[9px] font-black uppercase" style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>{c.status}</span></span>
+                                </div>
+                            ))
                         )}
                     </div>
-                </div>
-            )}
+                )
+            }
+
+            {/* Payments Tab */}
+            {
+                activeTab === 'payments' && (
+                    <div className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        {/* Table Header */}
+                        <div className="grid grid-cols-6 gap-4 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                            {['결제 ID', '금액', '카테고리', '결제 수단', '날짜', '상태'].map((h) => (
+                                <span key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.25)' }}>{h}</span>
+                            ))}
+                        </div>
+                        {transactions.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>결제 기록이 없습니다</p>
+                            </div>
+                        ) : (
+                            transactions.map((t) => (
+                                <div key={t.id} className="grid grid-cols-6 gap-4 px-6 py-4 transition-all hover:bg-white/[0.02]" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <span className="text-xs text-white truncate">{t.id}</span>
+                                    <span className="text-sm font-bold text-white">₩{Number(t.amount).toLocaleString()}</span>
+                                    <span className="text-sm text-white">{t.category}</span>
+                                    <span className="text-sm text-white">{t.method}</span>
+                                    <span className="text-sm text-white">{t.date}</span>
+                                    <span>
+                                        <span className="px-3 py-1 rounded-full text-[9px] font-black uppercase"
+                                            style={{ background: t.status === 'completed' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)', color: t.status === 'completed' ? '#22C55E' : '#EF4444' }}>
+                                            {t.status}
+                                        </span>
+                                    </span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )
+            }
+
+            {/* Notes Tab */}
+            {
+                activeTab === 'notes' && (
+                    <div>
+                        {/* Add Note */}
+                        <div className="rounded-2xl p-5 mb-6" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div className="flex gap-3">
+                                <input
+                                    type="text"
+                                    placeholder="새 메모를 입력하세요..."
+                                    value={newNote}
+                                    onChange={(e) => setNewNote(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && addNote()}
+                                    className="flex-1 px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
+                                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                                />
+                                <button
+                                    onClick={addNote}
+                                    disabled={!newNote.trim()}
+                                    className="px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all disabled:opacity-40"
+                                    style={{ background: 'var(--primary)', boxShadow: '0 0 15px rgba(255,107,0,0.3)' }}
+                                >
+                                    추가
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Notes List */}
+                        <div className="space-y-3">
+                            {notes.map((n) => (
+                                <div key={n.id} className="rounded-2xl p-5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <p className="text-sm text-white mb-2">{n.content}</p>
+                                    <p className="text-[10px]" style={{ color: 'rgba(255,255,255,0.3)' }}>{new Date(n.created_at).toLocaleString('ko-KR')}</p>
+                                </div>
+                            ))}
+                            {notes.length === 0 && (
+                                <div className="py-12 text-center">
+                                    <span className="text-3xl mb-3 block"><IconNotes size={32} /></span>
+                                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>메모가 없습니다</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )
+            }
 
             {/* T1-2: Member Edit Modal */}
             <AdminModal show={showEditModal} onClose={() => setShowEditModal(false)} title="회원 정보 수정" subtitle={member.email}>
@@ -633,7 +1075,7 @@ export default function MemberDetailPage() {
                     <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">전화번호</label><input type="tel" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="010-0000-0000" className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                     <div className="grid grid-cols-2 gap-4">
                         <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">성별</label><select value={editForm.gender} onChange={(e) => setEditForm({ ...editForm, gender: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="">미지정</option><option value="M">남성</option><option value="F">여성</option></select></div>
-                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">생년월일</label><input type="date" value={editForm.birth_date} onChange={(e) => setEditForm({ ...editForm, birth_date: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
+                        <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">생년월일</label><input type="date" value={editForm.birthdate} onChange={(e) => setEditForm({ ...editForm, birthdate: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }} /></div>
                     </div>
                     <div><label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">상태</label><select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })} className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}><option value="Active">활성</option><option value="Inactive">비활성</option><option value="Expired">만료</option><option value="Suspended">정지</option></select></div>
                 </div>
@@ -700,6 +1142,122 @@ export default function MemberDetailPage() {
                     </button>
                 </div>
             </AdminModal>
+
+
+            {/* Locker Assign Modal */}
+            <AdminModal show={showLockerAssignModal} onClose={() => setShowLockerAssignModal(false)} title="락커 배정" subtitle={member?.name || ''}>
+                <div className="space-y-5">
+                    <div>
+                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">사용 가능한 락커 선택 *</label>
+                        {availableLockers.length === 0 ? (
+                            <p className="text-xs py-4 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>사용 가능한 락커가 없습니다</p>
+                        ) : (
+                            <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-1">
+                                {availableLockers.map((l) => (
+                                    <button
+                                        key={l.id}
+                                        onClick={() => setLockerAssignForm(prev => ({ ...prev, locker_number: l.locker_number }))}
+                                        className="py-2.5 rounded-xl text-[11px] font-black transition-all text-center"
+                                        style={lockerAssignForm.locker_number === l.locker_number
+                                            ? { background: 'rgba(34,197,94,0.2)', border: '1px solid rgba(34,197,94,0.4)', color: '#22C55E' }
+                                            : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }
+                                        }
+                                    >
+                                        {l.locker_number}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">시작일</label>
+                            <input
+                                type="date"
+                                value={lockerAssignForm.start_date}
+                                onChange={(e) => setLockerAssignForm({ ...lockerAssignForm, start_date: e.target.value })}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', colorScheme: 'dark' }}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">종료일 *</label>
+                            <input
+                                type="date"
+                                value={lockerAssignForm.end_date}
+                                onChange={(e) => setLockerAssignForm({ ...lockerAssignForm, end_date: e.target.value })}
+                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none"
+                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', colorScheme: 'dark' }}
+                            />
+                        </div>
+                    </div>
+                </div>
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowLockerAssignModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                    <button onClick={assignLockerToMember} disabled={savingLocker || !lockerAssignForm.locker_number || !lockerAssignForm.end_date} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-40" style={{ background: '#22C55E', boxShadow: '0 0 20px rgba(34,197,94,0.3)' }}>{savingLocker ? '배정 중...' : '락커 배정'}</button>
+                </div>
+            </AdminModal>
+
+            {/* Locker Change Modal */}
+            <AdminModal show={showLockerChangeModal} onClose={() => setShowLockerChangeModal(false)} title="락커 번호 변경" subtitle={`현재: ${member?.locker_number || '-'}번`}>
+                <div className="space-y-5">
+                    <div>
+                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">새 락커 선택 *</label>
+                        {availableLockers.length === 0 ? (
+                            <p className="text-xs py-4 text-center" style={{ color: 'rgba(255,255,255,0.3)' }}>사용 가능한 락커가 없습니다</p>
+                        ) : (
+                            <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-1">
+                                {availableLockers.map((l) => (
+                                    <button
+                                        key={l.id}
+                                        onClick={() => setSelectedNewLocker(l.locker_number)}
+                                        className="py-2.5 rounded-xl text-[11px] font-black transition-all text-center"
+                                        style={selectedNewLocker === l.locker_number
+                                            ? { background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)', color: '#a78bfa' }
+                                            : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }
+                                        }
+                                    >
+                                        {l.locker_number}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div className="flex gap-3 mt-8">
+                    <button onClick={() => setShowLockerChangeModal(false)} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>취소</button>
+                    <button onClick={changeLockerNumber} disabled={savingLocker || !selectedNewLocker} className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-40" style={{ background: '#a78bfa', boxShadow: '0 0 20px rgba(167,139,250,0.3)' }}>{savingLocker ? '변경 중...' : '락커 변경'}</button>
+                </div>
+            </AdminModal>
+
+            {/* Locker Release Confirm Modal */}
+            <AdminModal show={showLockerReleaseConfirm} onClose={() => setShowLockerReleaseConfirm(false)} title="락커 해제" size="sm">
+                <div className="text-center py-4">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                        <IconLock size={28} />
+                    </div>
+                    <p className="text-white text-sm font-bold mb-2">
+                        락커 <span style={{ color: '#3B82F6' }}>{member?.locker_number}번</span>의 배정을 해제하시겠습니까?
+                    </p>
+                    <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        이 작업은 되돌릴 수 없으며, 해당 락커는 즉시 사용 가능 상태로 변경됩니다.
+                    </p>
+                </div>
+                <div className="flex gap-3 mt-4">
+                    <button
+                        onClick={() => setShowLockerReleaseConfirm(false)}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest hover:bg-white/[0.06] transition-all"
+                        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
+                    >취소</button>
+                    <button
+                        onClick={confirmReleaseLocker}
+                        disabled={releasingLocker}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black text-white uppercase tracking-widest transition-all disabled:opacity-40"
+                        style={{ background: '#EF4444', boxShadow: '0 0 20px rgba(239,68,68,0.3)' }}
+                    >{releasingLocker ? '해제 중...' : '락커 해제'}</button>
+                </div>
+            </AdminModal>
+
         </div>
     );
 }

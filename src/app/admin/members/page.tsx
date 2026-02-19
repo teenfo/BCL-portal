@@ -170,16 +170,16 @@ export default function AdminMembersPage() {
 
             <div className="p-10 max-w-[1400px] mx-auto">
                 {/* View Tabs */}
-                <div className="flex gap-1 mb-8 p-1 rounded-xl bg-white/[0.03] w-fit border border-white/[0.05]">
+                <div className="flex gap-2 mb-8">
                     <button
                         onClick={() => setView('list')}
-                        className={`px-6 py-2 rounded-lg text-xs font-bold transition-all ${view === 'list' ? 'bg-[var(--primary)] text-white shadow-[0_4px_12px_rgba(255,107,0,0.25)]' : 'text-white/40 hover:text-white/60'}`}
+                        className={`admin-filter-btn ${view === 'list' ? 'active' : ''}`}
                     >
                         회원 목록
                     </button>
                     <button
                         onClick={() => setView('approvals')}
-                        className={`px-6 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${view === 'approvals' ? 'bg-[var(--primary)] text-white shadow-[0_4px_12px_rgba(255,107,0,0.25)]' : 'text-white/40 hover:text-white/60'}`}
+                        className={`admin-filter-btn flex items-center gap-2 ${view === 'approvals' ? 'active' : ''}`}
                     >
                         가입 승인 대기
                         {pendingUsers.length > 0 && view === 'list' && (
@@ -353,18 +353,18 @@ export default function AdminMembersPage() {
                                             </div>
                                         </div>
 
-                                        <div className="flex gap-3">
+                                        <div className="flex gap-3 shrink-0">
                                             <button
                                                 onClick={() => handleApproval(user.id, false)}
                                                 disabled={saving}
-                                                className="px-6 py-2.5 rounded-xl border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all"
+                                                className="px-5 py-2.5 rounded-xl border border-red-500/20 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/10 transition-all whitespace-nowrap"
                                             >
                                                 거절
                                             </button>
                                             <button
                                                 onClick={() => handleApproval(user.id, true)}
                                                 disabled={saving}
-                                                className="px-8 py-2.5 rounded-xl bg-green-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-green-500/20"
+                                                className="px-6 py-2.5 rounded-xl bg-green-500 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-green-500/20 whitespace-nowrap"
                                             >
                                                 승인 완료
                                             </button>
