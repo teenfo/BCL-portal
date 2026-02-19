@@ -4,6 +4,14 @@
    Matches Figma Prototype: Fitness Gym Portal
    ========================================================= */
 
+/* ── Override body dark theme when in apps layout ── */
+body:has(.app-page),
+body:has(.user-bottom-nav),
+body.apps-active {
+    background: #F5F3F0 !important;
+    background-image: none !important;
+}
+
 /* ── CSS Custom Properties (User App) ── */
 .app-page,
 .user-bottom-nav {
@@ -1486,10 +1494,10 @@
     left: 0;
     right: 0;
     z-index: 100;
-    background: rgba(245, 243, 240, 0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--app-border);
+    background: rgba(245, 243, 240, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
     transition: background 0.3s ease;
 }
 
@@ -1575,7 +1583,7 @@
 
 /* Sub-page header styles */
 .user-top-header.sub-page {
-    background: rgba(245, 243, 240, 0.92);
+    background: rgba(245, 243, 240, 0.97);
 }
 
 .uth-back-btn {

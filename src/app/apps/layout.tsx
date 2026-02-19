@@ -8,6 +8,12 @@ import { ReactNode, useEffect } from 'react';
 import './apps.css';
 
 export default function AppsLayout({ children }: { children: ReactNode }) {
+    // Override body dark theme for user app
+    useEffect(() => {
+        document.body.classList.add('apps-active');
+        return () => document.body.classList.remove('apps-active');
+    }, []);
+
     // Register Service Worker for PWA + Push
     useEffect(() => {
         if ('serviceWorker' in navigator) {
