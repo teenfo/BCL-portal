@@ -15,6 +15,8 @@ interface CheckinRecord {
 export default function UserCheckinPage() {
     const [qrToken, setQrToken] = useState('');
     const [memberId, setMemberId] = useState('BCL-00000');
+    const [realMemberId, setRealMemberId] = useState('');
+    const [facilityId, setFacilityId] = useState('');
     const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
     const [isActive, setIsActive] = useState(true);
     const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
@@ -34,21 +36,33 @@ export default function UserCheckinPage() {
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     });
 
-    const generateToken = useCallback(() => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let token = 'BCL-';
-        for (let i = 0; i < 20; i++) {
-            token += chars.charAt(Math.floor(Math.random() * chars.length));
+    // Generate QR payload with member info + timestamp
+    const generateQRPayload = useCallback(() => {
+        if (!realMemberId || !facilityId) {
+            // Fallback: show placeholder until data loads
+            setQrToken(JSON.stringify({ mid: '', fid: '', ts: Math.floor(Date.now() / 1000), v: 1 }));
+        } else {
+            setQrToken(JSON.stringify({
+                mid: realMemberId,
+                fid: facilityId,
+                ts: Math.floor(Date.now() / 1000),
+                v: 1
+            }));
         }
-        token += '-' + Date.now().toString(36);
-        setQrToken(token);
-        setTimeLeft(300); // Reset to 5 minutes
-    }, []);
+        setTimeLeft(300);
+    }, [realMemberId, facilityId]);
 
     useEffect(() => {
-        generateToken();
         loadCheckinData();
-    }, [generateToken]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Regenerate QR when member/facility data is loaded
+    useEffect(() => {
+        if (realMemberId && facilityId) {
+            generateQRPayload();
+        }
+    }, [realMemberId, facilityId, generateQRPayload]);
 
     // QR Timer: 5-minute expiration with auto-refresh
     useEffect(() => {
@@ -56,14 +70,14 @@ export default function UserCheckinPage() {
         const interval = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
-                    generateToken();
+                    generateQRPayload();
                     return 300;
                 }
                 return prev - 1;
             });
         }, 1000);
         return () => clearInterval(interval);
-    }, [isActive, generateToken]);
+    }, [isActive, generateQRPayload]);
 
     // Load check-in data for calYear/calMonth
     const loadCheckinData = useCallback(async () => {
@@ -71,9 +85,35 @@ export default function UserCheckinPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        // Set member ID
+        // Set display member ID
         const shortId = user.id.slice(0, 5).toUpperCase();
         setMemberId(`BCL-${shortId}`);
+
+        // Load real member_id from members table
+        const { data: memberData }: any = await supabase
+            .from('members')
+            .select('id, facility_id')
+            .eq('user_id', user.id)
+            .limit(1)
+            .single();
+        if (memberData) {
+            setRealMemberId(memberData.id);
+            if (memberData.facility_id) {
+                setFacilityId(memberData.facility_id);
+            }
+        }
+
+        // If no facility from member, try to get first facility
+        if (!memberData?.facility_id) {
+            const { data: facData }: any = await supabase
+                .from('facilities')
+                .select('id')
+                .limit(1)
+                .single();
+            if (facData) {
+                setFacilityId(facData.id);
+            }
+        }
 
         // Get membership info
         const { data: membershipData }: any = await supabase
@@ -273,7 +313,7 @@ export default function UserCheckinPage() {
 
                 {/* Manual refresh button  */}
                 <button
-                    onClick={generateToken}
+                    onClick={generateQRPayload}
                     style={{
                         background: 'none', border: 'none', cursor: 'pointer',
                         color: 'var(--app-accent)', fontSize: '0.75rem', fontWeight: 600,

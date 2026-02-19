@@ -5,16 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Suspense } from 'react';
 
-interface MemberInfo {
-    name: string;
-    phone: string | null;
-}
-
-interface ReservationInfo {
-    class_name: string;
-    start_time: string;
-}
-
 interface MembershipInfo {
     remaining_sessions: number | null;
     plan_name: string;
@@ -24,53 +14,48 @@ function SuccessContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const memberId = searchParams.get('member');
+    const memberName = searchParams.get('name') || '회원';
+    const checkinType = searchParams.get('type') || 'facility'; // 'class' or 'facility'
+    const className = searchParams.get('class') || '';
+    const classTime = searchParams.get('time') || '';
+    const coachName = searchParams.get('coach') || '';
 
-    const [member, setMember] = useState<MemberInfo | null>(null);
-    const [reservation, setReservation] = useState<ReservationInfo | null>(null);
     const [membership, setMembership] = useState<MembershipInfo | null>(null);
     const [countdown, setCountdown] = useState(5);
     const [showContent, setShowContent] = useState(false);
 
-    // 회원 정보 로드
+    // 멤버십 정보 로드
     const loadMemberInfo = useCallback(async () => {
         if (!memberId) return;
-        const supabase = createClient();
+        const supabase: any = createClient();
 
-        // 회원 기본 정보
-        const { data: memberData } = await (supabase as any)
+        // 멤버 테이블에서 user_id를 조회한 후 멤버십 확인
+        const { data: memberData } = await supabase
             .from('members')
-            .select('name, phone')
+            .select('user_id')
             .eq('id', memberId)
             .single();
 
-        if (memberData) {
-            setMember(memberData);
-        }
+        if (memberData?.user_id) {
+            const { data: membershipData } = await supabase
+                .from('memberships')
+                .select('remaining_credits, status')
+                .eq('user_id', memberData.user_id)
+                .eq('status', 'active')
+                .order('end_date', { ascending: false })
+                .limit(1);
 
-        // 오늘 예약 (reservations 테이블이 아직 없으므로 생략)
-        // TODO: reservations 테이블 생성 후 활성화
-
-        // 멤버십 잔여 횟수
-        const { data: membershipData } = await (supabase as any)
-            .from('memberships')
-            .select('remaining_credits, status, plan_id')
-            .eq('user_id', memberId)
-            .eq('status', 'active')
-            .order('end_date', { ascending: false })
-            .limit(1);
-
-        if (membershipData && membershipData.length > 0) {
-            const m = membershipData[0];
-            setMembership({
-                remaining_sessions: m.remaining_credits,
-                plan_name: '회원권',
-            });
+            if (membershipData && membershipData.length > 0) {
+                setMembership({
+                    remaining_sessions: membershipData[0].remaining_credits,
+                    plan_name: '회원권',
+                });
+            }
         }
     }, [memberId]);
 
     useEffect(() => {
         loadMemberInfo();
-        // 콘텐츠 표시 애니메이션
         setTimeout(() => setShowContent(true), 100);
     }, [loadMemberInfo]);
 
@@ -88,10 +73,7 @@ function SuccessContent() {
         return () => clearInterval(timer);
     }, [router]);
 
-    const formatTime = (timeStr: string) => {
-        const d = new Date(timeStr);
-        return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-    };
+    const isClassCheckin = checkinType === 'class';
 
     return (
         <div style={{
@@ -131,13 +113,11 @@ function SuccessContent() {
                     position: 'relative',
                     width: '120px', height: '120px',
                 }}>
-                    {/* Glow */}
                     <div style={{
                         position: 'absolute', inset: '-20px',
                         borderRadius: '50%',
                         background: 'radial-gradient(circle, rgba(34,197,94,0.2) 0%, transparent 70%)',
                     }} />
-                    {/* Circle */}
                     <div style={{
                         width: '120px', height: '120px',
                         borderRadius: '50%',
@@ -169,7 +149,7 @@ function SuccessContent() {
                         color: '#FF6B00',
                         lineHeight: 1.2,
                     }}>
-                        {member?.name || '회원'}님
+                        {memberName}님
                     </p>
                     <p style={{
                         fontSize: '20px',
@@ -187,7 +167,7 @@ function SuccessContent() {
                     gap: '20px',
                     marginTop: '8px',
                 }}>
-                    {/* Today&apos;s reservation */}
+                    {/* Check-in type card */}
                     <div style={{
                         padding: '24px 32px',
                         borderRadius: '20px',
@@ -201,28 +181,33 @@ function SuccessContent() {
                             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                             marginBottom: '12px',
                         }}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="4" width="18" height="18" rx="2" />
-                                <line x1="16" y1="2" x2="16" y2="6" />
-                                <line x1="8" y1="2" x2="8" y2="6" />
-                                <line x1="3" y1="10" x2="21" y2="10" />
-                            </svg>
+                            <span style={{ fontSize: '20px' }}>{isClassCheckin ? '🎓' : '🏢'}</span>
                             <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>
-                                오늘 예약
+                                {isClassCheckin ? '수업 체크인' : '시설 출석'}
                             </span>
                         </div>
-                        {reservation ? (
+                        {isClassCheckin ? (
                             <div>
                                 <div style={{ fontSize: '24px', fontWeight: 800, color: 'white' }}>
-                                    {reservation.class_name}
+                                    {className}
                                 </div>
                                 <div style={{ fontSize: '16px', fontWeight: 500, color: '#FF6B00', marginTop: '4px' }}>
-                                    {formatTime(reservation.start_time)}
+                                    {classTime}
                                 </div>
+                                {coachName && (
+                                    <div style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>
+                                        코치: {coachName}
+                                    </div>
+                                )}
                             </div>
                         ) : (
-                            <div style={{ fontSize: '16px', color: 'rgba(255,255,255,0.3)' }}>
-                                오늘 예약 없음
+                            <div>
+                                <div style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>
+                                    시설 이용을 시작합니다
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
+                                    좋은 하루 되세요!
+                                </div>
                             </div>
                         )}
                     </div>

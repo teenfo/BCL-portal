@@ -106,70 +106,179 @@ export default function KioskScanPage() {
         startScanner();
     }, [stopScanner, startScanner]);
 
-    // QR 코드 처리
+    // QR 코드 처리 — JSON { mid, fid, ts, v } 파싱 + 체크인 분기
     const processQRCode = async (code: string) => {
         setScanState('processing');
         await stopScanner();
 
         try {
-            const supabase = createClient();
+            const supabase: any = createClient();
 
-            // QR 코드에서 회원 정보 파싱 (JSON 형식: { member_id, facility_id })
-            let memberId: string;
-            let facilityId: string;
-
+            // 1. JSON 파싱
+            let parsed: { mid: string; fid: string; ts: number; v: number };
             try {
-                const parsed = JSON.parse(code);
-                memberId = parsed.member_id;
-                facilityId = parsed.facility_id;
+                parsed = JSON.parse(code);
             } catch {
-                // JSON 파싱 실패 시 QR 코드 테이블에서 조회
-                const { data: qrData, error: qrError } = await supabase
-                    .from('qr_codes')
-                    .select('facility_id')
-                    .eq('code', code)
-                    .eq('is_active', true)
-                    .single();
-
-                if (qrError || !qrData) {
-                    setScanState('error');
-                    setErrorMessage('유효하지 않은 QR 코드입니다');
-                    setTimeout(restartScanner, 3000);
-                    return;
-                }
-                memberId = code;
-                facilityId = qrData.facility_id || '';
-            }
-
-            if (!memberId || !facilityId) {
                 setScanState('error');
                 setErrorMessage('유효하지 않은 QR 코드입니다');
                 setTimeout(restartScanner, 3000);
                 return;
             }
 
-            // 체크인 기록
+            const { mid, fid, ts } = parsed;
+            if (!mid || !fid || !ts) {
+                setScanState('error');
+                setErrorMessage('유효하지 않은 QR 코드입니다');
+                setTimeout(restartScanner, 3000);
+                return;
+            }
+
+            // 2. 타임스탬프 검증 (5분 = 300초 이내)
+            const now = Math.floor(Date.now() / 1000);
+            if (now - ts > 300) {
+                setScanState('error');
+                setErrorMessage('QR 코드가 만료되었습니다.\n앱에서 새로 생성해주세요.');
+                setTimeout(restartScanner, 4000);
+                return;
+            }
+
+            // 3. 회원 존재 확인
+            const { data: memberData, error: memberErr } = await supabase
+                .from('members')
+                .select('id, user_id, name')
+                .eq('id', mid)
+                .single();
+
+            if (memberErr || !memberData) {
+                setScanState('error');
+                setErrorMessage('등록되지 않은 회원입니다');
+                setTimeout(restartScanner, 3000);
+                return;
+            }
+
+            // 4. 중복 체크인 방지 (5분 이내 동일 회원)
+            const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+            const { data: recentCheckin } = await supabase
+                .from('checkins')
+                .select('id')
+                .eq('member_id', mid)
+                .gte('checkin_time', fiveMinAgo)
+                .limit(1);
+
+            if (recentCheckin && recentCheckin.length > 0) {
+                setScanState('error');
+                setErrorMessage(`${memberData.name || '회원'}님은\n이미 체크인 되었습니다`);
+                setTimeout(restartScanner, 3000);
+                return;
+            }
+
+            // 5. 오늘 수업 예약 확인 (현재 시간 ±30분 이내)
+            const today = new Date();
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+            let bookingId: string | null = null;
+            let sessionId: string | null = null;
+            let sessionName = '';
+            let sessionTime = '';
+            let coachName = '';
+
+            const { data: bookings } = await supabase
+                .from('bookings')
+                .select(`
+                    id,
+                    session_id,
+                    sessions (
+                        id,
+                        session_date,
+                        start_time,
+                        end_time,
+                        classes ( name ),
+                        coaches ( name )
+                    )
+                `)
+                .eq('member_id', mid)
+                .eq('status', 'booked')
+                .limit(5);
+
+            if (bookings && bookings.length > 0) {
+                // 오늘 날짜 + 현재 시간 ±30분 이내 수업 찾기
+                const nowMinutes = today.getHours() * 60 + today.getMinutes();
+
+                for (const booking of bookings) {
+                    const session = booking.sessions as any;
+                    if (!session) continue;
+
+                    // 오늘 날짜인지 확인
+                    if (session.session_date !== todayStr) continue;
+
+                    // 수업 시작 시간 ±30분 이내인지 확인
+                    if (session.start_time) {
+                        const [h, m] = session.start_time.split(':').map(Number);
+                        const sessionMinutes = h * 60 + m;
+                        if (Math.abs(nowMinutes - sessionMinutes) <= 30) {
+                            bookingId = booking.id;
+                            sessionId = session.id;
+                            sessionName = session.classes?.name || '수업';
+                            sessionTime = session.start_time?.slice(0, 5) || '';
+                            coachName = session.coaches?.name || '';
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // 6. 체크인 기록 삽입
+            const checkinData: any = {
+                member_id: mid,
+                facility_id: fid,
+                checkin_time: new Date().toISOString(),
+                checkin_method: 'kiosk',
+            };
+
+            if (bookingId && sessionId) {
+                // 수업 체크인
+                checkinData.booking_id = bookingId;
+                checkinData.session_id = sessionId;
+                checkinData.notes = `수업 체크인: ${sessionName}`;
+            } else {
+                // 시설 출석 체크인
+                checkinData.notes = '시설 출석 체크인';
+            }
+
             const { error: checkInError } = await supabase
                 .from('checkins')
-                .insert({
-                    member_id: memberId,
-                    facility_id: facilityId,
-                    checkin_time: new Date().toISOString(),
-                    checkin_method: 'kiosk',
-                    notes: '키오스크 QR 체크인',
-                });
+                .insert(checkinData);
 
             if (checkInError) {
+                console.error('Check-in error:', checkInError);
                 setScanState('error');
                 setErrorMessage('체크인 처리 중 오류가 발생했습니다');
                 setTimeout(restartScanner, 3000);
                 return;
             }
 
-            // 성공 → 성공 화면으로 이동
-            router.push(`/kiosk/success?member=${memberId}`);
+            // 7. 수업 체크인이면 booking 상태 업데이트
+            if (bookingId) {
+                await supabase
+                    .from('bookings')
+                    .update({ status: 'attended' })
+                    .eq('id', bookingId);
+            }
 
-        } catch {
+            // 8. 성공 화면으로 이동 (회원 이름 + 체크인 유형 전달)
+            const params = new URLSearchParams({
+                member: mid,
+                name: memberData.name || '',
+                type: bookingId ? 'class' : 'facility',
+            });
+            if (sessionName) params.set('class', sessionName);
+            if (sessionTime) params.set('time', sessionTime);
+            if (coachName) params.set('coach', coachName);
+
+            router.push(`/kiosk/success?${params.toString()}`);
+
+        } catch (err) {
+            console.error('QR processing error:', err);
             setScanState('error');
             setErrorMessage('시스템 오류가 발생했습니다');
             setTimeout(restartScanner, 3000);
