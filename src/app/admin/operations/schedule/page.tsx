@@ -414,25 +414,21 @@ export default function SchedulePage() {
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-3">
                         {/* View Mode Toggle */}
-                        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex gap-2">
                             {(['week', 'day'] as const).map((mode) => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
-                                    className="px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all"
-                                    style={viewMode === mode
-                                        ? { background: 'var(--primary)', color: '#fff', boxShadow: '0 0 12px rgba(255,107,0,0.3)' }
-                                        : { color: 'rgba(255,255,255,0.4)' }
-                                    }
+                                    className={`admin-filter-btn ${viewMode === mode ? 'active' : ''}`}
                                 >
                                     {mode === 'week' ? '주간' : '일간'}
                                 </button>
                             ))}
                         </div>
                         {/* Navigation */}
-                        <button onClick={navigatePrev} className="px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm">◀</button>
-                        <button onClick={goToday} className="px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white hover:bg-white/5 transition-all">오늘</button>
-                        <button onClick={navigateNext} className="px-3 py-2 rounded-lg text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm">▶</button>
+                        <button onClick={navigatePrev} className="admin-filter-btn">◀</button>
+                        <button onClick={goToday} className="admin-filter-btn">오늘</button>
+                        <button onClick={navigateNext} className="admin-filter-btn">▶</button>
                     </div>
                     <div className="text-sm font-black text-white uppercase tracking-tight">
                         {viewMode === 'week'
@@ -597,8 +593,7 @@ export default function SchedulePage() {
                             value={form.title}
                             onChange={(e) => setForm({ ...form, title: e.target.value })}
                             placeholder="예: CrossFit WOD"
-                            className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            className="bcl-input"
                         />
                     </div>
 
@@ -622,8 +617,7 @@ export default function SchedulePage() {
                                     setCoachConflict(checkCoachConflict(newId, form.session_date, form.start_time, form.end_time, editingSession?.id));
                                 }}
                                 placeholder="예: c1"
-                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                className="bcl-input"
                             />
                         </div>
                     </div>
@@ -671,8 +665,7 @@ export default function SchedulePage() {
                                 onChange={(e) => setForm({ ...form, capacity: parseInt(e.target.value) || 15 })}
                                 min={1}
                                 max={100}
-                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                className="bcl-input"
                             />
                         </div>
                         <div>
@@ -680,8 +673,7 @@ export default function SchedulePage() {
                             <select
                                 value={form.intensity_level}
                                 onChange={(e) => setForm({ ...form, intensity_level: e.target.value })}
-                                className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all"
-                                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                className="bcl-input"
                             >
                                 <option value="beginner">Beginner</option>
                                 <option value="intermediate">Intermediate</option>
@@ -697,8 +689,7 @@ export default function SchedulePage() {
                             onChange={(e) => setForm({ ...form, wod_description: e.target.value })}
                             rows={3}
                             placeholder="오늘의 운동 설명"
-                            className="w-full px-4 py-3 rounded-xl text-sm text-white outline-none transition-all resize-none"
-                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                            className="bcl-input resize-none"
                         />
                     </div>
                 </div>

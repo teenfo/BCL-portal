@@ -47,7 +47,7 @@ function LoginContent() {
         setError('');
         setSubmitting(true);
 
-        const { error: signInError, approvalStatus } = await signIn(email, password);
+        const { error: signInError, approvalStatus, role } = await signIn(email, password);
 
         if (signInError) {
             if (signInError.message?.includes('Invalid login credentials')) {
@@ -75,27 +75,25 @@ function LoginContent() {
         const redirect = searchParams.get('redirect');
         if (redirect) {
             router.replace(decodeURIComponent(redirect));
-        } else {
-            // redirect 파라미터가 없으면 role 기반 기본 경로로 이동
-            // (profile은 signIn에서 이미 로드됨)
-            if (approvalStatus === 'approved') {
-                // profile에서 role 확인 — signIn이 완료된 시점이므로 profile이 최신 상태
-                const currentRole = profile?.role;
-                if (currentRole === 'admin') {
-                    router.replace('/admin/dashboard');
-                } else if (currentRole === 'coach') {
-                    router.replace('/coach/dashboard');
-                } else {
-                    router.replace('/apps/dashboard');
-                }
+        } else if (approvalStatus === 'approved') {
+            // signIn이 반환한 role을 직접 사용 (stale closure 방지)
+            if (role === 'admin') {
+                router.replace('/admin/dashboard');
+            } else if (role === 'coach') {
+                router.replace('/coach/dashboard');
+            } else {
+                router.replace('/apps/dashboard');
             }
         }
 
         setSubmitting(false);
     };
 
-    // 이미 로그인 중이면 로딩 표시
-    if (loading || (user && profile?.approval_status === 'approved')) {
+    // 이미 인증 완료된 유저가 리다이렉트 중인 경우에만 스피너 표시
+    // loading 중에는 일단 폼을 보여주며, 로딩 완료 후 user가 있으면 useEffect가 리다이렉트 처리
+    const isRedirecting = !loading && user && profile;
+
+    if (isRedirecting) {
         return (
             <div style={{
                 minHeight: '100vh',
@@ -114,7 +112,7 @@ function LoginContent() {
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 16px',
                     }} />
-                    <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 14 }}>Authenticating...</p>
+                    <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 14 }}>리다이렉트 중...</p>
                 </div>
             </div>
         );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useState, useRef, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -12,11 +12,10 @@ interface AuthGuardProps {
 }
 
 /**
- * AuthGuard — 인증 및 역할 기반 경로 보호 컴포넌트
- * 
- * 미들웨어가 1차 방어선이고, AuthGuard는 2차 방어선(클라이언트 측) 역할.
- * 미들웨어에서 비인증 사용자를 이미 차단하지만,
- * AuthGuard는 역할 확인(admin/coach/member) + 승인 상태 확인을 추가로 수행.
+ * AuthGuard — 인증 및 역할 기반 경로 보호 컴포넌트 (2차 방어선)
+ *
+ * 미들웨어(1차)가 서버 측에서 비인증 사용자를 차단.
+ * AuthGuard(2차)는 클라이언트에서 역할/승인상태 기반 세밀한 접근 제어.
  */
 export function AuthGuard({
     children,
@@ -28,57 +27,98 @@ export function AuthGuard({
     const router = useRouter();
     const pathname = usePathname();
     const [authorized, setAuthorized] = useState(false);
+    const [profileWaitExpired, setProfileWaitExpired] = useState(false);
+    const profileTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Profile 대기 타이머: user는 있는데 profile이 없으면 최대 3초 대기
+    useEffect(() => {
+        if (!loading && user && !profile && !profileWaitExpired) {
+            profileTimerRef.current = setTimeout(() => {
+                setProfileWaitExpired(true);
+            }, 3000);
+        }
+
+        // profile이 로드되면 타이머 취소
+        if (profile && profileTimerRef.current) {
+            clearTimeout(profileTimerRef.current);
+            profileTimerRef.current = null;
+        }
+
+        return () => {
+            if (profileTimerRef.current) {
+                clearTimeout(profileTimerRef.current);
+            }
+        };
+    }, [loading, user, profile, profileWaitExpired]);
 
     useEffect(() => {
-        if (loading) return;
+        // 아직 로딩 중
+        if (loading) {
+            setAuthorized(false);
+            return;
+        }
 
-        // 인증 필요한데 로그인 안 됨
-        if (requireAuth && !user) {
+        // 인증 불필요 → 바로 통과
+        if (!requireAuth) {
+            setAuthorized(true);
+            return;
+        }
+
+        // ─── 인증 필요한데 유저 없음 → 로그인 이동 ───
+        if (!user) {
             const returnUrl = encodeURIComponent(pathname || '/');
             router.replace(`${redirectTo}?redirect=${returnUrl}`);
             return;
         }
 
-        // 로그인은 됐지만 프로필이 아직 없는 경우 — 잠시 대기
-        if (requireAuth && user && !profile) {
-            // 프로필 로딩 중일 수 있으므로 아직 리다이렉트하지 않음
+        // ─── 유저는 있는데 프로필 아직 없음 → 대기 ───
+        if (!profile) {
+            if (profileWaitExpired) {
+                // 3초 대기 후에도 프로필이 없으면 로그인으로
+                console.warn('[AuthGuard] Profile not loaded after timeout. Redirecting to login.');
+                router.replace(redirectTo);
+            }
+            // 대기 중: authorized=false 유지 → 스피너 표시
             return;
         }
 
-        // 승인 대기 중인 사용자
-        if (requireAuth && user && profile && isPending) {
+        // ─── 승인 대기 중 ───
+        if (isPending) {
             if (pathname !== '/auth/pending-approval') {
                 router.replace('/auth/pending-approval');
+            } else {
+                setAuthorized(true);
             }
             return;
         }
 
-        // 승인 거절된 사용자
-        if (requireAuth && user && profile && isRejected) {
+        // ─── 승인 거절 ───
+        if (isRejected) {
             if (pathname !== '/auth/rejected') {
                 router.replace('/auth/rejected');
+            } else {
+                setAuthorized(true);
             }
             return;
         }
 
-        // 역할 확인 (profile의 role 사용)
-        if (requiredRole && profile) {
-            const userRole = profile.role;
-            if (userRole !== requiredRole) {
-                // 역할에 따라 올바른 홈으로 리다이렉트
-                if (userRole === 'admin') router.replace('/admin/dashboard');
-                else if (userRole === 'coach') router.replace('/coach/dashboard');
-                else router.replace('/apps/dashboard');
-                return;
-            }
+        // ─── 역할 확인 ───
+        if (requiredRole && profile.role !== requiredRole) {
+            const roleRoutes: Record<string, string> = {
+                admin: '/admin/dashboard',
+                coach: '/coach/dashboard',
+                member: '/apps/dashboard',
+            };
+            router.replace(roleRoutes[profile.role] || '/apps/dashboard');
+            return;
         }
 
-        // 모든 검증 통과 — 인증 완료
+        // ─── 모든 검증 통과 ───
         setAuthorized(true);
-    }, [user, profile, loading, requireAuth, requiredRole, router, redirectTo, isPending, isRejected, pathname]);
+    }, [user, profile, loading, requireAuth, requiredRole, router, redirectTo, isPending, isRejected, pathname, profileWaitExpired]);
 
-    // 로딩 중
-    if (loading) {
+    // 로딩 중 또는 검증 미완료
+    if (loading || (!authorized && requireAuth)) {
         return (
             <div style={{
                 minHeight: '100vh',
@@ -97,33 +137,9 @@ export function AuthGuard({
                         animation: 'spin 1s linear infinite',
                         margin: '0 auto 16px',
                     }} />
-                    <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 14 }}>Loading...</p>
-                </div>
-            </div>
-        );
-    }
-
-    // 인증/권한 검증이 아직 완료되지 않음
-    if (!authorized) {
-        return (
-            <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--background, #0D0D0E)',
-            }}>
-                <div style={{ textAlign: 'center' }}>
-                    <div style={{
-                        width: 48,
-                        height: 48,
-                        border: '3px solid rgba(255, 255, 255, 0.06)',
-                        borderTop: '3px solid #FF6B00',
-                        borderRadius: '50%',
-                        animation: 'spin 1s linear infinite',
-                        margin: '0 auto 16px',
-                    }} />
-                    <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 14 }}>Verifying access...</p>
+                    <p style={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: 14 }}>
+                        {loading ? 'Loading...' : 'Verifying access...'}
+                    </p>
                 </div>
             </div>
         );

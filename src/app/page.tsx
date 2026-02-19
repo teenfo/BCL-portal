@@ -181,9 +181,9 @@ function HeroSection() {
                     fontSize: 'clamp(40px, 7vw, 80px)', fontWeight: 900, color: 'white',
                     lineHeight: 1.05, letterSpacing: '-0.04em', marginBottom: 24,
                 }}>
-                    Beyond<br />
-                    <span style={{ color: 'var(--primary)' }}>CrossFit</span>{' '}
-                    Limits
+                    Bundang<br />
+                    <span style={{ color: 'var(--primary)' }}>Crossfit</span>{' '}
+                    Lounge
                 </h1>
 
                 <p style={{
@@ -548,7 +548,7 @@ function Footer() {
                             <span style={{ fontSize: 16, fontWeight: 800, color: 'white' }}>BCL</span>
                         </div>
                         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.35)', lineHeight: 1.7 }}>
-                            Beyond CrossFit Limits<br />
+                            Bundang Crossfit Lounge<br />
                             프리미엄 피트니스 경험
                         </p>
                     </div>
@@ -578,7 +578,7 @@ function Footer() {
 
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 24, textAlign: 'center' }}>
                     <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.2)' }}>
-                        © 2026 BCL (Beyond CrossFit Limits). All rights reserved.
+                        © 2026 BCL (Bundang Crossfit Lounge). All rights reserved.
                     </p>
                 </div>
             </div>

@@ -1,8 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useRef, useCallback, useSyncExternalStore, ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { AuthUser as User, AuthSession as Session } from '@supabase/supabase-js';
+
+/* ═══════════════════════════════════════════════════════════════
+   Types
+   ═══════════════════════════════════════════════════════════════ */
 
 interface Profile {
     id: string;
@@ -21,7 +25,7 @@ interface AuthContextType {
     isApproved: boolean;
     isPending: boolean;
     isRejected: boolean;
-    signIn: (email: string, password: string) => Promise<{ error: any; approvalStatus?: string }>;
+    signIn: (email: string, password: string) => Promise<{ error: any; approvalStatus?: string; role?: string }>;
     signInWithOAuth: (provider: 'kakao' | 'google' | 'github') => Promise<{ error: any }>;
     signUp: (email: string, password: string, metadata?: any) => Promise<{ error: any }>;
     signOut: () => Promise<void>;
@@ -32,201 +36,343 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const [user, setUser] = useState<User | null>(null);
-    const [session, setSession] = useState<Session | null>(null);
-    const [profile, setProfile] = useState<Profile | null>(null);
-    const [loading, setLoading] = useState(true);
+/* ═══════════════════════════════════════════════════════════════
+   Supabase 클라이언트 싱글턴 (모듈 레벨)
+   ═══════════════════════════════════════════════════════════════ */
+let _supabaseClient: ReturnType<typeof createClient> | null = null;
 
-    // Race condition 방지를 위한 ref
-    const initializedRef = useRef(false);
-    const profileLoadingRef = useRef(false);
-    const supabaseRef = useRef(createClient());
+function getSupabaseClient() {
+    if (!_supabaseClient) {
+        _supabaseClient = createClient();
+    }
+    return _supabaseClient;
+}
 
-    const supabase = supabaseRef.current;
-    // Note: @supabase/auth-js 패키지의 type declarations가 불완전할 수 있어 any로 캐스팅
+/* ═══════════════════════════════════════════════════════════════
+   Profile 로드 유틸 (모듈 레벨)
+   ═══════════════════════════════════════════════════════════════ */
+async function fetchProfile(userId: string): Promise<Profile | null> {
+    try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+        if (!error && data) {
+            return data as unknown as Profile;
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   모듈 레벨 인증 상태 관리 (External Store 패턴)
+
+   핵심 해결:
+   @supabase/ssr의 createBrowserClient는 INITIAL_SESSION 이벤트를
+   발생시키지 않을 수 있다.
+   
+   따라서:
+   1. getSession()을 즉시 호출하여 초기 세션 확인 (≈ 0 ~ 200ms)
+   2. onAuthStateChange로 이후 변경 사항만 구독 
+   3. AbortError는 gracefully 무시
+   4. 모든 것이 React lifecycle 밖 모듈 레벨에서 실행
+   ═══════════════════════════════════════════════════════════════ */
+
+interface AuthState {
+    user: User | null;
+    session: Session | null;
+    profile: Profile | null;
+    loading: boolean;
+}
+
+let _authState: AuthState = {
+    user: null,
+    session: null,
+    profile: null,
+    loading: true,
+};
+
+const _listeners = new Set<() => void>();
+
+function notifyListeners() {
+    _authState = { ..._authState };
+    _listeners.forEach((l) => l());
+}
+
+function updateAuthState(partial: Partial<AuthState>) {
+    Object.assign(_authState, partial);
+    notifyListeners();
+}
+
+function getAuthSnapshot(): AuthState {
+    return _authState;
+}
+
+function subscribeToAuth(callback: () => void): () => void {
+    _listeners.add(callback);
+    return () => _listeners.delete(callback);
+}
+
+// 모듈 초기화 — 한 번만 실행
+let _moduleInitialized = false;
+
+function initializeAuthModule() {
+    if (_moduleInitialized) return;
+    _moduleInitialized = true;
+
+    if (typeof window === 'undefined') return;
+
+    const supabase = getSupabaseClient();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const auth = supabase.auth as any;
 
-    // Profile 로드 함수 - 중복 호출 방지
-    const loadProfile = useCallback(async (userId: string): Promise<Profile | null> => {
-        if (profileLoadingRef.current) return profile;
-        profileLoadingRef.current = true;
-
-        try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single();
-
-            if (!error && data) {
-                const profileData = data as unknown as Profile;
-                setProfile(profileData);
-                profileLoadingRef.current = false;
-                return profileData;
+    /* ─── 1단계: getSession() 즉시 호출 (핵심) ─── 
+       @supabase/ssr의 createBrowserClient에서는 
+       INITIAL_SESSION 이벤트가 발생하지 않을 수 있음.
+       getSession()은 쿠키에서 세션을 읽고 필요시 refresh.
+       AbortError가 발생하면 세션 없음으로 처리. */
+    auth.getSession()
+        .then(async ({ data: { session: currentSession } }: any) => {
+            if (currentSession?.user) {
+                console.debug('[AuthModule] getSession: has session');
+                updateAuthState({
+                    session: currentSession,
+                    user: currentSession.user,
+                    loading: false,
+                });
+                // 프로필 비동기 로드 (loading은 이미 false)
+                const p = await fetchProfile(currentSession.user.id);
+                if (p) {
+                    updateAuthState({ profile: p });
+                }
+            } else {
+                console.debug('[AuthModule] getSession: no session');
+                updateAuthState({
+                    user: null,
+                    session: null,
+                    profile: null,
+                    loading: false,
+                });
             }
-            profileLoadingRef.current = false;
-            return null;
-        } catch {
-            profileLoadingRef.current = false;
-            return null;
-        }
-    }, [supabase, profile]);
+        })
+        .catch((err: any) => {
+            // AbortError 또는 네트워크 에러 — 세션 없음으로 처리
+            if (err instanceof DOMException && err.name === 'AbortError') {
+                console.debug('[AuthModule] getSession aborted (expected in StrictMode). Retrying...');
+                // StrictMode에서 AbortError가 발생하면
+                // 두 번째 mount에서 initializeAuthModule()이 다시 호출되지 않으므로
+                // 직접 재시도
+                setTimeout(() => {
+                    auth.getSession()
+                        .then(async ({ data: { session: retrySession } }: any) => {
+                            if (retrySession?.user) {
+                                console.debug('[AuthModule] Retry getSession: has session');
+                                updateAuthState({
+                                    session: retrySession,
+                                    user: retrySession.user,
+                                    loading: false,
+                                });
+                                const p = await fetchProfile(retrySession.user.id);
+                                if (p) updateAuthState({ profile: p });
+                            } else {
+                                console.debug('[AuthModule] Retry getSession: no session');
+                                updateAuthState({ loading: false });
+                            }
+                        })
+                        .catch(() => {
+                            console.warn('[AuthModule] Retry getSession also failed. Forcing loading=false.');
+                            updateAuthState({ loading: false });
+                        });
+                }, 100);
+            } else {
+                console.warn('[AuthModule] getSession error:', err);
+                updateAuthState({ loading: false });
+            }
+        });
 
-    // Profile 새로고침
-    const refreshProfile = useCallback(async () => {
-        if (user?.id) {
-            profileLoadingRef.current = false; // 강제 재로드 허용
-            await loadProfile(user.id);
+    /* ─── 2단계: onAuthStateChange로 후속 이벤트 구독 ─── 
+       SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED 등 처리 */
+    auth.onAuthStateChange(async (event: string, newSession: any) => {
+        console.debug(`[AuthModule] Event: ${event}`, newSession ? 'has session' : 'no session');
+
+        // INITIAL_SESSION은 올 수도 있고 안 올 수도 있음
+        // 이미 getSession()으로 처리했으므로, loading이 이미 false면 무시
+        if (event === 'INITIAL_SESSION') {
+            if (_authState.loading) {
+                // 아직 getSession()이 완료되지 않았다면 여기서 처리
+                if (newSession?.user) {
+                    updateAuthState({
+                        session: newSession,
+                        user: newSession.user,
+                        loading: false,
+                    });
+                    const p = await fetchProfile(newSession.user.id);
+                    if (p) updateAuthState({ profile: p });
+                } else {
+                    updateAuthState({ loading: false });
+                }
+            }
+            return;
         }
+
+        if (event === 'SIGNED_OUT') {
+            updateAuthState({
+                session: null,
+                user: null,
+                profile: null,
+            });
+            return;
+        }
+
+        // SIGNED_IN or TOKEN_REFRESHED
+        if (newSession?.user) {
+            updateAuthState({
+                session: newSession,
+                user: newSession.user,
+            });
+
+            if (event !== 'TOKEN_REFRESHED') {
+                const p = await fetchProfile(newSession.user.id);
+                if (p) updateAuthState({ profile: p });
+            }
+        } else {
+            updateAuthState({
+                session: null,
+                user: null,
+                profile: null,
+            });
+        }
+    });
+
+    /* ─── 3단계: 안전 장치 (비상용, 3초) ─── */
+    setTimeout(() => {
+        if (_authState.loading) {
+            console.warn('[AuthModule] Safety timeout (3s). Forcing loading=false.');
+            updateAuthState({ loading: false });
+        }
+    }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   AuthProvider
+   ═══════════════════════════════════════════════════════════════ */
+export function AuthProvider({ children }: { children: ReactNode }) {
+    if (typeof window !== 'undefined') {
+        initializeAuthModule();
+    }
+
+    const authState = useSyncExternalStore(subscribeToAuth, getAuthSnapshot, () => _authState);
+    const { user, session, profile, loading } = authState;
+
+    const profileRequestIdRef = useRef(0);
+
+    const loadProfile = useCallback(async (userId: string): Promise<Profile | null> => {
+        const requestId = ++profileRequestIdRef.current;
+        const profileData = await fetchProfile(userId);
+        if (requestId !== profileRequestIdRef.current) return profileData;
+        if (profileData) updateAuthState({ profile: profileData });
+        return profileData;
+    }, []);
+
+    const refreshProfile = useCallback(async () => {
+        if (user?.id) await loadProfile(user.id);
     }, [user?.id, loadProfile]);
 
-    useEffect(() => {
-        // 이미 초기화된 경우 중복 실행 방지 (React StrictMode / double mount)
-        if (initializedRef.current) return;
-        initializedRef.current = true;
-
-        let mounted = true;
-
-        // 안전 장치: 5초 후에는 강제로 loading 종료 (네트워크 오류 등 대비)
-        const timeout = setTimeout(() => {
-            if (mounted && loading) {
-                console.warn('[AuthContext] Loading timeout reached, forcing loading=false');
-                setLoading(false);
-            }
-        }, 5000);
-
-        // onAuthStateChange가 INITIAL_SESSION을 포함한 모든 이벤트를 처리
-        // 수동 getSession()/getUser() 호출 제거 → AbortError 방지
-        const {
-            data: { subscription },
-        } = auth.onAuthStateChange(async (event: string, newSession: any) => {
-            if (!mounted) return;
-
-            if (event === 'INITIAL_SESSION') {
-                // 초기 세션: null이면 미로그인 → 즉시 loading 종료
-                if (!newSession) {
-                    setLoading(false);
-                    clearTimeout(timeout);
-                    return;
-                }
-                // 세션 존재 → 유저 정보 설정 후 프로필 로드
-                setSession(newSession);
-                setUser(newSession.user);
-                await loadProfile(newSession.user.id);
-                if (mounted) {
-                    setLoading(false);
-                    clearTimeout(timeout);
-                }
-                return;
-            }
-
-            // 이후 이벤트: SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED 등
-            setSession(newSession);
-            setUser(newSession?.user ?? null);
-
-            if (newSession?.user) {
-                profileLoadingRef.current = false; // 상태 변경 시 프로필 재로드 허용
-                await loadProfile(newSession.user.id);
-            } else {
-                setProfile(null);
-            }
-
-            // TOKEN_REFRESHED 이벤트는 loading 상태를 변경하지 않음
-            if (event !== 'TOKEN_REFRESHED') {
-                setLoading(false);
-            }
-        });
-
-        return () => {
-            mounted = false;
-            subscription.unsubscribe();
-            clearTimeout(timeout);
-        };
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
     const signIn = useCallback(async (email: string, password: string) => {
-        const { data, error } = await auth.signInWithPassword({
-            email,
-            password,
-        });
-
-        if (error) {
-            return { error };
-        }
-
-        // 로그인 성공 시 프로필에서 승인 상태 확인
-        if (data.user) {
-            profileLoadingRef.current = false; // 프로필 로드 허용
-            const profileData = await loadProfile(data.user.id);
-            if (profileData) {
-                return { error: null, approvalStatus: profileData.approval_status };
+        const supabase = getSupabaseClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const auth = supabase.auth as any;
+        try {
+            const { data, error } = await auth.signInWithPassword({ email, password });
+            if (error) return { error };
+            if (data.user) {
+                const profileData = await fetchProfile(data.user.id);
+                if (profileData) {
+                    updateAuthState({ profile: profileData });
+                    return { error: null, approvalStatus: profileData.approval_status, role: profileData.role };
+                }
             }
+            return { error: null };
+        } catch (err) {
+            return { error: err };
         }
-
-        return { error: null };
-    }, [auth, loadProfile]);
+    }, []);
 
     const signInWithOAuth = useCallback(async (provider: 'kakao' | 'google' | 'github') => {
-        const { error } = await auth.signInWithOAuth({
-            provider,
-            options: {
-                redirectTo: `${window.location.origin}/auth/callback`,
-            },
-        });
-        return { error };
-    }, [auth]);
+        const supabase = getSupabaseClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const auth = supabase.auth as any;
+        try {
+            const { error } = await auth.signInWithOAuth({
+                provider,
+                options: { redirectTo: `${window.location.origin}/auth/callback` },
+            });
+            return { error };
+        } catch (err) {
+            return { error: err };
+        }
+    }, []);
 
     const signUp = useCallback(async (email: string, password: string, metadata?: any) => {
-        const { data, error } = await auth.signUp({
-            email,
-            password,
-            options: {
-                data: metadata,
-            },
-        });
-        return { error };
-    }, [supabase]);
+        const supabase = getSupabaseClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const auth = supabase.auth as any;
+        try {
+            const { error } = await auth.signUp({ email, password, options: { data: metadata } });
+            return { error };
+        } catch (err) {
+            return { error: err };
+        }
+    }, []);
 
     const signOut = useCallback(async () => {
-        setProfile(null);
-        setUser(null);
-        setSession(null);
-        await auth.signOut();
-    }, [auth]);
+        const supabase = getSupabaseClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const auth = supabase.auth as any;
+        updateAuthState({ profile: null, user: null, session: null });
+        try {
+            await auth.signOut();
+        } catch (err) {
+            console.error('[AuthContext] Sign out error:', err);
+        }
+    }, []);
 
     const resetPassword = useCallback(async (email: string) => {
-        const { data, error } = await auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/auth/update-password`,
-        });
-        return { error };
-    }, [supabase]);
+        const supabase = getSupabaseClient();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const auth = supabase.auth as any;
+        try {
+            const { error } = await auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth/update-password`,
+            });
+            return { error };
+        } catch (err) {
+            return { error: err };
+        }
+    }, []);
 
     const isApproved = profile?.approval_status === 'approved';
     const isPending = profile?.approval_status === 'pending';
     const isRejected = profile?.approval_status === 'rejected';
 
     const value: AuthContextType = {
-        user,
-        session,
-        profile,
-        loading,
-        isApproved,
-        isPending,
-        isRejected,
-        signIn,
-        signInWithOAuth,
-        signUp,
-        signOut,
-        resetPassword,
-        refreshProfile,
-        loadProfile,
+        user, session, profile, loading,
+        isApproved, isPending, isRejected,
+        signIn, signInWithOAuth, signUp, signOut,
+        resetPassword, refreshProfile, loadProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   useAuth Hook
+   ═══════════════════════════════════════════════════════════════ */
 export function useAuth() {
     const context = useContext(AuthContext);
     if (context === undefined) {

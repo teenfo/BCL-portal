@@ -257,17 +257,17 @@ export default function RolesPage() {
                         </div>
                     </div>
                 ) : (
-                    <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+                    <div className="flex gap-8 flex-wrap">
                         {/* Left: Role List */}
-                        <div style={{ flex: '1 1 280px', minWidth: 0 }}>
+                        <div className="flex-1 min-w-0" style={{ flexBasis: '280px' }}>
                             <div className="space-y-3">
                                 {roles.map((role) => {
                                     const levelColor = levelColors[role.name] || '#6B7280';
                                     return (
-                                        <div key={role.id} className="rounded-2xl transition-all hover:scale-[1.01] group"
+                                        <div key={role.id} className={`glass-card rounded-2xl transition-all hover:scale-[1.01] group ${selectedRole?.id === role.id ? 'border-[var(--primary)]/30' : ''}`}
                                             style={selectedRole?.id === role.id
-                                                ? { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,107,0,0.3)' }
-                                                : { background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }
+                                                ? { borderColor: 'rgba(255,107,0,0.3)' }
+                                                : {}
                                             }
                                         >
                                             <button
@@ -283,12 +283,12 @@ export default function RolesPage() {
                                                         <span className="w-3 h-3 rounded-full" style={{ background: levelColor }}></span>
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] mb-3" style={{ color: 'rgba(255,255,255,0.6)' }}>{role.description || '-'}</p>
+                                                <p className="text-[10px] mb-3 text-white/60">{role.description || '-'}</p>
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'rgba(255,255,255,0.3)' }}>
+                                                    <span className="text-[9px] font-black uppercase tracking-widest text-white/30">
                                                         {role.name}
                                                     </span>
-                                                    <span className="text-[9px] font-bold" style={{ color: 'var(--primary)' }}>{role.userCount || 0}명</span>
+                                                    <span className="text-[9px] font-bold text-[var(--primary)]">{role.userCount || 0}명</span>
                                                 </div>
                                             </button>
                                             {/* Action buttons */}
@@ -311,13 +311,13 @@ export default function RolesPage() {
                         </div>
 
                         {/* Right: Permission Matrix */}
-                        <div style={{ flex: '2 1 400px', minWidth: 0 }}>
+                        <div className="min-w-0" style={{ flex: '2 1 400px' }}>
                             {selectedRole ? (
-                                <div className="p-8 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div className="glass-card p-8 rounded-2xl">
                                     <div className="flex items-center justify-between mb-8">
                                         <div>
                                             <h3 className="text-xl font-black text-white uppercase">{selectedRole.display_name}</h3>
-                                            <p className="text-[10px] mt-1" style={{ color: 'rgba(255,255,255,0.4)' }}>{selectedRole.description}</p>
+                                            <p className="text-[10px] mt-1 text-white/40">{selectedRole.description}</p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <button onClick={() => openAssignModal(selectedRole)}
@@ -333,7 +333,7 @@ export default function RolesPage() {
                                     <div className="space-y-6">
                                         {Object.entries(PERMISSION_GROUPS).map(([key, group]) => (
                                             <div key={key}>
-                                                <h4 className="text-[10px] font-black uppercase tracking-widest mb-3" style={{ color: 'rgba(255,255,255,0.3)' }}>{group.label}</h4>
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest mb-3 text-white/30">{group.label}</h4>
                                                 <div className="grid grid-cols-3 gap-3">
                                                     {group.items.map((perm) => {
                                                         const has = hasPermission(selectedRole, key, perm);
@@ -342,21 +342,12 @@ export default function RolesPage() {
                                                                 key={perm}
                                                                 onClick={() => togglePermission(selectedRole.id, key, perm)}
                                                                 disabled={selectedRole.is_system_role}
-                                                                className="p-3 rounded-xl flex items-center gap-3 transition-all disabled:cursor-not-allowed"
-                                                                style={has
-                                                                    ? { background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }
-                                                                    : { background: 'rgba(255,255,255,0.01)', border: '1px solid rgba(255,255,255,0.03)' }
-                                                                }
+                                                                className={`p-3 rounded-xl flex items-center gap-3 transition-all disabled:cursor-not-allowed border ${has ? 'bg-green-500/10 border-green-500/20' : 'bg-white/[0.01] border-white/[0.03]'}`}
                                                             >
-                                                                <span className="w-5 h-5 rounded-md flex items-center justify-center text-[10px]"
-                                                                    style={has
-                                                                        ? { background: 'rgba(34,197,94,0.2)', color: '#4ADE80' }
-                                                                        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.2)' }
-                                                                    }>
+                                                                <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] ${has ? 'bg-green-500/10 text-green-400' : 'bg-white/[0.05] text-white/20'}`}>
                                                                     {has ? '✓' : '✕'}
                                                                 </span>
-                                                                <span className="text-[9px] font-bold uppercase tracking-wider"
-                                                                    style={{ color: has ? '#fff' : 'rgba(255,255,255,0.3)' }}>
+                                                                <span className={`text-[9px] font-bold uppercase tracking-wider ${has ? 'text-white' : 'text-white/30'}`}>
                                                                     {perm}
                                                                 </span>
                                                             </button>
@@ -368,10 +359,9 @@ export default function RolesPage() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-20 rounded-2xl flex flex-col items-center justify-center text-center opacity-40"
-                                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.03)' }}>
+                                <div className="glass-card p-20 rounded-2xl flex flex-col items-center justify-center text-center opacity-40">
                                     <span className="text-4xl mb-4"><IconShield size={40} /></span>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.4em]" style={{ color: 'rgba(255,255,255,0.4)' }}>Select a role to view permissions</p>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/40">Select a role to view permissions</p>
                                 </div>
                             )}
                         </div>

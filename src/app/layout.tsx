@@ -4,11 +4,11 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/components/ui/Toast';
 
 export const metadata: Metadata = {
-    title: 'BCL — Beyond CrossFit Limits | 프리미엄 피트니스',
+    title: 'BCL — Bundang Crossfit Lounge | 프리미엄 피트니스',
     description: 'BCL과 함께 한계를 넘어서세요. 스마트 예약, QR 체크인, 실시간 기록 관리, 레이스 챌린지까지. 크로스핏 전문 피트니스 짐.',
     keywords: ['크로스핏', 'CrossFit', '피트니스', '짐', 'BCL', '운동', 'QR 체크인', '수업 예약'],
     openGraph: {
-        title: 'BCL — Beyond CrossFit Limits',
+        title: 'BCL — Bundang Crossfit Lounge',
         description: '프리미엄 크로스핏 피트니스. 스마트 예약, QR 체크인, 실시간 기록 관리.',
         type: 'website',
         locale: 'ko_KR',

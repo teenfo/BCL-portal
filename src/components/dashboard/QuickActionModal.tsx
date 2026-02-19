@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ModalDefinition, ModalField } from '@/types/widget';
 import { createClient } from '@/lib/supabase/client';
+import AdminModal from '@/components/layout/AdminModal';
 
 interface QuickActionModalProps {
     modal: ModalDefinition;
@@ -167,55 +168,43 @@ export default function QuickActionModal({ modal, isOpen, onClose, onSuccess }: 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-            {/* Modal */}
-            <div className="relative w-full max-w-md animate-scale-in" style={{ animationDuration: '0.3s' }}>
-                <div className="glass-card p-8 border border-white/10 shadow-2xl">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <h2 className="text-xl font-black text-white uppercase tracking-tight">{modal.title}</h2>
-                        <p className="text-[10px] text-white/40 mt-1">{modal.description}</p>
-                    </div>
-
-                    {/* Form */}
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        {modal.fields.map(field => (
-                            <div key={field.name} className="space-y-1.5">
-                                <label className="block text-[9px] font-black text-white/50 uppercase tracking-widest">
-                                    {field.label} {field.required && <span className="text-red-400">*</span>}
-                                </label>
-                                {renderField(field, formData, handleChange, selectOptions, searchQuery, searchResults, handleMemberSearch)}
-                            </div>
-                        ))}
-
-                        {/* Actions */}
-                        <div className="flex gap-3 pt-4">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/50 bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-all"
-                            >
-                                취소
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={submitting}
-                                className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all disabled:opacity-40"
-                                style={{
-                                    background: 'var(--primary)',
-                                    boxShadow: '0 0 20px var(--primary-glow)',
-                                }}
-                            >
-                                {submitting ? '처리 중...' : '확인'}
-                            </button>
-                        </div>
-                    </form>
+        <AdminModal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={modal.title}
+            subtitle={modal.description}
+            size="md"
+            footer={
+                <div className="flex gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/50 bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.06] transition-all"
+                    >
+                        취소
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSubmit as any}
+                        disabled={submitting}
+                        className="admin-action-btn flex-1 disabled:opacity-40"
+                    >
+                        {submitting ? '처리 중...' : '확인'}
+                    </button>
                 </div>
+            }
+        >
+            <div className="space-y-5">
+                {modal.fields.map(field => (
+                    <div key={field.name} className="space-y-1.5">
+                        <label className="block text-[9px] font-black text-white/50 uppercase tracking-widest">
+                            {field.label} {field.required && <span className="text-red-400">*</span>}
+                        </label>
+                        {renderField(field, formData, handleChange, selectOptions, searchQuery, searchResults, handleMemberSearch)}
+                    </div>
+                ))}
             </div>
-        </div>
+        </AdminModal>
     );
 }
 
@@ -231,7 +220,7 @@ function renderField(
     searchResults: Array<{ id: string; label: string }>,
     onMemberSearch: (q: string) => void,
 ) {
-    const baseInputClass = 'w-full py-2.5 px-4 rounded-xl bg-white/[0.03] border border-white/[0.05] text-sm text-white outline-none focus:border-[var(--primary)]/50 transition-all placeholder:text-white/20';
+    const baseInputClass = 'bcl-input';
 
     switch (field.type) {
         case 'text':
