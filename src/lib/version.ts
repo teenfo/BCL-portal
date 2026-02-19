@@ -17,6 +17,33 @@
 export const APP_VERSION = '0.1.0';
 export const BUILD_DATE = '2026-02-19';
 
+export interface ChangelogEntry {
+    version: string;
+    date: string;
+    type: 'major' | 'minor' | 'patch';
+    title: string;
+    changes: string[];
+}
+
+export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: '0.1.0',
+        date: '2026-02-19',
+        type: 'minor',
+        title: 'QR 체크인 시스템 재설계 + 버전 관리',
+        changes: [
+            '🔧 QR 체크인 시스템 전면 재작성 (Priority 16)',
+            '📱 QR 페이로드 JSON 인코딩 (member_id, facility_id, timestamp)',
+            '🏢 키오스크 인증 로직: 타임스탬프 검증, 회원 확인, 중복 방지',
+            '🎓 수업 체크인 자동 감지 (예약 ±30분 이내)',
+            '✅ 성공 화면 체크인 유형별 UI 분기 (수업/시설)',
+            '📐 사용자 앱 헤더 가독성 개선 (배경색/텍스트색 수정)',
+            '🪞 키오스크 카메라 반전 시 오버레이 정상 방향 유지',
+            '🏷️ 버전 관리 시스템 구축 + Admin 사이드바 버전 표시',
+        ],
+    },
+];
+
 export interface VersionInfo {
     version: string;
     buildDate: string;

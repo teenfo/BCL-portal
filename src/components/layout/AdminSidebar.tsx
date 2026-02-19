@@ -7,7 +7,7 @@ import { useAdminSidebar } from '@/contexts/AdminSidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/hooks/useAdminPermissions';
 import Logo from '@/components/ui/Logo';
-import { APP_VERSION, BUILD_DATE } from '@/lib/version';
+import { APP_VERSION, BUILD_DATE, CHANGELOG } from '@/lib/version';
 
 interface MenuItem {
     name: string;
@@ -392,6 +392,134 @@ function SidebarClock({ collapsed }: { collapsed: boolean }) {
     );
 }
 
+// --- Changelog Modal ---
+function ChangelogModal({ onClose }: { onClose: () => void }) {
+    return (
+        <div
+            style={{
+                position: 'fixed', inset: 0, zIndex: 9999,
+                background: 'rgba(0,0,0,0.6)',
+                backdropFilter: 'blur(8px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                padding: '24px',
+            }}
+            onClick={onClose}
+        >
+            <div
+                style={{
+                    background: 'linear-gradient(135deg, rgba(30,30,35,0.98) 0%, rgba(20,20,25,0.98) 100%)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '20px',
+                    width: '100%', maxWidth: '520px',
+                    maxHeight: '80vh',
+                    overflow: 'hidden',
+                    display: 'flex', flexDirection: 'column',
+                    boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div style={{
+                    padding: '24px 28px 16px',
+                    borderBottom: '1px solid rgba(255,255,255,0.06)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                    <div>
+                        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'white', margin: 0, letterSpacing: '-0.02em' }}>
+                            📋 Changelog
+                        </h2>
+                        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>
+                            BCL Portal 업데이트 내역
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        style={{
+                            background: 'rgba(255,255,255,0.06)', border: 'none',
+                            borderRadius: '10px', width: '36px', height: '36px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', color: 'rgba(255,255,255,0.5)',
+                            transition: 'all 0.2s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+                    >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                    </button>
+                </div>
+
+                {/* Changelog entries */}
+                <div style={{ padding: '16px 28px 24px', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
+                    {CHANGELOG.map((entry, idx) => (
+                        <div key={entry.version} style={{
+                            marginBottom: idx < CHANGELOG.length - 1 ? '24px' : 0,
+                            paddingBottom: idx < CHANGELOG.length - 1 ? '24px' : 0,
+                            borderBottom: idx < CHANGELOG.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                        }}>
+                            {/* Version header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                                <span style={{
+                                    padding: '3px 10px',
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 700,
+                                    fontVariantNumeric: 'tabular-nums',
+                                    background: entry.type === 'major' ? 'rgba(239,68,68,0.15)'
+                                        : entry.type === 'minor' ? 'rgba(255,107,0,0.12)'
+                                            : 'rgba(255,255,255,0.06)',
+                                    color: entry.type === 'major' ? '#f87171'
+                                        : entry.type === 'minor' ? '#FF8A3D'
+                                            : 'rgba(255,255,255,0.5)',
+                                    border: `1px solid ${entry.type === 'major' ? 'rgba(239,68,68,0.25)'
+                                        : entry.type === 'minor' ? 'rgba(255,107,0,0.2)'
+                                            : 'rgba(255,255,255,0.08)'}`,
+                                }}>
+                                    v{entry.version}
+                                </span>
+                                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontVariantNumeric: 'tabular-nums' }}>
+                                    {entry.date}
+                                </span>
+                                {idx === 0 && (
+                                    <span style={{
+                                        padding: '2px 8px', borderRadius: '6px',
+                                        fontSize: '10px', fontWeight: 700,
+                                        background: 'rgba(34,197,94,0.12)',
+                                        color: '#4ade80',
+                                        border: '1px solid rgba(34,197,94,0.2)',
+                                        letterSpacing: '0.05em',
+                                    }}>
+                                        LATEST
+                                    </span>
+                                )}
+                            </div>
+                            {/* Title */}
+                            <div style={{ fontSize: '14px', fontWeight: 600, color: 'white', marginBottom: '10px' }}>
+                                {entry.title}
+                            </div>
+                            {/* Changes */}
+                            <ul style={{ margin: 0, paddingLeft: '4px', listStyle: 'none' }}>
+                                {entry.changes.map((change, ci) => (
+                                    <li key={ci} style={{
+                                        fontSize: '13px',
+                                        color: 'rgba(255,255,255,0.55)',
+                                        lineHeight: 1.6,
+                                        paddingLeft: '8px',
+                                    }}>
+                                        {change}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function AdminSidebar() {
     const pathname = usePathname();
     const router = useRouter();
@@ -399,6 +527,7 @@ export default function AdminSidebar() {
     const { user, profile, signOut } = useAuth();
     const { canAccessMenu, loading: permLoading } = useAdminPermissions();
     const [isMounted, setIsMounted] = useState(false);
+    const [showChangelog, setShowChangelog] = useState(false);
     const isDev = process.env.NEXT_PUBLIC_SUPABASE_ENV === 'dev';
 
     useEffect(() => {
@@ -540,8 +669,9 @@ export default function AdminSidebar() {
                 </div>
             )}
 
-            {/* Version Badge */}
+            {/* Version Badge (clickable → Changelog) */}
             <div
+                onClick={() => setShowChangelog(true)}
                 style={{
                     margin: collapsed ? '0 8px 4px' : '0 12px 4px',
                     padding: collapsed ? '6px 0' : '6px 12px',
@@ -549,19 +679,28 @@ export default function AdminSidebar() {
                     alignItems: 'center',
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     gap: '6px',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    transition: 'background 0.2s',
                 }}
-                title={collapsed ? `v${APP_VERSION} (${BUILD_DATE})` : undefined}
+                title={collapsed ? `v${APP_VERSION} (${BUILD_DATE}) — 클릭하여 변경 내역 보기` : '변경 내역 보기'}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
             >
                 <span style={{
                     fontSize: '10px',
                     fontWeight: 600,
-                    color: 'rgba(255,255,255,0.2)',
+                    color: 'rgba(255,255,255,0.25)',
                     letterSpacing: '0.05em',
                     fontVariantNumeric: 'tabular-nums',
+                    transition: 'color 0.2s',
                 }}>
                     {collapsed ? `v${APP_VERSION}` : `v${APP_VERSION} · ${BUILD_DATE}`}
                 </span>
             </div>
+
+            {/* Changelog Modal */}
+            {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
 
             {/* Footer / User Profile */}
             <div className="admin-sidebar__footer">

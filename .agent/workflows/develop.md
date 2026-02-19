@@ -1,10 +1,14 @@
 ---
-description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개발을 진행하는 표준 실행 워크플로우입니다.
+description: 블루프린트의 Priority 항목을 선택하여 배정된 전체 Phase를 일괄 개발하는 표준 실행 워크플로우입니다.
 ---
 
 # Development Execution Workflow
 
-이 워크플로우는 `.docs/project-blueprint.md`에 등록된 **Priority 항목**을 선택하여, Phase별로 에이전트를 배분해 개발을 진행하고, 완료 후 문서를 동기화하고 커밋하는 **E2E 개발 실행 절차**입니다.
+이 워크플로우는 `.docs/project-blueprint.md`에 등록된 **Priority 항목**을 선택하여, **해당 Priority에 배정된 모든 Phase를 일괄 개발**하고, 완료 후 문서 동기화 + 버전 갱신 + 커밋하는 **E2E 개발 실행 절차**입니다.
+
+> 🚨 **핵심 규칙**: `/develop`는 **Priority 단위**로 실행합니다.
+> - 선택된 Priority의 **모든 Phase를 한 세션에서 연속 개발**합니다.
+> - Phase를 일부만 선택하여 실행하지 않습니다.
 
 > 📌 **선행 워크플로우**:
 > - `/plan-to-blueprint` — 기획 문서가 블루프린트에 등록되어 있어야 합니다.
@@ -16,11 +20,11 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 
 | 단계 | 담당 에이전트 | 모델 | 핵심 역할 |
 |:-----|:------------|:-----|:---------|
-| 1. 작업 선택 & 분석 | **Architect** | Opus 4.6 (Thinking) | Priority 항목 확인, 의존성 분석, 작업 범위 확정 |
+| 1. 작업 선택 & 분석 | **Architect** | Opus 4.6 (Thinking) | Priority 항목 확인, 의존성 분석 |
 | 2. 개발 환경 확인 | **Developer** | Sonnet 4.6 | 빌드 상태, 브랜치, 종속성 확인 |
-| 3. Phase 실행 | **Phase별 담당** | Phase별 상이 | 실제 코드 구현 |
-| 4. Phase 검증 | **Developer** | Sonnet 4.6 | 빌드 테스트, 기본 기능 회귀 |
-| 5. 문서 동기화 | **Developer** | Sonnet 4.6 | sitemap, blueprint 갱신 |
+| 3. 전체 Phase 일괄 실행 | **Phase별 담당** | Phase별 상이 | 모든 Phase 연속 코드 구현 |
+| 4. 검증 | **Developer** | Sonnet 4.6 | 빌드 테스트, 기본 기능 회귀 |
+| 5. 문서 동기화 + 버전 갱신 | **Developer** | Sonnet 4.6 | sitemap, blueprint, version.ts 갱신 |
 | 6. 최종 검토 & 커밋 | **Architect** | Opus 4.6 (Thinking) | 아키텍처 일관성 확인, 커밋 승인 |
 
 ---
@@ -30,7 +34,7 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 ### 1️⃣ 작업 선택 & 분석
 **담당**: 🏛️ **Architect (Opus 4.6 Thinking)**
 
-블루프린트에서 개발할 Priority 항목을 확인하고 작업 범위를 확정합니다.
+블루프린트에서 개발할 Priority 항목을 확인합니다.
 
 **Architect가 수행할 것**:
 
@@ -51,7 +55,7 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
    - 기존 구현 코드에 영향을 미치는 범위 분석
 
 5. **작업 범위 확정**:
-   - 이번 세션에서 진행할 Phase 범위 결정 (전체 또는 일부)
+   - 선택된 Priority의 **모든 Phase를 일괄 실행**
    - 각 Phase의 담당 에이전트 확인 (블루프린트에 이미 명시됨)
 
 **출력**:
@@ -61,10 +65,12 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
   Priority: {N} - {기능명}
   기획서: .docs/archive/planning/{파일명}.md
   상태: 개발 대기 → 개발 진행 중
+  실행 범위: 전체 Phase 일괄 개발
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  이번 세션 진행 Phase:
-    - Phase {N}: {작업명} → {담당 에이전트}
-    - Phase {M}: {작업명} → {담당 에이전트}
+  Phase 목록 (전체 실행):
+    - Phase 1: {작업명} → {담당 에이전트}
+    - Phase 2: {작업명} → {담당 에이전트}
+    - Phase N: {작업명} → {담당 에이전트}
   의존성: {있음/없음}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -104,8 +110,11 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 
 ---
 
-### 3️⃣ Phase별 개발 실행
+### 3️⃣ 전체 Phase 일괄 개발 실행
 **담당**: **블루프린트에 명시된 Phase별 에이전트**
+
+> 🚨 **Priority의 모든 Phase를 순서대로 연속 개발합니다.**
+> Phase를 나누어 별도 세션으로 분리하지 않습니다.
 
 각 Phase를 순서대로 실행합니다. Phase별 담당 에이전트는 블루프린트에 이미 정의되어 있습니다.
 
@@ -151,17 +160,17 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 각 Phase 완료 시:
 - [ ] 해당 Phase의 모든 세부 작업(`- [ ]`) 완료
 - [ ] 블루프린트의 해당 Phase 체크박스 `[x]` 처리
-- [ ] 중간 빌드 확인 (`npm run build`)
+- [ ] 다음 Phase로 즉시 진행
 
-> 💡 **Phase 간 핸드오프**: Phase 완료 시 다음 Phase 에이전트에게 충분한 컨텍스트를 제공합니다.
-> 예: "Phase 1에서 coaches 테이블에 `linked_at`, `linked_by` 컬럼을 추가했습니다. Phase 2에서 이 필드를 UI에 반영해주세요."
+> 💡 **빌드 확인은 전체 Phase 완료 후 1회** 실행합니다 (Step 4).
+> 단, 빌드 에러가 우려되는 대규모 변경 시 중간 확인 가능.
 
 ---
 
-### 4️⃣ Phase 검증 & 감사 (`/audit` 통합)
+### 4️⃣ 검증 & 감사
 **담당**: 💻 **Developer (Sonnet 4.6)** & 🏛️ **Architect (Opus 4.6)**
 
-각 Phase 완료 또는 전체 개발 완료 후 품질을 검증합니다. 단순한 빌드 테스트를 넘어 기획 준수 여부와 UI 표준을 상세히 검사합니다.
+**모든 Phase 완료 후** 품질을 검증합니다.
 
 **수행 절차**:
 
@@ -189,16 +198,16 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 
 ---
 
-### 5️⃣ 문서 동기화 (`/sync-docs` 내장)
+### 5️⃣ 문서 동기화 + 버전 갱신
 **담당**: 💻 **Developer (Sonnet 4.6)**
 
-개발 완료 후 코드와 문서의 일관성을 맞춥니다.
+개발 완료 후 코드와 문서의 일관성을 맞추고, 버전을 갱신합니다.
 
 **Developer가 수행할 것**:
 
 1. **Blueprint 갱신** (`.docs/project-blueprint.md`):
-   - 완료된 Phase 체크박스 `[x]` 처리
-   - 모든 Phase 완료 시: `(개발 진행 중)` → 완료된 항목으로 분류
+   - 완료된 Phase 체크박스 전부 `[x]` 처리
+   - Priority 상태: `(개발 진행 중)` → `✅ (완료)`로 분류
    - Active Context 섹션의 Current Focus 업데이트
 
 2. **Sitemap 갱신** (`.docs/sitemap/**/*.md`):
@@ -207,12 +216,19 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 
 3. **Complete 파일 기록** (`.docs/archive/complete/project-complete-YYYYMMDD.md`):
    - 오늘 날짜 파일에 완료 세션 내역 추가
-   - 블루프린트에서 완료된 `[x]` 항목 이동
+
+4. **버전 갱신** (필수):
+   - `src/lib/version.ts`의 `APP_VERSION` 값 갱신
+     - `/develop` Priority 완료 → **MINOR +1** (예: 0.1.0 → 0.2.0)
+     - 핫픽스/버그 수정만 → **PATCH +1** (예: 0.1.0 → 0.1.1)
+   - `src/lib/version.ts`의 `BUILD_DATE` 값을 오늘 날짜로 갱신
+   - `package.json`의 `version` 필드도 동일하게 갱신
 
 **확인**:
-- [ ] Blueprint의 Phase 체크박스 갱신 완료
+- [ ] Blueprint의 모든 Phase 체크박스 `[x]` 갱신 완료
 - [ ] Sitemap 동기화 완료
 - [ ] Complete 파일 기록 완료
+- [ ] 버전 갱신 완료 (version.ts + package.json)
 - [ ] 코드와 문서 간 불일치 없음
 
 ---
@@ -232,13 +248,18 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
    - Next Steps에 남은 작업이 명확히 기록되었는지 확인
    - 담당 에이전트 배분이 적절한지 확인
 
-3. **최종 빌드 확인**:
+3. **버전 확인**:
+   - `src/lib/version.ts`의 버전이 올바르게 갱신되었는지 확인
+   - `package.json`의 버전과 일치하는지 확인
+
+4. **최종 빌드 확인**:
    ```bash
    npm run build
    ```
 
-4. **커밋 승인 및 실행**:
+5. **커밋 승인 및 실행**:
    - `commit-bot` 스킬을 사용하여 커밋
+   - 커밋 메시지에 버전 번호 포함 (예: `feat(v0.2.0): Priority 13 배지 시스템 고도화`)
    - GitHub Action 확인 후 에러 시 수정
 
 ---
@@ -257,9 +278,9 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
    - Next Steps에 이어서 해야 할 작업 명시
    - 다음 작업자를 위한 핸드오프 메모
 
-3. **중간 커밋** (선택):
-   - 빌드가 정상인 경우에만 중간 커밋 실행
+3. **중간 커밋** (빌드 정상인 경우에만):
    - 커밋 메시지에 `WIP:` 접두사 사용
+   - 이 경우 버전은 갱신하지 않음 (완료 시에만 갱신)
 
 ---
 
@@ -279,20 +300,14 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 │     ↓                                                    │
 │  2️⃣ Developer: 개발 환경 확인                             │
 │     ↓                                                    │
-│  3️⃣ Phase별 에이전트: 개발 실행                            │
-│     ↓ (Phase 완료마다 반복)                                │
-│  4️⃣ Developer: Phase 검증                                │
+│  3️⃣ Phase별 에이전트: 전체 Phase 일괄 개발                  │
+│     ↓ (모든 Phase 연속 실행)                               │
+│  4️⃣ Developer: 검증 & 감사                               │
 │     ↓                                                    │
-│  5️⃣ Developer: 문서 동기화                                │
+│  5️⃣ Developer: 문서 동기화 + 버전 갱신                     │
 │     ↓                                                    │
 │  6️⃣ Architect: 최종 검토 & 커밋                           │
 │                                                          │
-└──────────────────────────────────────────────────────────┘
-               │
-               ▼
-┌──────────────────────────────────────────────────────────┐
-│  /update-context (자동 내장 — Step 5/6에서 수행)           │
-│  블루프린트 Active Context 갱신                            │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -301,10 +316,11 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 ## ✅ 전체 체크리스트
 
 ### 🏛️ Architect (Opus) — 시작 & 종료
-- [ ] 개발 대상 Priority 확인 및 작업 범위 확정
+- [ ] 개발 대상 Priority 확인
 - [ ] 의존성 분석 완료
 - [ ] 블루프린트 상태 → `(개발 진행 중)` 갱신
 - [ ] 최종 아키텍처 일관성 확인
+- [ ] 버전 확인 (version.ts + package.json 일치)
 - [ ] 문서 완전성 확인
 - [ ] 커밋 승인 완료
 
@@ -325,8 +341,9 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 - [ ] 기본 기능 회귀 테스트 통과
 - [ ] 코드 품질 검증 통과
 - [ ] Sitemap 동기화 완료
-- [ ] Blueprint 체크박스 갱신 완료
+- [ ] Blueprint 모든 Phase 체크박스 `[x]` 갱신 완료
 - [ ] Complete 파일 기록 완료
+- [ ] 버전 갱신 완료 (version.ts + package.json)
 
 ### ⚡ Specialist (Gemini) — 실시간/성능 Phase (해당 시)
 - [ ] 실시간 기능 구현 완료
@@ -341,7 +358,7 @@ description: 블루프린트의 Priority 항목을 선택하여 Phase별로 개�
 - `/add-page` — 새 화면 추가 상세 절차
 - `/sync-docs` — 코드-문서 정합성 동기화
 - `/update-context` — 세션 종료 시 컨텍스트 기록
-- `.antigravity/workflows/feature-workflow.md` — Feature 유형별 워크플로우 참조
+- `src/lib/version.ts` — 버전 관리 SSOT
 - `.agent/skills/commit-bot/SKILL.md` — 커밋 자동화
 - `.agent/skills/db-migration/SKILL.md` — DB 마이그레이션
 - `.agent/skills/ui-gen/SKILL.md` — Glassmorphism UI 생성
