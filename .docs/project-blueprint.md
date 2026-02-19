@@ -231,6 +231,34 @@
     - [ ] 인덱스 추가 (자주 조회되는 컬럼)
     - [ ] 대량 데이터 페이지네이션 적용
 
+#### 🔴 Priority 16: QR 체크인 시스템 재설계 (개발 대기)
+  > **기획서**: `.docs/archive/planning/checkin-qr-system.md`
+  > **문제**: QR 생성(랜덤 토큰)과 인증(JSON/DB 조회) 로직 불일치로 체크인 항상 실패
+  > **방안**: QR 페이로드에 member_id JSON 인코딩 + 수업 예약 자동 감지 체크인 분기
+
+  - [ ] Phase 1: QR 생성 로직 수정 (앱) → ⚡ **Specialist (Gemini)**
+    - [ ] 회원 member_id 조회 (auth.getUser → members)
+    - [ ] facility_id 결정 로직
+    - [ ] QR 페이로드 JSON 포맷 적용
+    - [ ] 5분 타이머 + ts 갱신 연동
+  - [ ] Phase 2: QR 인증 로직 수정 (키오스크) → ⚡ **Specialist (Gemini)**
+    - [ ] JSON 파싱 + 타임스탬프 검증
+    - [ ] members 테이블 회원 존재 확인
+    - [ ] bookings/sessions 수업 예약 자동 확인
+    - [ ] 체크인 유형 분기 (시설/수업)
+    - [ ] 중복 체크인 방지
+    - [ ] 성공 화면 데이터 전달
+  - [ ] Phase 3: 성공 화면 개선 (키오스크) → ⚡ **Specialist (Gemini)**
+    - [ ] 체크인 유형별 UI 분기
+    - [ ] 회원 이름 + 수업 정보 표시
+    - [ ] 자동 복귀 타이머
+  - [ ] Phase 4: RLS 정책 확인 및 보완 → 💎 **Senior Dev (Opus)**
+    - [ ] 키오스크 인증 방식 결정
+    - [ ] RLS 정책 확인 및 보완
+  - [ ] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)**
+    - [ ] sitemap 갱신
+    - [ ] blueprint 반영
+
 ---
 
 ### Known Issues (Active)
@@ -238,6 +266,7 @@
 - ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
 - 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
 - 🔴 **배지 시스템 하드코딩** (ACTIVE): `badges/page.tsx`의 BADGE_DEFINITIONS 상수 배열, earnedDate 부정확, WOD/PR 카운트 로직 오류 → [기획서](./archive/planning/badge-system.md)
+- 🔴 **QR 체크인 시스템 미동작** (ACTIVE): QR 생성/인증 로직 불일치로 키오스크 체크인 항상 실패 → [기획서](./archive/planning/checkin-qr-system.md)
 
 ### 참고 문서
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`
