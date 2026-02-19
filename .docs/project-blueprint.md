@@ -173,6 +173,41 @@
   - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (Opus)**
     - [ ] sitemap + database-reference + blueprint 갱신
 
+#### 🟠 Priority 14: 알림 시스템 실 가동 QA (개발 대기)
+  > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
+  > **문제**: 알림 시스템 코드 완료 상태이나 pg_cron, DB 트리거, Web Push, 외부 채널(카카오/SMS) 실 발송 검증 미완료
+  > **방안**: 각 채널별 단계적 실 발송 테스트 → 운영 환경 적용
+
+  - [ ] Phase 1: pg_cron 작동 확인 → 💻 **Developer (Sonnet)**
+    - [ ] `class-reminder-every-10min` 크론 실행 이력 확인
+    - [ ] `membership-expiry-daily-9am` 크론 실행 이력 확인
+    - [ ] 테스트 수업 데이터 생성 후 자동 알림 생성 확인
+  - [ ] Phase 2: DB 트리거 테스트 → 💻 **Developer (Sonnet)**
+    - [ ] 빈자리 알림 트리거 (예약 취소 → 대기열 알림)
+    - [ ] 체크인 완료 알림 트리거 (격려 메시지 자동 생성)
+  - [ ] Phase 3: Web Push 실제 발송 → ⚡ **Specialist (Gemini)**
+    - [ ] Android/Desktop 브라우저 Push 수신 확인
+    - [ ] iOS PWA Push 수신 확인
+  - [ ] Phase 4: 외부 채널 연동 → 💎 **Senior Dev (Opus)**
+    - [ ] 카카오 비즈메시지 API 키 발급 + 템플릿 승인
+    - [ ] SMS 서비스(알리고/네이버 SENS) API 연동
+    - [ ] Edge Function 실제 API 교체 + 재배포
+
+#### 🟢 Priority 15: 성능 최적화 (개발 대기)
+  > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
+  > **방안**: 이미지 최적화 → 코드 스플리팅 → 쿼리 최적화 순으로 진행
+
+  - [ ] Phase 1: 이미지 최적화 → 🎨 **UI Developer (Gemini)**
+    - [ ] Next.js Image 컴포넌트 적용
+    - [ ] 코치 프로필 이미지 WebP 변환 + Lazy Loading
+  - [ ] Phase 2: 코드 스플리팅 → 💻 **Developer (Sonnet)**
+    - [ ] `next/dynamic` 동적 로딩 적용
+    - [ ] 불필요 라이브러리 제거 + Bundle Analyzer 실행
+  - [ ] Phase 3: Supabase 쿼리 최적화 → 💎 **Senior Dev (Opus)**
+    - [ ] N+1 쿼리 해결 (JOIN 최적화)
+    - [ ] 인덱스 추가 (자주 조회되는 컬럼)
+    - [ ] 대량 데이터 페이지네이션 적용
+
 ---
 
 ### Known Issues (Active)
@@ -185,6 +220,9 @@
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`
 - **구현 완성도 감사 (Gemini)**: `.docs/audit/gemini/20260218151644_implementation_audit.md`
 - **구현 완성도 감사 (GPT)**: `.docs/audit/gpt/IMPLEMENTATION_COMPLETENESS_AUDIT_2026-02-18_15-17-30.md`
+- **Admin 프로덕션 감사**: `.docs/archive/result/admin-production-readiness-audit.md`
+- **User App 감사**: `.docs/archive/result/user-app-production-audit.md`
+- **DB 스키마 감사**: `.docs/archive/result/DATABASE_SCHEMA_AUDIT_2026-02-17.md`
 - **Sitemap SSOT**: `.docs/sitemap/README.md`
 - **DB 스키마 참조**: `.docs/database-reference.md`
 
