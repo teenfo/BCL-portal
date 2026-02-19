@@ -14,7 +14,7 @@
  *   - 정식 출시 시 MAJOR를 1로 전환
  */
 
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 export const BUILD_DATE = '2026-02-19';
 
 export interface ChangelogEntry {
@@ -31,6 +31,26 @@ export interface ChangelogEntry {
 export const GITHUB_REPO_URL = 'https://github.com/teenfo/BCL-portal';
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: '0.2.0',
+        date: '2026-02-19',
+        type: 'minor',
+        priority: 13,
+        planningDoc: 'badge-system.md',
+        title: '배지 시스템 고도화 (DB 기반 전환)',
+        changes: [
+            '🗄️ badge_definitions + badge_awards 테이블 신규 생성',
+            '🔒 RLS 정책 8개 적용 (Admin CRUD, User 본인 조회)',
+            '⚙️ fn_calculate_badge_progress RPC — 10개 metric_type 지원',
+            '🤖 DB Trigger 4개 — 체크인/피드백/레이스/결제 시 자동 배지 평가',
+            '🛡️ fn_evaluate_badges — 미달성 배지 자동 수여',
+            '📊 fn_get_my_badges — 단일 RPC로 배지+진행도 조회',
+            '🏅 초기 데이터 21개 배지 등록 (기존 15 → 확장)',
+            '🖥️ Admin 배지 관리 화면 (/admin/operations/badges)',
+            '📱 User 배지 화면 리팩토링 — 하드코딩 제거, RPC 전환',
+            '🐛 Bug Fix: WOD/PR 카운트 오류 4건 해결',
+        ],
+    },
     {
         version: '0.1.0',
         date: '2026-02-19',

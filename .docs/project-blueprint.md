@@ -63,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 16: QR 체크인 시스템 재설계 — ✅ 전 Phase 완료**
+- **Current Focus**: **Priority 13: 배지 시스템 고도화 — ✅ 전 Phase 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 16 Phase 1~5 전체 완료 — QR 페이로드 JSON 인코딩, 키오스크 인증 로직 전면 재작성 (타임스탬프 검증, 회원 확인, 수업 예약 자동 감지, 중복 방지), 성공 화면 체크인 유형별 UI 분기
+- **Last Action**: Priority 13 전체 Phase 완료 — badge_definitions/badge_awards 테이블 생성, RLS 8개, RPC 3개, Trigger 4개, Admin CRUD, User 화면 리팩토링
 
 ---
 
@@ -175,26 +175,26 @@
     - [x] project-blueprint.md 갱신 (Phase 4~7 완료 처리) ✅
     - [x] Active Context 업데이트 ✅
 
-#### 🟠 Priority 13: 배지 시스템 고도화 (개발 대기)
+#### ✅ Priority 13: 배지 시스템 고도화 (완료)
   > **기획서**: `.docs/archive/planning/badge-system.md`
   > **문제**: 배지 15개가 코드 하드코딩(BADGE_DEFINITIONS), 달성 기록 미저장(earnedDate 항상 now()), WOD/PR 카운트 로직 버그 4건, Admin 관리 화면 없음
   > **방안**: badge_definitions + badge_awards 테이블 신규 → DB Trigger 4개 + RPC 3개로 자동 달성 판정 → Admin CRUD 화면 → User 화면 리팩토링
 
-  - [ ] Phase 1: DB 스키마 + RPC + Trigger → 💎 **Senior Dev (Opus)**
-    - [ ] badge_definitions, badge_awards 테이블 생성
-    - [ ] RLS 정책 적용 (8개)
-    - [ ] fn_calculate_badge_progress (11 metric_type), fn_evaluate_badges, fn_get_my_badges 생성
-    - [ ] Trigger 4개 생성 (checkins, session_feedback, race_records, transactions)
-    - [ ] 총 23개 배지 초기 데이터 INSERT
-  - [ ] Phase 2: Admin 배지 관리 화면 → 🎨 **UI Developer (Gemini)**
-    - [ ] /admin/operations/badges CRUD 화면
-    - [ ] BadgeFormModal (추가/수정)
-    - [ ] Sidebar 메뉴 추가
-  - [ ] Phase 3: User 배지 화면 리팩토링 → 💻 **Developer (Sonnet)**
-    - [ ] 하드코딩 제거, RPC 호출 전환
-    - [ ] 기존 UI 유지하며 데이터 소스만 교체
-  - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap + database-reference + blueprint 갱신
+  - [x] Phase 1: DB 스키마 + RPC + Trigger → 💎 **Senior Dev (Opus)** ✅
+    - [x] badge_definitions, badge_awards 테이블 생성
+    - [x] RLS 정책 적용 (8개)
+    - [x] fn_calculate_badge_progress (10 metric_type), fn_evaluate_badges, fn_get_my_badges 생성
+    - [x] Trigger 4개 생성 (checkins, session_feedback, race_records, transactions)
+    - [x] 총 21개 배지 초기 데이터 INSERT
+  - [x] Phase 2: Admin 배지 관리 화면 → 🎨 **UI Developer (Gemini)** ✅
+    - [x] /admin/operations/badges CRUD 화면
+    - [x] BadgeFormModal (추가/수정)
+    - [x] Sidebar 메뉴 추가
+  - [x] Phase 3: User 배지 화면 리팩토링 → 💻 **Developer (Sonnet)** ✅
+    - [x] 하드코딩 제거, RPC 호출 전환
+    - [x] 기존 UI 유지하며 데이터 소스만 교체
+  - [x] Phase 4: 문서 동기화 → 🏩 **Architect (Opus)** ✅
+    - [x] sitemap + database-reference + blueprint 갱신
 
 #### 🟠 Priority 14: 알림 시스템 실 가동 QA (개발 대기)
   > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
@@ -265,7 +265,7 @@
 - ✅ ~~**Check-in QR 비표준 렌더링** (RESOLVED): `qrcode.react` QRCodeSVG로 교체 완료. ISO/IEC 18004 규격 QR 코드 생성, 키오스크 스캐너 인식 가능.~~
 - ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
 - 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
-- 🔴 **배지 시스템 하드코딩** (ACTIVE): `badges/page.tsx`의 BADGE_DEFINITIONS 상수 배열, earnedDate 부정확, WOD/PR 카운트 로직 오류 → [기획서](./archive/planning/badge-system.md)
+- ✅ ~~**배지 시스템 하드코딩** (RESOLVED): badge_definitions + badge_awards DB 테이블로 이관 완료. WOD/PR 카운트 버그 4건 해결, Admin CRUD + User RPC 전환 완료.~~
 - ✅ ~~**QR 체크인 시스템 미동작** (RESOLVED): QR 페이로드 JSON 인코딩 + 키오스크 인증 전면 재작성 완료. 타임스탬프 검증, 회원 확인, 수업 예약 자동 감지, 중복 체크인 방지 구현.~~
 
 ### 참고 문서

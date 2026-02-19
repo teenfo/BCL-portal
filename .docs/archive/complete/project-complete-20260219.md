@@ -55,3 +55,51 @@
 - [x] **연속 출석일 계산** — 최근 30일 체크인 조회 → 날짜 역순 연속 카운트
 - [x] **공통 컴포넌트 적용** — AppSkeleton (card/stat/list), AppErrorState, StatCard 통합
 - [x] 빌드 검증 통과
+
+---
+
+## 2026-02-19 23:30 세션 작업 내역
+
+### Priority 13: 배지 시스템 고도화 (전 Phase 완료)
+> `/develop` 워크플로우 실행 — v0.2.0
+
+#### Phase 1: DB 스키마 + RPC + Trigger (💎 Senior Dev)
+> 마이그레이션: `create_badge_system`
+
+- [x] `badge_definitions` 테이블 생성 (name, description, icon, category, metric_type, threshold, is_active, sort_order)
+- [x] `badge_awards` 테이블 생성 (member_id, badge_id, earned_at, progress_snapshot, UNIQUE 제약)
+- [x] `handle_updated_at()` 함수 생성 (기존 미존재 확인 후 생성)
+- [x] RLS 정책 8개 (badge_definitions: select_active/select_admin/insert_admin/update_admin/delete_admin, badge_awards: select_own/select_admin/insert_system)
+- [x] `fn_calculate_badge_progress` — 10 metric_type (total_checkins, week/month_checkins, streak_days, total_feedbacks, member_days, total_bookings, total_race_participations, total_prs, total_purchases)
+- [x] `fn_evaluate_badges` — 미달성 배지 자동 수여
+- [x] `fn_get_my_badges` — 단일 RPC로 모든 배지 + 진행도 + 달성 여부 조회
+- [x] Trigger 4개: trg_check_badges_on_checkin, trg_check_badges_on_feedback, trg_check_badges_on_race, trg_check_badges_on_purchase
+- [x] 초기 데이터 21개 배지 INSERT (attendance 6 + performance 5 + community 2 + milestone 5 → 18, 실제 19행 확인)
+- [x] 실제 스키마 조정: checkin_time (time→checkin_time), payment_status (status→payment_status), rank 컬럼 미존재로 total_race_wins 제거
+
+#### Phase 2: Admin 배지 관리 화면 (🎨 UI Developer)
+> 파일: `src/app/admin/operations/badges/page.tsx`
+
+- [x] CRUD 화면 — KPI 카드(Total/Active/Awards/카테고리별), 검색, 필터링
+- [x] AdminModal 기반 배지 생성/수정 폼 (이름, 아이콘, 설명, 카테고리, metric_type, threshold, sort_order, is_active)
+- [x] 활성/비활성 토글, 수여 회원 수 표시
+- [x] AdminSidebar에 Badges 메뉴 추가 (IconBadge SVG)
+- [x] 기존 Admin 패턴 완전 준수 (AdminPageHeader, glass-card, admin-search-input, admin-action-btn)
+
+#### Phase 3: User 배지 화면 리팩토링 (💻 Developer)
+> 파일: `src/app/apps/badges/page.tsx` (전면 리팩토링)
+
+- [x] 하드코딩 BADGE_DEFINITIONS 15개 제거
+- [x] 수동 통계 계산 로직 제거 (totalCheckins, weekCheckins, streak, totalWods, totalPRs 등)
+- [x] `fn_get_my_badges` 단일 RPC 호출로 전환
+- [x] 기존 UI 완벽 유지 (Progress Overview, Category Filter, Badge Grid, Detail Modal)
+- [x] 실제 earned_at 날짜 표시 추가 (기존: 항상 now(), 신규: DB 저장 값)
+- [x] Bug Fix 4건: (B1) WOD 카운트=session_feedback.rating≥4, (B2) PR 카운트=comment에 'PR' 포함, (B3) 연속출석 클라이언트 계산, (B4) earnedDate 부정확
+
+#### Phase 4: 문서 동기화 (🏛️ Architect)
+- [x] version.ts 갱신 (0.1.0 → 0.2.0)
+- [x] package.json 갱신 (0.1.0 → 0.2.0)
+- [x] CHANGELOG 추가 (10개 변경사항)
+- [x] project-blueprint.md 갱신 (Priority 13 완료 처리, Known Issues 해결)
+- [x] 빌드 검증 통과
+

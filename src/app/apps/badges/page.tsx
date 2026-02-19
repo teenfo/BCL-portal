@@ -3,41 +3,20 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
+// ─── Types (DB RPC 반환 타입) ────────────────────────────
 interface Badge {
-    id: string;
+    badge_id: string;
     name: string;
     description: string;
     icon: string;
     category: 'attendance' | 'performance' | 'community' | 'milestone';
+    metric_type: string;
     threshold: number;
+    sort_order: number;
     earned: boolean;
-    earnedDate?: string;
+    earned_at: string | null;
     progress: number;
 }
-
-const BADGE_DEFINITIONS: Omit<Badge, 'earned' | 'earnedDate' | 'progress'>[] = [
-    // Attendance
-    { id: 'first_checkin', name: '첫 발걸음', description: '첫 체크인을 완료하세요', icon: '🎯', category: 'attendance', threshold: 1 },
-    { id: 'week_warrior', name: '주간 전사', description: '일주일에 5회 출석', icon: '⚡', category: 'attendance', threshold: 5 },
-    { id: 'month_master', name: '월간 마스터', description: '한 달에 20회 출석', icon: '🔥', category: 'attendance', threshold: 20 },
-    { id: 'streak_7', name: '7일 연속', description: '7일 연속 출석', icon: '💫', category: 'attendance', threshold: 7 },
-    { id: 'streak_30', name: '30일 연속', description: '30일 연속 출석', icon: '🌟', category: 'attendance', threshold: 30 },
-    { id: 'centurion', name: '100회 출석', description: '총 100회 출석 달성', icon: '💯', category: 'attendance', threshold: 100 },
-
-    // Performance
-    { id: 'first_wod', name: '첫 WOD', description: '첫 WOD 기록 완료', icon: '🏋️', category: 'performance', threshold: 1 },
-    { id: 'pr_hunter', name: 'PR 헌터', description: 'PR 5회 달성', icon: '🏆', category: 'performance', threshold: 5 },
-    { id: 'wod_master', name: 'WOD 마스터', description: 'WOD 50회 기록', icon: '💪', category: 'performance', threshold: 50 },
-
-    // Community
-    { id: 'first_feedback', name: '첫 피드백', description: '첫 수업 피드백 작성', icon: '📝', category: 'community', threshold: 1 },
-    { id: 'review_star', name: '리뷰 스타', description: '피드백 10개 작성', icon: '⭐', category: 'community', threshold: 10 },
-
-    // Milestone
-    { id: 'member_1m', name: '1개월 회원', description: '가입 후 1개월', icon: '🎖️', category: 'milestone', threshold: 30 },
-    { id: 'member_6m', name: '6개월 회원', description: '가입 후 6개월', icon: '🏅', category: 'milestone', threshold: 180 },
-    { id: 'member_1y', name: '1년 회원', description: '가입 후 1년', icon: '👑', category: 'milestone', threshold: 365 },
-];
 
 const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
     attendance: { label: '출석', icon: '🏃' },
@@ -55,72 +34,22 @@ export default function BadgesPage() {
     useEffect(() => { loadBadges(); }, []);
 
     async function loadBadges() {
-        const supabase: any = createClient();
+        const supabase = createClient() as any;
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        // Get user stats for badge progress
-        const [checkinRes, feedbackRes, memberRes] = await Promise.all([
-            supabase.from('checkins').select('time').eq('member_id', user.id),
-            supabase.from('session_feedback').select('id, rating, comment').eq('member_id', user.id),
-            supabase.from('members').select('created_at').eq('user_id', user.id).single(),
-        ]);
-
-        const totalCheckins = checkinRes.data?.length || 0;
-        const totalFeedbacks = feedbackRes.data?.length || 0;
-        const totalWods = feedbackRes.data?.filter((f: any) => f.rating && f.rating >= 4).length || 0;
-        const totalPRs = feedbackRes.data?.filter((f: any) => f.comment?.includes('PR')).length || 0;
-        const memberSince = memberRes.data?.created_at ? Math.floor((Date.now() - new Date(memberRes.data.created_at).getTime()) / (1000 * 60 * 60 * 24)) : 0;
-
-        // Calculate streak
-        let streak = 0;
-        if (checkinRes.data) {
-            const days = new Set(checkinRes.data.map((c: any) => new Date(c.time).toISOString().split('T')[0]));
-            const today = new Date();
-            for (let i = 0; i < 60; i++) {
-                const d = new Date(today);
-                d.setDate(d.getDate() - i);
-                if (days.has(d.toISOString().split('T')[0])) streak++;
-                else if (i > 0) break;
-            }
-        }
-
-        // Monthly checkins
-        const now = new Date();
-        const monthCheckins = checkinRes.data?.filter((c: any) => {
-            const d = new Date(c.time);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        }).length || 0;
-
-        // Week checkins
-        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const weekCheckins = checkinRes.data?.filter((c: any) => new Date(c.time) >= weekAgo).length || 0;
-
-        const getProgress = (def: typeof BADGE_DEFINITIONS[0]): number => {
-            switch (def.id) {
-                case 'first_checkin': case 'centurion': return totalCheckins;
-                case 'week_warrior': return weekCheckins;
-                case 'month_master': return monthCheckins;
-                case 'streak_7': case 'streak_30': return streak;
-                case 'first_wod': case 'wod_master': return totalWods;
-                case 'pr_hunter': return totalPRs;
-                case 'first_feedback': case 'review_star': return totalFeedbacks;
-                case 'member_1m': case 'member_6m': case 'member_1y': return memberSince;
-                default: return 0;
-            }
-        };
-
-        const computedBadges: Badge[] = BADGE_DEFINITIONS.map(def => {
-            const progress = getProgress(def);
-            return {
-                ...def,
-                progress,
-                earned: progress >= def.threshold,
-                earnedDate: progress >= def.threshold ? new Date().toISOString() : undefined,
-            };
+        // 단일 RPC 호출로 모든 배지 + 진행도 + 달성 여부 조회
+        const { data, error } = await supabase.rpc('fn_get_my_badges', {
+            p_user_id: user.id,
         });
 
-        setBadges(computedBadges);
+        if (error) {
+            console.error('Error loading badges:', error);
+            setLoading(false);
+            return;
+        }
+
+        setBadges(data || []);
         setLoading(false);
     }
 
@@ -161,7 +90,7 @@ export default function BadgesPage() {
                                 cx="32" cy="32" r="28" fill="none"
                                 stroke="var(--app-accent)" strokeWidth="4"
                                 strokeLinecap="round"
-                                strokeDasharray={`${(earnedCount / totalCount) * 175.9} 175.9`}
+                                strokeDasharray={`${totalCount > 0 ? (earnedCount / totalCount) * 175.9 : 0} 175.9`}
                                 transform="rotate(-90 32 32)"
                             />
                         </svg>
@@ -197,7 +126,7 @@ export default function BadgesPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
                 {filteredBadges.map(badge => (
                     <div
-                        key={badge.id}
+                        key={badge.badge_id}
                         className="app-glass-card"
                         onClick={() => setSelectedBadge(badge)}
                         style={{
@@ -296,18 +225,25 @@ export default function BadgesPage() {
                             {selectedBadge.description}
                         </p>
                         {selectedBadge.earned ? (
-                            <div style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                padding: '0.5rem 1rem',
-                                borderRadius: 20,
-                                background: 'var(--app-success-bg)',
-                                color: 'var(--app-success)',
-                                fontSize: '0.8125rem',
-                                fontWeight: 600,
-                            }}>
-                                ✨ 획득 완료!
+                            <div>
+                                <div style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '0.5rem 1rem',
+                                    borderRadius: 20,
+                                    background: 'var(--app-success-bg)',
+                                    color: 'var(--app-success)',
+                                    fontSize: '0.8125rem',
+                                    fontWeight: 600,
+                                }}>
+                                    ✨ 획득 완료!
+                                </div>
+                                {selectedBadge.earned_at && (
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', marginTop: '0.5rem' }}>
+                                        {new Date(selectedBadge.earned_at).toLocaleDateString('ko-KR')} 달성
+                                    </div>
+                                )}
                             </div>
                         ) : (
                             <div>

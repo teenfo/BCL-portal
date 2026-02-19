@@ -96,6 +96,13 @@ const IconRace = () => (
     </svg>
 );
 
+const IconBadge = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="6" />
+        <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
+    </svg>
+);
+
 const IconInfrastructure = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
@@ -256,6 +263,7 @@ const menuGroups: MenuGroup[] = [
             { name: 'Coaches', href: '/admin/operations/coaches', icon: <IconCoaches /> },
             { name: 'Reservations', href: '/admin/operations/reservations', icon: <IconReservations /> },
             { name: 'Race', href: '/admin/operations/race', icon: <IconRace /> },
+            { name: 'Badges', href: '/admin/operations/badges', icon: <IconBadge /> },
             { name: 'Lockers', href: '/admin/operations/lockers', icon: <IconLockers /> },
             { name: 'Infrastructure', href: '/admin/operations/infrastructure', icon: <IconInfrastructure /> },
             { name: 'Roles', href: '/admin/operations/roles', icon: <IconRoles /> },
