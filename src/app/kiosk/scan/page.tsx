@@ -305,6 +305,8 @@ export default function KioskScanPage() {
                         borderRadius: '24px',
                         overflow: 'hidden',
                         background: '#111',
+                        transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
+                        transition: 'transform 0.3s ease',
                     }}>
                         <div
                             id={scannerContainerId}
