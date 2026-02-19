@@ -258,6 +258,31 @@
     - [ ] SMS 서비스(알리고/네이버 SENS) API 연동
     - [ ] Edge Function 실제 API 교체 + 재배포
 
+#### 🔴 Priority 17: Known Issues 일괄 정비 (개발 대기)
+  > **기획서**: `.docs/archive/planning/known-issues-cleanup.md`
+  > **문제**: user_id/member_id 혼용으로 데이터 조회 불일치 위험 + `as any` 32개 파일 타입 안전성 부재
+  > **방안**: AuthContext 확장 → member_id 혼용 수정 → query() 헬퍼 일괄 전환
+
+  - [ ] Phase 1: AuthContext 확장 + useMemberId 훅 → 💻 **Developer (Sonnet)**
+    - [ ] AuthContext에 `memberId` 필드 추가
+    - [ ] 로그인 시 `members.id` 조회 후 Context에 저장
+    - [ ] `useMemberId()` 커스텀 훅 생성 (fallback용)
+  - [ ] Phase 2: member_id 혼용 수정 → 💻 **Developer (Sonnet)**
+    - [ ] `apps/dashboard/page.tsx` — `.eq('member_id', user.id)` 수정 (2곳)
+    - [ ] `apps/records/page.tsx` — `.eq('member_id', user.id)` 수정 (2곳)
+    - [ ] `apps/checkin/page.tsx` — `.eq('member_id', user.id)` 수정 (2곳)
+    - [ ] `apps/feedback/page.tsx` — `.eq('member_id', user.id)` 수정 (1곳)
+    - [ ] `apps/profile/page.tsx` — `.eq('member_id', user.id)` 수정 (1곳)
+    - [ ] 기타 user_id/member_id 혼용 코드 전수 검사
+  - [ ] Phase 3: Supabase 타입 정리 (as any 제거) → 💻 **Developer (Sonnet)**
+    - [ ] `createClient() as any` → `query()` 헬퍼 전환 (32개 파일)
+    - [ ] `(supabase as any).rpc()` → `rpc()` 헬퍼 전환
+    - [ ] auth 관련 호출은 `createClient()` 유지
+  - [ ] Phase 4: 코치 방어 코드 + 문서 동기화 → 💻 **Developer (Sonnet)**
+    - [ ] Admin 코치 목록 `user_id=null` 경고 배지 강화
+    - [ ] Known Issues 상태 갱신 (RESOLVED)
+    - [ ] 버전 갱신 + blueprint/sitemap 동기화
+
 ---
 
 ### Known Issues (Active)
