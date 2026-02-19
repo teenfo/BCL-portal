@@ -1,73 +1,122 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/ui/Toast';
+import { AppSkeleton, StatCard } from '@/components/apps';
 
 interface Membership {
     id: string;
     plan_name: string;
     end_date: string;
     status: string;
+    remaining_credits?: number;
 }
 
 export default function UserProfilePage() {
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState('');
     const [membership, setMembership] = useState<Membership | null>(null);
     const [isAdmin, setIsAdmin] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [uploading, setUploading] = useState(false);
+    const [totalCheckins, setTotalCheckins] = useState(0);
+    const [totalBookings, setTotalBookings] = useState(0);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const router = useRouter();
+    const toast = useToast();
 
     useEffect(() => {
         loadProfile();
     }, []);
 
     async function loadProfile() {
-        const supabase = createClient();
+        const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
         setUserEmail(user.email || '');
 
-        const { data: memberData }: any = await (supabase as any)
-            .from('members')
-            .select('name')
-            .eq('user_id', user.id)
-            .single();
-        if (memberData) {
-            setUserName(memberData.name || '');
-        }
+        // Parallel data loading
+        const [memberResult, profileResult, membershipResult, checkinCount, bookingCount] = await Promise.all([
+            supabase.from('members').select('name, avatar_url').eq('user_id', user.id).single(),
+            supabase.from('profiles').select('role').eq('id', user.id).single(),
+            supabase.from('memberships').select('*, membership_plans(name)')
+                .eq('user_id', user.id).eq('status', 'active')
+                .order('end_date', { ascending: false }).limit(1).single(),
+            supabase.from('checkins').select('id', { count: 'exact', head: true }).eq('member_id', user.id),
+            supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['confirmed', 'attended']),
+        ]);
 
-        // profiles 테이블에서 role 확인 (admin 포탈 접근 권한)
-        const { data: profileData }: any = await (supabase as any)
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single();
-        if (profileData) {
-            setIsAdmin(profileData.role === 'admin' || profileData.role === 'super_admin');
+        if (memberResult.data) {
+            setUserName(memberResult.data.name || '');
+            setAvatarUrl(memberResult.data.avatar_url || '');
         }
-
-        const { data: membershipData }: any = await (supabase as any)
-            .from('memberships')
-            .select('*, membership_plans(name)')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('end_date', { ascending: false })
-            .limit(1)
-            .single();
-        if (membershipData) {
+        if (profileResult.data) {
+            setIsAdmin(profileResult.data.role === 'admin' || profileResult.data.role === 'super_admin');
+        }
+        if (membershipResult.data) {
             setMembership({
-                id: membershipData.id,
-                plan_name: membershipData.membership_plans?.name || 'Membership',
-                end_date: membershipData.end_date,
-                status: membershipData.status,
+                id: membershipResult.data.id,
+                plan_name: membershipResult.data.membership_plans?.name || 'Membership',
+                end_date: membershipResult.data.end_date,
+                status: membershipResult.data.status,
+                remaining_credits: membershipResult.data.remaining_credits,
             });
         }
+        setTotalCheckins(checkinCount.count || 0);
+        setTotalBookings(bookingCount.count || 0);
 
         setLoading(false);
+    }
+
+    async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            toast.error('이미지 파일만 업로드 가능합니다.');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast.error('파일 크기는 5MB 이하여야 합니다.');
+            return;
+        }
+
+        setUploading(true);
+        const supabase: any = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setUploading(false); return; }
+
+        const ext = file.name.split('.').pop();
+        const path = `avatars/${user.id}.${ext}`;
+
+        // Upload to Supabase Storage
+        const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(path, file, { upsert: true });
+
+        if (uploadError) {
+            toast.error('프로필 사진 업로드에 실패했습니다.');
+            setUploading(false);
+            return;
+        }
+
+        // Get public URL
+        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+        const publicUrl = urlData?.publicUrl;
+
+        if (publicUrl) {
+            // Update members table
+            await supabase.from('members').update({ avatar_url: publicUrl }).eq('user_id', user.id);
+            setAvatarUrl(publicUrl);
+            toast.success('프로필 사진이 업데이트되었습니다! ✅');
+        }
+        setUploading(false);
     }
 
     async function handleLogout() {
@@ -76,31 +125,67 @@ export default function UserProfilePage() {
         router.push('/auth/login');
     }
 
+    // Days until membership expires
+    const daysUntilExpiry = membership
+        ? Math.max(0, Math.ceil((new Date(membership.end_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        : 0;
+    const expiryWarning = daysUntilExpiry > 0 && daysUntilExpiry <= 7;
+
     if (loading) {
         return (
             <div className="app-page">
-                <div style={{ textAlign: 'center', padding: '2rem' }}>
-                    <div className="app-skeleton" style={{ width: 88, height: 88, borderRadius: '50%', margin: '0 auto 1rem' }} />
-                    <div className="app-skeleton" style={{ width: '50%', height: 24, margin: '0 auto 0.5rem' }} />
-                    <div className="app-skeleton" style={{ width: '40%', height: 16, margin: '0 auto' }} />
-                </div>
+                <AppSkeleton variant="card" count={2} />
             </div>
         );
     }
 
     const menuItems = [
-        { icon: '📅', label: 'My Bookings', href: '/apps/schedule/bookings' },
-        { icon: '🔔', label: 'Notification Settings', href: '/apps/profile/notifications' },
+        { icon: '📅', label: 'My Bookings', href: '/apps/schedule/bookings', badge: totalBookings > 0 ? `${totalBookings}` : undefined },
+        { icon: '🔔', label: 'Notification Settings', href: '/apps/profile/notifications', badge: unreadNotifications > 0 ? `${unreadNotifications}` : undefined },
         { icon: '🕐', label: 'History', href: '/apps/records' },
         { icon: '⚙️', label: 'Settings', href: '/apps/profile/settings' },
     ];
 
     return (
         <div className="app-page">
-            {/* ── Profile Header (Figma Style) ── */}
+            {/* ── Profile Header ── */}
             <div className="profile-header">
-                <div className="profile-avatar">
-                    {userName ? userName.charAt(0).toUpperCase() : '?'}
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                    {avatarUrl ? (
+                        <img
+                            src={avatarUrl}
+                            alt="Profile"
+                            style={{
+                                width: 88, height: 88, borderRadius: '50%',
+                                objectFit: 'cover', border: '3px solid var(--app-accent)',
+                            }}
+                        />
+                    ) : (
+                        <div className="profile-avatar">
+                            {userName ? userName.charAt(0).toUpperCase() : '?'}
+                        </div>
+                    )}
+                    {/* Camera button for avatar upload */}
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        style={{
+                            position: 'absolute', bottom: -2, right: -2,
+                            width: 32, height: 32, borderRadius: '50%',
+                            background: 'var(--app-accent)', border: '2px solid var(--app-bg)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', fontSize: '0.875rem',
+                        }}
+                    >
+                        {uploading ? '⏳' : '📷'}
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarUpload}
+                        style={{ display: 'none' }}
+                    />
                 </div>
                 <h1 className="profile-name">{userName || 'User'}</h1>
                 <p className="profile-email">{userEmail}</p>
@@ -113,7 +198,18 @@ export default function UserProfilePage() {
                 </Link>
             </div>
 
-            {/* ── Membership Card (Figma Style) ── */}
+            {/* ── Quick Stats ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+                <StatCard icon="✅" value={totalCheckins} label="Total Check-ins" />
+                <StatCard icon="📅" value={totalBookings} label="Total Bookings" />
+                <StatCard
+                    icon="💳"
+                    value={membership?.remaining_credits ?? 0}
+                    label="Credits"
+                />
+            </div>
+
+            {/* ── Membership Card ── */}
             {membership ? (
                 <div className="app-glass-card" style={{ marginBottom: '1.5rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -123,7 +219,9 @@ export default function UserProfilePage() {
                             </div>
                             <div style={{ fontSize: '1.125rem', fontWeight: 700, marginTop: 2 }}>{membership.plan_name}</div>
                         </div>
-                        <span className="status-badge active">ACTIVE</span>
+                        <span className={`status-badge ${expiryWarning ? 'warning' : 'active'}`}>
+                            {expiryWarning ? `D-${daysUntilExpiry}` : 'ACTIVE'}
+                        </span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: '0.75rem', color: 'var(--app-text-secondary)', fontSize: '0.8125rem' }}>
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -134,12 +232,21 @@ export default function UserProfilePage() {
                         </svg>
                         Next renewal: {new Date(membership.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </div>
+                    {expiryWarning && (
+                        <div style={{
+                            marginTop: '0.5rem', padding: '0.5rem 0.75rem',
+                            background: 'rgba(250,204,21,0.1)', borderRadius: 8,
+                            fontSize: '0.75rem', color: '#facc15', fontWeight: 600,
+                        }}>
+                            ⚠️ 멤버십이 {daysUntilExpiry}일 후 만료됩니다. 갱신해주세요!
+                        </div>
+                    )}
                     <Link
                         href="/apps/purchase"
                         className="app-btn-primary full-width"
                         style={{ marginTop: '1rem', textDecoration: 'none' }}
                     >
-                        Renew Now
+                        {expiryWarning ? 'Renew Now ⚡' : 'Renew Now'}
                     </Link>
                 </div>
             ) : (
@@ -149,7 +256,7 @@ export default function UserProfilePage() {
                 </Link>
             )}
 
-            {/* ── Account Management (Figma Style) ── */}
+            {/* ── Account Management ── */}
             <div className="app-section-label">ACCOUNT MANAGEMENT</div>
             <div className="app-menu-list">
                 {menuItems.map((item) => (
@@ -158,7 +265,19 @@ export default function UserProfilePage() {
                         <div className="menu-content">
                             <div className="menu-label">{item.label}</div>
                         </div>
-                        <span className="menu-arrow">›</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {item.badge && (
+                                <span style={{
+                                    fontSize: '0.625rem', fontWeight: 700,
+                                    padding: '0.125rem 0.375rem', borderRadius: 9999,
+                                    background: 'var(--app-accent)', color: '#fff',
+                                    minWidth: 18, textAlign: 'center',
+                                }}>
+                                    {item.badge}
+                                </span>
+                            )}
+                            <span className="menu-arrow">›</span>
+                        </div>
                     </Link>
                 ))}
 

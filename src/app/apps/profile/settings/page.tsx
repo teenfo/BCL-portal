@@ -5,41 +5,61 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
+import { AppSkeleton } from '@/components/apps';
 
-interface NotificationSettings {
+interface AppSettings {
     push_enabled: boolean;
     class_reminder: boolean;
     reminder_time: string;
     marketing_enabled: boolean;
+    language: string;
+    theme: string;
 }
 
-const DEFAULT_SETTINGS: NotificationSettings = {
+const DEFAULT_SETTINGS: AppSettings = {
     push_enabled: true,
     class_reminder: true,
     reminder_time: '30',
     marketing_enabled: false,
+    language: 'ko',
+    theme: 'dark',
 };
 
 export default function SettingsPage() {
     const { user } = useAuth();
     const toast = useToast();
-    const [settings, setSettings] = useState<NotificationSettings>(DEFAULT_SETTINGS);
+    const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // Load settings from DB
+    // Load settings from members.preferences (primary) + profiles.notification_settings (fallback)
     useEffect(() => {
         if (!user) return;
         async function loadSettings() {
             const supabase: any = createClient();
-            const { data } = await supabase
+
+            // Try members.preferences first
+            const { data: memberData } = await supabase
+                .from('members')
+                .select('preferences')
+                .eq('user_id', user!.id)
+                .single();
+
+            if (memberData?.preferences) {
+                setSettings({ ...DEFAULT_SETTINGS, ...memberData.preferences });
+                setLoading(false);
+                return;
+            }
+
+            // Fallback: profiles.notification_settings
+            const { data: profileData } = await supabase
                 .from('profiles')
                 .select('notification_settings')
                 .eq('id', user!.id)
                 .single();
 
-            if (data?.notification_settings) {
-                setSettings({ ...DEFAULT_SETTINGS, ...data.notification_settings });
+            if (profileData?.notification_settings) {
+                setSettings({ ...DEFAULT_SETTINGS, ...profileData.notification_settings });
             }
             setLoading(false);
         }
@@ -67,14 +87,28 @@ export default function SettingsPage() {
         setSaving(true);
 
         const supabase: any = createClient();
-        const { error } = await supabase
+
+        // Save to members.preferences (server sync)
+        const { error: memberError } = await supabase
+            .from('members')
+            .update({ preferences: settings })
+            .eq('user_id', user.id);
+
+        // Also save notification-specific settings to profiles (backward compat)
+        const notifSettings = {
+            push_enabled: settings.push_enabled,
+            class_reminder: settings.class_reminder,
+            reminder_time: settings.reminder_time,
+            marketing_enabled: settings.marketing_enabled,
+        };
+        await supabase
             .from('profiles')
-            .update({ notification_settings: settings })
+            .update({ notification_settings: notifSettings })
             .eq('id', user.id);
 
-        if (error) {
+        if (memberError) {
             toast.error('설정 저장에 실패했습니다.');
-            console.error('Settings save error:', error);
+            console.error('Settings save error:', memberError);
         } else {
             toast.success('설정이 저장되었습니다! ✅');
         }
@@ -84,18 +118,24 @@ export default function SettingsPage() {
     if (loading) {
         return (
             <div className="app-page">
-                <div className="app-skeleton" style={{ width: '30%', height: 20, marginBottom: 16 }} />
-                <div className="app-skeleton" style={{ height: 200, borderRadius: 16, marginBottom: 12 }} />
-                <div className="app-skeleton" style={{ height: 80, borderRadius: 16 }} />
+                <AppSkeleton variant="card" count={2} />
             </div>
         );
     }
 
+    const selectStyle = {
+        width: '100%', padding: '0.75rem', borderRadius: 8,
+        background: 'var(--app-bg)', border: '1px solid var(--app-border)',
+        color: 'var(--app-text-primary)', fontSize: '0.875rem', outline: 'none',
+    };
+
     return (
         <div className="app-page">
             <Link href="/apps/profile" style={{ color: 'var(--app-text-secondary)', fontSize: '0.875rem', textDecoration: 'none' }}>← 돌아가기</Link>
-            <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--app-text-primary)', margin: '1rem 0 1.5rem' }}>알림 설정</h1>
+            <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--app-text-primary)', margin: '1rem 0 1.5rem' }}>설정</h1>
 
+            {/* Notification Settings */}
+            <div className="app-section-label">알림 설정</div>
             <div className="app-glass-card" style={{ marginBottom: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                     <div>
@@ -117,11 +157,7 @@ export default function SettingsPage() {
                         <select
                             value={settings.reminder_time}
                             onChange={e => setSettings(s => ({ ...s, reminder_time: e.target.value }))}
-                            style={{
-                                width: '100%', padding: '0.75rem', borderRadius: 8,
-                                background: 'var(--app-bg)', border: '1px solid var(--app-border)',
-                                color: 'var(--app-text-primary)', fontSize: '0.875rem', outline: 'none',
-                            }}
+                            style={selectStyle}
                         >
                             <option value="15">15분 전</option>
                             <option value="30">30분 전</option>
@@ -132,13 +168,41 @@ export default function SettingsPage() {
                 )}
             </div>
 
-            <div className="app-glass-card" style={{ marginBottom: '2rem' }}>
+            <div className="app-glass-card" style={{ marginBottom: '1.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         <h4 style={{ color: 'var(--app-text-primary)', fontWeight: 600 }}>마케팅 알림</h4>
                         <p style={{ color: 'var(--app-text-secondary)', fontSize: '0.75rem', marginTop: '0.125rem' }}>이벤트 및 프로모션 소식</p>
                     </div>
                     <Toggle value={settings.marketing_enabled} onChange={v => setSettings(s => ({ ...s, marketing_enabled: v }))} />
+                </div>
+            </div>
+
+            {/* App Settings */}
+            <div className="app-section-label">앱 설정</div>
+            <div className="app-glass-card" style={{ marginBottom: '2rem' }}>
+                <div style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--app-text-secondary)', marginBottom: '0.375rem', fontWeight: 600 }}>언어</label>
+                    <select
+                        value={settings.language}
+                        onChange={e => setSettings(s => ({ ...s, language: e.target.value }))}
+                        style={selectStyle}
+                    >
+                        <option value="ko">한국어</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <div>
+                    <label style={{ display: 'block', fontSize: '0.8125rem', color: 'var(--app-text-secondary)', marginBottom: '0.375rem', fontWeight: 600 }}>테마</label>
+                    <select
+                        value={settings.theme}
+                        onChange={e => setSettings(s => ({ ...s, theme: e.target.value }))}
+                        style={selectStyle}
+                    >
+                        <option value="dark">Dark Mode</option>
+                        <option value="light">Light Mode</option>
+                        <option value="system">시스템 설정</option>
+                    </select>
                 </div>
             </div>
 

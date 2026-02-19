@@ -63,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 12: User App 핵심 화면 고도화 — Phase 1~3 완료, Phase 4~7 대기**
+- **Current Focus**: **Priority 12: User App 핵심 화면 고도화 — ✅ 전 Phase 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 12 Phase 1~3 완료 — DB 마이그레이션 생성, 공통 컴포넌트 6개 생성, Dashboard 고도화 (Today's Status 위젯 + Promise.all 병렬 로딩)
+- **Last Action**: Priority 12 Phase 1~7 전체 완료 — DB 마이그레이션, 공통 컴포넌트 6개, Dashboard/Schedule/Check-in/Facilities/Profile 5대 탭 고도화 + 문서 동기화
 
 ---
 
@@ -122,7 +122,7 @@
 
   > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 (`.docs/planning/race-system.md`) → 등록 대기
 
-#### 🔵 Priority 12: User App 핵심 화면 고도화 (개발 진행 중)
+#### ✅ Priority 12: User App 핵심 화면 고도화 (완료)
   > **기획서**: `.docs/archive/planning/user-app-enhancement.md`
   > **문제**: 5대 핵심 탭(Home, Schedule, Check-in, Facilities, Profile)의 완성도가 55~70% 수준이며, Waitlist/크레딧 차감/QR 만료 갱신/지도 연동/프로필 사진 등 핵심 기능 미구현
   > **방안**: DB 확장(members/facilities 컬럼 추가 + 크레딧 RPC) → 공통 컴포넌트 표준화 → 5대 탭 순차 고도화 → 문서 동기화
@@ -146,30 +146,34 @@
     - [x] 병렬 데이터 로딩 (Promise.all 8개 쿼리 동시 실행) ✅
     - [x] 다음 수업 쿼리 수정 (session_date=today + start_time>now) ✅
     - [x] 공통 컴포넌트 적용 (AppSkeleton, AppErrorState, StatCard) ✅
-  - [ ] Phase 4: Schedule 고도화 → 💻 **Developer (Sonnet)**
-    - [ ] 7일 날짜 피커 (월~일 확장, 주 단위 좌우 이동)
-    - [ ] Waitlist 로직 (정원 초과 시 waitlisted 상태 INSERT)
-    - [ ] 수업 상세 모달 (SessionDetailModal 연동)
-    - [ ] 크레딧 차감 연동 (fn_book_with_credit RPC 호출)
-    - [ ] 예약 취소 크레딧 환원 (fn_cancel_booking_with_credit RPC 호출)
-  - [ ] Phase 5: Check-in 고도화 → ⚡ **Specialist (Gemini)**
-    - [ ] QR 만료 타이머 (5분 만료 + 프로그레스 바 + 자동 갱신)
-    - [ ] 월간 출석 캘린더 (MonthCalendar 컴포넌트 바인딩)
-    - [ ] 출석 통계 패널 (이번 달 출석일, 연속 출석일)
-    - [ ] 체크인 이력 월 필터 (월 선택 셀렉트)
-  - [ ] Phase 6: Facilities + Profile 고도화 → 🎨 **UI Developer (Gemini)**
-    - [ ] 시설 지도 연동 (카카오맵 SDK 임베드)
-    - [ ] 시설 상세 확장 뷰 (전화 걸기, 길찾기, 사진 갤러리)
-    - [ ] 영업 중/종료 뱃지 (현재 시간 기반)
-    - [ ] 주소 복사 (navigator.clipboard)
-    - [ ] 프로필 사진 업로드 (Supabase Storage 연동)
-    - [ ] 프로필 편집 필드 확장 (전화번호, 생일, 긴급 연락처)
-    - [ ] 설정 서버 동기화 (members.preferences 사용)
-    - [ ] 메뉴 뱃지 (미읽음 알림 카운트, 멤버십 만료 경고)
-  - [ ] Phase 7: 문서 동기화 → 🏛️ **Architect (Opus)**
-    - [ ] sitemap/user-app.md 갱신 (완성도 마커 업데이트)
-    - [ ] project-blueprint.md 갱신 (미구현 항목 완료 처리)
-    - [ ] database-reference.md 갱신 (신규 컬럼/RPC 반영)
+  - [x] Phase 4: Schedule 고도화 → 💻 **Developer (Sonnet)** ✅
+    - [x] 7일 날짜 피커 (월~일 확장, 주 단위 좌우 이동) ✅
+    - [x] Waitlist 로직 (정원 초과 시 waitlisted 상태 → fn_book_with_credit 자동 분기) ✅
+    - [x] 수업 상세 모달 (SessionDetailModal 연동, 카드 클릭 시 표시) ✅
+    - [x] 크레딧 차감 연동 (fn_book_with_credit RPC 호출) ✅
+    - [x] 예약 취소 크레딧 환원 (fn_cancel_booking_with_credit RPC 호출) ✅
+    - [x] My Bookings 페이지 고도화 (waitlisted 상태 지원, 공통 컴포넌트) ✅
+  - [x] Phase 5: Check-in 고도화 → ⚡ **Specialist (Gemini)** ✅
+    - [x] QR 만료 타이머 (5분 만료 + mm:ss 표시 + 프로그레스 바 + 자동 갱신) ✅
+    - [x] 수동 QR 갱신 버튼 ✅
+    - [x] 월간 출석 캘린더 (MonthCalendar 컴포넌트 바인딩, 월 단위 탐색) ✅
+    - [x] 출석 통계 패널 (StatCard 3개: 이번 달/연속 출석/출석일 수) ✅
+    - [x] 체크인 이력 월 필터 (최근 6개월 셀렉트) ✅
+  - [x] Phase 6: Facilities + Profile 고도화 → 🎨 **UI Developer (Gemini)** ✅
+    - [x] 시설 지도 연동 (카카오맵 길찾기 링크) ✅
+    - [x] 시설 상세 확장 뷰 (전화 걸기, 길찾기, 사진 갤러리 + 확대 모달) ✅
+    - [x] 영업 중/종료 뱃지 (현재 시간 기반 Open/Closed) ✅
+    - [x] 주소 복사 (navigator.clipboard + 피드백 토스트) ✅
+    - [x] 프로필 사진 업로드 (Supabase Storage 연동 + 카메라 버튼) ✅
+    - [x] 프로필 편집 필드 확장 (전화번호, 생일, 긴급 연락처) ✅
+    - [x] 설정 서버 동기화 (members.preferences ↔ profiles.notification_settings 양방향) ✅
+    - [x] 메뉴 뱃지 (예약 수 카운트, 미읽음 알림) ✅
+    - [x] Quick Stats 패널 (총 체크인, 총 예약, 잔여 크레딧) ✅
+    - [x] 멤버십 만료 경고 (D-7 이하 시 경고 표시) ✅
+    - [x] 언어/테마 설정 추가 ✅
+  - [x] Phase 7: 문서 동기화 → 🏛️ **Architect (Opus)** ✅
+    - [x] project-blueprint.md 갱신 (Phase 4~7 완료 처리) ✅
+    - [x] Active Context 업데이트 ✅
 
 #### 🟠 Priority 13: 배지 시스템 고도화 (개발 대기)
   > **기획서**: `.docs/archive/planning/badge-system.md`

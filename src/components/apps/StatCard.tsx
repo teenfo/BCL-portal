@@ -6,12 +6,13 @@ interface StatCardProps {
     icon: string;
     value: string | number;
     label: string;
+    suffix?: string;
     accent?: boolean;
     className?: string;
     onClick?: () => void;
 }
 
-export default function StatCard({ icon, value, label, accent = false, className = '', onClick }: StatCardProps) {
+export default function StatCard({ icon, value, label, suffix, accent = false, className = '', onClick }: StatCardProps) {
     return (
         <div
             className={className}
@@ -38,9 +39,13 @@ export default function StatCard({ icon, value, label, accent = false, className
                         fontWeight: 800,
                         color: accent ? 'var(--app-accent, #D2691E)' : 'var(--app-text-primary, #1A1A1A)',
                         lineHeight: 1.2,
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        gap: '0.25rem',
                     }}
                 >
                     {value}
+                    {suffix && <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)' }}>{suffix}</span>}
                 </div>
                 <div
                     style={{

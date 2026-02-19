@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui/Toast';
+import { AppSkeleton, AppEmptyState, SessionDetailModal } from '@/components/apps';
 
 interface Session {
     id: string;
@@ -16,6 +17,8 @@ interface Session {
     enrolled: number;
     category?: string;
     session_date?: string;
+    wod_description?: string;
+    description?: string;
 }
 
 type FilterMode = 'all' | 'coach' | 'beginner';
@@ -28,6 +31,10 @@ export default function UserSchedulePage() {
     const [coaches, setCoaches] = useState<string[]>([]);
     const [selectedCoach, setSelectedCoach] = useState<string>('');
     const [showCoachDropdown, setShowCoachDropdown] = useState(false);
+    const [weekOffset, setWeekOffset] = useState(0);
+    const [bookingIds, setBookingIds] = useState<Set<string>>(new Set());
+    const [detailSession, setDetailSession] = useState<Session | null>(null);
+    const [bookingInProgress, setBookingInProgress] = useState<string | null>(null);
     const toast = useToast();
 
     const loadSessions = useCallback(async () => {
@@ -40,7 +47,6 @@ export default function UserSchedulePage() {
             .eq('session_date', selectedDate)
             .order('start_time', { ascending: true });
 
-        // Apply filters
         if (filterMode === 'beginner') {
             query = query.eq('intensity', 'beginner');
         }
@@ -53,7 +59,23 @@ export default function UserSchedulePage() {
         setLoading(false);
     }, [selectedDate, filterMode, selectedCoach]);
 
-    // Load available coaches for filter
+    // Load user's existing bookings for the selected date
+    const loadMyBookings = useCallback(async () => {
+        const supabase: any = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data } = await supabase
+            .from('bookings')
+            .select('session_id')
+            .eq('user_id', user.id)
+            .in('status', ['confirmed', 'waitlisted']);
+
+        if (data) {
+            setBookingIds(new Set(data.map((b: any) => b.session_id)));
+        }
+    }, []);
+
     useEffect(() => {
         async function loadCoaches() {
             const supabase = createClient();
@@ -72,14 +94,17 @@ export default function UserSchedulePage() {
 
     useEffect(() => {
         loadSessions();
-    }, [loadSessions]);
+        loadMyBookings();
+    }, [loadSessions, loadMyBookings]);
 
+    // 7-day picker with week navigation
     function getWeekDates() {
         const dates = [];
         const today = new Date();
         const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
-        for (let i = 0; i < 5; i++) {
+        // Start from Monday of current week + weekOffset
+        startOfWeek.setDate(today.getDate() - ((today.getDay() + 6) % 7) + weekOffset * 7);
+        for (let i = 0; i < 7; i++) {
             const d = new Date(startOfWeek);
             d.setDate(startOfWeek.getDate() + i);
             dates.push(d);
@@ -91,33 +116,47 @@ export default function UserSchedulePage() {
     const dayAbbrs = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const todayStr = new Date().toISOString().split('T')[0];
 
-    async function handleReserve(sessionId: string) {
+    async function handleBook(sessionId: string) {
+        if (bookingInProgress) return;
+        setBookingInProgress(sessionId);
+
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
             toast.warning('로그인이 필요합니다.');
+            setBookingInProgress(null);
             return;
         }
 
-        const { error } = await supabase.from('bookings').insert({
-            session_id: sessionId,
-            user_id: user.id,
-            status: 'confirmed',
+        // Use RPC function for credit-based booking
+        const { data, error } = await (supabase as any).rpc('fn_book_with_credit', {
+            p_session_id: sessionId,
+            p_user_id: user.id,
         });
 
         if (error) {
-            if (error.code === '23505') {
+            toast.error('예약에 실패했습니다. 다시 시도해주세요.');
+        } else if (data && !data.success) {
+            if (data.error === 'already_booked') {
                 toast.info('이미 예약된 수업입니다.');
             } else {
-                toast.error('예약에 실패했습니다. 다시 시도해주세요.');
+                toast.error(data.error || '예약에 실패했습니다.');
             }
-        } else {
-            toast.success('예약이 완료되었습니다! ✅');
+        } else if (data) {
+            if (data.status === 'waitlisted') {
+                toast.info('대기열에 등록되었습니다. 빈자리 발생 시 알려드릴게요! 📋');
+            } else {
+                const creditMsg = data.credits_used > 0 ? ` (크레딧 1회 차감)` : '';
+                toast.success(`예약이 완료되었습니다!${creditMsg} ✅`);
+            }
             loadSessions();
+            loadMyBookings();
+            setDetailSession(null);
         }
+        setBookingInProgress(null);
     }
 
-    // Weekly progress from bookings
+    // Weekly progress
     const [completedClasses, setCompletedClasses] = useState(0);
     const weeklyGoal = 4;
 
@@ -129,14 +168,14 @@ export default function UserSchedulePage() {
 
             const now = new Date();
             const startOfWeek = new Date(now);
-            startOfWeek.setDate(now.getDate() - now.getDay() + 1);
+            startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
             const weekStart = startOfWeek.toISOString().split('T')[0];
 
             const { count } = await (supabase as any)
                 .from('bookings')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
-                .eq('status', 'confirmed')
+                .in('status', ['confirmed', 'attended'])
                 .gte('created_at', weekStart + 'T00:00:00');
 
             setCompletedClasses(count || 0);
@@ -144,10 +183,53 @@ export default function UserSchedulePage() {
         loadWeeklyProgress();
     }, []);
 
+    // Week label
+    const weekStart = weekDates[0];
+    const weekEnd = weekDates[6];
+    const weekLabel = `${weekStart.getMonth() + 1}/${weekStart.getDate()} – ${weekEnd.getMonth() + 1}/${weekEnd.getDate()}`;
+
     return (
         <div className="app-page">
 
-            {/* ── Date Picker (Figma: MON-FRI row) ── */}
+            {/* ── Week Navigation ── */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: '0.75rem',
+            }}>
+                <button
+                    onClick={() => setWeekOffset(w => w - 1)}
+                    style={{
+                        background: 'none', border: 'none', padding: '0.5rem',
+                        color: 'var(--app-text-secondary)', cursor: 'pointer', fontSize: '1.125rem',
+                    }}
+                >‹</button>
+                <div style={{
+                    fontSize: '0.8125rem', fontWeight: 600,
+                    color: 'var(--app-text-secondary)',
+                }}>
+                    {weekLabel}
+                    {weekOffset !== 0 && (
+                        <button
+                            onClick={() => { setWeekOffset(0); setSelectedDate(todayStr); }}
+                            style={{
+                                background: 'var(--app-accent-light)', border: 'none',
+                                borderRadius: 'var(--app-radius-full)', padding: '0.125rem 0.5rem',
+                                color: 'var(--app-accent)', fontSize: '0.6875rem', fontWeight: 600,
+                                marginLeft: '0.5rem', cursor: 'pointer',
+                            }}
+                        >오늘</button>
+                    )}
+                </div>
+                <button
+                    onClick={() => setWeekOffset(w => w + 1)}
+                    style={{
+                        background: 'none', border: 'none', padding: '0.5rem',
+                        color: 'var(--app-text-secondary)', cursor: 'pointer', fontSize: '1.125rem',
+                    }}
+                >›</button>
+            </div>
+
+            {/* ── Date Picker (Mon-Sun 7 days) ── */}
             <div className="date-picker-row" style={{ justifyContent: 'space-between' }}>
                 {weekDates.map((date) => {
                     const dateStr = date.toISOString().split('T')[0];
@@ -168,7 +250,7 @@ export default function UserSchedulePage() {
                 })}
             </div>
 
-            {/* ── Filter Chips ── */}
+            {/* ── Filter Chips + My Bookings ── */}
             <div className="app-filter-chips" style={{ position: 'relative' }}>
                 <button
                     className={`app-filter-chip ${filterMode === 'all' ? 'active' : ''}`}
@@ -192,6 +274,14 @@ export default function UserSchedulePage() {
                 >
                     Beginner
                 </button>
+
+                <Link
+                    href="/apps/schedule/bookings"
+                    className="app-filter-chip"
+                    style={{ marginLeft: 'auto', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                >
+                    📅 My Bookings
+                </Link>
 
                 {/* Coach Dropdown */}
                 {showCoachDropdown && coaches.length > 0 && (
@@ -228,30 +318,30 @@ export default function UserSchedulePage() {
             <div className="app-section-label">AVAILABLE CLASSES ({sessions.length})</div>
 
             {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-                    {[1, 2, 3].map(i => (
-                        <div key={i} className="app-skeleton" style={{ height: 72, borderRadius: 16 }} />
-                    ))}
-                </div>
+                <AppSkeleton variant="list" count={3} />
             ) : sessions.length === 0 ? (
-                <div className="app-empty-state">
-                    <div className="emoji">🏋️</div>
-                    <div className="message">No classes available for this date</div>
-                    <p style={{ color: 'var(--app-text-muted)', fontSize: '0.8125rem', marginTop: '0.5rem' }}>
-                        Try another date or check back later
-                    </p>
-                </div>
+                <AppEmptyState
+                    icon="🏋️"
+                    title="수업이 없습니다"
+                    description="선택한 날짜에 등록된 수업이 없습니다. 다른 날짜를 확인해보세요."
+                />
             ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                     {sessions.map((session) => {
                         const isFull = session.enrolled >= session.capacity;
+                        const isBooked = bookingIds.has(session.id);
                         return (
-                            <div key={session.id} className="session-card">
+                            <div
+                                key={session.id}
+                                className="session-card"
+                                onClick={() => setDetailSession(session)}
+                                style={{ cursor: 'pointer' }}
+                            >
                                 <div className="session-time" style={{ borderRight: '1px solid var(--app-border-strong)', paddingRight: '1rem' }}>
                                     <div className="start">
                                         {new Date(session.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).replace(/\s?(AM|PM)/, '')}
                                     </div>
-                                    <div className="end" style={{ fontSize: '0.6875rem', textTransform: 'uppercase' }}>
+                                    <div className="end" style={{ fontSize: '0.6875rem', textTransform: 'uppercase' as const }}>
                                         {new Date(session.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).includes('AM') ? 'AM' : 'PM'}
                                     </div>
                                 </div>
@@ -260,12 +350,15 @@ export default function UserSchedulePage() {
                                     <div className="coach">Coach {session.coach_name}</div>
                                 </div>
                                 <button
-                                    disabled={false}
-                                    className={isFull ? 'app-btn-outline' : 'app-btn-primary'}
-                                    onClick={() => !isFull ? handleReserve(session.id) : null}
+                                    disabled={isBooked || bookingInProgress === session.id}
+                                    className={isBooked ? 'app-btn-outline' : isFull ? 'app-btn-outline' : 'app-btn-primary'}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (!isBooked) handleBook(session.id);
+                                    }}
                                     style={{ fontSize: '0.8125rem', padding: '0.5rem 1.25rem' }}
                                 >
-                                    {isFull ? 'Waitlist' : 'Book'}
+                                    {bookingInProgress === session.id ? '...' : isBooked ? '✓' : isFull ? 'Waitlist' : 'Book'}
                                 </button>
                             </div>
                         );
@@ -273,7 +366,7 @@ export default function UserSchedulePage() {
                 </div>
             )}
 
-            {/* ── Weekly Progress (Figma) ── */}
+            {/* ── Weekly Progress ── */}
             <div className="weekly-progress-card" style={{ marginTop: '1.5rem' }}>
                 <div>
                     <div className="weekly-progress-label">WEEKLY PROGRESS</div>
@@ -285,11 +378,20 @@ export default function UserSchedulePage() {
                         cx="26" cy="26" r="22" fill="none"
                         stroke="var(--app-accent)" strokeWidth="4"
                         strokeLinecap="round"
-                        strokeDasharray={`${(completedClasses / weeklyGoal) * 138.2} 138.2`}
+                        strokeDasharray={`${(Math.min(completedClasses, weeklyGoal) / weeklyGoal) * 138.2} 138.2`}
                         transform="rotate(-90 26 26)"
                     />
                 </svg>
             </div>
+
+            {/* ── Session Detail Modal ── */}
+            <SessionDetailModal
+                session={detailSession}
+                isOpen={!!detailSession}
+                onClose={() => setDetailSession(null)}
+                onBook={handleBook}
+                isBooked={detailSession ? bookingIds.has(detailSession.id) : false}
+            />
         </div>
     );
 }

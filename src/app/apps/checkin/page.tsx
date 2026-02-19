@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import { MonthCalendar, StatCard, AppSkeleton } from '@/components/apps';
 
 interface CheckinRecord {
     id: string;
@@ -14,16 +15,24 @@ interface CheckinRecord {
 export default function UserCheckinPage() {
     const [qrToken, setQrToken] = useState('');
     const [memberId, setMemberId] = useState('BCL-00000');
-    const [timeLeft, setTimeLeft] = useState(30);
+    const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
     const [isActive, setIsActive] = useState(true);
     const [checkins, setCheckins] = useState<CheckinRecord[]>([]);
     const [monthlyCount, setMonthlyCount] = useState(0);
     const [streak, setStreak] = useState(0);
-    const [checkedDays, setCheckedDays] = useState<Set<number>>(new Set());
+    const [checkedDates, setCheckedDates] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [planName, setPlanName] = useState('');
     const [planEnd, setPlanEnd] = useState('');
     const [weeklyDelta, setWeeklyDelta] = useState(0);
+    // Calendar month navigation
+    const [calYear, setCalYear] = useState(new Date().getFullYear());
+    const [calMonth, setCalMonth] = useState(new Date().getMonth() + 1);
+    // Monthly filter for check-in history
+    const [historyMonth, setHistoryMonth] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
 
     const generateToken = useCallback(() => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -33,7 +42,7 @@ export default function UserCheckinPage() {
         }
         token += '-' + Date.now().toString(36);
         setQrToken(token);
-        setTimeLeft(30);
+        setTimeLeft(300); // Reset to 5 minutes
     }, []);
 
     useEffect(() => {
@@ -41,13 +50,14 @@ export default function UserCheckinPage() {
         loadCheckinData();
     }, [generateToken]);
 
+    // QR Timer: 5-minute expiration with auto-refresh
     useEffect(() => {
         if (!isActive) return;
         const interval = setInterval(() => {
             setTimeLeft((prev) => {
                 if (prev <= 1) {
                     generateToken();
-                    return 30;
+                    return 300;
                 }
                 return prev - 1;
             });
@@ -55,7 +65,8 @@ export default function UserCheckinPage() {
         return () => clearInterval(interval);
     }, [isActive, generateToken]);
 
-    async function loadCheckinData() {
+    // Load check-in data for calYear/calMonth
+    const loadCheckinData = useCallback(async () => {
         const supabase: any = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
@@ -94,20 +105,24 @@ export default function UserCheckinPage() {
             setCheckins(monthData);
             setMonthlyCount(monthData.length);
 
-            const days = new Set<number>();
-            monthData.forEach(c => {
+            // Format dates for MonthCalendar component
+            const dates: string[] = [];
+            monthData.forEach((c: any) => {
                 const d = new Date(c.time);
-                days.add(d.getDate());
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (!dates.includes(dateStr)) dates.push(dateStr);
             });
-            setCheckedDays(days);
+            setCheckedDates(dates);
 
             // Calculate streak
             let currentStreak = 0;
             const today = new Date();
-            for (let i = 0; i < 30; i++) {
+            const daySet = new Set(dates);
+            for (let i = 0; i < 60; i++) {
                 const checkDate = new Date(today);
                 checkDate.setDate(checkDate.getDate() - i);
-                if (days.has(checkDate.getDate()) && checkDate.getMonth() === now.getMonth()) {
+                const checkStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+                if (daySet.has(checkStr)) {
                     currentStreak++;
                 } else if (i > 0) break;
             }
@@ -116,24 +131,70 @@ export default function UserCheckinPage() {
             // Calculate weekly delta
             const weekAgo = new Date();
             weekAgo.setDate(weekAgo.getDate() - 7);
-            const thisWeek = monthData.filter(c => new Date(c.time) >= weekAgo).length;
+            const thisWeek = monthData.filter((c: any) => new Date(c.time) >= weekAgo).length;
             setWeeklyDelta(thisWeek);
         }
         setLoading(false);
+    }, []);
+
+    // Load calendar-specific check-in data when calendar month changes
+    const [calCheckedDates, setCalCheckedDates] = useState<string[]>([]);
+    useEffect(() => {
+        async function loadCalendarData() {
+            const supabase: any = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            const firstDay = new Date(calYear, calMonth - 1, 1);
+            const lastDay = new Date(calYear, calMonth, 0);
+
+            const { data }: any = await supabase
+                .from('checkins')
+                .select('time')
+                .eq('member_id', user.id)
+                .gte('time', firstDay.toISOString())
+                .lte('time', lastDay.toISOString());
+
+            if (data) {
+                const dates: string[] = [];
+                data.forEach((c: any) => {
+                    const d = new Date(c.time);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    if (!dates.includes(dateStr)) dates.push(dateStr);
+                });
+                setCalCheckedDates(dates);
+            }
+        }
+        loadCalendarData();
+    }, [calYear, calMonth]);
+
+    // Timer display format: mm:ss
+    const timerMinutes = Math.floor(timeLeft / 60);
+    const timerSeconds = timeLeft % 60;
+    const timerDisplay = `${timerMinutes}:${String(timerSeconds).padStart(2, '0')}`;
+    const progressPercent = (timeLeft / 300) * 100;
+    const progressClass = timeLeft <= 30 ? 'danger' : timeLeft <= 60 ? 'warning' : 'safe';
+
+    // History month options (last 6 months)
+    const monthOptions: string[] = [];
+    for (let i = 0; i < 6; i++) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        monthOptions.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
     }
 
-    const progressPercent = (timeLeft / 30) * 100;
-    const progressClass = timeLeft <= 5 ? 'danger' : timeLeft <= 10 ? 'warning' : 'safe';
+    // Filter checkins by historyMonth
+    const filteredCheckins = checkins.filter(c => {
+        const d = new Date(c.time);
+        const m = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return m === historyMonth;
+    });
 
-    // Calendar
-    const now = new Date();
-    const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-    const firstDayOfWeek = new Date(now.getFullYear(), now.getMonth(), 1).getDay();
-    // Monday-first (shift: 0=Mon, 6=Sun)
-    const adjustedFirst = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
-    const dayHeaders = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    const today = now.getDate();
+    if (loading) return (
+        <div className="app-page">
+            <AppSkeleton variant="card" count={2} />
+        </div>
+    );
 
     return (
         <div className="app-page">
@@ -150,7 +211,7 @@ export default function UserCheckinPage() {
                     </div>
                     <div>
                         <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.08em', color: 'var(--app-text-muted)' }}>
-                            GOOD MORNING
+                            SECURE CHECK-IN
                         </div>
                         <div style={{ fontSize: '1.125rem', fontWeight: 700 }}>Secure Entry</div>
                     </div>
@@ -168,7 +229,7 @@ export default function UserCheckinPage() {
                 </button>
             </div>
 
-            {/* ── QR Card (Figma Style) ── */}
+            {/* ── QR Card ── */}
             <div className="qr-card">
                 <div className="qr-header">
                     <span className="qr-label">SECURE ENTRY</span>
@@ -186,7 +247,7 @@ export default function UserCheckinPage() {
                             style={{ display: 'block', margin: '0 auto' }}
                         />
                     </div>
-                    {/* Green dot indicator */}
+                    {/* Status indicator */}
                     <div style={{
                         position: 'absolute', top: -4, right: '20%',
                         width: 10, height: 10, borderRadius: '50%',
@@ -195,22 +256,35 @@ export default function UserCheckinPage() {
                     }} />
                 </div>
 
+                {/* 5-minute timer */}
                 <div className="qr-timer">
                     <div>
-                        <span className="time-text">Refreshes in </span>
-                        <span className="time-value">{timeLeft}s</span>
+                        <span className="time-text">Expires in </span>
+                        <span className="time-value" style={{ fontSize: '1.25rem', fontWeight: 800 }}>{timerDisplay}</span>
                     </div>
                     <span className="token-label">DYNAMIC TOKEN</span>
                 </div>
                 <div className="qr-progress">
                     <div
                         className={`qr-progress-bar ${progressClass}`}
-                        style={{ width: `${progressPercent}%` }}
+                        style={{ width: `${progressPercent}%`, transition: 'width 1s linear' }}
                     />
                 </div>
+
+                {/* Manual refresh button  */}
+                <button
+                    onClick={generateToken}
+                    style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--app-accent)', fontSize: '0.75rem', fontWeight: 600,
+                        marginTop: '0.5rem', padding: '0.25rem 0.5rem',
+                    }}
+                >
+                    🔄 새 코드 생성
+                </button>
             </div>
 
-            {/* ── Plan Status (Figma) ── */}
+            {/* ── Plan Status ── */}
             {planName && (
                 <div className="app-glass-card" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', padding: '1rem 1.25rem' }}>
                     <div style={{
@@ -232,60 +306,97 @@ export default function UserCheckinPage() {
                 </div>
             )}
 
-            {/* ── Monthly Attendance (Figma Style) ── */}
-            <div style={{ marginBottom: '1rem' }}>
-                <div className="app-section-header">
-                    <div className="app-section-label" style={{ marginBottom: 0 }}>MONTHLY ATTENDANCE</div>
-                    <Link href="/apps/records" className="app-link">View Full Report</Link>
-                </div>
-
-                <div className="stats-row" style={{ marginBottom: '1rem' }}>
-                    <div className="stat-item">
-                        <div className="label">TOTAL VISITS</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                            <span className="value">{monthlyCount}</span>
-                            {weeklyDelta > 0 && <span className="sub-value">+{weeklyDelta} this week</span>}
-                        </div>
-                    </div>
-                    <div className="stat-item">
-                        <div className="label">STREAK</div>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                            <span className="value">{streak}</span>
-                            <span style={{ fontSize: '0.875rem', color: 'var(--app-text-secondary)' }}>days</span>
-                        </div>
-                    </div>
-                </div>
+            {/* ── Attendance Statistics ── */}
+            <div className="app-section-header" style={{ marginBottom: '0.75rem' }}>
+                <div className="app-section-label" style={{ marginBottom: 0 }}>ATTENDANCE STATISTICS</div>
+                <Link href="/apps/records" className="app-link">View Full Report</Link>
             </div>
 
-            {/* ── Attendance Heatmap Calendar (Figma: colored blocks) ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+                <StatCard
+                    icon="📊"
+                    value={monthlyCount}
+                    label="이번 달"
+                    suffix={weeklyDelta > 0 ? `+${weeklyDelta}` : undefined}
+                />
+                <StatCard
+                    icon="🔥"
+                    value={streak}
+                    label="연속 출석"
+                    suffix="일"
+                />
+                <StatCard
+                    icon="📅"
+                    value={checkedDates.length}
+                    label="출석일 수"
+                    suffix="일"
+                />
+            </div>
+
+            {/* ── Monthly Attendance Calendar (MonthCalendar component) ── */}
             <div className="app-glass-card" style={{ marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                    <h3 style={{ fontWeight: 700, fontSize: '0.9375rem' }}>{monthName}</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--app-accent)' }} />
-                        <span style={{ fontSize: '0.75rem', color: 'var(--app-text-secondary)' }}>PRESENT</span>
-                    </div>
+                <MonthCalendar
+                    year={calYear}
+                    month={calMonth}
+                    checkedDates={calCheckedDates.length > 0 ? calCheckedDates : checkedDates}
+                    onMonthChange={(y, m) => { setCalYear(y); setCalMonth(m); }}
+                />
+            </div>
+
+            {/* ── Check-in History with Month Filter ── */}
+            <div className="app-section-header" style={{ marginBottom: '0.75rem' }}>
+                <div className="app-section-label" style={{ marginBottom: 0 }}>CHECK-IN HISTORY</div>
+                <select
+                    value={historyMonth}
+                    onChange={(e) => setHistoryMonth(e.target.value)}
+                    style={{
+                        background: 'var(--app-surface)', border: '1px solid var(--app-border)',
+                        borderRadius: 'var(--app-radius-md)', padding: '0.25rem 0.5rem',
+                        color: 'var(--app-text-primary)', fontSize: '0.75rem',
+                        fontWeight: 600, outline: 'none', cursor: 'pointer',
+                    }}
+                >
+                    {monthOptions.map(m => {
+                        const [y, mo] = m.split('-');
+                        const label = new Date(parseInt(y), parseInt(mo) - 1).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long' });
+                        return <option key={m} value={m}>{label}</option>;
+                    })}
+                </select>
+            </div>
+
+            {filteredCheckins.length === 0 ? (
+                <div className="app-glass-card" style={{ textAlign: 'center', padding: '2rem', color: 'var(--app-text-secondary)' }}>
+                    해당 월의 체크인 기록이 없습니다.
                 </div>
-                <div className="attendance-calendar">
-                    {dayHeaders.map((d, i) => (
-                        <div key={`h-${i}`} className="attendance-day header">{d}</div>
-                    ))}
-                    {Array.from({ length: adjustedFirst }, (_, i) => (
-                        <div key={`e-${i}`} className="attendance-day" />
-                    ))}
-                    {Array.from({ length: daysInMonth }, (_, i) => {
-                        const day = i + 1;
-                        const isChecked = checkedDays.has(day);
-                        const isPast = day <= today;
+            ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {filteredCheckins.slice(0, 10).map((c) => {
+                        const d = new Date(c.time);
                         return (
-                            <div
-                                key={day}
-                                className={`attendance-day ${isChecked ? 'checked' : isPast ? 'empty' : ''} ${day === today ? 'today' : ''}`}
-                            />
+                            <div key={c.id} className="app-glass-card" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem' }}>
+                                <div style={{
+                                    width: 36, height: 36, borderRadius: 10,
+                                    background: 'var(--app-accent-light)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: '0.875rem',
+                                }}>✅</div>
+                                <div style={{ flex: 1 }}>
+                                    <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>
+                                        {d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', weekday: 'short' })}
+                                    </div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--app-text-secondary)' }}>
+                                        {d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                                    </div>
+                                </div>
+                                <span style={{
+                                    fontSize: '0.6875rem', fontWeight: 600, padding: '0.125rem 0.5rem',
+                                    borderRadius: 9999, background: 'rgba(74,222,128,0.1)', color: '#4ade80',
+                                }}>확인됨</span>
+                            </div>
                         );
                     })}
                 </div>
-            </div>
+            )}
         </div>
     );
 }

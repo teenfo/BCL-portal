@@ -5,15 +5,28 @@ services:
       args:
         - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
         - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        - NEXT_PUBLIC_SITE_NAME=${NEXT_PUBLIC_SITE_NAME:-BCL CrossFit Lounge}
+        - NEXT_PUBLIC_SITE_DESCRIPTION=${NEXT_PUBLIC_SITE_DESCRIPTION:-BCL CrossFit Lounge Portal}
     image: bcl-portal:latest
     container_name: bcl-portal
     ports:
-      - "8080:80"
+      - "3000:3000"
     restart: unless-stopped
     env_file:
       - .env.local
+    volumes:
+      # Persist uploaded images across container rebuilds
+      - portal-uploads:/app/public/uploads
+      # Persist .env.local for settings API
+      - ./.env.local:/app/.env.local:rw
     depends_on:
       - race-service
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   race-service:
     build:
@@ -21,4 +34,8 @@ services:
     image: bcl-race-server:latest
     container_name: bcl-race-server
     restart: unless-stopped
-    # Internal port 8000
+    # Internal port 8000 — accessed by portal via Docker network
+
+volumes:
+  portal-uploads:
+    driver: local
