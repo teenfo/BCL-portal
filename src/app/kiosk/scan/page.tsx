@@ -17,6 +17,8 @@ export default function KioskScanPage() {
     const [manualCode, setManualCode] = useState('');
     const [currentTime, setCurrentTime] = useState('');
     const processingRef = useRef(false);
+    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+    const facingModeRef = useRef<'user' | 'environment'>('user');
 
     // 시각
     useEffect(() => {
@@ -38,7 +40,7 @@ export default function KioskScanPage() {
             scannerRef.current = scanner;
 
             await scanner.start(
-                { facingMode: 'environment' },
+                { facingMode: facingModeRef.current },
                 {
                     fps: 10,
                     qrbox: { width: 280, height: 280 },
@@ -93,6 +95,16 @@ export default function KioskScanPage() {
         setErrorMessage('');
         startScanner();
     }, [startScanner]);
+
+    // 카메라 전환 (전면 ↔ 후면)
+    const toggleCamera = useCallback(async () => {
+        await stopScanner();
+        const newMode = facingModeRef.current === 'user' ? 'environment' : 'user';
+        facingModeRef.current = newMode;
+        setFacingMode(newMode);
+        setCameraReady(false);
+        startScanner();
+    }, [stopScanner, startScanner]);
 
     // QR 코드 처리
     const processQRCode = async (code: string) => {
@@ -242,8 +254,38 @@ export default function KioskScanPage() {
                     letterSpacing: '-0.01em',
                 }}>QR 체크인</h1>
 
-                <div style={{ fontSize: '28px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
-                    {currentTime}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    {!manualMode && (
+                        <button
+                            onClick={toggleCamera}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                padding: '10px 20px',
+                                borderRadius: '12px',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                backdropFilter: 'blur(12px)',
+                                color: 'rgba(255,255,255,0.6)',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                fontFamily: "'Lexend', sans-serif",
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'white'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+                        >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
+                                <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
+                                <polyline points="16 3 19 6 16 9" /><polyline points="8 15 5 18 8 21" />
+                            </svg>
+                            {facingMode === 'user' ? '후면' : '전면'}
+                        </button>
+                    )}
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
+                        {currentTime}
+                    </div>
                 </div>
             </div>
 
