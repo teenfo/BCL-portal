@@ -133,3 +133,30 @@
   - `members`: user_id
   - `transactions`: member_id, created_at DESC
   - `lockers`: facility_id+status
+
+---
+
+## 2026-02-20 00:00 세션 작업 내역
+
+### Priority 17: Known Issues 정비 Phase 1+2 (v0.4.0)
+> `/develop` 워크플로우 실행 — v0.4.0
+
+#### Phase 1: AuthContext 확장 (💻 Developer)
+- [x] `AuthContext.tsx`: `memberId` 필드 추가 (AuthContextType 확장)
+- [x] `fetchMemberId()` 유틸 함수 신규 생성 (auth.users.id → members.id 변환)
+- [x] 로그인/세션 초기화/로그아웃 전 생명주기에 memberId 동기화
+- [x] INITIAL_SESSION, SIGNED_IN, SIGNED_OUT 이벤트 처리에 memberId 통합
+
+#### Phase 2: member_id 혼용 수정 (💻 Developer)
+- [x] `apps/dashboard/page.tsx`: 2차 병렬 쿼리 구조로 리팩토링 (auth → member 레이어 분리)
+  - checkins(2곳), bookings(1곳), memberships(1곳) → member_id 기반 전환
+- [x] `apps/records/page.tsx`: loadData, saveWod, savePR 3곳 member_id 수정
+- [x] `apps/feedback/page.tsx`: loadData(bookings+feedback), handleSubmit 3곳 수정
+- [x] `apps/checkin/page.tsx`: memberships, monthly checkins, calendar 3곳 수정
+- [x] `apps/profile/page.tsx`: memberships, checkins, bookings 3곳 수정
+
+#### 문서/버전 갱신
+- [x] version.ts 갱신 (0.3.0 → 0.4.0) + CHANGELOG 추가
+- [x] package.json 갱신 (0.3.0 → 0.4.0)
+- [x] project-blueprint.md 갱신 (Phase 1,2 체크, Known Issues 해결 처리)
+- [x] 빌드 검증 통과

@@ -49,10 +49,16 @@ export default function UserRecordsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
+        // auth user.id → members.id 변환
+        const { data: memberRow }: any = await supabase
+            .from('members').select('id').eq('user_id', user.id).single();
+        const memberId = memberRow?.id;
+        if (!memberId) { setLoading(false); return; }
+
         const { data: feedbackData }: any = await supabase
             .from('session_feedback')
             .select('*, sessions(title)')
-            .eq('member_id', user.id)
+            .eq('member_id', memberId)
             .not('comment', 'is', null)
             .order('created_at', { ascending: false })
             .limit(30);
@@ -76,7 +82,7 @@ export default function UserRecordsPage() {
         const { data: checkinData }: any = await supabase
             .from('checkins')
             .select('time')
-            .eq('member_id', user.id)
+            .eq('member_id', memberId)
             .gte('time', sixMonthsAgo.toISOString())
             .order('time', { ascending: true });
 
@@ -102,8 +108,14 @@ export default function UserRecordsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSaving(false); return; }
 
+        // auth user.id → members.id 변환
+        const { data: memberRow }: any = await supabase
+            .from('members').select('id').eq('user_id', user.id).single();
+        const memberId = memberRow?.id;
+        if (!memberId) { setSaving(false); toast.error('회원 정보를 찾을 수 없습니다.'); return; }
+
         const { error }: any = await supabase.from('session_feedback').insert({
-            member_id: user.id,
+            member_id: memberId,
             rating: 5,
             comment: `[WOD:${wodType}] ${resultValue}${wodNotes ? ' | ' + wodNotes : ''}`,
         });
@@ -125,8 +137,14 @@ export default function UserRecordsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSaving(false); return; }
 
+        // auth user.id → members.id 변환
+        const { data: memberRow }: any = await supabase
+            .from('members').select('id').eq('user_id', user.id).single();
+        const memberId = memberRow?.id;
+        if (!memberId) { setSaving(false); toast.error('회원 정보를 찾을 수 없습니다.'); return; }
+
         const { error }: any = await supabase.from('session_feedback').insert({
-            member_id: user.id,
+            member_id: memberId,
             rating: 5,
             comment: `[PR] ${prExercise}: ${prValue}${prUnit}`,
         });

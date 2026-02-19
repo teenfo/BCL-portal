@@ -42,15 +42,27 @@ export default function UserProfilePage() {
 
         setUserEmail(user.email || '');
 
-        // Parallel data loading
-        const [memberResult, profileResult, membershipResult, checkinCount, bookingCount] = await Promise.all([
-            supabase.from('members').select('name, avatar_url').eq('user_id', user.id).single(),
+        // 1차: auth 레이어 + members 조회 (member_id 확보)
+        const [memberResult, profileResult] = await Promise.all([
+            supabase.from('members').select('id, name, avatar_url').eq('user_id', user.id).single(),
             supabase.from('profiles').select('role').eq('id', user.id).single(),
-            supabase.from('memberships').select('*, membership_plans(name)')
-                .eq('user_id', user.id).eq('status', 'active')
-                .order('end_date', { ascending: false }).limit(1).single(),
-            supabase.from('checkins').select('id', { count: 'exact', head: true }).eq('member_id', user.id),
-            supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('user_id', user.id).in('status', ['confirmed', 'attended']),
+        ]);
+
+        const memberId = memberResult.data?.id;
+
+        // 2차: member_id 의존 쿼리
+        const [membershipResult, checkinCount, bookingCount] = await Promise.all([
+            memberId
+                ? supabase.from('memberships').select('*, membership_plans(name)')
+                    .eq('member_id', memberId).eq('status', 'active')
+                    .order('end_date', { ascending: false }).limit(1).single()
+                : Promise.resolve({ data: null }),
+            memberId
+                ? supabase.from('checkins').select('id', { count: 'exact', head: true }).eq('member_id', memberId)
+                : Promise.resolve({ count: 0 }),
+            memberId
+                ? supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('member_id', memberId).in('status', ['confirmed', 'attended'])
+                : Promise.resolve({ count: 0 }),
         ]);
 
         if (memberResult.data) {

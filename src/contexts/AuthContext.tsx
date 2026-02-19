@@ -29,6 +29,7 @@ interface AuthContextType {
     user: User | null;
     session: Session | null;
     profile: Profile | null;
+    memberId: string | null;
     loading: boolean;
     isApproved: boolean;
     isPending: boolean;
@@ -107,6 +108,34 @@ async function fetchProfile(supabase: SupabaseClient, userId: string): Promise<P
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   MemberId 조회 유틸
+   auth.users.id → members.id 변환
+   members 테이블의 PK(id)는 auth user_id와 별도의 UUID이므로
+   비즈니스 테이블(bookings, checkins 등) 조회 시에는 memberId를 사용해야 함
+   ═══════════════════════════════════════════════════════════════ */
+async function fetchMemberId(supabase: SupabaseClient, userId: string): Promise<string | null> {
+    try {
+        const result: any = await withTimeout(
+            (supabase as any)
+                .from('members')
+                .select('id')
+                .eq('user_id', userId)
+                .single(),
+            5000,
+            'fetchMemberId'
+        );
+        const { data, error } = result;
+        if (!error && data) {
+            return data.id as string;
+        }
+        return null;
+    } catch (err) {
+        console.warn('[Auth] fetchMemberId failed:', err);
+        return null;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════════
    AuthProvider
    
    핵심 설계 원칙:
@@ -127,6 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [session, setSession] = useState<Session | null>(null);
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [memberId, setMemberId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     const mountedRef = useRef(true);
@@ -166,15 +196,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (newSession?.user) {
                             setUser(newSession.user);
                             setSession(newSession);
-                            // 프로필을 비동기로 로드 (loading은 아직 유지)
-                            const p = await fetchProfile(supabase, newSession.user.id);
+                            // 프로필 + memberId 비동기 로드 (loading은 아직 유지)
+                            const [p, mId] = await Promise.all([
+                                fetchProfile(supabase, newSession.user.id),
+                                fetchMemberId(supabase, newSession.user.id),
+                            ]);
                             if (mountedRef.current) {
                                 setProfile(p);
+                                setMemberId(mId);
                             }
                         } else {
                             setUser(null);
                             setSession(null);
                             setProfile(null);
+                            setMemberId(null);
                         }
                         if (mountedRef.current) {
                             initializedRef.current = true;
@@ -187,9 +222,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (newSession?.user) {
                             setUser(newSession.user);
                             setSession(newSession);
-                            const p = await fetchProfile(supabase, newSession.user.id);
+                            const [p, mId] = await Promise.all([
+                                fetchProfile(supabase, newSession.user.id),
+                                fetchMemberId(supabase, newSession.user.id),
+                            ]);
                             if (mountedRef.current) {
                                 setProfile(p);
+                                setMemberId(mId);
                                 if (!initializedRef.current) {
                                     initializedRef.current = true;
                                     setLoading(false);
@@ -203,6 +242,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         setUser(null);
                         setSession(null);
                         setProfile(null);
+                        setMemberId(null);
                         if (!initializedRef.current) {
                             initializedRef.current = true;
                             setLoading(false);
@@ -447,6 +487,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setUser(null);
         setSession(null);
+        setMemberId(null);
         try {
             await supabase.auth.signOut();
         } catch (err) {
@@ -476,6 +517,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         profile,
+        memberId,
         loading,
         isApproved,
         isPending,

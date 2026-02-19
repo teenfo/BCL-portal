@@ -101,29 +101,16 @@ export default function UserDashboardPage() {
             startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Monday
             const weekStart = startOfWeek.toISOString().split('T')[0];
 
-            // ── 병렬 데이터 로딩 ──
+            // ── 1차 병렬 로딩: auth 레이어 + 공통 조회 ──
             const [
                 memberResult,
-                membershipResult,
                 sessionResult,
                 noticesResult,
-                checkinTodayResult,
-                weeklyBookingsResult,
-                streakResult,
                 unreadResult,
             ] = await Promise.all([
-                // 1. 회원 정보
-                supabase.from('members').select('name').eq('user_id', user.id).single(),
-                // 2. 멤버십
-                supabase
-                    .from('memberships')
-                    .select('*, membership_plans(name, credits)')
-                    .eq('user_id', user.id)
-                    .eq('status', 'active')
-                    .order('end_date', { ascending: false })
-                    .limit(1)
-                    .single(),
-                // 3. 다음 수업 (session_date = today AND start_time > now)
+                // 1. 회원 정보 (id + name) — user_id 기반
+                supabase.from('members').select('id, name').eq('user_id', user.id).single(),
+                // 2. 다음 수업 (session_date = today AND start_time > now)
                 supabase
                     .from('sessions')
                     .select('*')
@@ -131,35 +118,14 @@ export default function UserDashboardPage() {
                     .gte('start_time', now.toISOString())
                     .order('start_time', { ascending: true })
                     .limit(1),
-                // 4. 공지사항
+                // 3. 공지사항
                 supabase
                     .from('notices')
                     .select('*')
                     .eq('is_published', true)
                     .order('created_at', { ascending: false })
                     .limit(3),
-                // 5. 오늘 체크인 여부
-                supabase
-                    .from('checkins')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('member_id', user.id)
-                    .gte('checkin_time', todayStr + 'T00:00:00')
-                    .lte('checkin_time', todayStr + 'T23:59:59'),
-                // 6. 이번 주 수업 수
-                supabase
-                    .from('bookings')
-                    .select('id', { count: 'exact', head: true })
-                    .eq('user_id', user.id)
-                    .in('status', ['confirmed', 'attended'])
-                    .gte('created_at', weekStart + 'T00:00:00'),
-                // 7. 연속 출석일 (최근 30일 체크인에서 계산)
-                supabase
-                    .from('checkins')
-                    .select('checkin_time')
-                    .eq('member_id', user.id)
-                    .order('checkin_time', { ascending: false })
-                    .limit(30),
-                // 8. 미읽음 알림 수
+                // 4. 미읽음 알림 수 (user_id 사용 — 정상)
                 supabase
                     .from('notifications')
                     .select('id', { count: 'exact', head: true })
@@ -167,12 +133,58 @@ export default function UserDashboardPage() {
                     .eq('is_read', false),
             ]);
 
-            // 회원 이름
+            // 회원 이름 + memberId 추출
+            const memberId = memberResult.data?.id;
             if (memberResult.data?.name) setUserName(memberResult.data.name);
 
+            // ── 2차 병렬 로딩: member_id 의존 쿼리 ──
+            let membershipData: any = null;
+            let checkinTodayCount = 0;
+            let weeklyBookingsCount = 0;
+            let streakData: any[] = [];
+
+            if (memberId) {
+                const [msResult, ciResult, wbResult, skResult] = await Promise.all([
+                    // 멤버십
+                    supabase
+                        .from('memberships')
+                        .select('*, membership_plans(name, credits)')
+                        .eq('member_id', memberId)
+                        .eq('status', 'active')
+                        .order('end_date', { ascending: false })
+                        .limit(1)
+                        .single(),
+                    // 오늘 체크인 여부
+                    supabase
+                        .from('checkins')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('member_id', memberId)
+                        .gte('checkin_time', todayStr + 'T00:00:00')
+                        .lte('checkin_time', todayStr + 'T23:59:59'),
+                    // 이번 주 수업 수
+                    supabase
+                        .from('bookings')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('member_id', memberId)
+                        .in('status', ['confirmed', 'attended'])
+                        .gte('created_at', weekStart + 'T00:00:00'),
+                    // 연속 출석일 (최근 30일 체크인)
+                    supabase
+                        .from('checkins')
+                        .select('checkin_time')
+                        .eq('member_id', memberId)
+                        .order('checkin_time', { ascending: false })
+                        .limit(30),
+                ]);
+                membershipData = msResult.data;
+                checkinTodayCount = ciResult.count || 0;
+                weeklyBookingsCount = wbResult.count || 0;
+                streakData = skResult.data || [];
+            }
+
             // 멤버십
-            if (membershipResult.data) {
-                const md = membershipResult.data;
+            if (membershipData) {
+                const md = membershipData;
                 setMembership({
                     id: md.id,
                     plan_name: md.membership_plans?.name || '이용권',
@@ -192,15 +204,15 @@ export default function UserDashboardPage() {
             if (noticesResult.data) setNotices(noticesResult.data);
 
             // Today's Status 계산
-            const checkedInToday = (checkinTodayResult.count || 0) > 0;
-            const weeklyClasses = weeklyBookingsResult.count || 0;
+            const checkedInToday = checkinTodayCount > 0;
+            const weeklyClasses = weeklyBookingsCount;
             const unreadNotifications = unreadResult.count || 0;
 
             // 연속 출석일 계산
             let streakDays = 0;
-            if (streakResult.data?.length) {
+            if (streakData.length) {
                 const checkinDates = new Set(
-                    streakResult.data.map((c: any) => new Date(c.checkin_time).toISOString().split('T')[0])
+                    streakData.map((c: any) => new Date(c.checkin_time).toISOString().split('T')[0])
                 );
                 const checkDate = new Date();
                 // 오늘 체크인 안했으면 어제부터 카운트

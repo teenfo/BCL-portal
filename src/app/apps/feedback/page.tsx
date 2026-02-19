@@ -35,10 +35,16 @@ export default function UserFeedbackPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
+        // auth user.id → members.id 변환
+        const { data: memberRow }: any = await supabase
+            .from('members').select('id').eq('user_id', user.id).single();
+        const memberId = memberRow?.id;
+        if (!memberId) { setLoading(false); return; }
+
         const { data: bookings }: any = await supabase
             .from('bookings')
             .select('id, session_id, sessions(title, start_time, coach_name)')
-            .eq('user_id', user.id)
+            .eq('member_id', memberId)
             .in('status', ['completed', 'confirmed'])
             .order('created_at', { ascending: false })
             .limit(20);
@@ -58,7 +64,7 @@ export default function UserFeedbackPage() {
         const { data: fbs }: any = await supabase
             .from('session_feedback')
             .select('*, sessions(title, coach_name)')
-            .eq('member_id', user.id)
+            .eq('member_id', memberId)
             .order('created_at', { ascending: false });
 
         if (fbs) {
@@ -77,8 +83,14 @@ export default function UserFeedbackPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { toast.warning('로그인이 필요합니다.'); setSubmitting(false); return; }
 
+        // auth user.id → members.id 변환
+        const { data: memberRow }: any = await supabase
+            .from('members').select('id').eq('user_id', user.id).single();
+        const memberId = memberRow?.id;
+        if (!memberId) { toast.warning('회원 정보를 찾을 수 없습니다.'); setSubmitting(false); return; }
+
         const { error }: any = await supabase.from('session_feedback').insert({
-            session_id: selectedSession, member_id: user.id,
+            session_id: selectedSession, member_id: memberId,
             rating, comment: comments.trim() || null,
         });
 

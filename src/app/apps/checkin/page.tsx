@@ -116,64 +116,69 @@ export default function UserCheckinPage() {
             }
         }
 
-        // Get membership info
-        const { data: membershipData }: any = await supabase
-            .from('memberships')
-            .select('*, membership_plans(name)')
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .order('end_date', { ascending: false })
-            .limit(1)
-            .single();
-        if (membershipData) {
-            setPlanName(membershipData.membership_plans?.name || 'Membership');
-            setPlanEnd(membershipData.end_date || '');
+        // Get membership info (member_id 기반)
+        const mId = memberData?.id;
+        if (mId) {
+            const { data: membershipData }: any = await supabase
+                .from('memberships')
+                .select('*, membership_plans(name)')
+                .eq('member_id', mId)
+                .eq('status', 'active')
+                .order('end_date', { ascending: false })
+                .limit(1)
+                .single();
+            if (membershipData) {
+                setPlanName(membershipData.membership_plans?.name || 'Membership');
+                setPlanEnd(membershipData.end_date || '');
+            }
         }
 
         const now = new Date();
         const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-        const { data: monthData }: any = await supabase
-            .from('checkins')
-            .select('*')
-            .eq('member_id', user.id)
-            .gte('time', firstDay.toISOString())
-            .lte('time', lastDay.toISOString())
-            .order('time', { ascending: false });
+        if (mId) {
+            const { data: monthData }: any = await supabase
+                .from('checkins')
+                .select('*')
+                .eq('member_id', mId)
+                .gte('time', firstDay.toISOString())
+                .lte('time', lastDay.toISOString())
+                .order('time', { ascending: false });
 
-        if (monthData) {
-            setCheckins(monthData);
-            setMonthlyCount(monthData.length);
+            if (monthData) {
+                setCheckins(monthData);
+                setMonthlyCount(monthData.length);
 
-            // Format dates for MonthCalendar component
-            const dates: string[] = [];
-            monthData.forEach((c: any) => {
-                const d = new Date(c.time);
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                if (!dates.includes(dateStr)) dates.push(dateStr);
-            });
-            setCheckedDates(dates);
+                // Format dates for MonthCalendar component
+                const dates: string[] = [];
+                monthData.forEach((c: any) => {
+                    const d = new Date(c.time);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    if (!dates.includes(dateStr)) dates.push(dateStr);
+                });
+                setCheckedDates(dates);
 
-            // Calculate streak
-            let currentStreak = 0;
-            const today = new Date();
-            const daySet = new Set(dates);
-            for (let i = 0; i < 60; i++) {
-                const checkDate = new Date(today);
-                checkDate.setDate(checkDate.getDate() - i);
-                const checkStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
-                if (daySet.has(checkStr)) {
-                    currentStreak++;
-                } else if (i > 0) break;
+                // Calculate streak
+                let currentStreak = 0;
+                const today = new Date();
+                const daySet = new Set(dates);
+                for (let i = 0; i < 60; i++) {
+                    const checkDate = new Date(today);
+                    checkDate.setDate(checkDate.getDate() - i);
+                    const checkStr = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}-${String(checkDate.getDate()).padStart(2, '0')}`;
+                    if (daySet.has(checkStr)) {
+                        currentStreak++;
+                    } else if (i > 0) break;
+                }
+                setStreak(currentStreak);
+
+                // Calculate weekly delta
+                const weekAgo = new Date();
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                const thisWeek = monthData.filter((c: any) => new Date(c.time) >= weekAgo).length;
+                setWeeklyDelta(thisWeek);
             }
-            setStreak(currentStreak);
-
-            // Calculate weekly delta
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const thisWeek = monthData.filter((c: any) => new Date(c.time) >= weekAgo).length;
-            setWeeklyDelta(thisWeek);
         }
         setLoading(false);
     }, []);
@@ -189,10 +194,16 @@ export default function UserCheckinPage() {
             const firstDay = new Date(calYear, calMonth - 1, 1);
             const lastDay = new Date(calYear, calMonth, 0);
 
+            // auth user.id → members.id 변환
+            const { data: memberRow }: any = await supabase
+                .from('members').select('id').eq('user_id', user.id).single();
+            const mId = memberRow?.id;
+            if (!mId) return;
+
             const { data }: any = await supabase
                 .from('checkins')
                 .select('time')
-                .eq('member_id', user.id)
+                .eq('member_id', mId)
                 .gte('time', firstDay.toISOString())
                 .lte('time', lastDay.toISOString());
 

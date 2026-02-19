@@ -14,7 +14,7 @@
  *   - 정식 출시 시 MAJOR를 1로 전환
  */
 
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 export const BUILD_DATE = '2026-02-20';
 
 export interface ChangelogEntry {
@@ -31,6 +31,22 @@ export interface ChangelogEntry {
 export const GITHUB_REPO_URL = 'https://github.com/teenfo/BCL-portal';
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: '0.4.0',
+        date: '2026-02-20',
+        type: 'minor',
+        priority: 17,
+        title: 'Known Issues 정비 — user_id/member_id 혼용 해결',
+        changes: [
+            '🔑 AuthContext에 memberId 필드 추가 (로그인 시 auth.users.id → members.id 변환 + 캐싱)',
+            '🔧 fetchMemberId() 유틸 함수 신규 추가',
+            '📊 dashboard: 2차 병렬 쿼리 구조로 리팩토링 (auth 레이어 → member 레이어)',
+            '📝 records: loadData/saveWod/savePR의 member_id 혼용 3건 수정',
+            '💬 feedback: loadData/handleSubmit의 member_id 혼용 3건 수정',
+            '✅ checkin: memberships/checkins 쿼리 member_id 정상화 + 캘린더 쿼리 수정',
+            '👤 profile: memberships/checkins/bookings 쿼리 member_id 정상화',
+        ],
+    },
     {
         version: '0.3.0',
         date: '2026-02-20',
