@@ -7,6 +7,7 @@ import { useAdminSidebar } from '@/contexts/AdminSidebarContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminPermissions } from '@/hooks/useAdminPermissions';
 import Logo from '@/components/ui/Logo';
+import { APP_VERSION, BUILD_DATE } from '@/lib/version';
 
 interface MenuItem {
     name: string;
@@ -538,6 +539,29 @@ export default function AdminSidebar() {
                     )}
                 </div>
             )}
+
+            {/* Version Badge */}
+            <div
+                style={{
+                    margin: collapsed ? '0 8px 4px' : '0 12px 4px',
+                    padding: collapsed ? '6px 0' : '6px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    gap: '6px',
+                }}
+                title={collapsed ? `v${APP_VERSION} (${BUILD_DATE})` : undefined}
+            >
+                <span style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: 'rgba(255,255,255,0.2)',
+                    letterSpacing: '0.05em',
+                    fontVariantNumeric: 'tabular-nums',
+                }}>
+                    {collapsed ? `v${APP_VERSION}` : `v${APP_VERSION} · ${BUILD_DATE}`}
+                </span>
+            </div>
 
             {/* Footer / User Profile */}
             <div className="admin-sidebar__footer">
