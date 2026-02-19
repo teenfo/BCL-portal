@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import dynamic from 'next/dynamic';
+const QRCodeSVG = dynamic(() => import('qrcode.react').then(mod => mod.QRCodeSVG), { ssr: false });
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 import { MonthCalendar, StatCard, AppSkeleton } from '@/components/apps';

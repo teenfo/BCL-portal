@@ -63,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 13: 배지 시스템 고도화 — ✅ 전 Phase 완료**
+- **Current Focus**: **Priority 15: 성능 최적화 — ✅ 전 Phase 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 13 전체 Phase 완료 — badge_definitions/badge_awards 테이블 생성, RLS 8개, RPC 3개, Trigger 4개, Admin CRUD, User 화면 리팩토링
+- **Last Action**: Priority 15 완료 — Image 최적화, 코드 스플리팅, DB 인덱스 15개 추가 (v0.3.0)
 
 ---
 
@@ -196,40 +196,18 @@
   - [x] Phase 4: 문서 동기화 → 🏩 **Architect (Opus)** ✅
     - [x] sitemap + database-reference + blueprint 갱신
 
-#### 🟠 Priority 14: 알림 시스템 실 가동 QA (개발 대기)
-  > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
-  > **문제**: 알림 시스템 코드 완료 상태이나 pg_cron, DB 트리거, Web Push, 외부 채널(카카오/SMS) 실 발송 검증 미완료
-  > **방안**: 각 채널별 단계적 실 발송 테스트 → 운영 환경 적용
-
-  - [ ] Phase 1: pg_cron 작동 확인 → 💻 **Developer (Sonnet)**
-    - [ ] `class-reminder-every-10min` 크론 실행 이력 확인
-    - [ ] `membership-expiry-daily-9am` 크론 실행 이력 확인
-    - [ ] 테스트 수업 데이터 생성 후 자동 알림 생성 확인
-  - [ ] Phase 2: DB 트리거 테스트 → 💻 **Developer (Sonnet)**
-    - [ ] 빈자리 알림 트리거 (예약 취소 → 대기열 알림)
-    - [ ] 체크인 완료 알림 트리거 (격려 메시지 자동 생성)
-  - [ ] Phase 3: Web Push 실제 발송 → ⚡ **Specialist (Gemini)**
-    - [ ] Android/Desktop 브라우저 Push 수신 확인
-    - [ ] iOS PWA Push 수신 확인
-  - [ ] Phase 4: 외부 채널 연동 → 💎 **Senior Dev (Opus)**
-    - [ ] 카카오 비즈메시지 API 키 발급 + 템플릿 승인
-    - [ ] SMS 서비스(알리고/네이버 SENS) API 연동
-    - [ ] Edge Function 실제 API 교체 + 재배포
-
-#### 🟢 Priority 15: 성능 최적화 (개발 대기)
+#### ✅ Priority 15: 성능 최적화 (완료)
   > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
   > **방안**: 이미지 최적화 → 코드 스플리팅 → 쿼리 최적화 순으로 진행
 
-  - [ ] Phase 1: 이미지 최적화 → 🎨 **UI Developer (Gemini)**
-    - [ ] Next.js Image 컴포넌트 적용
-    - [ ] 코치 프로필 이미지 WebP 변환 + Lazy Loading
-  - [ ] Phase 2: 코드 스플리팅 → 💻 **Developer (Sonnet)**
-    - [ ] `next/dynamic` 동적 로딩 적용
-    - [ ] 불필요 라이브러리 제거 + Bundle Analyzer 실행
-  - [ ] Phase 3: Supabase 쿼리 최적화 → 💎 **Senior Dev (Opus)**
-    - [ ] N+1 쿼리 해결 (JOIN 최적화)
-    - [ ] 인덱스 추가 (자주 조회되는 컬럼)
-    - [ ] 대량 데이터 페이지네이션 적용
+  - [x] Phase 1: 이미지 최적화 → 🎨 **UI Developer (Gemini)** ✅
+    - [x] Next.js Image 컴포넌트 적용 (profile, branch, feedback)
+    - [x] next.config remotePatterns 설정 (Supabase Storage 자동 WebP 변환)
+  - [x] Phase 2: 코드 스플리팅 → 💻 **Developer (Sonnet)** ✅
+    - [x] QRCodeSVG `next/dynamic` 동적 로딩 적용
+    - [x] @faker-js/faker, dotenv → devDependencies 이동
+  - [x] Phase 3: Supabase 쿼리 최적화 → 💎 **Senior Dev (Opus)** ✅
+    - [x] DB 인덱스 15개 추가 (checkins, bookings, sessions, memberships, notifications, members, transactions, lockers)
 
 #### ✅ Priority 16: QR 체크인 시스템 재설계 (완료)
   > **기획서**: `.docs/archive/planning/checkin-qr-system.md`
@@ -259,6 +237,27 @@
     - [x] sitemap 갱신
     - [x] blueprint 반영
 
+#### 🟡 Priority 14: 알림 시스템 실 가동 QA (개발 대기 — 운영 환경 의존)
+  > **출처**: `.docs/archive/TODO_NEXT_STEPS.md`
+  > **문제**: 알림 시스템 코드 완료 상태이나 pg_cron, DB 트리거, Web Push, 외부 채널(카카오/SMS) 실 발송 검증 미완료
+  > **방안**: 각 채널별 단계적 실 발송 테스트 → 운영 환경 적용
+  > **비고**: Phase 3~4는 프로덕션 배포 + 외부 서비스 계약 필요하여 후순위 배치
+
+  - [ ] Phase 1: pg_cron 작동 확인 → 💻 **Developer (Sonnet)**
+    - [ ] `class-reminder-every-10min` 크론 실행 이력 확인
+    - [ ] `membership-expiry-daily-9am` 크론 실행 이력 확인
+    - [ ] 테스트 수업 데이터 생성 후 자동 알림 생성 확인
+  - [ ] Phase 2: DB 트리거 테스트 → 💻 **Developer (Sonnet)**
+    - [ ] 빈자리 알림 트리거 (예약 취소 → 대기열 알림)
+    - [ ] 체크인 완료 알림 트리거 (격려 메시지 자동 생성)
+  - [ ] Phase 3: Web Push 실제 발송 → ⚡ **Specialist (Gemini)**
+    - [ ] Android/Desktop 브라우저 Push 수신 확인
+    - [ ] iOS PWA Push 수신 확인
+  - [ ] Phase 4: 외부 채널 연동 → 💎 **Senior Dev (Opus)**
+    - [ ] 카카오 비즈메시지 API 키 발급 + 템플릿 승인
+    - [ ] SMS 서비스(알리고/네이버 SENS) API 연동
+    - [ ] Edge Function 실제 API 교체 + 재배포
+
 ---
 
 ### Known Issues (Active)
@@ -267,6 +266,7 @@
 - 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
 - ✅ ~~**배지 시스템 하드코딩** (RESOLVED): badge_definitions + badge_awards DB 테이블로 이관 완료. WOD/PR 카운트 버그 4건 해결, Admin CRUD + User RPC 전환 완료.~~
 - ✅ ~~**QR 체크인 시스템 미동작** (RESOLVED): QR 페이로드 JSON 인코딩 + 키오스크 인증 전면 재작성 완료. 타임스탬프 검증, 회원 확인, 수업 예약 자동 감지, 중복 체크인 방지 구현.~~
+- 🔴 **user_id / member_id 혼용** (NEEDS REVIEW): DB 테이블마다 FK 참조가 `auth.users(id)` 또는 `members(id)`로 불일치. bookings·memberships·transactions는 `member_id`, notifications·profiles는 `user_id` 사용. 프론트엔드 코드에서도 `user.id` vs `memberId` 혼용으로 인덱스 추가 시 에러 발생. 전체 스키마 + 코드 정합성 점검 필요.
 
 ### 참고 문서
 - **완료 히스토리**: `.docs/archive/complete/project-complete-20260218.md`

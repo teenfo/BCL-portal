@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
+import Image from 'next/image';
 import { IconBuilding, IconPhone, IconCalendar, IconMapPin, IconEdit, IconTrash } from '@/components/icons/AdminIcons';
 import { useToast } from '@/components/ui/Toast';
 
@@ -200,8 +201,8 @@ export default function BranchSetupPage() {
                                     <div className="flex items-center gap-2"><span className="text-[var(--text-muted)]"><IconCalendar size={14} /></span><span className="text-white/60">{getHoursSummary(f)}</span></div>
                                 </div>
                                 {f.map_image_url && (
-                                    <div className="mt-4 rounded-xl overflow-hidden border border-white/5" style={{ height: '80px' }}>
-                                        <img src={f.map_image_url} alt="지도" className="w-full h-full object-cover opacity-60 hover:opacity-100 transition-opacity" />
+                                    <div className="mt-4 rounded-xl overflow-hidden border border-white/5 relative" style={{ height: '80px' }}>
+                                        <Image src={f.map_image_url} alt="지도" fill className="object-cover opacity-60 hover:opacity-100 transition-opacity" sizes="(max-width: 768px) 100vw, 33vw" />
                                     </div>
                                 )}
 

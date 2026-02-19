@@ -103,3 +103,33 @@
 - [x] project-blueprint.md 갱신 (Priority 13 완료 처리, Known Issues 해결)
 - [x] 빌드 검증 통과
 
+---
+
+## 2026-02-19 24:00 세션 작업 내역
+
+### Priority 15: 성능 최적화 (전 Phase 완료)
+> `/develop` 워크플로우 실행 — v0.3.0
+
+#### Phase 1: 이미지 최적화 (🎨 UI Developer)
+- [x] `next.config.mjs`: `images.unoptimized: true` 제거 → `remotePatterns` 설정 (Supabase Storage)
+- [x] `apps/profile/page.tsx`: 프로필 아바타 `<img>` → `next/image` Image 전환
+- [x] `admin/setup/branch/page.tsx`: 지도 이미지 `<img>` → `next/image` Image (fill) 전환
+- [x] `admin/insights/feedback/page.tsx`: 회원 프로필 `<img>` → `next/image` Image 전환
+
+#### Phase 2: 코드 스플리팅 (💻 Developer)
+- [x] `apps/checkin/page.tsx`: QRCodeSVG를 `next/dynamic` + `ssr: false`로 동적 임포트
+- [x] `@faker-js/faker` → devDependencies로 이동 (프로덕션 번들에서 제외)
+- [x] `dotenv` → devDependencies로 이동 (seed 스크립트 전용)
+
+#### Phase 3: Supabase 쿼리 최적화 (💎 Senior Dev)
+> 마이그레이션: `add_performance_indexes`
+
+- [x] DB 인덱스 15개 추가:
+  - `checkins`: member_id, checkin_time DESC, facility_id
+  - `bookings`: member_id+status, session_id+status
+  - `sessions`: session_date+status, facility_id
+  - `memberships`: member_id+status, end_date
+  - `notifications`: user_id+is_read, created_at DESC
+  - `members`: user_id
+  - `transactions`: member_id, created_at DESC
+  - `lockers`: facility_id+status

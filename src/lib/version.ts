@@ -14,8 +14,8 @@
  *   - 정식 출시 시 MAJOR를 1로 전환
  */
 
-export const APP_VERSION = '0.2.0';
-export const BUILD_DATE = '2026-02-19';
+export const APP_VERSION = '0.3.0';
+export const BUILD_DATE = '2026-02-20';
 
 export interface ChangelogEntry {
     version: string;
@@ -31,6 +31,20 @@ export interface ChangelogEntry {
 export const GITHUB_REPO_URL = 'https://github.com/teenfo/BCL-portal';
 
 export const CHANGELOG: ChangelogEntry[] = [
+    {
+        version: '0.3.0',
+        date: '2026-02-20',
+        type: 'minor',
+        priority: 15,
+        title: '성능 최적화',
+        changes: [
+            '🖼️ Next.js Image 컴포넌트 적용 (profile, branch, feedback)',
+            '⚙️ next.config 이미지 최적화 활성화 (unoptimized → remotePatterns)',
+            '📦 QRCodeSVG dynamic import (코드 스플리팅)',
+            '🗑️ @faker-js/faker, dotenv → devDependencies 이동',
+            '🗄️ DB 인덱스 15개 추가 (checkins, bookings, sessions, memberships, notifications, members, transactions, lockers)',
+        ],
+    },
     {
         version: '0.2.0',
         date: '2026-02-19',

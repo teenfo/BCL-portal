@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
+import Image from 'next/image';
 import { IconStar, IconMessage, IconTrendingUp, IconUsers } from '@/components/icons/AdminIcons';
 import { useToast } from '@/components/ui/Toast';
 
@@ -252,7 +253,7 @@ export default function FeedbackInsightsPage() {
                                                     <div className="flex items-center gap-3">
                                                         <div className="w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden">
                                                             {f.members?.profile_image_url ? (
-                                                                <img src={f.members.profile_image_url} alt="" className="w-full h-full object-cover" />
+                                                                <Image src={f.members.profile_image_url} alt="" width={32} height={32} className="object-cover rounded-full" />
                                                             ) : (
                                                                 <IconUsers size={14} className="text-white/20" />
                                                             )}

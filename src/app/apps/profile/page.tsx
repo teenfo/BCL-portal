@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/ui/Toast';
 import { AppSkeleton, StatCard } from '@/components/apps';
@@ -152,12 +153,15 @@ export default function UserProfilePage() {
             <div className="profile-header">
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                     {avatarUrl ? (
-                        <img
+                        <Image
                             src={avatarUrl}
                             alt="Profile"
+                            width={88}
+                            height={88}
                             style={{
-                                width: 88, height: 88, borderRadius: '50%',
-                                objectFit: 'cover', border: '3px solid var(--app-accent)',
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: '3px solid var(--app-accent)',
                             }}
                         />
                     ) : (
