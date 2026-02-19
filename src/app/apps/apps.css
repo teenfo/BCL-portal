@@ -10,6 +10,11 @@ body:has(.user-bottom-nav),
 body.apps-active {
     background: #F5F3F0 !important;
     background-image: none !important;
+    color: #1A1A1A !important;
+}
+
+body.apps-active::before {
+    display: none !important;
 }
 
 /* ── CSS Custom Properties (User App) ── */
