@@ -21,15 +21,22 @@ export interface ChangelogEntry {
     version: string;
     date: string;
     type: 'major' | 'minor' | 'patch';
+    priority?: number;
+    planningDoc?: string; // .docs/archive/planning/ 내 파일 경로
     title: string;
     changes: string[];
 }
+
+/** GitHub 저장소 기본 URL */
+export const GITHUB_REPO_URL = 'https://github.com/teenfo/BCL-portal';
 
 export const CHANGELOG: ChangelogEntry[] = [
     {
         version: '0.1.0',
         date: '2026-02-19',
         type: 'minor',
+        priority: 16,
+        planningDoc: 'checkin-qr-system.md',
         title: 'QR 체크인 시스템 재설계 + 버전 관리',
         changes: [
             '🔧 QR 체크인 시스템 전면 재작성 (Priority 16)',

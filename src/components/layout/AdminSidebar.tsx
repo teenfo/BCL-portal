@@ -394,6 +394,34 @@ function SidebarClock({ collapsed }: { collapsed: boolean }) {
 
 // --- Changelog Modal ---
 function ChangelogModal({ onClose }: { onClose: () => void }) {
+    const [docContent, setDocContent] = useState<string | null>(null);
+    const [docLoading, setDocLoading] = useState(false);
+    const [docFile, setDocFile] = useState<string | null>(null);
+
+    const loadPlanningDoc = async (fileName: string) => {
+        if (docFile === fileName) {
+            // 토글: 이미 열린 문서 닫기
+            setDocContent(null);
+            setDocFile(null);
+            return;
+        }
+        setDocLoading(true);
+        setDocFile(fileName);
+        try {
+            const res = await fetch(`/api/docs/planning?file=${encodeURIComponent(fileName)}`);
+            const data = await res.json();
+            if (res.ok && data.content) {
+                setDocContent(data.content);
+            } else {
+                setDocContent(`⚠️ ${data.error || '문서를 불러올 수 없습니다.'}`);
+            }
+        } catch {
+            setDocContent('⚠️ 문서를 불러오는 중 오류가 발생했습니다.');
+        } finally {
+            setDocLoading(false);
+        }
+    };
+
     return (
         <div
             style={{
@@ -410,11 +438,12 @@ function ChangelogModal({ onClose }: { onClose: () => void }) {
                     background: 'linear-gradient(135deg, rgba(30,30,35,0.98) 0%, rgba(20,20,25,0.98) 100%)',
                     border: '1px solid rgba(255,255,255,0.08)',
                     borderRadius: '20px',
-                    width: '100%', maxWidth: '520px',
-                    maxHeight: '80vh',
+                    width: '100%', maxWidth: docContent ? '800px' : '520px',
+                    maxHeight: '85vh',
                     overflow: 'hidden',
                     display: 'flex', flexDirection: 'column',
                     boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+                    transition: 'max-width 0.3s ease',
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -460,7 +489,7 @@ function ChangelogModal({ onClose }: { onClose: () => void }) {
                             borderBottom: idx < CHANGELOG.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
                         }}>
                             {/* Version header */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' }}>
                                 <span style={{
                                     padding: '3px 10px',
                                     borderRadius: '8px',
@@ -482,6 +511,25 @@ function ChangelogModal({ onClose }: { onClose: () => void }) {
                                 <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', fontVariantNumeric: 'tabular-nums' }}>
                                     {entry.date}
                                 </span>
+                                {entry.priority && (
+                                    <button
+                                        onClick={() => entry.planningDoc && loadPlanningDoc(entry.planningDoc)}
+                                        disabled={!entry.planningDoc}
+                                        style={{
+                                            padding: '2px 8px', borderRadius: '6px',
+                                            fontSize: '10px', fontWeight: 700,
+                                            background: docFile === entry.planningDoc ? 'rgba(99,102,241,0.3)' : 'rgba(99,102,241,0.12)',
+                                            color: '#818cf8',
+                                            border: `1px solid ${docFile === entry.planningDoc ? 'rgba(99,102,241,0.4)' : 'rgba(99,102,241,0.2)'}`,
+                                            letterSpacing: '0.05em',
+                                            cursor: entry.planningDoc ? 'pointer' : 'default',
+                                            transition: 'all 0.2s',
+                                        }}
+                                        title={entry.planningDoc ? '기획 문서 보기' : undefined}
+                                    >
+                                        P{entry.priority} {entry.planningDoc ? '📄' : ''}
+                                    </button>
+                                )}
                                 {idx === 0 && (
                                     <span style={{
                                         padding: '2px 8px', borderRadius: '6px',
@@ -512,6 +560,55 @@ function ChangelogModal({ onClose }: { onClose: () => void }) {
                                     </li>
                                 ))}
                             </ul>
+
+                            {/* Planning doc viewer (inline) */}
+                            {docFile === entry.planningDoc && (
+                                <div style={{
+                                    marginTop: '16px',
+                                    padding: '16px 20px',
+                                    borderRadius: '12px',
+                                    background: 'rgba(0,0,0,0.3)',
+                                    border: '1px solid rgba(99,102,241,0.15)',
+                                    maxHeight: '400px',
+                                    overflowY: 'auto',
+                                }}>
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                        marginBottom: '12px', paddingBottom: '10px',
+                                        borderBottom: '1px solid rgba(255,255,255,0.06)',
+                                    }}>
+                                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#818cf8', letterSpacing: '0.05em' }}>
+                                            📑 {entry.planningDoc}
+                                        </span>
+                                        <button
+                                            onClick={() => { setDocContent(null); setDocFile(null); }}
+                                            style={{
+                                                background: 'none', border: 'none', cursor: 'pointer',
+                                                color: 'rgba(255,255,255,0.3)', fontSize: '12px', padding: '2px 6px',
+                                            }}
+                                        >
+                                            ✕ 닫기
+                                        </button>
+                                    </div>
+                                    {docLoading ? (
+                                        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
+                                            로딩 중...
+                                        </div>
+                                    ) : (
+                                        <pre style={{
+                                            margin: 0,
+                                            fontSize: '12px',
+                                            lineHeight: 1.7,
+                                            color: 'rgba(255,255,255,0.6)',
+                                            whiteSpace: 'pre-wrap',
+                                            wordBreak: 'break-word',
+                                            fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+                                        }}>
+                                            {docContent}
+                                        </pre>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
