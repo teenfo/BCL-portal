@@ -11,8 +11,8 @@
  *   npm run agent -- --list
  * 
  * 인증:
- *   🟣 Claude 모델: Anthropic Pro 구독 (OAuth 로그인)
- *   🔵 Gemini 모델: GEMINI_API_KEY 환경변수
+ *   🟣 Claude 모델: Anthropic Pro/Max 구독 (OAuth 로그인)
+ *   🔵 Gemini 모델: GEMINI_API_KEY 환경변수 또는 Google Cloud 인증
  */
 
 import { spawnSync } from 'child_process';
@@ -46,7 +46,7 @@ const ROLES = {
     architect: {
         name: '🏛️ Architect',
         cli: 'gemini',
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         description: '작업 선택, 설계 검토, 아키텍처 일관성 확인 및 최종 승인',
         systemPrompt: `당신은 BCL Portal 프로젝트의 Architect입니다.
 - 전체 시스템 아키텍처 설계, 보안 검증, 최종 리뷰 및 승인을 담당합니다.
@@ -61,7 +61,7 @@ const ROLES = {
     senior: {
         name: '💎 Senior Dev',
         cli: 'claude',
-        model: 'opus',
+        model: 'claude-opus-4-6',
         description: 'DB 스키마 설계, RLS 보안 정책 구현, 복잡한 비즈니스 로직',
         systemPrompt: `당신은 BCL Portal의 시니어 개발자(Senior Developer)입니다.
 - DB 스키마 설계, RLS 보안 정책 구현, 복잡한 비즈니스 로직을 전담합니다.
@@ -76,7 +76,7 @@ const ROLES = {
     'ui-dev': {
         name: '🎨 UI Developer',
         cli: 'gemini',
-        model: 'gemini-2.5-pro',
+        model: 'gemini-3-pro-preview',
         description: '디자인 시스템 준수, 프리미엄 UI(Glassmorphism) 구현',
         systemPrompt: `당신은 BCL Portal의 UI Developer입니다.
 - 디자인 시스템과 Glassmorphism 가이드라인을 완벽히 따르세요.
@@ -92,7 +92,7 @@ const ROLES = {
     dev: {
         name: '💻 Developer',
         cli: 'claude',
-        model: 'sonnet',
+        model: 'claude-sonnet-4-6',
         description: 'API 연동, 일반 로직 구현, 빌드 검증, 문서/컨텍스트 동기화',
         systemPrompt: `당신은 BCL Portal의 Developer입니다.
 - API 연동, 일반 로직 구현, 빌드 검증에 집중하세요.
@@ -107,7 +107,7 @@ const ROLES = {
     specialist: {
         name: '⚡ Specialist',
         cli: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-flash-preview',
         description: '실시간 엔드포인트 연동, 코드-문서 단순 대조, 빠른 작업',
         systemPrompt: `당신은 BCL Portal의 Specialist입니다.
 - 실시간 엔드포인트 연동, WebSocket, 하드웨어 연동 등 퍼포먼스 작업을 담당합니다.

@@ -1,6 +1,6 @@
 # BCL Portal – 코치 기능 고도화 기획서
 
-> **Status**: Draft
+> **Status**: Approved
 > **Author**: Agent (Architect 관점)
 > **Created**: 2026-02-21
 > **Last Updated**: 2026-02-21

@@ -25,6 +25,7 @@
 | `facilities` | 지점 정보 | name, address, operating_hours, latitude, longitude, photos(TEXT[]) |
 | `members` | 회원 프로필 | user_id, name, email, status, phone, birthday, emergency_contact, avatar_url, preferences(JSONB) |
 | `coaches` | 코치 정보 | user_id, name, specialties, linked_at, linked_by |
+| `coaching_notes` | 회원별 코칭 노트 이력 🆕 | coach_id, member_id, note_type, content |
 
 #### 멤버십 관리 (Membership)
 | 테이블 | 설명 | 주요 컬럼 |
@@ -46,6 +47,7 @@
 | `transactions` | 거래 내역 | member_id, amount, status, order_id, payment_key, source, toss_status |
 | `pg_settings` | PG사 설정 (Toss) | facility_id, test_client_key, live_client_key, payment_mode |
 | `refunds` | 환불 이력 | transaction_id, amount, reason, status, processed_by |
+| `coach_settlements` | 코치 정산 내역 🆕 | coach_id, year_month, base_salary, session_allowance, total_amount, status |
 
 #### 커뮤니케이션 (Communication)
 | 테이블 | 설명 | 주요 컬럼 |
@@ -101,6 +103,11 @@
 | `fn_send_membership_expiry_reminders` | Cron Function | `memberships` | 멤버십 만료 전 d-7, d-3, d-1 알림 발송 |
 | `fn_book_with_credit` | RPC Function | `bookings`, `memberships` | 예약 생성 + 크레딧 차감 + 정원 초과 시 Waitlist 자동 분기 |
 | `fn_cancel_booking_with_credit` | RPC Function | `bookings`, `memberships` | 예약 취소 + 크레딧 환원 |
+| `fn_get_coach_dashboard` | RPC Function | `sessions`, `checkins` | 코치 로그인 시 대시보드 데이터 조회 (당일 수업, 출결 등) 🆕 |
+| `fn_get_session_attendees` | RPC Function | `bookings`, `checkins` | 수업 참석자 목록 및 출석 상태 조회 🆕 |
+| `fn_coach_mark_attendance` | RPC Function | `checkins` | 코치가 특정 회원의 출석을 수동으로 체킹 🆕 |
+| `fn_get_coach_performance_stats`| RPC Function | `session_coaches`, `session_feedback` | Admin 화면용 코치별 성과/수업통계/평점 집계 🆕 |
+| `fn_calculate_monthly_settlement`| RPC Function | `coach_settlements` | Admin의 월간 코치 정산 내역 생성 및 갱신 🆕 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
@@ -159,7 +166,8 @@ supabase/migrations/
 ├── 20260218230000_payment_system_phase1.sql (Payment Phase 1 Infrastructure)
 ├── 20260218230100_payment_rpc_helpers.sql (Payment RPC Helpers)
 ├── 20260218231500_create_system_config_table.sql (System Config Table) 🆕
-└── 20260219165300_user_app_enhancement_phase1.sql (User App Enhancement Phase 1) 🆕
+├── 20260219165300_user_app_enhancement_phase1.sql (User App Enhancement Phase 1) 🆕
+└── 20260221000000_coach_feature_enhancement.sql (Coach Feature Enhancement) 🆕
 ```
 
 ### 실행 방법

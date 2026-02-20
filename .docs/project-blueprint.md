@@ -285,6 +285,52 @@
     - [x] Known Issues 상태 갱신 (RESOLVED)
     - [x] 버전 갱신 + blueprint/sitemap 동기화
 
+
+#### 🟠 Priority 18: 코치 기능 고도화 (개발 진행 중)
+  > **기획서**: `.docs/archive/planning/coach-feature-enhancement.md`
+  > **문제**: Coach App 5화면 완성도 ~55%, Admin 성과/정산 Mock 데이터, coaching_notes DB 미존재, User App 코치 프로필 불완전
+  > **방안**: coaching_notes + coach_settlements 테이블 + RPC 6개 → Coach App 전체 고도화 → Admin 실 데이터 교체 → User 코치 목록 개선
+
+  - [x] Phase 1: DB 인프라 (coaching_notes + coach_settlements + RPC 6개) → 💎 **Senior Dev (권장: Opus)**
+    - [x] coaching_notes 테이블 생성 + RLS
+    - [x] coach_settlements 테이블 생성 + RLS
+    - [x] fn_get_coach_dashboard RPC 생성
+    - [x] fn_get_session_attendees RPC 생성
+    - [x] fn_coach_mark_attendance RPC 생성
+    - [x] fn_get_coach_performance_stats RPC 생성
+    - [x] fn_calculate_monthly_settlement RPC 생성
+    - [x] database-reference.md 갱신
+  - [x] Phase 2: Coach Dashboard + Schedule 고도화 → 🎨 **UI Developer (권장: Gemini)**
+    - [x] Dashboard RPC 전환 (예약/출석 인원 표시)
+    - [x] Dashboard 주간 수업 표시
+    - [x] Schedule 수업 상세 모달 + 출석체크 + WOD 편집
+  - [x] Phase 3: Coach Members 코칭 노트 시스템 → 💻 **Developer (권장: Sonnet)**
+    - [x] coaching_notes CRUD + 타입 필터
+    - [x] 다건 노트 이력 (시간순 + 필터 + 삭제)
+    - [x] 회원 출결 통계 (총 출석, 이달 출석, 출석률)
+    - [x] 담당 회원 필터 (전체/담당)
+  - [x] Phase 4: Coach Profile 고도화 → 🎨 **UI Developer (권장: Gemini)**
+    - [x] 프로필 편집 (bio, specialties, phone 수정)
+    - [x] 프로필 이미지 표시 + 업로드
+    - [x] 급여 조회 섹션 (coach_settlements 조회)
+    - [x] 비활성 메뉴 정리 (알림/보안 제거)
+  - [x] Phase 5: Admin Performance + Settlements 실 데이터 → 💻 **Developer (권장: Sonnet)**
+    - [x] Performance 탭 Mock → 실 DB 교체 (fn_get_coach_performance_stats)
+    - [x] Settlements 탭 정산 계산 연동 (fn_calculate_monthly_settlement)
+    - [x] Settlements KPI 실 데이터 (총 지급액, 정산 현황, 미정산)
+    - [x] 정산 상태 변경 (pending → confirmed → paid)
+    - [x] 정산 다운로드 (CSV)
+    - [x] 월별 정산 조회 (월 선택기)
+    - [x] Settlements 탭을 tabs 배열에 통합
+  - [x] Phase 6: User App 코치 목록 + Coach Race 개선 → 🎨 **UI Developer (권장: Gemini)**
+    - [x] User App 코치 목록: profile_image_url, bio, specialties 정상 표시
+    - [x] User App 코치 상세: 평균 평점, 수업 목록
+    - [x] User App 코치 상세: bio 표시
+    - [x] Coach Race: 이벤트 생성/상태 변경 UI
+    - [x] Coach Race: 기록 입력 UI
+  - [x] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
+    - [x] project-blueprint.md 갱신
+
 ---
 
 ### Known Issues (Active)

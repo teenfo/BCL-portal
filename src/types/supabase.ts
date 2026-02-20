@@ -87,6 +87,13 @@ export type Database = {
             referencedRelation: "admin_roles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "admin_user_roles_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       audit_logs: {
@@ -125,6 +132,90 @@ export type Database = {
           table_name?: string | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      badge_awards: {
+        Row: {
+          badge_id: string
+          created_at: string
+          earned_at: string
+          id: string
+          member_id: string
+          progress_snapshot: number
+        }
+        Insert: {
+          badge_id: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          member_id: string
+          progress_snapshot?: number
+        }
+        Update: {
+          badge_id?: string
+          created_at?: string
+          earned_at?: string
+          id?: string
+          member_id?: string
+          progress_snapshot?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badge_awards_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badge_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "badge_awards_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      badge_definitions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean
+          metric_type: string
+          name: string
+          sort_order: number
+          threshold: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          metric_type: string
+          name: string
+          sort_order?: number
+          threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          metric_type?: string
+          name?: string
+          sort_order?: number
+          threshold?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -293,6 +384,56 @@ export type Database = {
           },
         ]
       }
+      coach_settlements: {
+        Row: {
+          base_salary: number
+          coach_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          session_allowance: number
+          session_count: number
+          status: string
+          total_amount: number
+          year_month: string
+        }
+        Insert: {
+          base_salary?: number
+          coach_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          session_allowance?: number
+          session_count?: number
+          status?: string
+          total_amount?: number
+          year_month: string
+        }
+        Update: {
+          base_salary?: number
+          coach_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          session_allowance?: number
+          session_count?: number
+          status?: string
+          total_amount?: number
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_settlements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coaches: {
         Row: {
           bio: string | null
@@ -340,6 +481,51 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      coaching_notes: {
+        Row: {
+          coach_id: string
+          content: string
+          created_at: string
+          id: string
+          member_id: string
+          note_type: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          content: string
+          created_at?: string
+          id?: string
+          member_id: string
+          note_type?: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          member_id?: string
+          note_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_notes_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coaching_notes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       facilities: {
         Row: {
@@ -678,7 +864,7 @@ export type Database = {
           paused_at?: string | null
           plan_id?: string | null
           remaining_credits?: number | null
-          start_date: string
+          start_date?: string
           status?: string | null
           updated_at?: string | null
         }
@@ -1091,80 +1277,6 @@ export type Database = {
           },
         ]
       }
-      pg_settings: {
-        Row: {
-          created_at: string | null
-          facility_id: string | null
-          id: string
-          is_active: boolean | null
-          live_client_key: string | null
-          payment_mode: string
-          test_client_key: string
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          facility_id?: string | null
-          id?: string
-          is_active?: boolean | null
-          live_client_key?: string | null
-          payment_mode?: string
-          test_client_key: string
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          facility_id?: string | null
-          id?: string
-          is_active?: boolean | null
-          live_client_key?: string | null
-          payment_mode?: string
-          test_client_key?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pg_settings_facility_id_fkey"
-            columns: ["facility_id"]
-            isOneToOne: false
-            referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      system_config: {
-        Row: {
-          category: string
-          config_key: string
-          config_value: string
-          created_at: string | null
-          description: string | null
-          id: string
-          is_secret: boolean | null
-          updated_at: string | null
-        }
-        Insert: {
-          category?: string
-          config_key: string
-          config_value: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_secret?: boolean | null
-          updated_at?: string | null
-        }
-        Update: {
-          category?: string
-          config_key?: string
-          config_value?: string
-          created_at?: string | null
-          description?: string | null
-          id?: string
-          is_secret?: boolean | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       race_events: {
         Row: {
           created_at: string | null
@@ -1547,6 +1659,61 @@ export type Database = {
         Args: { admin_user_id: string; target_user_id: string }
         Returns: undefined
       }
+      fn_calculate_badge_progress: {
+        Args: { p_member_id: string; p_metric_type: string }
+        Returns: number
+      }
+      fn_calculate_monthly_settlement: {
+        Args: { p_admin_user_id: string; p_year_month: string }
+        Returns: Json
+      }
+      fn_coach_mark_attendance: {
+        Args: {
+          p_coach_user_id: string
+          p_member_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      fn_evaluate_badges: {
+        Args: { p_member_id: string; p_metric_types?: string[] }
+        Returns: {
+          badge_id: string
+          created_at: string
+          earned_at: string
+          id: string
+          member_id: string
+          progress_snapshot: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "badge_awards"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      fn_get_coach_dashboard: { Args: { p_user_id: string }; Returns: Json }
+      fn_get_coach_performance_stats: { Args: never; Returns: Json }
+      fn_get_my_badges: {
+        Args: { p_user_id: string }
+        Returns: {
+          badge_id: string
+          category: string
+          description: string
+          earned: boolean
+          earned_at: string
+          icon: string
+          metric_type: string
+          name: string
+          progress: number
+          sort_order: number
+          threshold: number
+        }[]
+      }
+      fn_get_session_attendees: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
       get_dashboard_kpis: { Args: never; Returns: Json }
       get_member_with_membership: {
         Args: { p_member_id: string }
@@ -1578,116 +1745,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {

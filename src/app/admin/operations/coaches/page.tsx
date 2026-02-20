@@ -360,36 +360,41 @@ export default function OperationsCoachesPage() {
 
     // --- Performance Logic ---
     const loadPerformanceData = useCallback(async () => {
-        const supabase = createClient();
         setPerfLoading(true);
 
-        const { data: coachData }: any = await query('coaches')
+        try {
+            // Get stats for current month
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
 
-            .select('*')
-            .eq('status', 'active');
+            const { data, error } = await rpc('fn_get_coach_performance_stats', {
+                p_start_date: firstDay,
+                p_end_date: lastDay
+            });
 
-        if (coachData && coachData.length > 0) {
-            const performances: CoachPerformance[] = coachData.map((c) => ({
-                id: c.id,
-                name: c.name,
-                email: c.email || '',
-                specialty: c.specialty || 'General',
-                status: c.status,
-                totalSessions: Math.floor(Math.random() * 200) + 50,
-                avgRating: Number((4 + Math.random()).toFixed(1)),
-                totalMembers: Math.floor(Math.random() * 40) + 10,
-                retention: Number((70 + Math.random() * 25).toFixed(1)),
-            }));
-            setPerfCoaches(performances);
-        } else {
-            setPerfCoaches([
-                { id: '1', name: 'Coach Park', email: 'park@bcl.com', specialty: 'CrossFit', status: 'active', totalSessions: 186, avgRating: 4.9, totalMembers: 42, retention: 92.3 },
-                { id: '2', name: 'Coach Kim', email: 'kim@bcl.com', specialty: 'Olympic Lifting', status: 'active', totalSessions: 164, avgRating: 4.8, totalMembers: 38, retention: 88.7 },
-                { id: '3', name: 'Coach Lee', email: 'lee@bcl.com', specialty: 'Endurance', status: 'active', totalSessions: 152, avgRating: 4.7, totalMembers: 35, retention: 85.2 },
-                { id: '4', name: 'Coach Choi', email: 'choi@bcl.com', specialty: 'Rowing', status: 'active', totalSessions: 120, avgRating: 4.6, totalMembers: 28, retention: 82.0 },
-                { id: '5', name: 'Coach Yoon', email: 'yoon@bcl.com', specialty: 'Functional', status: 'active', totalSessions: 98, avgRating: 4.5, totalMembers: 22, retention: 78.5 },
-            ]);
+            if (data && !error && Array.isArray(data)) {
+                const performances: CoachPerformance[] = data.map((c: any) => ({
+                    id: c.coach_id,
+                    name: c.name,
+                    email: '', // Not returned by RPC, but not heavily used in performance tab
+                    specialty: c.specialties && c.specialties.length > 0 ? c.specialties[0] : 'General',
+                    status: c.status,
+                    totalSessions: c.total_sessions || 0,
+                    avgRating: Number((4 + Math.random()).toFixed(1)), // Mock rating for now
+                    totalMembers: c.total_members || 0,
+                    retention: c.avg_attendance_rate || 0,
+                }));
+                // Only show active coaches in performance tab
+                setPerfCoaches(performances.filter(p => p.status === 'active'));
+            } else {
+                setPerfCoaches([]);
+            }
+        } catch (e) {
+            console.error('Performance fetch error:', e);
+            setPerfCoaches([]);
         }
+
         setPerfLoading(false);
         setPerfLoaded(true);
     }, []);
@@ -435,21 +440,98 @@ export default function OperationsCoachesPage() {
     const tabs: { key: TabType; label: string; icon: React.ReactNode }[] = [
         { key: 'management', label: '코치 관리', icon: <IconCoach size={14} /> },
         { key: 'performance', label: '성과 분석', icon: <IconBarChart size={14} /> },
+        { key: 'settlements', label: '급여/정산', icon: <IconTarget size={14} /> },
     ];
+
+    // Settlement data
+    const [settlementData, setSettlementData] = useState<any[]>([]);
+    const [settlementLoading, setSettlementLoading] = useState(false);
+    const [settlementMonth, setSettlementMonth] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    });
+
+    const loadSettlements = useCallback(async () => {
+        setSettlementLoading(true);
+        try {
+            const { data } = await query('coach_settlements')
+                .select('*, coaches!coach_settlements_coach_id_fkey(name, email)')
+                .eq('year_month', settlementMonth)
+                .order('total_amount', { ascending: false });
+            setSettlementData(data || []);
+        } catch (e) { console.error(e); }
+        setSettlementLoading(false);
+    }, [settlementMonth]);
+
+    useEffect(() => {
+        if (activeTab === 'settlements') loadSettlements();
+    }, [activeTab, loadSettlements]);
+
+    const executeSettlement = async () => {
+        if (!confirm(`${settlementMonth} 정산을 실행하시겠습니까? 기존 정산 내역이 있다면 업데이트됩니다.`)) return;
+
+        try {
+            const { data, error } = await rpc('fn_calculate_monthly_settlement', {
+                p_year_month: settlementMonth,
+                p_admin_user_id: null
+            });
+
+            if (error) throw error;
+            toast.success('월 정산이 완료되었습니다.');
+            loadSettlements();
+        } catch (error) {
+            console.error(error);
+            toast.error('월 정산 실행 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handleSettlementStatusChange = async (settlementId: string, newStatus: string) => {
+        try {
+            const supabase = createClient();
+            const { error } = await supabase
+                .from('coach_settlements')
+                .update({ status: newStatus, confirmed_at: newStatus !== 'pending' ? new Date().toISOString() : null })
+                .eq('id', settlementId);
+            if (error) throw error;
+            toast.success(`정산 상태가 '${newStatus === 'confirmed' ? '확정' : newStatus === 'paid' ? '지급완료' : '대기'}'(으)로 변경되었습니다.`);
+            loadSettlements();
+        } catch (e) {
+            console.error(e);
+            toast.error('상태 변경 실패');
+        }
+    };
+
+    const downloadSettlementCSV = () => {
+        if (settlementData.length === 0) { toast.error('다운로드할 정산 데이터가 없습니다.'); return; }
+        const headers = ['코치명', '이메일', '기본급', '수업 수', '수업당 수당', '총액', '상태'];
+        const rows = settlementData.map((s: any) => [
+            s.coaches?.name || '', s.coaches?.email || '',
+            s.base_salary, s.session_count, s.session_allowance, s.total_amount,
+            s.status === 'paid' ? '지급완료' : s.status === 'confirmed' ? '확정' : '대기'
+        ]);
+        const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+        const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `settlement_${settlementMonth}.csv`; a.click();
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="transition-all duration-500">
             <AdminPageHeader
                 category="Operations"
                 title="Coaches"
-                subtitle={activeTab === 'management' ? 'Management' : 'Performance'}
+                subtitle={activeTab === 'management' ? 'Management' : activeTab === 'performance' ? 'Performance' : 'Settlements'}
                 actions={
                     activeTab === 'management' ? (
                         <button onClick={() => openModal()} className="admin-action-btn">+ 신규 코치</button>
                     ) : activeTab === 'settlements' ? (
                         <div className="flex gap-2">
-                            <button className="admin-filter-btn">정산 내역 다운로드</button>
-                            <button className="admin-action-btn">월 정산 실행</button>
+                            <input type="month" value={settlementMonth} onChange={e => setSettlementMonth(e.target.value)}
+                                className="admin-search-input py-1 px-3 text-[10px]" />
+                            <button onClick={downloadSettlementCSV} className="admin-filter-btn">CSV 다운로드</button>
+                            <button onClick={executeSettlement} className="admin-action-btn">월 정산 실행</button>
                         </div>
                     ) : undefined
                 }
@@ -473,17 +555,6 @@ export default function OperationsCoachesPage() {
                             {tab.label}
                         </button>
                     ))}
-                    <button
-                        onClick={() => setActiveTab('settlements')}
-                        className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all"
-                        style={{
-                            background: activeTab === 'settlements' ? 'rgba(255,107,0,0.15)' : 'transparent',
-                            color: activeTab === 'settlements' ? 'var(--primary)' : 'var(--text-muted)',
-                            border: activeTab === 'settlements' ? '1px solid rgba(255,107,0,0.3)' : '1px solid transparent',
-                        }}
-                    >
-                        <IconTarget size={14} /> 정산 관리
-                    </button>
                 </div>
 
                 {/* ========== Management Tab ========== */}
@@ -810,10 +881,10 @@ export default function OperationsCoachesPage() {
                         {/* Summary KPI */}
                         <div className="grid grid-cols-4 gap-4">
                             {[
-                                { label: '총 예상 지급액', value: formatCurrency(coaches.reduce((sum, c) => sum + (c.base_salary || 0), 0)), color: '#3B82F6' },
+                                { label: '총 예상 지급액', value: formatCurrency(settlementData.reduce((s: number, d: any) => s + (d.total_amount || 0), 0)), color: '#3B82F6' },
                                 { label: '평균 기본급', value: formatCurrency(coaches.length ? coaches.reduce((sum, c) => sum + (c.base_salary || 0), 0) / coaches.length : 0), color: '#22C55E' },
-                                { label: '전월 정산 완료', value: '12명', color: '#8B5CF6' },
-                                { label: '미정산 건수', value: '2건', color: '#EF4444' },
+                                { label: `${settlementMonth} 정산`, value: `${settlementData.filter((d: any) => d.status === 'paid').length}/${settlementData.length}건`, color: '#8B5CF6' },
+                                { label: '미정산 건수', value: `${settlementData.filter((d: any) => d.status === 'pending').length}건`, color: settlementData.filter((d: any) => d.status === 'pending').length > 0 ? '#EF4444' : '#22C55E' },
                             ].map((kpi) => (
                                 <div key={kpi.label} className="glass-card p-5">
                                     <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] mb-3">{kpi.label}</p>
@@ -821,6 +892,64 @@ export default function OperationsCoachesPage() {
                                 </div>
                             ))}
                         </div>
+
+                        {/* Settlement Table */}
+                        {settlementData.length > 0 && (
+                            <div className="glass-card overflow-hidden">
+                                <div className="p-6 border-b border-white/[0.05]">
+                                    <h3 className="text-sm font-black text-white uppercase tracking-tight">{settlementMonth} 정산 내역</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-white/[0.03]">
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest">코치</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">기본급</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">수업 수</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">수당 합계</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-right">총액</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">상태</th>
+                                                <th className="p-5 text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest text-center">변경</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/[0.02]">
+                                            {settlementData.map((s: any) => (
+                                                <tr key={s.id} className="hover:bg-white/[0.01] transition-colors">
+                                                    <td className="p-5">
+                                                        <p className="text-sm font-bold text-white">{s.coaches?.name}</p>
+                                                        <p className="text-[9px] text-[var(--text-muted)]">{s.coaches?.email}</p>
+                                                    </td>
+                                                    <td className="p-5 text-right text-sm text-white">{formatCurrency(s.base_salary)}</td>
+                                                    <td className="p-5 text-center text-sm font-bold text-[var(--primary)]">{s.session_count}회</td>
+                                                    <td className="p-5 text-right text-sm text-white">{formatCurrency(s.session_count * s.session_allowance)}</td>
+                                                    <td className="p-5 text-right text-sm font-black text-white">{formatCurrency(s.total_amount)}</td>
+                                                    <td className="p-5 text-center">
+                                                        <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase" style={{
+                                                            background: s.status === 'paid' ? 'rgba(34,197,94,0.15)' : s.status === 'confirmed' ? 'rgba(59,130,246,0.15)' : 'rgba(245,158,11,0.15)',
+                                                            color: s.status === 'paid' ? '#22C55E' : s.status === 'confirmed' ? '#3B82F6' : '#F59E0B',
+                                                        }}>
+                                                            {s.status === 'paid' ? '지급완료' : s.status === 'confirmed' ? '확정' : '대기'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-5 text-center">
+                                                        <select
+                                                            value={s.status}
+                                                            onChange={(e) => handleSettlementStatusChange(s.id, e.target.value)}
+                                                            className="admin-search-input py-1 px-2 text-[9px]"
+                                                            style={{ width: 'fit-content' }}
+                                                        >
+                                                            <option value="pending">대기</option>
+                                                            <option value="confirmed">확정</option>
+                                                            <option value="paid">지급완료</option>
+                                                        </select>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Salary Management Table */}
                         <div className="glass-card overflow-hidden">

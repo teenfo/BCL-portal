@@ -9,15 +9,36 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 
 ---
 
-## 🤖 관점별 역할
+## 🤖 관점별 역할 & CLI 호출
 
-| 관점 | 권장 모델 | 핵심 역할 |
-|:---|:---|:---|
-| 🏛️ **Architect** | Gemini 3 Pro (High) | 작업 선택, 설계 검토, 아키텍처 일관성 확인 및 최종 승인 |
-| 💎 **Senior Dev** | Claude Opus 4.6 | DB 스키마 설계, RLS 보안 정책 구현, 복잡한 비즈니스 로직 |
-| 🎨 **UI Developer** | Gemini 3 Pro (Low) | 디자인 시스템 준수, 프리미엄 UI(Glassmorphism) 구현 |
-| 💻 **Developer** | Claude Sonnet 4.6 | API 연동, 일반 로직 구현, 빌드 검증, 문서/컨텍스트 동기화 |
-| ⚡ **Specialist** | Gemini 3 Flash | 실시간 엔드포인트 연동, 코드-문서 단순 대조 |
+| 관점 | CLI Role | 권장 모델 | 핵심 역할 |
+|:---|:---|:---|:---|
+| 🏛️ **Architect** | `--role=architect` | Gemini 3 Pro | 작업 선택, 설계 검토, 아키텍처 일관성 확인 및 최종 승인 |
+| 💎 **Senior Dev** | `--role=senior` | Claude Opus 4.6 | DB 스키마 설계, RLS 보안 정책 구현, 복잡한 비즈니스 로직 |
+| 🎨 **UI Developer** | `--role=ui-dev` | Gemini 3 Pro | 디자인 시스템 준수, 프리미엄 UI(Glassmorphism) 구현 |
+| 💻 **Developer** | `--role=dev` | Claude Sonnet 4.6 | API 연동, 일반 로직 구현, 빌드 검증, 문서/컨텍스트 동기화 |
+| ⚡ **Specialist** | `--role=specialist` | Gemini 3 Flash | 실시간 엔드포인트 연동, 코드-문서 단순 대조 |
+
+> 💡 전체 역할 목록 확인: `npm run agent -- --list`
+
+---
+
+## 🎯 실행 방식: 오케스트레이터 패턴
+
+현재 세션의 Agent(나)가 **오케스트레이터** 역할을 수행한다.
+각 단계에서 적절한 역할의 에이전트를 `npm run agent` CLI로 호출하여 작업을 위임한다.
+
+```
+[ 오케스트레이터 (현재 세션) ]
+    ├── Step 1 → npm run agent -- --role=architect --task="..."
+    ├── Step 2 → npm run agent -- --role=dev --task="..."
+    ├── Step 3 → npm run agent -- --role=senior --task="..." (DB Phase)
+    │          → npm run agent -- --role=ui-dev --task="..." (UI Phase)
+    │          → npm run agent -- --role=dev --task="..."    (API Phase)
+    ├── Step 4 → npm run agent -- --role=dev --task="..."
+    ├── Step 5 → npm run agent -- --role=dev --task="..."
+    └── Step 6 → npm run agent -- --role=architect --task="..."
+```
 
 ---
 
@@ -34,17 +55,25 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ## 단계별 절차
 
 ### 1️⃣ 작업 선택 & 분석
-**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
+**관점**: 🏛️ **Architect**
+
+```bash
+npm run agent -- --role=architect --task="project-blueprint.md를 읽고 [Priority XX] 개발 대상을 분석해줘. 기획서 위치, Phase 구성, 의존성을 정리하고 블루프린트 상태를 (개발 진행 중)으로 변경해줘"
+```
 
 // turbo
 1. `.docs/project-blueprint.md`를 읽고 개발 대상을 확정한다.
-2. 기획서(`.docs/archive/planning/*.md`)를 읽어 요구사항과 Phase 구성을 파악한다.
+2. 기획서(`.docs/planning/*.md`)를 읽어 요구사항과 Phase 구성을 파악한다.
 3. 블루프린트 상태를 `(개발 대기)` → `(개발 진행 중)`으로 변경한다.
 
 ---
 
 ### 2️⃣ 개발 환경 확인
-**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
+**관점**: 💻 **Developer**
+
+```bash
+npm run agent -- --role=dev --task="npm run build 실행하여 빌드 상태 확인하고, git status로 작업 디렉토리 깨끗한지 확인해줘"
+```
 
 // turbo
 1. **빌드 검증**: `npm run build`를 실행하여 초기 상태를 확인한다.
@@ -55,17 +84,40 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ### 3️⃣ 개발 실행 (Phase별 관점 적용)
 **관점**: **Phase별 담당 관점**
 
-> 🚨 **Priority의 모든 Phase를 한 세션에서 연속 개발한다.**
+> 🚨 **Priority의 모든 Phase를 순차적으로 개발한다. 각 Phase마다 적절한 역할의 에이전트를 호출한다.**
 
-- **DB Phase (💎 Senior)**: `db-migration` 스킬 활용, RLS 정책 구현, `database-reference.md` 갱신.
-- **UI Phase (🎨 UI Dev)**: `/design-screen` 워크플로우(Stitch) 선행, `ui-gen` 가이드 준수, 글로벌 CSS 클래스 사용.
-- **API/Logic Phase (💻 Dev)**: Zod 검증, Supabase 쿼리 최적화, TypeScript strict 타입 준수.
-- **Navigation (🎨 UI Dev)**: `layout.tsx` 링크 연결, 사이드바/모바일 탭바 연동.
+#### DB Phase (💎 Senior)
+```bash
+npm run agent -- --role=senior --task="[Priority XX] DB Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 테이블 생성, RLS 정책 구현, database-reference.md 갱신해줘"
+```
+- `db-migration` 스킬 활용, RLS 정책 구현, `database-reference.md` 갱신.
+
+#### UI Phase (🎨 UI Dev)
+```bash
+npm run agent -- --role=ui-dev --task="[Priority XX] UI Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 화면 구현해줘. ui-gen 가이드와 글로벌 CSS 클래스를 준수해줘"
+```
+- `/design-screen` 워크플로우(Stitch) 선행, `ui-gen` 가이드 준수, 글로벌 CSS 클래스 사용.
+
+#### API/Logic Phase (💻 Dev)
+```bash
+npm run agent -- --role=dev --task="[Priority XX] API Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 API 연동, 비즈니스 로직 구현해줘. Zod 검증, TypeScript strict 타입 준수해줘"
+```
+- Zod 검증, Supabase 쿼리 최적화, TypeScript strict 타입 준수.
+
+#### Navigation (🎨 UI Dev)
+```bash
+npm run agent -- --role=ui-dev --task="[Priority XX] Navigation 연결: layout.tsx에 새 화면 링크 추가하고 사이드바/모바일 탭바 연동해줘"
+```
+- `layout.tsx` 링크 연결, 사이드바/모바일 탭바 연동.
 
 ---
 
 ### 4️⃣ 검증 (셀프 체크)
-**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
+**관점**: 💻 **Developer**
+
+```bash
+npm run agent -- --role=dev --task="빌드 검증(npm run build), 회귀 테스트(로그인/화면표시/링크이동), 코드 품질(any 타입, 하드코딩 색상, 글로벌 CSS) 확인해줘"
+```
 
 // turbo
 1. **빌드 재검증**: `npm run build` 에러/경고 확인.
@@ -75,7 +127,11 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ---
 
 ### 5️⃣ 문서 동기화 + 버전 갱신 (Sync Docs)
-**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
+**관점**: 💻 **Developer**
+
+```bash
+npm run agent -- --role=dev --task="[Priority XX] 완료된 구현 기준으로 문서 동기화해줘. Sitemap 갱신, 블루프린트 Phase 체크, 버전(version.ts/package.json) 갱신해줘"
+```
 
 구현된 실제 코드를 바탕으로 문서를 최신화한다.
 
@@ -90,7 +146,15 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ---
 
 ### 6️⃣ 컨텍스트 기록 & 최종 커밋 (Update Context & Commit)
-**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High) + 💻 **Developer**
+**관점**: 🏛️ **Architect** + 💻 **Developer**
+
+```bash
+# Architect: 컨텍스트 갱신 & 최종 검토
+npm run agent -- --role=architect --task="[Priority XX] 완료. project-blueprint.md의 Current Focus와 Next Steps 갱신하고, 완료 항목을 archive/complete/project-complete-YYYYMMDD.md로 이동해줘. 전체 일관성과 보안 정책 검토해줘"
+
+# Developer: 커밋 실행
+npm run agent -- --role=dev --task="commit-bot 스킬을 사용하여 현재 변경사항을 커밋해줘"
+```
 
 1. **Active Context 갱신**: `.docs/project-blueprint.md`의 `Current Focus`와 `Next Steps`를 갱신한다.
 2. **History 기록**: 블루프린트에서 완료된 항목을 `.docs/archive/complete/project-complete-YYYYMMDD.md`로 이동한다.
@@ -102,6 +166,20 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ## 📌 부록: Mini-Workflow (단발성 페이지 추가)
 
 Priority에 등록되지 않은 작은 페이지를 추가할 때는 다음 최단 경로를 따른다:
+
+```bash
+# 1. Sitemap 선행
+npm run agent -- --role=architect --task="[화면명] 화면을 .docs/sitemap/에 정의해줘"
+
+# 2. DB & Design (필요시)
+npm run agent -- --role=senior --task="[화면명] 관련 테이블/마이그레이션 생성해줘"
+
+# 3. E2E 구현
+npm run agent -- --role=dev --task="[화면명] UI 구현 → API 연동 → 네비게이션 연결 한 번에 진행해줘"
+
+# 4~6. 마무리 (검증 → 동기화 → 커밋)
+npm run agent -- --role=dev --task="빌드 검증, 문서 동기화, 버전 갱신 후 커밋해줘"
+```
 
 1. **Sitemap 선행**: `.docs/sitemap/`에 화면과 기능을 먼저 정의한다 (Architect).
 2. **DB & Design**: 필요 시 마이그레이션 실행 및 Stitch 디자인 생성.
@@ -132,3 +210,4 @@ Priority에 등록되지 않은 작은 페이지를 추가할 때는 다음 최�
 - `/plan-to-blueprint` — 기획 완료 후 블루프린트 등록 (선행)
 - `.agent/skills/commit-bot/SKILL.md` — 커밋 자동화
 - `.agent/skills/ui-gen/SKILL.md` — UI 표준 가이드
+- `.agent/scripts/bcl-cli.mjs` — 멀티에이전트 CLI 래퍼
