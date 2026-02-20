@@ -386,5 +386,5 @@ Desktop 기반 관리자 화면으로, [화면명]을 생성해주세요.
 
 ## 🔗 관련 문서
 - `.agent/skills/ui-gen/SKILL.md` - Glassmorphism UI 스킬
-- `.agent/workflows/add-page.md` - 페이지 추가 워크플로우
+- `.agent/workflows/develop.md` - 개발 실행 워크플로우 (부록: 페이지 추가)
 - `.docs/sitemap/README.md` - Sitemap SSOT

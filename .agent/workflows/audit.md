@@ -198,9 +198,8 @@ npm run build
 ---
 
 ## 🔗 관련 문서
-- `/develop` — 개발 실행 (Step 4에서 셀프 체크 수행)
+- `/develop` — 개발 실행 (Step 4 셀프 체크, Step 5 문서 동기화)
 - `/plan-to-blueprint` — 감사 보고서의 🟡 항목을 블루프린트에 등록
-- `/sync-docs` — 문서 동기화
 - `.agent/skills/ui-gen/SKILL.md` — UI 표준 가이드
 - `.agent/rules/bcl-portal.rules.md` — 프로젝트 규칙
 

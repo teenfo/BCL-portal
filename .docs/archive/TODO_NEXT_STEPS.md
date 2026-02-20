@@ -467,8 +467,7 @@ VALUES ('member_id_here', 'session_id_here', 'completed', NOW());
 
 ### 워크플로우
 - 화면 디자인: `.agent/workflows/design-screen.md`
-- 페이지 추가: `.agent/workflows/add-page.md`
-- 문서 동기화: `.agent/workflows/sync-docs.md`
+- 페이지 추가 / 문서 동기화: `.agent/workflows/develop.md`
 
 ### 스킬
 - UI 생성: `.agent/skills/ui-gen/SKILL.md`

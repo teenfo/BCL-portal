@@ -116,7 +116,7 @@ git push origin main
 ## ✅ 체크리스트
 
 ### 커밋 전
-- [ ] `/update-context` 워크플로우 수행 완료
+- [ ] `/develop` Step 6 컨텍스트 갱신 수행 완료
 - [ ] `project-blueprint.md` Active Context 갱신 완료
 - [ ] 완료 항목 archive 이동 완료
 - [ ] 코드 변경 시 `npm run build` 정상 확인
@@ -139,7 +139,7 @@ git push origin main
 
 ## 주의사항
 
-- ❌ `/update-context` 수행 없이 커밋하지 않는다
+- ❌ 컨텍스트 미갱신 상태로 커밋하지 않는다 (`/develop` Step 6 필수)
 - ❌ 빌드 실패 상태에서 코드 변경을 커밋하지 않는다
 - ❌ 배포를 사용자가 요청하지 않았는데 자동 수행하지 않는다
 - ✅ 문서만 변경된 경우 빌드 검증 없이 커밋 가능

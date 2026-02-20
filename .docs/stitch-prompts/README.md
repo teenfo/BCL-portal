@@ -150,7 +150,7 @@ grep -r "예약" .docs/stitch-prompts/
 
 ## 🔗 관련 워크플로우
 - `.agent/workflows/design-screen.md` - 화면 디자인 생성 워크플로우
-- `.agent/workflows/add-page.md` - 페이지 추가 워크플로우
+- `.agent/workflows/develop.md` - 개발 실행 워크플로우 (부록: 페이지 추가)
 
 ---
 
