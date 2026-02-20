@@ -1,57 +1,68 @@
 ---
-description: 새로운 기능/아키텍처 기획 문서를 작성하고 블루프린트에 에이전트별 작업 항목으로 등록하는 워크플로우입니다.
+description: 새로운 기능/아키텍처 기획 문서를 작성하고 블루프린트에 관점별 작업 항목으로 등록하는 워크플로우입니다.
 ---
 
 # Plan to Blueprint Workflow
 
-이 워크플로우는 `.docs/planning/` 폴더의 **모든 기획 문서를 스캔**하고, 블루프린트에 아직 등록되지 않은 항목을 **자동으로 등록**한 뒤, 등록 완료된 기획 문서를 **아카이브로 이동**하는 절차입니다.
+이 워크플로우는 `.docs/planning/`과 **`.docs/audit/`** 폴더를 **모두 스캔**하고, 블루프린트에 아직 등록되지 않은 항목을 **자동으로 등록**한 뒤, 등록 완료된 문서를 **아카이브로 이동**하는 절차입니다.
 
 > 📖 **상세 스킬 가이드**: `.agent/skills/plan-to-blueprint/SKILL.md`
 
 ---
 
-## 🤖 전담 에이전트
+## 🤖 전담 관점
 
-> **이 워크플로우의 모든 단계는 🏛️ Architect (Opus)가 수행한다.**
-> 다른 에이전트에게 위임하지 않는다.
+> **이 워크플로우의 모든 단계는 🏛️ Architect 관점에서 수행한다.**
+> 다른 관점으로 위임하지 않는다.
+> **권장 모델**: Gemini 3 Pro (High) — 1M 컨텍스트로 전체 기획/블루프린트 분석 가능
 
-| 단계 | 담당 에이전트 | 핵심 역할 |
-|:-----|:------------|:---------|
-| 1. Planning 폴더 스캔 | 🏛️ **Architect (Opus)** | 기획 문서 전체 목록 수집 |
-| 2. 블루프린트 비교 | 🏛️ **Architect (Opus)** | 미등록 기획 식별 |
-| 3. 블루프린트 등록 | 🏛️ **Architect (Opus)** | Priority 항목 + Known Issues 추가 |
-| 4. 정합성 검증 | 🏛️ **Architect (Opus)** | planning ↔ blueprint 1:1 대응 확인 |
-| 5. 아카이브 이동 | 🏛️ **Architect (Opus)** | 등록 완료 문서를 archive/planning으로 이동 |
+| 단계 | 관점 | 핵심 역할 |
+|:-----|:-----|:---------|
+| 1. Planning 폴더 스캔 | 🏛️ **Architect** | 기획 문서 전체 목록 수집 |
+| 2. 블루프린트 비교 | 🏛️ **Architect** | 미등록 기획 식별 |
+| 3. 블루프린트 등록 | 🏛️ **Architect** | Priority 항목 + Known Issues 추가 |
+| 4. 정합성 검증 | 🏛️ **Architect** | planning ↔ blueprint 1:1 대응 확인 |
+| 5. 아카이브 이동 | 🏛️ **Architect** | 등록 완료 문서를 archive/planning으로 이동 |
 
 ---
 
 ## 단계별 절차
 
 ### 1️⃣ Planning 폴더 전체 스캔
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 // turbo
-`.docs/planning/` 폴더의 **모든 `.md` 파일**을 읽는다.
+`.docs/planning/`과 `.docs/audit/` 폴더의 **모든 `.md` 파일**을 읽는다.
 
-```
-find .docs/planning/ -name "*.md" -type f
+```bash
+find .docs/planning/ .docs/audit/ -name "*.md" -type f 2>/dev/null
 ```
 
+#### A. 기획 문서 (`.docs/planning/`)
 각 기획 문서에서 다음 정보를 추출한다:
 
 | 추출 항목 | 위치 |
 |---|---|
 | **기능명** | 문서 제목 (`# BCL Portal – {기능명}`) |
 | **Status** | YAML 헤더 (`Status: Approved / Draft / In Progress / Done`) |
-| **에이전트 배분** | `## 8. 구현 단계 및 에이전트 배분` 또는 `## 9. 블루프린트 등록용 체크리스트` 섹션 |
+| **관점 배분** | `## 8. 구현 단계 및 관점 배분` 또는 `## 9. 블루프린트 등록용 체크리스트` 섹션 |
 | **Priority 레벨** | 문제 심각도 기반 판단 (🔴 Critical / 🟠 High / 🟡 Medium / 📄 Low) |
 
-> **기획 문서가 0건이면** 여기서 종료하고 "동기화할 기획 문서 없음"을 보고한다.
+#### B. 감사 보고서 (`.docs/audit/`)
+각 감사 보고서에서 다음 정보를 추출한다:
+
+| 추출 항목 | 위치 |
+|---|---|
+| **Status** | 헤더 (`Status: PASSED / CONDITIONAL / FAILED`) |
+| **🟡 등록 필요 항목** | `## 3. 발견 사항` → `### 🟡 등록 필요` 섹션 |
+| **Priority 레벨** | Status 기반 (FAILED → 🔴, CONDITIONAL → 🟠, PASSED → 등록 불필요) |
+
+> **기획 문서 + 감사 보고서가 모두 0건이면** "동기화할 문서 없음"을 보고하고 종료한다.
 
 ---
 
 ### 2️⃣ 블루프린트와 비교
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 // turbo
 `.docs/project-blueprint.md`를 읽어 현재 등록된 Priority 항목 목록을 확인한다.
@@ -70,7 +81,7 @@ find .docs/planning/ -name "*.md" -type f
 ---
 
 ### 3️⃣ 블루프린트에 일괄 등록
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 `.docs/project-blueprint.md`를 수정하여 미등록 기획을 모두 등록한다.
 
@@ -82,14 +93,14 @@ find .docs/planning/ -name "*.md" -type f
   > **문제**: {한 줄 문제 요약}
   > **방안**: {한 줄 해결 방안 요약}
 
-  - [ ] Phase 1: {작업명} → 💎 **Senior Dev (Opus)**
+  - [ ] Phase 1: {작업명} → 💎 **Senior Dev (권장: Opus)**
     - [ ] {세부 작업 1}
     - [ ] {세부 작업 2}
-  - [ ] Phase 2: {작업명} → 🎨 **UI Developer (Gemini)**
+  - [ ] Phase 2: {작업명} → 🎨 **UI Developer (권장: Pro Low)**
     - [ ] {세부 작업 1}
-  - [ ] Phase 3: {작업명} → 💻 **Developer (Sonnet)**
+  - [ ] Phase 3: {작업명} → 💻 **Developer (권장: Sonnet 4.6)**
     - [ ] {세부 작업 1}
-  - [ ] Phase N: 문서 동기화 → 🏛️ **Architect (Opus)**
+  - [ ] Phase N: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
     - [ ] sitemap 갱신
     - [ ] blueprint 반영
 ```
@@ -114,10 +125,23 @@ find .docs/planning/ -name "*.md" -type f
 - 🔴 **{이슈명}** (ACTIVE): {설명} → [기획서](.docs/archive/planning/{파일명}.md)
 ```
 
+#### 감사 보고서 이슈 등록
+감사 보고서의 🟡 항목은 **정식 Priority**로 등록한다:
+```markdown
+#### {이모지} Priority {N}: [Audit] {이슈명} (개발 대기)
+  > **감사보고서**: `.docs/archive/audit/{파일명}.md`
+  > **문제**: {한 줄 문제 요약}
+  > **방안**: {한 줄 해결 방안 요약}
+
+  - [ ] Phase 1: {작업명} → {관점}
+    - [ ] {세부 작업}
+```
+> Priority 레벨 이모지는 감사 보고서 Status 기준: FAILED → 🔴, CONDITIONAL → 🟠
+
 ---
 
 ### 4️⃣ 정합성 최종 검증
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 등록 완료 후 다음을 최종 확인한다:
 
@@ -125,35 +149,38 @@ find .docs/planning/ -name "*.md" -type f
 [ ] .docs/planning/ 의 모든 기획 문서가 블루프린트에 1:1 대응됨
 [ ] Priority 번호가 순차적으로 증가함 (중복/누락 없음)
 [ ] 각 Priority 항목에 기획서 링크가 올바르게 걸려있음 (archive/planning 경로)
-[ ] 에이전트 배분이 기획서 내용과 일치함
+[ ] 관점 배분이 기획서 내용과 일치함
 [ ] 코드 변경 없음 확인 (문서만 변경)
 ```
 
 ---
 
 ### 5️⃣ 아카이브 이동
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
-블루프린트 등록이 완료된 기획 문서를 `.docs/archive/planning/`으로 이동한다.
+블루프린트 등록이 완료된 기획 문서와 감사 보고서를 각각의 아카이브로 이동한다.
 
 ```bash
 # 아카이브 폴더 생성 (없으면)
 mkdir -p .docs/archive/planning
+mkdir -p .docs/archive/audit
 
 # 등록 완료된 기획 문서를 아카이브로 이동
 mv .docs/planning/{파일명}.md .docs/archive/planning/
+
+# 처리 완료된 감사 보고서를 아카이브로 이동
+mv .docs/audit/{파일명}.md .docs/archive/audit/
 ```
 
-> ⚠️ **planning 폴더에는 아직 블루프린트에 등록되지 않은 문서만 남아야 한다.**
-> 동기화가 정상 완료되면 `.docs/planning/` 폴더는 비어있어야 한다.
+> ⚠️ **planning / audit 폴더에는 아직 블루프린트에 등록되지 않은 문서만 남아야 한다.**
+> 동기화가 정상 완료되면 두 폴더 모두 비어있어야 한다.
 
 이동 후 최종 확인:
 ```bash
-# planning 폴더가 비었는지 확인
 ls .docs/planning/
-
-# archive/planning에 파일이 있는지 확인
+ls .docs/audit/
 ls .docs/archive/planning/
+ls .docs/archive/audit/
 ```
 
 ---
@@ -179,13 +206,15 @@ ls .docs/archive/planning/
 
 ## ✅ 완료 체크리스트
 
-### 🏛️ Architect (Opus) — 전담
+### 🏛️ Architect 관점 (권장: Gemini 3 Pro High) — 전담
 - [ ] `.docs/planning/` 전체 스캔 완료
+- [ ] `.docs/audit/` 전체 스캔 완료 (감사 보고서 🟡 항목 추출)
 - [ ] 미등록 기획 문서 식별 완료
 - [ ] 블루프린트 Priority 항목 일괄 등록 완료 (archive 경로로 링크)
-- [ ] Known Issues 항목 추가 완료 (해당 시)
+- [ ] Known Issues 항목 추가 완료 (기획 + 감사 이슈)
 - [ ] Planning ↔ Blueprint 1:1 정합성 검증 통과
-- [ ] 등록 완료 문서 → `.docs/archive/planning/` 이동 완료
-- [ ] `.docs/planning/` 폴더 비어있음 확인
+- [ ] 등록 완료 기획 문서 → `.docs/archive/planning/` 이동 완료
+- [ ] 처리 완료 감사 보고서 → `.docs/archive/audit/` 이동 완료
+- [ ] `.docs/planning/` + `.docs/audit/` 폴더 비어있음 확인
 - [ ] 코드 변경 없음 확인
 - [ ] 스캔 결과 보고 완료

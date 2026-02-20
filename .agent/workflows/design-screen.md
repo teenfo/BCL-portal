@@ -8,18 +8,21 @@ description: Stitch MCP를 이용한 화면 디자인 생성 워크플로우입�
 
 ---
 
-## 🤖 멀티에이전트 배분
+## 🤖 관점별 역할 및 권장 모델
 
-| 단계 | 담당 에이전트 | 모델 | 핵심 역할 |
-|:-----|:------------|:-----|:---------|
-| 1. Sitemap 갱신 | **Architect** | Opus 4.6 (Thinking) | 화면 구조 설계, 영향 분석 |
-| 2. 기존 프롬프트 참조 | **UI Developer** | Gemini 3 Flash | 컨텍스트 최대 로드, 패턴 파악 |
-| 3. 프롬프트 작성 | **UI Developer** | Gemini 3 Flash | 일관성 있는 프롬프트 작성 |
-| 4. Stitch 화면 생성 | **UI Developer** | Gemini 3 Flash | MCP 도구 실행 |
-| 5. Screen ID 매핑 | **UI Developer** | Gemini 3 Flash | Sitemap 추적성 확보 |
-| 6. 디자인 검토 | **Architect** | Opus 4.6 (Thinking) | 일관성 검증, 승인 |
-| 7. 프롬프트 저장 | **UI Developer** | Gemini 3 Flash | 재사용 가능한 형태로 보관 |
-| 8. UI 구현 | **UI Developer** | Gemini 3 Flash | 디자인 기반 코드 구현 |
+> 📌 **에이전트 = 관점 + 체크리스트**입니다.
+> 하나의 세션에서 모든 단계를 수행할 수 있으며, 각 단계의 체크리스트를 따르면 품질이 보장됩니다.
+
+| 단계 | 관점 | 권장 모델 | 핵심 역할 |
+|:-----|:-----|:---------|:---------|
+| 1. Sitemap 갱신 | 🏛️ **Architect** | Gemini 3 Pro (High) | 화면 구조 설계, 영향 분석 |
+| 2. 기존 프롬프트 참조 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | 컨텍스트 최대 로드, 패턴 파악 |
+| 3. 프롬프트 작성 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | 일관성 있는 프롬프트 작성 |
+| 4. Stitch 화면 생성 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | MCP 도구 실행 |
+| 5. Screen ID 매핑 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | Sitemap 추적성 확보 |
+| 6. 디자인 검토 | 🏛️ **Architect** | Gemini 3 Pro (High) | 일관성 검증, 승인 |
+| 7. 프롬프트 저장 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | 재사용 가능한 형태로 보관 |
+| 8. UI 구현 | 🎨 **UI Developer** | Gemini 3 Pro (Low) | 디자인 기반 코드 구현 |
 
 ---
 
@@ -47,11 +50,11 @@ description: Stitch MCP를 이용한 화면 디자인 생성 워크플로우입�
 ## 🔄 단계별 절차
 
 ### 1️⃣ Sitemap 갱신 (필수)
-**담당**: 🏛️ **Architect (Opus 4.6 Thinking)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High — 1M 컨텍스트로 전체 구조 파악)
 
 **목적**: 새로운 화면/기능을 기획 문서에 먼저 정의
 
-**Architect가 수행할 것**:
+**수행할 것**:
 - `.docs/sitemap/README.md` 및 해당 모듈 파일 수정
 - 화면 경로, 메뉴명, 주요 기능, 데이터 요구사항 정의
 - **기존 아키텍처와의 충돌 여부 분석** (Thinking 모드 활용)
@@ -68,11 +71,11 @@ description: Stitch MCP를 이용한 화면 디자인 생성 워크플로우입�
 ---
 
 ### 2️⃣ 기존 디자인 프롬프트 참조
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low — 1M 컨텍스트로 기존 프롬프트 전체 로드)
 
 **목적**: 디자인 일관성을 유지하기 위해 기존 화면의 생성 프롬프트 참조
 
-**UI Developer가 수행할 것 (Gemini 컨텍스트 최대 활용)**:
+**수행할 것**:
 1. `.docs/stitch-prompts/README.md`에서 유사한 영역의 화면 찾기
    - 사용자 화면(`apps/*`) vs 관리자 화면(`admin/*`)
    - 유사한 기능/레이아웃 (리스트, 상세, 폼 등)
@@ -94,7 +97,7 @@ description: Stitch MCP를 이용한 화면 디자인 생성 워크플로우입�
 ---
 
 ### 3️⃣ Stitch 화면 생성 프롬프트 작성
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low)
 
 **목적**: 일관된 디자인의 화면을 생성하기 위한 프롬프트 작성
 
@@ -138,7 +141,7 @@ description: Stitch MCP를 이용한 화면 디자인 생성 워크플로우입�
 ---
 
 ### 4️⃣ Stitch MCP로 화면 생성
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low)
 
 **목적**: 프롬프트를 사용하여 실제 디자인 생성
 
@@ -162,7 +165,7 @@ const screenId = result.screen_id;
 ---
 
 ### 5️⃣ Sitemap에 Screen ID 매핑
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low)
 
 **목적**: 화면 기획과 디자인을 연결하여 추적 가능하게 함
 
@@ -190,11 +193,11 @@ const screenId = result.screen_id;
 ---
 
 ### 6️⃣ 디자인 검토 및 승인
-**담당**: 🏛️ **Architect (Opus 4.6 Thinking)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 **목적**: 생성된 디자인이 요구사항과 아키텍처를 충족하는지 확인
 
-**Architect가 수행할 것**:
+**수행할 것**:
 - 디자인이 Sitemap 요구사항 충족하는지 확인
 - 기존 화면과의 일관성 유지 확인
 - 디자인 시스템 (Glassmorphism, BCL Orange, Lexend) 준수 확인
@@ -224,7 +227,7 @@ const editResult = await mcp_StitchMCP_edit_screens({
 ---
 
 ### 7️⃣ 생성 프롬프트 저장
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low)
 
 **목적**: 향후 유사 화면 생성 시 참조할 수 있도록 프롬프트 보관
 
@@ -260,12 +263,12 @@ const editResult = await mcp_StitchMCP_edit_screens({
 ---
 
 ### 8️⃣ UI/UX 개발 진행
-**담당**: 🎨 **UI Developer (Gemini 3 Flash)**  
-**검증**: 💻 **Developer (Sonnet 4.6)**
+**관점**: 🎨 **UI Developer** (권장: Gemini 3 Pro Low)  
+**검증**: 💻 **Developer** (권장: Claude Sonnet 4.6)
 
 **목적**: 확정된 디자인을 기준으로 실제 코드 구현
 
-**UI Developer가 수행할 것**:
+**UI Developer 관점에서 수행할 것**:
 1. 구현 전 기존 동일 영역 페이지 코드 **전체** 로드 (Gemini 컨텍스트 활용)
 2. Stitch 디자인을 참조하여 React 컴포넌트 구현
 3. `ui-gen` 스킬을 사용하여 Glassmorphism 스타일 적용
@@ -273,7 +276,7 @@ const editResult = await mcp_StitchMCP_edit_screens({
 5. 반응형 디자인 구현 (Stitch는 고정 크기지만 실제는 반응형)
 6. **자체 검증 체크리스트 확인** (인라인 스타일, any 타입, 하드코딩 색상)
 
-**Developer (Sonnet)가 검증할 것**:
+**Developer 관점 (Sonnet)에서 검증할 것**:
 - 글로벌 CSS 클래스 준수 여부
 - TypeScript `any` 타입 사용 여부
 - 하드코딩 색상/간격 여부
@@ -367,11 +370,11 @@ Desktop 기반 관리자 화면으로, [화면명]을 생성해주세요.
 ## ⚠️ 주의사항
 
 ### 필수 규칙
-1. **Sitemap 우선 (Architect)**: 반드시 Architect가 Sitemap 갱신 후 디자인 생성
-2. **기존 프롬프트 참조 (UI Developer)**: 일관성을 위해 동일 영역의 기존 프롬프트 참조
-3. **프롬프트 저장 (UI Developer)**: 생성에 사용한 프롬프트는 반드시 저장
-4. **Screen ID 매핑 (UI Developer)**: Sitemap에 Screen ID 기록 필수
-5. **Architect 승인 (Architect)**: 디자인 확정 전 반드시 검토
+1. **Sitemap 우선 (Architect 관점)**: 반드시 Sitemap 갱신 후 디자인 생성
+2. **기존 프롬프트 참조 (UI Developer 관점)**: 일관성을 위해 동일 영역의 기존 프롬프트 참조
+3. **프롬프트 저장 (UI Developer 관점)**: 생성에 사용한 프롬프트는 반드시 저장
+4. **Screen ID 매핑 (UI Developer 관점)**: Sitemap에 Screen ID 기록 필수
+5. **Architect 승인 (Architect 관점)**: 디자인 확정 전 반드시 검토
 
 ### 디자인 원칙
 - **컨셉 중심**: Pixel-perfect 아님, 디자인 컨셉과 패턴 중심
@@ -382,8 +385,6 @@ Desktop 기반 관리자 화면으로, [화면명]을 생성해주세요.
 ---
 
 ## 🔗 관련 문서
-- `.antigravity/agents/ui-developer.md` - UI Developer 역할 및 제약
-- `.antigravity/agents/architect.md` - Architect 역할 및 설계 원칙
 - `.agent/skills/ui-gen/SKILL.md` - Glassmorphism UI 스킬
 - `.agent/workflows/add-page.md` - 페이지 추가 워크플로우
 - `.docs/sitemap/README.md` - Sitemap SSOT

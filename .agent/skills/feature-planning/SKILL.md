@@ -8,8 +8,9 @@ description: 새로운 기능/아키텍처 기획 문서를 체계적으로 작�
 이 스킬은 **기능 기획의 전 과정**을 담당합니다.
 사용자의 요청 또는 프로젝트 분석 결과를 바탕으로, 체계적인 기획 문서를 작성하여 `.docs/planning/` 폴더에 저장합니다.
 
-> **⚠️ 이 스킬의 모든 단계는 🏛️ Architect (Opus)가 전담 수행한다.**
-> 기획 작성은 아키텍처적 판단이 필요하므로, 다른 에이전트에게 위임하지 않는다.
+> **⚠️ 이 스킬의 모든 단계는 🏛️ Architect 관점에서 전담 수행해야 합니다.**
+> 기획 작성은 아키텍처적 판단이 필요하므로, 다른 관점으로 위임하지 않습니다.
+> **권장 모델**: Gemini 3 Pro (High) — 1M 컨텍스트로 전체 시스템 분석
 
 ---
 
@@ -208,19 +209,19 @@ ls .docs/archive/planning/
 
 ---
 
-### 4️⃣ 에이전트 배분 및 Phase 설계
+### 4️⃣ 관점 배분 및 Phase 설계
 
-작업을 Phase로 나누고 각 Phase에 적절한 에이전트를 배분한다.
+작업을 Phase로 나누고 각 Phase에 적절한 관점을 배분한다.
 
-**에이전트 역할표**:
+**관점 역할표**:
 
-| 에이전트 | 모델 | 담당 작업 |
+| 관점 | 권장 모델 | 담당 작업 |
 |----------|------|----------|
-| 🏛️ **Architect (Opus)** | Claude Opus | 설계, 구조 결정, 기획 문서, 문서 동기화, 최종 승인 |
-| 💎 **Senior Dev (Opus)** | Claude Opus | DB 스키마, RLS, 복잡한 비즈니스 로직, 보안 |
-| 💻 **Developer (Sonnet)** | Claude Sonnet | API, 일반 로직, 버그 수정, 테스트/QA |
-| 🎨 **UI Developer (Gemini)** | Gemini Flash | 화면 UI/UX, 컴포넌트, Stitch 디자인 |
-| ⚡ **Specialist (Gemini)** | Gemini Flash | 실시간 기능, 성능 최적화, 카메라/QR |
+| 🏛️ **Architect** | Gemini 3 Pro (High) | 설계, 구조 결정, 기획 문서, 최종 승인 |
+| 💎 **Senior Dev** | Claude Opus 4.6 | DB 스키마, RLS, 복잡한 비즈니스 로직, 보안 |
+| 💻 **Developer** | Claude Sonnet 4.6 | API, 일반 로직, 버그 수정, 테스트/QA |
+| 🎨 **UI Developer** | Gemini 3 Pro (Low) | 화면 UI/UX, 컴포넌트, 디자인 일관성 관리 |
+| ⚡ **Specialist** | Gemini 3 Flash | 실시간 기능, 성능 최적화, 문서 동기화 |
 
 **Phase 설계 규칙**:
 1. **Phase 1**은 항상 인프라/DB 작업 (💎 Senior Dev)
@@ -251,7 +252,7 @@ ls .docs/archive/planning/
 # BCL Portal – {기능명} 기획서
 
 > **Status**: Draft (초안)  ← ⚡ 첫 작성 시 Draft, 완성 시 Approved 로 변경
-> **Author**: Architect (Opus)
+> **Author**: Agent (Architect 관점)
 > **Created**: {YYYY-MM-DD}
 > **Last Updated**: {YYYY-MM-DD}
 > **Related**: {관련 문서/파일 링크}
@@ -317,24 +318,24 @@ ls .docs/archive/planning/
 
 ---
 
-## 8. 구현 단계 및 에이전트 배분
+## 8. 구현 단계 및 관점 배분
 
 ### Phase 1: {작업명}
-> **담당**: 💎 **Senior Dev (Opus)** | **공수**: {N일}
+> **담당 관점**: 💎 **Senior Dev (권장: Opus)** | **공수**: {N일}
 
 | # | 작업 | 상세 |
 |---|------|------|
 | 1-1 | {작업명} | {상세 설명} |
 
 ### Phase 2: {작업명}
-> **담당**: 🎨 **UI Developer (Gemini)** | **공수**: {N일}
+> **담당 관점**: 🎨 **UI Developer (권장: Pro Low)** | **공수**: {N일}
 
 | # | 작업 | 상세 |
 |---|------|------|
 | 2-1 | {작업명} | {상세 설명} |
 
 ### Phase N: 문서 동기화
-> **담당**: 🏛️ **Architect (Opus)** | **공수**: 0.5일
+> **담당 관점**: 🏛️ **Architect (권장: Pro High)** | **공수**: 0.5일
 
 | # | 작업 | 상세 |
 |---|------|------|
@@ -347,12 +348,12 @@ ls .docs/archive/planning/
 (이 섹션의 내용을 블루프린트에 복사한다)
 
 ```markdown
-- [ ] Phase 1: {작업명} → 💎 **Senior Dev (Opus)**
+- [ ] Phase 1: {작업명} → 💎 **Senior Dev (권장: Opus)**
   - [ ] {세부 작업 1}
   - [ ] {세부 작업 2}
-- [ ] Phase 2: {작업명} → 🎨 **UI Developer (Gemini)**
+- [ ] Phase 2: {작업명} → 🎨 **UI Developer (권장: Pro Low)**
   - [ ] {세부 작업 1}
-- [ ] Phase N: 문서 동기화 → 🏛️ **Architect (Opus)**
+- [ ] Phase N: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
   - [ ] sitemap 갱신
   - [ ] blueprint 반영
 ```
@@ -412,7 +413,7 @@ ls .docs/archive/planning/
 [ ] DB 변경이 있으면 실행 가능한 SQL 포함
 [ ] RLS 정책이 누락되지 않음
 [ ] 영향 범위 분석이 실제 파일 경로를 포함
-[ ] 모든 Phase에 담당 에이전트가 명시됨
+[ ] 모든 Phase에 담당 관점이 명시됨
 [ ] 마지막 Phase가 "문서 동기화" (Architect)
 [ ] 테스트 시나리오: 정상 ≥ 3건, 예외 ≥ 2건
 [ ] 블루프린트 등록용 체크리스트(섹션 9)가 존재함
@@ -470,9 +471,9 @@ ls .docs/archive/planning/
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   
   Phase 요약:
-    Phase 1: {작업명} → 💎 Senior Dev ({N일})
-    Phase 2: {작업명} → 🎨 UI Dev ({N일})
-    Phase N: 문서 동기화 → 🏛️ Architect (0.5일)
+    Phase 1: {작업명} → 💎 Senior Dev 관점 ({N일})
+    Phase 2: {작업명} → 🎨 UI Developer 관점 ({N일})
+    Phase N: 문서 동기화 → 🏛️ Architect 관점 (0.5일)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   ▶ 다음 단계: `/plan-to-blueprint` 실행하여 블루프린트에 등록
@@ -496,10 +497,10 @@ ls .docs/archive/planning/
 
 ## 주의사항
 
-- ❌ 이 스킬을 Architect 이외의 에이전트가 수행하지 않는다
+- ❌ 이 스킬은 반드시 Architect 관점으로 수행해야 합니다.
 - ❌ 기획 문서 작성 중 코드를 변경하지 않는다
 - ❌ 현황 분석 없이 기획 문서를 작성하지 않는다
-- ❌ 에이전트 배분 없이 Phase를 정의하지 않는다
+- ❌ 관점 배분 없이 Phase를 정의하지 않는다
 - ❌ 기존 기획과 중복되는 기획을 새로 작성하지 않는다
 - ❌ 사용자의 요구사항이 불명확한데 추측으로 기획하지 않는다 (반드시 확인)
 - ✅ 기획 문서는 항상 `.docs/planning/`에 저장한다

@@ -16,27 +16,30 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 
 ---
 
-## 🤖 멀티에이전트 배분 (단계별)
+## 🤖 관점별 역할 및 권장 모델 (단계별)
 
-| 단계 | 담당 에이전트 | 모델 | 핵심 역할 |
-|:-----|:------------|:-----|:---------|
-| 1. 작업 선택 & 분석 | **Architect** | Opus 4.6 (Thinking) | Priority 항목 확인, 의존성 분석 |
-| 2. 개발 환경 확인 | **Developer** | Sonnet 4.6 | 빌드 상태, 브랜치, 종속성 확인 |
-| 3. 전체 Phase 일괄 실행 | **Phase별 담당** | Phase별 상이 | 모든 Phase 연속 코드 구현 |
-| 4. 검증 | **Developer** | Sonnet 4.6 | 빌드 테스트, 기본 기능 회귀 |
-| 5. 문서 동기화 + 버전 갱신 | **Developer** | Sonnet 4.6 | sitemap, blueprint, version.ts 갱신 |
-| 6. 최종 검토 & 커밋 | **Architect** | Opus 4.6 (Thinking) | 아키텍처 일관성 확인, 커밋 승인 |
+> 📌 **에이전트 = 관점 + 체크리스트**입니다.
+> 하나의 세션에서 모든 단계를 수행할 수 있으며, 각 단계의 체크리스트를 따르면 품질이 보장됩니다.
+> 모델명은 **권장 사항**이며, 해당 관점의 작업에 최적화된 모델을 안내합니다.
+
+| 관점 | 권장 모델 | 핵심 역할 |
+|:---|:---|:---|
+| 🏛️ **Architect** | Gemini 3 Pro (High) | 작업 선택, 의존성 분석, 아키텍처 일관성 확인 및 최종 승인 |
+| 💎 **Senior Dev** | Claude Opus 4.6 | DB 스키마 설계, RLS 보안 정책 구현, 복잡한 비즈니스 로직 |
+| 🎨 **UI Developer** | Gemini 3 Pro (Low) | 디자인 시스템 준수, 프리미엄 UI 구현 및 전후 화면 일관성 관리 |
+| 💻 **Developer** | Claude Sonnet 4.6 | API 연동, 일반 로직 구현, 빌드 검증, 문서 동기화 |
+| ⚡ **Specialist** | Gemini 3 Flash | 실시간 엔드포인트 연동, 코드-문서 정합성 대조, 단순 자동화 |
 
 ---
 
 ## 단계별 절차
 
 ### 1️⃣ 작업 선택 & 분석
-**담당**: 🏛️ **Architect (Opus 4.6 Thinking)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High — 1M 컨텍스트로 전체 블루프린트 분석)
 
 블루프린트에서 개발할 Priority 항목을 확인합니다.
 
-**Architect가 수행할 것**:
+**수행할 것**:
 
 // turbo
 1. `.docs/project-blueprint.md`의 `Next Steps` 섹션을 읽는다.
@@ -56,7 +59,7 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 
 5. **작업 범위 확정**:
    - 선택된 Priority의 **모든 Phase를 일괄 실행**
-   - 각 Phase의 담당 에이전트 확인 (블루프린트에 이미 명시됨)
+   - 각 Phase의 담당 관점 확인 (블루프린트에 이미 명시됨)
 
 **출력**:
 ```
@@ -68,9 +71,9 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
   실행 범위: 전체 Phase 일괄 개발
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Phase 목록 (전체 실행):
-    - Phase 1: {작업명} → {담당 에이전트}
-    - Phase 2: {작업명} → {담당 에이전트}
-    - Phase N: {작업명} → {담당 에이전트}
+    - Phase 1: {작업명} → {담당 관점}
+    - Phase 2: {작업명} → {담당 관점}
+    - Phase N: {작업명} → {담당 관점}
   의존성: {있음/없음}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -80,11 +83,11 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ---
 
 ### 2️⃣ 개발 환경 확인
-**담당**: 💻 **Developer (Sonnet 4.6)**
+**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
 
 개발을 시작하기 전 환경 상태를 확인합니다.
 
-**Developer가 수행할 것**:
+**수행할 것**:
 
 // turbo
 1. **빌드 상태 확인**:
@@ -111,50 +114,36 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ---
 
 ### 3️⃣ 전체 Phase 일괄 개발 실행
-**담당**: **블루프린트에 명시된 Phase별 에이전트**
+**관점**: **블루프린트에 명시된 Phase별 관점 적용**
 
 > 🚨 **Priority의 모든 Phase를 순서대로 연속 개발합니다.**
 > Phase를 나누어 별도 세션으로 분리하지 않습니다.
 
-각 Phase를 순서대로 실행합니다. Phase별 담당 에이전트는 블루프린트에 이미 정의되어 있습니다.
+각 Phase를 순서대로 실행합니다. Phase별 담당 관점은 블루프린트에 이미 정의되어 있습니다.
 
-#### 에이전트별 실행 가이드
+#### 관점별 실행 가이드
 
-##### 💎 Senior Dev (Opus) — DB/비즈니스 로직 Phase
-```
-1. 기획서의 DB 스키마 설계 확인
-2. `db-migration` 스킬 사용하여 마이그레이션 생성
-3. RLS 정책 구현
-4. DB 함수 생성 (필요시)
-5. database-reference.md 갱신
-```
+##### 💎 Senior Dev 관점 (권장: Claude Opus 4.6) — DB/비즈니스 로직 Phase
+- [ ] 기획서의 DB 스키마 설계 확인
+- [ ] `db-migration` 스킬 사용하여 마이그레이션 생성
+- [ ] RLS 정책 구현 및 최소 권한 원칙 확인
+- [ ] DB 함수/RPC 생성 및 `database-reference.md` 갱신
 
-##### 🎨 UI Developer (Gemini) — UI/UX Phase
-```
-1. Stitch 디자인 확인 (design-screen 워크플로우 미완료 시 먼저 실행)
-2. 구현 전 동일 영역 기존 페이지 코드 전체 로드 (컨텍스트)
-3. ui-gen 스킬의 Glassmorphism 가이드 준수
-4. 글로벌 CSS 클래스 사용 (admin-filter-btn, admin-search-input 등)
-5. CSS 변수 사용 (하드코딩 금지)
-6. 자체 검증 체크리스트 확인
-```
+##### 🎨 UI Developer 관점 (권장: Gemini 3 Pro Low) — UI/UX Phase
+- [ ] Stitch 디자인 확인 및 `ui-gen` 스킬 가이드 준수
+- [ ] **일관성 체크**: 구현 전 동일 영역 기존 페이지 코드 로드 (1M 컨텍스트 활용)
+- [ ] 글로벌 CSS 클래스(`admin-filter-btn` 등) 및 CSS 변수 사용 확인
+- [ ] 모바일 퍼스트(apps) 또는 사이드바(admin) 레이아웃 준수 확인
 
-##### 💻 Developer (Sonnet) — API/로직 Phase
-```
-1. Next.js API Routes 또는 클라이언트 로직 구현
-2. Supabase 쿼리 최적화
-3. Zod 입력 검증
-4. 에러 핸들링 표준화
-5. TypeScript strict 준수
-```
+##### 💻 Developer 관점 (권장: Claude Sonnet 4.6) — API/로직 Phase
+- [ ] Next.js API Routes 또는 클라이언트 전용 로직(CSR) 구현
+- [ ] Supabase 쿼리 최적화 및 Zod 입력 검증
+- [ ] 에러 핸들링 표준화 및 TypeScript strict 타입 준수
 
-##### ⚡ Specialist (Gemini) — 실시간/성능 Phase
-```
-1. Supabase Realtime 구독 구현
-2. React 성능 최적화 (memo, callback)
-3. 카메라/QR 기능 (필요시)
-4. 60fps 애니메이션 보장
-```
+##### ⚡ Specialist 관점 (권장: Gemini 3 Flash) — 실시간/문서 동기화 Phase
+- [ ] Supabase Realtime 구독 구현 및 실시간 상태 관리
+- [ ] 60fps 애니메이션 보장 및 성능 최적화
+- [ ] 작업 완료 후 즉시 관련 폴더 내 `.md` 문서 정합성 대조
 
 #### Phase 완료 기준
 각 Phase 완료 시:
@@ -167,43 +156,42 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 
 ---
 
-### 4️⃣ 검증 & 감사
-**담당**: 💻 **Developer (Sonnet 4.6)** & 🏛️ **Architect (Opus 4.6)**
+### 4️⃣ 검증 (셀프 체크)
+**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
 
-**모든 Phase 완료 후** 품질을 검증합니다.
+**모든 Phase 완료 후** 개발 모델이 직접 수행하는 셀프 체크입니다.
 
 **수행 절차**:
 
 // turbo
-1. **기술 검증**:
+1. **빌드 검증**:
    ```bash
    npm run build
    ```
    - [ ] 빌드 에러 및 경고 없음 확인
    - [ ] TypeScript `any` 타입 사용 여부 재검토
 
-2. **표준 준수 감사 (필수 수행)**:
-   - `/audit` 워크플로우를 실행하여 종합 감사 보고서를 생성합니다.
-   - [ ] 기획서 및 Sitemap과 구현 일치 여부 확인
-   - [ ] UI 표준(Glassmorphism, Admin Global Classes) 준수 확인
-   - [ ] 보안(RLS, DB 정책) 검증
+2. **인라인 체크리스트**:
+   - [ ] 기획서(Planning Doc) / Sitemap과 구현 일치 확인
+   - [ ] UI 표준 준수 (Glassmorphism, Admin Global CSS Classes)
+   - [ ] RLS / 보안 정책 검증
+   - [ ] 로그인/로그아웃, 네비게이션 등 기본 기능 회귀 테스트
 
-3. **기능 회귀 테스트**:
-   - [ ] 로그인/로그아웃 및 권한별 접근 제어 정상
-   - [ ] 기존 핵심 기능(예약, 체크인 등) 영향도 확인
+3. **검증 결과 조치**:
+   - 빌드 에러, `any` 타입 등 명백한 이슈 → 즉시 수정
+   - 구조적 이슈 → Blueprint `Known Issues`에 등록
 
-4. **검증 결과 조치**:
-   - 발견된 사소한 이슈 → 즉시 수정
-   - 구조적 이슈 또는 대규모 결함 → 감사 보고서에 기록 후 `Known Issues` 등록
+> 📋 **3자 감사**: 커밋 완료 후, 개발에 사용하지 않은 **다른 모델**로 `/audit`를 별도 실행하면
+> 셀프 체크로 발견하지 못한 블라인드 스팟을 잡을 수 있습니다. (Priority 완료 시 권장)
 
 ---
 
 ### 5️⃣ 문서 동기화 + 버전 갱신
-**담당**: 💻 **Developer (Sonnet 4.6)**
+**관점**: 💻 **Developer** (권장: Claude Sonnet 4.6)
 
 개발 완료 후 코드와 문서의 일관성을 맞추고, 버전을 갱신합니다.
 
-**Developer가 수행할 것**:
+**수행할 것**:
 
 1. **Blueprint 갱신** (`.docs/project-blueprint.md`):
    - 완료된 Phase 체크박스 전부 `[x]` 처리
@@ -234,9 +222,9 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 ---
 
 ### 6️⃣ 최종 검토 & 커밋
-**담당**: 🏛️ **Architect (Opus 4.6 Thinking)** → `commit-bot` 스킬
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High) → `commit-bot` 스킬
 
-**Architect가 수행할 것**:
+**수행할 것**:
 
 1. **아키텍처 일관성 확인**:
    - 새로운 코드가 기존 아키텍처와 충돌하지 않는지 확인
@@ -246,7 +234,7 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 2. **문서 완전성 확인**:
    - Blueprint 상태가 정확한지 확인
    - Next Steps에 남은 작업이 명확히 기록되었는지 확인
-   - 담당 에이전트 배분이 적절한지 확인
+   - 담당 관점 배분이 적절한지 확인
 
 3. **버전 확인**:
    - `src/lib/version.ts`의 버전이 올바르게 갱신되었는지 확인
@@ -300,7 +288,7 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 │     ↓                                                    │
 │  2️⃣ Developer: 개발 환경 확인                             │
 │     ↓                                                    │
-│  3️⃣ Phase별 에이전트: 전체 Phase 일괄 개발                  │
+│  3️⃣ Phase별 관점 적용: 전체 Phase 일괄 개발                  │
 │     ↓ (모든 Phase 연속 실행)                               │
 │  4️⃣ Developer: 검증 & 감사                               │
 │     ↓                                                    │
@@ -315,7 +303,7 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 
 ## ✅ 전체 체크리스트
 
-### 🏛️ Architect (Opus) — 시작 & 종료
+### 🏛️ Architect 관점 (권장: Gemini 3 Pro High) — 시작 & 종료
 - [ ] 개발 대상 Priority 확인
 - [ ] 의존성 분석 완료
 - [ ] 블루프린트 상태 → `(개발 진행 중)` 갱신
@@ -324,30 +312,28 @@ description: 블루프린트의 Priority 항목을 선택하여 배정된 전체
 - [ ] 문서 완전성 확인
 - [ ] 커밋 승인 완료
 
-### 💎 Senior Dev (Opus) — DB/로직 Phase (해당 시)
+### 💎 Senior Dev 관점 (권장: Claude Opus 4.6) — DB/로직 Phase (해당 시)
 - [ ] DB 마이그레이션 적용 완료
 - [ ] RLS 정책 구현 완료
 - [ ] DB 함수 생성 완료 (필요시)
 - [ ] database-reference.md 갱신 완료
 
-### 🎨 UI Developer (Gemini) — UI Phase (해당 시)
+### 🎨 UI Developer 관점 (권장: Gemini 3 Pro Low) — UI Phase (해당 시)
 - [ ] Stitch 디자인 참조 완료
-- [ ] 글로벌 CSS 클래스 사용 확인
-- [ ] CSS 변수 사용 확인 (하드코딩 없음)
-- [ ] 자체 검증 체크리스트 통과
+- [ ] 글로벌 CSS 클래스 및 변수 사용 확인 (하드코딩 제거)
+- [ ] 기존 개발된 인접 페이지와 디자인 일관성(Consistent UI) 확인
+- [ ] Glassmorphism 효과 및 모바일/데스크탑 레이아웃 규칙 준수
 
-### 💻 Developer (Sonnet) — API/검증
+### 💻 Developer 관점 (권장: Claude Sonnet 4.6) — API/검증
 - [ ] 빌드 정상 확인 (`npm run build`)
-- [ ] 기본 기능 회귀 테스트 통과
-- [ ] 코드 품질 검증 통과
-- [ ] Sitemap 동기화 완료
-- [ ] Blueprint 모든 Phase 체크박스 `[x]` 갱신 완료
-- [ ] Complete 파일 기록 완료
+- [ ] 기본 기능 회귀 테스트 통과 및 코드 품질 검토 완료
+- [ ] Sitemap, Blueprint, Complete 기록 등 모든 문서 동기화 완료
 - [ ] 버전 갱신 완료 (version.ts + package.json)
 
-### ⚡ Specialist (Gemini) — 실시간/성능 Phase (해당 시)
+### ⚡ Specialist 관점 (권장: Gemini 3 Flash) — 실시간/문서 동기화 Phase (해당 시)
 - [ ] 실시간 기능 구현 완료
-- [ ] 성능 목표 달성 (60fps, Lighthouse > 90)
+- [ ] 60fps 수준의 애니메이션 처리 및 초기 렌더링 최적화
+- [ ] 단순 텍스트 성격의 코드-문서 정합성 최종 확인
 
 ---
 

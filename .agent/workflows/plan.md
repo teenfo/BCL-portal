@@ -5,25 +5,26 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하는 기획�
 # Feature Planning Workflow (/plan)
 
 이 워크플로우는 사용자의 요청을 받아 **기획 문서를 작성**하는 기획자(Planner) 전용 워크플로우입니다.
-현황 분석 → 설계 → 에이전트 배분 → 기획 문서 저장 → (선택) 블루프린트 등록까지의 전체 기획 프로세스를 수행합니다.
+현황 분석 → 설계 → 관점 배분 → 기획 문서 저장 → (선택) 블루프린트 등록까지의 전체 기획 프로세스를 수행합니다.
 
 > 📖 **상세 스킬 가이드**: `.agent/skills/feature-planning/SKILL.md`
 
 ---
 
-## 🤖 전담 에이전트
+## 🤖 전담 관점
 
-> **이 워크플로우의 모든 단계는 🏛️ Architect (Opus)가 수행한다.**
-> 기획은 아키텍처적 판단이 필요하므로, 다른 에이전트에게 위임하지 않는다.
+> **이 워크플로우의 모든 단계는 🏛️ Architect 관점에서 수행한다.**
+> 기획은 아키텍처적 판단이 필요하므로, 다른 관점으로 위임하지 않는다.
+> **권장 모델**: Gemini 3 Pro (High) — 1M 컨텍스트로 전체 코드/문서 분석 가능
 
-| 단계 | 담당 에이전트 | 핵심 역할 |
-|:-----|:------------|:---------| 
-| 1. 요구사항 수집 | 🏛️ **Architect (Opus)** | 사용자 요청 파악, 범위 확정 |
-| 2. 현황 분석 | 🏛️ **Architect (Opus)** | 코드/DB/문서 분석, 중복 확인 |
-| 3. 설계 | 🏛️ **Architect (Opus)** | As-Is → To-Be 설계, 아키텍처 결정 |
-| 4. 기획 문서 작성 | 🏛️ **Architect (Opus)** | 표준 템플릿 기반 문서 작성 |
-| 5. 품질 검증 | 🏛️ **Architect (Opus)** | 체크리스트 기반 자체 검증 |
-| 6. (선택) 블루프린트 등록 | 🏛️ **Architect (Opus)** | `/plan-to-blueprint` 실행 |
+| 단계 | 관점 | 핵심 역할 |
+|:-----|:-----|:---------| 
+| 1. 요구사항 수집 | 🏛️ **Architect** | 사용자 요청 파악, 범위 확정 |
+| 2. 현황 분석 | 🏛️ **Architect** | 코드/DB/문서 분석, 중복 확인 |
+| 3. 설계 | 🏛️ **Architect** | As-Is → To-Be 설계, 아키텍처 결정 |
+| 4. 기획 문서 작성 | 🏛️ **Architect** | 표준 템플릿 기반 문서 작성 |
+| 5. 품질 검증 | 🏛️ **Architect** | 체크리스트 기반 자체 검증 |
+| 6. (선택) 블루프린트 등록 | 🏛️ **Architect** | `/plan-to-blueprint` 실행 |
 
 ---
 
@@ -56,7 +57,7 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하는 기획�
 ## 단계별 절차
 
 ### 0️⃣ 실행 모드 판별 (신규 vs 이어쓰기)
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 `/plan` 호출 시 가장 먼저 `.docs/planning/` 폴더를 스캔한다.
 
@@ -80,7 +81,7 @@ ls .docs/planning/
 ---
 
 ### 1️⃣ 요구사항 수집 및 범위 확정
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 사용자의 요청을 정확히 이해하고 기획의 범위를 확정한다.
 
@@ -93,7 +94,7 @@ ls .docs/planning/
 ---
 
 ### 2️⃣ 현황 분석 (As-Is)
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 기획 대상과 관련된 프로젝트의 현재 상태를 철저히 분석한다.
 
@@ -140,7 +141,7 @@ ls .docs/planning/
 ---
 
 ### 3️⃣ 설계 (To-Be)
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 분석 결과를 바탕으로 개선 방안을 설계한다.
 
@@ -160,7 +161,7 @@ ls .docs/planning/
 ---
 
 ### 4️⃣ 기획 문서 작성
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 `.agent/skills/feature-planning/SKILL.md`의 **문서 템플릿**을 사용하여 기획서를 작성한다.
 
@@ -181,7 +182,7 @@ ls .docs/planning/
 ---
 
 ### 5️⃣ 품질 검증 (전체 완성 시만)
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 모든 섹션이 작성된 경우에만 품질 검증을 수행한다.
 품질 검증 통과 시 Status를 `Approved`로 변경한다.
@@ -193,7 +194,7 @@ ls .docs/planning/
 ---
 
 ### 6️⃣ 결과 보고
-**담당**: 🏛️ **Architect (Opus)**
+**관점**: 🏛️ **Architect** (권장: Gemini 3 Pro High)
 
 #### 기획 완료 시 (Status: Approved)
 블루프린트 등록 옵션 제안:
@@ -212,7 +213,7 @@ ls .docs/planning/
 
 ## ✅ 완료 체크리스트
 
-### 🏛️ Architect (Opus) — 전담
+### 🏛️ Architect 관점 (권장: Gemini 3 Pro High) — 전담
 - [ ] 실행 모드 판별 (신규/이어쓰기)
 - [ ] 요구사항 파악 완료
 - [ ] 기존 기획 중복 확인 완료
