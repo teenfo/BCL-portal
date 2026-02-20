@@ -2,11 +2,23 @@
 description: 새로운 기능/아키텍처 기획 문서를 작성하고 블루프린트에 관점별 작업 항목으로 등록하는 워크플로우입니다.
 ---
 
-# Plan to Blueprint Workflow
+# Plan to Blueprint Workflow (/plan-to-blueprint)
 
-이 워크플로우는 `.docs/planning/`과 **`.docs/audit/`** 폴더를 **모두 스캔**하고, 블루프린트에 아직 등록되지 않은 항목을 **자동으로 등록**한 뒤, 등록 완료된 문서를 **아카이브로 이동**하는 절차입니다.
+이 워크플로우는 `.docs/planning/`과 **`.docs/audit/`** 폴더를 **모두 스캔**하고, 블루프린트(`.docs/project-blueprint.md`)에 아직 등록되지 않은 항목을 **자동으로 등록**한 뒤, 등록 완료된 문서를 **아카이브로 이동**하는 절차입니다. 
 
-> 📖 **상세 스킬 가이드**: `.agent/skills/plan-to-blueprint/SKILL.md`
+---
+
+## 🎯 핵심 원칙 (Mental Model)
+
+> **Planning & Audit 폴더 = 기획 및 이슈의 접수 대기열 (Inbox)**
+> **Blueprint = 기획의 실행 목록 (Execution Plan)**
+> **Archive = 등록 완료된 기획/감사의 보관소**
+>
+> 이 워크플로우는 Inbox → Execution Plan → Archive 순서로 **단방향 흐름**을 수행한다.
+> 1. `.docs/planning/` 또는 `.docs/audit/`에 새 문서를 작성한다.
+> 2. 블루프린트에 등록한다.
+> 3. 등록 완료된 문서를 각각의 아카이브 폴더로 이동한다.
+> 4. Inbox 폴더는 항상 비어있는 것이 정상 상태이다.
 
 ---
 

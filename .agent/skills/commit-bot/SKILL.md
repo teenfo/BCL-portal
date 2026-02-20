@@ -25,10 +25,11 @@ description: 표준화된 커밋 메시지 생성 및 자동 커밋을 관리하
 
 > ⚠️ 커밋 실행 전, **반드시 다음 조건을 충족**해야 합니다.
 
-1. **`/update-context` 워크플로우 수행 완료**
+1. **컨텍스트 갱신 완료** (커밋 전 필수)
+   - `/develop` 워크플로우의 Step 6 (컨텍스트 기록) 수행 완료
    - `project-blueprint.md`의 Active Context 갱신
    - 완료 항목 → `.docs/archive/complete/project-complete-YYYYMMDD.md` 이동
-   - **이 선행 워크플로우가 수행되지 않은 경우 커밋을 진행하지 않습니다.**
+   - **이 단계가 수행되지 않은 경우 커밋을 진행하지 않습니다.**
 
 2. **빌드 정상 확인** (코드 변경이 있는 경우)
    - `npm run build` 에러 없음
@@ -131,8 +132,7 @@ git push origin main
 ---
 
 ## 🔗 관련 워크플로우 & 문서
-- `/update-context` — 커밋 전 필수 수행 (선행 조건)
-- `/develop` — 개발 워크플로우 (최종 커밋 단계에서 이 스킬 사용)
+- `/develop` — 개발 워크플로우 (Step 6 컨텍스트 기록 단계 포함)
 - `/audit` — 감사 후 커밋 시 이 스킬 사용
 
 ---

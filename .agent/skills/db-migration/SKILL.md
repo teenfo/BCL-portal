@@ -271,5 +271,4 @@ mcp_supabase-mcp-server_generate_typescript_types({
 |------|------|
 | `/develop` | 개발 워크플로우의 DB Phase에서 이 스킬 사용 |
 | `/plan` | 기획서에 DB 설계가 포함되면 이 스킬로 구현 |
-| `feature-planning` 스킬 | 기획서의 § 4. 데이터베이스 변경 섹션 참고 |
 | `commit-bot` 스킬 | 마이그레이션 후 문서 커밋 |
