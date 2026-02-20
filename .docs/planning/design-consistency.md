@@ -151,7 +151,7 @@ backdrop 스타일이 다른 AdminModal과 다름 (`bg-black/60` vs AdminModal �
 
 ### 2.4 inline style vs Tailwind 불일관
 
-`admin/members/[id]/page.tsx`는 Tailwind 클래스 대신 인라인 스타일을 32곳에서 사용:
+`admin/members/[id]/page.tsx`는 Tailwind 클래스 대신 인라인 스타일을 **114곳**에서 사용 (프로젝트 전체 중 가장 많음):
 
 ```tsx
 // 이탈: inline style
@@ -267,7 +267,7 @@ Admin 표준: `rounded-xl` (버튼/태그), `rounded-2xl` (카드)
 | 파일 | 변경 유형 | 수정 항목 수 |
 |------|-----------|:-----------:|
 | `admin/setup/settings/page.tsx` | 인라인 모달 → AdminModal | 3개 모달 |
-| `admin/members/[id]/page.tsx` | breadcrumb 추가, inline style → Tailwind | 32곳 |
+| `admin/members/[id]/page.tsx` | breadcrumb 추가, inline style → Tailwind | 114곳 |
 | `admin/setup/audit/page.tsx` | 인라인 모달 → AdminModal | 1개 모달 |
 | `admin/members/page.tsx` | 승인 버튼 색상, rounded-3xl → rounded-2xl | 2곳 |
 | `admin/memberships/page.tsx` | 토글 버튼 raw 클래스 → 상태 패턴 | 3곳 |
@@ -291,7 +291,7 @@ Admin 표준: `rounded-xl` (버튼/태그), `rounded-2xl` (카드)
 | # | 작업 | 상세 |
 |---|------|------|
 | 2-1 | 상단 breadcrumb 네비게이션 추가 | `← Members / {name}` 형태 |
-| 2-2 | inline style 32곳 → Tailwind 클래스 일괄 치환 | `rgba(255,255,255,0.3)` → `text-white/30` 등 |
+| 2-2 | inline style 114곳 → Tailwind 클래스 일괄 치환 | `rgba(255,255,255,0.3)` → `text-white/30` 등 |
 | 2-3 | `rounded-md` → `rounded-xl` 치환 | 4곳 |
 
 ### Phase 3: 버튼 스타일 통일
@@ -322,7 +322,7 @@ Admin 표준: `rounded-xl` (버튼/태그), `rounded-2xl` (카드)
 
 ### 회귀 방지
 1. 기존 모달 내 폼 데이터가 AdminModal 교체 후에도 정상 동작 (저장/취소)
-2. inline style 제거 후 시각적 차이 없음 (동일한 투명도 값)
+2. `members/[id]` 114개 inline style 치환 후 시각적 차이 없음 (동일한 투명도 값) — 건당 검증 필요
 3. 승인 버튼 hover/focus 상태 정상 동작
 
 ---
@@ -346,7 +346,7 @@ Admin 표준: `rounded-xl` (버튼/태그), `rounded-2xl` (카드)
 - **메모**:
   - 불일관성의 90%가 Admin 포털에 집중, User App / Coach / Class는 포털 내 일관성 양호
   - `setup/settings`가 가장 복잡한 케이스 (zIndex 10000 하드코딩)
-  - `members/[id]`는 32곳 inline style로 가장 많은 수정이 필요
+  - `members/[id]`는 114곳 inline style로 프로젝트 최다 — 가장 많은 수정이 필요
   - Phase별 수정 순서: 모달(위험) → 헤더/스타일(안전) → 버튼 → 문서
 - **TODO (다음 세션)**:
   - [ ] Phase 1 실행 (setup/settings, setup/audit AdminModal 교체)
