@@ -1,9 +1,9 @@
 # BCL Portal – Race 시스템 기획서
 
-> **Status**: Draft
+> **Status**: In Progress
 > **Author**: Architect (Opus)
 > **Created**: 2026-02-19
-> **Last Updated**: 2026-02-19
+> **Last Updated**: 2026-02-21
 > **Related**: 
 >   - `.docs/planning/remaining-improvements.md` (통합 기획서에서 분리됨)
 >   - `.docs/archive/technical/race/` (레거시 기술 문서 5건)
@@ -53,7 +53,7 @@ BCL-Race 시스템은 **Concept2 PM5 에르고미터**를 이용한 실시간 �
 | ⭐⭐⭐⭐ | **PM5 BLE 연동** | Web Bluetooth API로 Concept2 PM5 BLE GATT 특성 구독/파싱 |
 | ⭐⭐⭐ | **아키텍처 마이그레이션** | FastAPI in-memory → Next.js CSR + Supabase Realtime |
 | ⭐⭐⭐ | **시뮬레이터 이식** | Python 시뮬레이터 → TypeScript/Edge Function 이식 |
-| ⭐⭐ | **Admin 레이스 관리** | Admin UI는 이미 부분 구현됨 (CRUD, PM5 목록) |
+| ⭐⭐ | **Coach 레이스 운영** | Coach가 수업 중 직접 PM5 연결/레이스 제어. Admin은 링크/임베드로 동시 접근 |
 
 ---
 
@@ -260,13 +260,22 @@ PM5Manager (Bleak/Python)     →   Web Bluetooth API (Browser)
 Simulator (Python Thread)     →   Edge Function + Realtime
 PM5 BLE Parsing (Python)      →   TypeScript BLE Parser
 
-상태 흐름:
-┌───────────┐    Supabase     ┌────────────────┐
-│ PM5 BLE   │──▶ Realtime  ──▶│ 모든 클라이언트  │
-│ (Browser) │    Broadcast    │ (Class/Admin/   │
-└───────────┘                 │  Coach/Live)    │
-      │                       └────────────────┘
-      ▼
+상태 흐름 (Coach 중심):
+┌───────────────────────┐
+│ Coach Race Control    │ ← 레이스 운영 주체
+│ /coach/race/control   │
+│ PM5 BLE + 시뮬레이터   │
+└──────────┬────────────┘
+           │ Supabase Realtime Broadcast
+           ▼
+┌────────────────────────────────────┐
+│ 모든 클라이언트 (동시 시청 가능)      │
+│ ├── /coach/race/control  (코치)    │
+│ ├── /admin/operations/race (어드민) │ ← 동일 화면 임베드/링크
+│ ├── /class/race/live     (대형TV)  │
+│ └── /class/race/run      (그리드)  │
+└──────────┬─────────────────────────┘
+           ▼
 ┌───────────┐    
 │ Supabase  │    race_live_state (실시간 ERG 상태)
 │ DB        │    race_records (결과 영구 저장)
@@ -299,8 +308,8 @@ PM5 BLE Parsing (Python)      →   TypeScript BLE Parser
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ 브라우저 (Admin 또는 전용 Race 운영 화면)        │
-│                                                 │
+│ 브라우저 (Coach Race 운영 화면)                  │
+│ /coach/race/control                             │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ Web Bluetooth API                           │ │
 │ │ navigator.bluetooth.requestDevice({         │ │
@@ -471,14 +480,17 @@ type RaceEvent =
 
 ### 6.1 신규 화면 목록
 
+> ⚠️ **핵심 변경**: 레이스 운영 주체가 Admin에서 **Coach**로 이동.
+> Coach가 수업 중 직접 PM5 연결/레이스 제어. Admin은 동일 화면을 링크/임베드로 접근.
+
 | 화면 | 경로 | 난이도 | 설명 |
 |------|------|--------|------|
-| 🆕 Race Live View | `/class/race/live` | ⭐⭐⭐⭐⭐ | 2.5D 레이싱 뷰 + 실시간 스코어 |
+| 🆕 **Coach Race Control** | `/coach/race/control` | ⭐⭐⭐⭐ | **운영 주체 화면** — PM5 연결, 레이스 시작/중지/배정, 시뮬레이터 제어, 실시간 모니터링 |
+| 🆕 Race Live View | `/class/race/live` | ⭐⭐⭐⭐⭐ | 2.5D 레이싱 뷰 + 실시간 스코어 (대형 스크린용) |
 | 🆕 Race Run View | `/class/race/run` | ⭐⭐⭐ | ERG 그리드 카드 (실시간 데이터) |
-| 🔄 Admin Race Control | `/admin/operations/race` | ⭐⭐⭐ | 레이스 시작/중지/배정 강화 |
+| 🔄 Admin Race 링크 | `/admin/operations/race` | ⭐⭐ | Coach Control 화면 임베드 + 이벤트/기록 관리 (CRUD 유지) |
 | 🆕 Race Join | `/apps/race/join` | ⭐⭐ | 참가 등록 |
 | 🆕 Race Result | `/class/race/result` | ⭐⭐ | 최종 결과 리더보드 |
-| 🆕 Simulator Setup | `/admin/operations/race?tab=simulator` | ⭐⭐⭐ | TypeScript 시뮬레이터 설정 |
 
 ### 6.2 2.5D Race Live View 상세 (핵심)
 
@@ -521,11 +533,12 @@ type RaceEvent =
 
 | 파일/모듈 | 변경 내용 | 신규/수정 |
 |-----------|-----------|:---------:|
+| `src/app/coach/race/control/page.tsx` | **Coach Race Control** (운영 주체) | 🆕 |
 | `src/app/class/race/live/page.tsx` | 2.5D Race Live View (핵심) | 🆕 |
 | `src/app/class/race/run/page.tsx` | ERG 그리드 실시간 뷰 | 🆕 |
 | `src/app/class/race/result/page.tsx` | 최종 결과 리더보드 | 🆕 |
 | `src/app/apps/race/join/page.tsx` | 참가 등록 | 🆕 |
-| `src/app/admin/operations/race/page.tsx` | 레이스 시작/중지/배정 강화 | 🔄 |
+| `src/app/admin/operations/race/page.tsx` | Coach Control 임베드 + CRUD 유지 | 🔄 |
 | `src/hooks/useRaceRealtime.ts` | Supabase Realtime 훅 | 🆕 |
 | `src/hooks/usePM5Bluetooth.ts` | Web Bluetooth API 훅 | 🆕 |
 | `src/hooks/useRaceSimulator.ts` | TypeScript 시뮬레이터 훅 | 🆕 |
@@ -547,10 +560,11 @@ type RaceEvent =
 
 | # | 작업 | 상세 |
 |---|------|------|
-| 1-1 | `race_live_state` 테이블 생성 + RLS | DB 마이그레이션 |
+| 1-1 | `race_live_state` 테이블 생성 + RLS | DB 마이그레이션 (Coach 쓰기 권한 포함) |
 | 1-2 | `useRaceRealtime` 훅 | Supabase Realtime Broadcast 구독/발행 |
 | 1-3 | `useRaceState` 훅 | ERG 상태 관리 (mergeDiff 로직 이식) |
-| 1-4 | Admin Race Control 강화 | 레이스 시작/중지/리셋 + Realtime 발행 |
+| 1-4 | **Coach Race Control 페이지** | `/coach/race/control` — 레이스 시작/중지/리셋/배정 + Realtime 발행 |
+| 1-5 | Admin Race 링크 연동 | `/admin/operations/race`에서 Coach Control 화면 임베드/링크 |
 
 ### Phase 2: 시뮬레이터 이식 (Python → TypeScript)
 > **담당**: ⚡ **Specialist (Gemini)** | **공수**: 1일
@@ -659,21 +673,32 @@ type RaceEvent =
 ### Session 1 — 2026-02-19
 - **작성 범위**: 섹션 1~11 전체 (초안)
 - **완성된 섹션**: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
-- **Status**: **Draft** (초안 — 사용자 디벨롭 예정)
+- **Status**: **Draft** (초안)
 - **메모**: 
   - `remaining-improvements.md`에서 PM5/Race 항목 분리
   - `.docs/archive/technical/race/` 5건 기술 문서 전체 분석 완료
   - 프로토타입 이미지의 2.5D 레이싱 뷰가 **최고 난이도 항목**
   - Phase 5 (2.5D)는 3~5일 소요 예상, 최소 2~3회 반복 리팩토링 필요
-  - Phase 별 순서: 기반(1) → 시뮬레이터(2) → Run View(3) → BLE(4) → 2.5D(5) → 결과(6)
   - PM5 BLE 기기 미보유 시 시뮬레이터 완성도가 핵심
+
+### Session 2 — 2026-02-21
+- **변경 사항**: 레이스 운영 주체를 Admin → **Coach**로 이동
+- **변경 근거**: 레이스는 코치가 수업 중 직접 운영하는 기능이므로 Coach 포털에 포함되어야 함
+- **수정된 섹션**: 1.3, 4.1, 4.3, 6.1, 7, 8 (Phase 1)
+- **핵심 변경 내용**:
+  - `/coach/race/control` 신규 추가 (레이스 운영 주체 화면)
+  - `/admin/operations/race` → Coach Control 임베드/링크로 변경 (CRUD 유지)
+  - RLS 정책: Coach 쓰기 권한 이미 포함되어 있어 DB 변경 불필요
+  - 아키텍처 상태 흐름: Coach 중심으로 재설계
+  - Coach + Admin이 Supabase Realtime으로 동시 시청 가능
+- **Status**: **In Progress**
 - **TODO (다음 세션)**:
   - [ ] 2.5D 렌더링 엔진 최종 결정 (PixiJS vs Canvas vs CSS 하이브리드)
   - [ ] 캐릭터 스프라이트 에셋 준비 방안 결정
   - [ ] Phase 5 서브태스크 상세화 (각 이펙트별 구현 방법)
-  - [ ] Supabase Realtime Broadcast 성능 벤치마크 필요 여부 판단
+  - [ ] Coach Race Control UI 상세 레이아웃 설계
   - [ ] Stitch MCP로 Race UI 디자인 생성 (기획 승인 후)
 
 ---
-**문서 버전**: 0.1.0 (Draft)
-**최종 업데이트**: 2026-02-19
+**문서 버전**: 0.2.0 (In Progress — Coach 중심 재설계)
+**최종 업데이트**: 2026-02-21

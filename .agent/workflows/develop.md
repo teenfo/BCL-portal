@@ -129,7 +129,6 @@ Priority에 등록되지 않은 작은 페이지를 추가할 때는 다음 최�
 ---
 
 ## 🔗 관련 문서
-- `/audit` — 3자 품질 감사 및 보고서 생성 (개발 완료 후 필수 추천)
 - `/plan-to-blueprint` — 기획 완료 후 블루프린트 등록 (선행)
 - `.agent/skills/commit-bot/SKILL.md` — 커밋 자동화
 - `.agent/skills/ui-gen/SKILL.md` — UI 표준 가이드

@@ -54,11 +54,10 @@ export default function AdminMembersPage() {
     async function loadMembers() {
         setLoading(true);
         const { data, error } = await query('members')
-
             .select('*')
             .order('created_at', { ascending: false });
 
-        if (!error && data) setMembers(data as any[]);
+        if (!error && data) setMembers(data as Member[]);
         setLoading(false);
     }
 
@@ -76,25 +75,25 @@ export default function AdminMembersPage() {
             return;
         }
 
-        setPendingUsers((profiles as any[]).map(p => ({
-            id: p.id,
-            full_name: p.full_name || 'N/A',
-            email: p.email || 'N/A', // Assuming email was synced to profile or we use a placeholder
-            created_at: p.updated_at || new Date().toISOString(),
-            role: p.role || 'member'
-        })));
+        if (profiles) {
+            setPendingUsers((profiles as any[]).map(p => ({
+                id: p.id,
+                full_name: p.full_name || 'N/A',
+                email: p.email || 'N/A',
+                created_at: p.updated_at || new Date().toISOString(),
+                role: p.role || 'member'
+            })));
+        }
 
         setLoading(false);
     }
 
     async function handleApproval(id: string, approve: boolean) {
         setSaving(true);
-
         const newStatus = approve ? 'approved' : 'rejected';
 
         const { error } = await query('profiles')
-
-            .update({ approval_status: newStatus } as any)
+            .update({ approval_status: newStatus })
             .eq('id', id);
 
         if (!error) {
@@ -102,10 +101,11 @@ export default function AdminMembersPage() {
                 const userProfile = pendingUsers.find(u => u.id === id);
                 if (userProfile) {
                     await query('members').insert({
+                        user_id: userProfile.id,
                         name: userProfile.full_name,
                         email: userProfile.email !== 'N/A' ? userProfile.email : '',
                         status: 'Active',
-                    } as any);
+                    });
                 }
             }
             loadPendingUsers();
@@ -121,9 +121,9 @@ export default function AdminMembersPage() {
             email: addForm.email,
             phone: addForm.phone || null,
             gender: addForm.gender || null,
-            birthdate: addForm.birthdate || null,
+            birth_date: addForm.birthdate || null,
             status: 'Active',
-        } as any);
+        });
         setSaving(false);
         if (!error) {
             setShowAddModal(false);

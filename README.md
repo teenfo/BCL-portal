@@ -196,11 +196,11 @@ server {
    - [RLS Policies](.docs/database/rls-policies/README.md) - 보안 정책
    - [Migrations](.docs/database/migrations/versioning-strategy.md) - 마이그레이션 전략
 
-4. **[Design & Security](.docs/design-security.md)** - UI 원칙 및 보안 체계
+4. **[Security Guide](.docs/security/README.md)** - 보안 아키텍처 및 체크리스트
+5. **[Design System](.docs/design-system.md)** - 디자인 토큰 및 컴포넌트 스타일
 
 ### 📖 참조 문서
 
-- **[Security Guide](.docs/security/README.md)** - 보안 정책 상세
 - **[Testing Strategy](.docs/testing/README.md)** - 테스트 전략
 
 ### 📦 아카이브 (필요시 참조)

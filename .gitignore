@@ -49,3 +49,4 @@ next-env.d.ts
 
 # settings snapshots (runtime config backups)
 .settings-snapshots/
+.aider*
