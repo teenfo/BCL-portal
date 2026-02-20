@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import Image from 'next/image';
@@ -55,8 +56,8 @@ export default function FeedbackInsightsPage() {
         setLoading(true);
 
         try {
-            const { data, error } = await supabase
-                .from('session_feedback')
+            const { data, error } = await query('session_feedback')
+                
                 .select('*, members(name, profile_image_url), sessions(title), coaches(name)')
                 .order('created_at', { ascending: false });
 
@@ -106,8 +107,8 @@ export default function FeedbackInsightsPage() {
         setSaving(true);
         const supabase = createClient();
 
-        const { error } = await supabase
-            .from('session_feedback')
+        const { error } = await query('session_feedback')
+            
             .update({
                 admin_response: replyText,
                 responded_at: new Date().toISOString(),

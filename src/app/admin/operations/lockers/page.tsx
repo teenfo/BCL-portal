@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconLock, IconEdit, IconTrash, IconUser, IconSearch } from '@/components/icons/AdminIcons';
@@ -81,12 +82,11 @@ export default function LockersPage() {
 
     // ─── Data Loading ───────────────────────────────────
     const loadLockers = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         // Fetch lockers with member info via join
-        const { data, error } = await (supabase as any)
-            .from('lockers')
+        const { data, error } = await query('lockers')
+            
             .select('*, members!lockers_assigned_member_id_fkey(name, email)')
             .order('locker_number');
 
@@ -172,7 +172,6 @@ export default function LockersPage() {
             toast.warning('락커 번호를 입력해주세요.');
             return;
         }
-        const supabase = createClient();
         const payload = {
             locker_number: lockerForm.locker_number,
             size: lockerForm.size,
@@ -182,9 +181,9 @@ export default function LockersPage() {
         };
 
         if (editingLocker) {
-            await (supabase as any).from('lockers').update(payload).eq('id', editingLocker.id);
+            await query('lockers').update(payload).eq('id', editingLocker.id);
         } else {
-            await (supabase as any).from('lockers').insert(payload);
+            await query('lockers').insert(payload);
         }
         setShowLockerModal(false);
         loadLockers();
@@ -192,8 +191,7 @@ export default function LockersPage() {
 
     async function deleteLocker(id: string) {
         if (!confirm('이 락커를 삭제하시겠습니까? 배정 이력도 함께 삭제됩니다.')) return;
-        const supabase = createClient();
-        await (supabase as any).from('lockers').delete().eq('id', id);
+        await query('lockers').delete().eq('id', id);
         loadLockers();
     }
 
@@ -218,9 +216,8 @@ export default function LockersPage() {
             return;
         }
         setMemberSearching(true);
-        const supabase = createClient();
-        const { data } = await (supabase as any)
-            .from('members')
+        const { data } = await query('members')
+            
             .select('id, name, email')
             .or(`name.ilike.%${term}%,email.ilike.%${term}%`)
             .order('name')
@@ -241,10 +238,9 @@ export default function LockersPage() {
             toast.warning('회원과 종료일을 지정해주세요.');
             return;
         }
-        const supabase = createClient();
 
         // 1. Update locker
-        await (supabase as any).from('lockers').update({
+        await query('lockers').update({
             status: 'occupied',
             assigned_member_id: assignForm.member_id,
             assignment_start_date: assignForm.start_date,
@@ -252,7 +248,7 @@ export default function LockersPage() {
         }).eq('id', assigningLocker.id);
 
         // 2. Create assignment record
-        await (supabase as any).from('locker_assignments').insert({
+        await query('locker_assignments').insert({
             locker_id: assigningLocker.id,
             member_id: assignForm.member_id,
             start_date: assignForm.start_date,
@@ -261,7 +257,7 @@ export default function LockersPage() {
         });
 
         // 3. Update member's locker info
-        await (supabase as any).from('members').update({
+        await query('members').update({
             locker_number: assigningLocker.locker_number,
             locker_end_date: assignForm.end_date,
         }).eq('id', assignForm.member_id);
@@ -272,10 +268,9 @@ export default function LockersPage() {
 
     async function releaseLocker(locker: Locker) {
         if (!confirm(`락커 ${locker.locker_number}번의 배정을 해제하시겠습니까?`)) return;
-        const supabase = createClient();
 
         // 1. Update locker
-        await (supabase as any).from('lockers').update({
+        await query('lockers').update({
             status: 'available',
             assigned_member_id: null,
             assignment_start_date: null,
@@ -284,14 +279,14 @@ export default function LockersPage() {
 
         // 2. Update assignment record
         if (locker.assigned_member_id) {
-            await (supabase as any).from('locker_assignments')
+            await query('locker_assignments')
                 .update({ status: 'released' })
                 .eq('locker_id', locker.id)
                 .eq('member_id', locker.assigned_member_id)
                 .eq('status', 'active');
 
             // 3. Clear member's locker info
-            await (supabase as any).from('members').update({
+            await query('members').update({
                 locker_number: null,
                 locker_end_date: null,
             }).eq('id', locker.assigned_member_id);

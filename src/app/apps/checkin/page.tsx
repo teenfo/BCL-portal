@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 const QRCodeSVG = dynamic(() => import('qrcode.react').then(mod => mod.QRCodeSVG), { ssr: false });
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import { MonthCalendar, StatCard, AppSkeleton } from '@/components/apps';
 
@@ -82,7 +83,7 @@ export default function UserCheckinPage() {
 
     // Load check-in data for calYear/calMonth
     const loadCheckinData = useCallback(async () => {
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
@@ -91,8 +92,8 @@ export default function UserCheckinPage() {
         setMemberId(`BCL-${shortId}`);
 
         // Load real member_id from members table
-        const { data: memberData }: any = await supabase
-            .from('members')
+        const { data: memberData }: any = await query('members')
+            
             .select('id, facility_id')
             .eq('user_id', user.id)
             .limit(1)
@@ -106,8 +107,8 @@ export default function UserCheckinPage() {
 
         // If no facility from member, try to get first facility
         if (!memberData?.facility_id) {
-            const { data: facData }: any = await supabase
-                .from('facilities')
+            const { data: facData }: any = await query('facilities')
+                
                 .select('id')
                 .limit(1)
                 .single();
@@ -119,8 +120,8 @@ export default function UserCheckinPage() {
         // Get membership info (member_id 기반)
         const mId = memberData?.id;
         if (mId) {
-            const { data: membershipData }: any = await supabase
-                .from('memberships')
+            const { data: membershipData }: any = await query('memberships')
+                
                 .select('*, membership_plans(name)')
                 .eq('member_id', mId)
                 .eq('status', 'active')
@@ -138,8 +139,8 @@ export default function UserCheckinPage() {
         const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
         if (mId) {
-            const { data: monthData }: any = await supabase
-                .from('checkins')
+            const { data: monthData }: any = await query('checkins')
+                
                 .select('*')
                 .eq('member_id', mId)
                 .gte('time', firstDay.toISOString())
@@ -187,7 +188,7 @@ export default function UserCheckinPage() {
     const [calCheckedDates, setCalCheckedDates] = useState<string[]>([]);
     useEffect(() => {
         async function loadCalendarData() {
-            const supabase: any = createClient();
+            const supabase = createClient();
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
@@ -195,13 +196,13 @@ export default function UserCheckinPage() {
             const lastDay = new Date(calYear, calMonth, 0);
 
             // auth user.id → members.id 변환
-            const { data: memberRow }: any = await supabase
-                .from('members').select('id').eq('user_id', user.id).single();
+            const { data: memberRow }: any = await query('members')
+                .select('id').eq('user_id', user.id).single();
             const mId = memberRow?.id;
             if (!mId) return;
 
-            const { data }: any = await supabase
-                .from('checkins')
+            const { data }: any = await query('checkins')
+                
                 .select('time')
                 .eq('member_id', mId)
                 .gte('time', firstDay.toISOString())

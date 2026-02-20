@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCalendar } from '@/components/icons/AdminIcons';
@@ -99,7 +100,6 @@ export default function SchedulePage() {
     const [form, setForm] = useState<SessionForm>(emptyForm);
 
     const loadSessions = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         const rangeStart = new Date(weekStart);
@@ -108,8 +108,8 @@ export default function SchedulePage() {
 
         try {
             // Fetch sessions with coach name via join
-            const { data, error } = await supabase
-                .from('sessions')
+            const { data, error } = await query('sessions')
+                
                 .select('*, coaches(full_name)')
                 .gte('start_time', rangeStart.toISOString())
                 .lte('start_time', rangeEnd.toISOString())
@@ -123,8 +123,8 @@ export default function SchedulePage() {
             } else {
                 // Count bookings per session
                 const sessionIds = data.map((s: any) => s.id);
-                const { data: bookings } = await supabase
-                    .from('bookings')
+                const { data: bookings } = await query('bookings')
+                    
                     .select('session_id')
                     .in('session_id', sessionIds)
                     .eq('status', 'confirmed');
@@ -255,8 +255,6 @@ export default function SchedulePage() {
             setCoachConflict(conflict);
             return;
         }
-
-        const supabase = createClient();
         const startDt = new Date(`${form.session_date}T${form.start_time}:00`);
         const endDt = new Date(`${form.session_date}T${form.end_time}:00`);
 
@@ -272,9 +270,9 @@ export default function SchedulePage() {
         };
 
         if (editingSession) {
-            await supabase.from('sessions').update(payload).eq('id', editingSession.id);
+            await query('sessions').update(payload).eq('id', editingSession.id);
         } else {
-            await supabase.from('sessions').insert(payload);
+            await query('sessions').insert(payload);
         }
 
         setShowModal(false);
@@ -283,8 +281,7 @@ export default function SchedulePage() {
 
     async function deleteSession(id: string) {
         if (!confirm('이 수업을 삭제하시겠습니까?')) return;
-        const supabase = createClient();
-        await supabase.from('sessions').delete().eq('id', id);
+        await query('sessions').delete().eq('id', id);
         loadSessions();
     }
 
@@ -367,8 +364,7 @@ export default function SchedulePage() {
         ));
 
         // DB update
-        const supabase = createClient();
-        await supabase.from('sessions').update({
+        await query('sessions').update({
             session_date: newDate,
             start_time: newStart.toISOString(),
             end_time: newEnd.toISOString(),

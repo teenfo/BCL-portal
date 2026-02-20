@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 interface RaceEvent {
     id: string;
@@ -34,11 +35,10 @@ export default function CoachRacePage() {
     }, []);
 
     async function loadRaceData() {
-        const supabase: any = createClient();
 
         try {
-            const { data: eventData } = await supabase
-                .from('race_events')
+            const { data: eventData } = await query('race_events')
+                
                 .select('*')
                 .order('event_date', { ascending: false })
                 .limit(20);
@@ -51,11 +51,10 @@ export default function CoachRacePage() {
     }
 
     async function loadRecords(eventId: string) {
-        const supabase: any = createClient();
 
         try {
-            const { data } = await supabase
-                .from('race_records')
+            const { data } = await query('race_records')
+                
                 .select('*, members!race_records_member_id_fkey(name)')
                 .eq('event_id', eventId)
                 .order('result_time', { ascending: true });

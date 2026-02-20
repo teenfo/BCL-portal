@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes, IconEdit, IconLock } from '@/components/icons/AdminIcons';
@@ -124,9 +125,8 @@ export default function MemberDetailPage() {
             return;
         }
         const delaySearch = setTimeout(async () => {
-            const supabase = createClient();
-            const { data } = await supabase
-                .from('members')
+            const { data } = await query('members')
+
                 .select('id, name, email')
                 .ilike('name', `%${targetMemberSearch}%`)
                 .neq('id', memberId) // Cannot transfer to self
@@ -148,15 +148,14 @@ export default function MemberDetailPage() {
     }
 
     async function loadMemberData() {
-        const supabase = createClient();
         setLoading(true);
 
         const [memberRes, checkinsRes, txRes, notesRes, membershipsRes] = await Promise.all([
-            supabase.from('members').select('*').eq('id', memberId).single(),
-            (supabase as any).from('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
-            (supabase as any).from('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
-            (supabase as any).from('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
-            (supabase as any).from('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('member_id', memberId).order('created_at', { ascending: false }),
+            query('members').select('*').eq('id', memberId).single(),
+            query('checkins').select('*').eq('member_id', memberId).order('time', { ascending: false }).limit(20),
+            query('transactions').select('*').eq('member_id', memberId).order('date', { ascending: false }),
+            query('member_notes').select('*').eq('member_id', memberId).order('created_at', { ascending: false }),
+            query('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('member_id', memberId).order('created_at', { ascending: false }),
         ]);
 
         console.log('[MemberDetail] membershipsRes:', { data: membershipsRes.data, error: membershipsRes.error, memberId });
@@ -174,8 +173,7 @@ export default function MemberDetailPage() {
     async function saveMemberEdit() {
         if (!member) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('members').update({
+        const { error } = await query('members').update({
             name: editForm.name, phone: editForm.phone || null, gender: editForm.gender || null, birthdate: editForm.birthdate || null, status: editForm.status,
         }).eq('id', member.id);
         if (!error) {
@@ -191,20 +189,17 @@ export default function MemberDetailPage() {
     async function handleTransfer() {
         if (!selectedMembership || !selectedTargetMember) return;
         setTransferring(true);
-        const supabase = createClient();
 
         try {
             // 1. Deactivate current membership
-            const { error: deactivateError } = await (supabase as any)
-                .from('memberships')
+            const { error: deactivateError } = await query('memberships')
                 .update({ status: 'transferred', updated_at: new Date().toISOString() })
                 .eq('id', selectedMembership.id);
 
             if (deactivateError) throw deactivateError;
 
             // 2. Create new membership for target
-            const { error: createError } = await (supabase as any)
-                .from('memberships')
+            const { error: createError } = await query('memberships')
                 .insert({
                     member_id: selectedTargetMember.id,
                     plan_id: (selectedMembership as any).plan_id,
@@ -218,12 +213,12 @@ export default function MemberDetailPage() {
             if (createError) throw createError;
 
             // 3. Log the transfer
-            await (supabase as any).from('member_notes').insert({
+            await query('member_notes').insert({
                 member_id: memberId,
                 content: `[회원권 양도] ${selectedMembership.membership_plans?.name} -> ${selectedTargetMember.name} (${selectedTargetMember.email})`,
             });
 
-            await (supabase as any).from('member_notes').insert({
+            await query('member_notes').insert({
                 member_id: selectedTargetMember.id,
                 content: `[회원권 양수] ${selectedMembership.membership_plans?.name} <- ${member?.name} (${member?.email})`,
             });
@@ -240,8 +235,7 @@ export default function MemberDetailPage() {
 
     async function addNote() {
         if (!newNote.trim()) return;
-        const supabase = createClient();
-        const { error } = await (supabase as any).from('member_notes').insert({
+        const { error } = await query('member_notes').insert({
             member_id: memberId,
             content: newNote,
         });
@@ -283,7 +277,6 @@ export default function MemberDetailPage() {
         }
 
         setInlineSaving(true);
-        const supabase = createClient();
         const activeMembership = memberships.find(m => m.status === 'active') || memberships[0];
 
         try {
@@ -293,7 +286,7 @@ export default function MemberDetailPage() {
             if (inlineEdit === 'ms_start') {
                 if (activeMembership) {
                     // Update memberships table
-                    const res = await (supabase as any).from('memberships')
+                    const res = await query('memberships')
                         .update({ start_date: inlineValue })
                         .eq('id', activeMembership.id)
                         .select();
@@ -301,14 +294,14 @@ export default function MemberDetailPage() {
                     updated = !error && res.data && res.data.length > 0;
                     // Also sync members table for consistency
                     if (updated) {
-                        await (supabase as any).from('members')
+                        await query('members')
                             .update({ membership_start_date: inlineValue })
                             .eq('id', member.id);
                     }
                     console.log('[saveInlineEdit] memberships start_date update:', { error: res.error, data: res.data, updated, value: inlineValue });
                 } else {
                     // Fallback: update members table directly
-                    const res = await (supabase as any).from('members')
+                    const res = await query('members')
                         .update({ membership_start_date: inlineValue })
                         .eq('id', member.id)
                         .select();
@@ -320,7 +313,7 @@ export default function MemberDetailPage() {
                 else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }
             } else if (inlineEdit === 'ms_end') {
                 if (activeMembership) {
-                    const res = await (supabase as any).from('memberships')
+                    const res = await query('memberships')
                         .update({ end_date: inlineValue })
                         .eq('id', activeMembership.id)
                         .select();
@@ -328,12 +321,12 @@ export default function MemberDetailPage() {
                     updated = !error && res.data && res.data.length > 0;
                     // Also sync members table for consistency
                     if (updated) {
-                        await (supabase as any).from('members')
+                        await query('members')
                             .update({ membership_end_date: inlineValue })
                             .eq('id', member.id);
                     }
                 } else {
-                    const res = await (supabase as any).from('members')
+                    const res = await query('members')
                         .update({ membership_end_date: inlineValue })
                         .eq('id', member.id)
                         .select();
@@ -343,12 +336,12 @@ export default function MemberDetailPage() {
                 if (updated) success('종료일이 수정되었습니다.');
                 else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }
             } else if (inlineEdit === 'locker_end') {
-                const { data: lockerData } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+                const { data: lockerData } = await query('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
                 if (lockerData) {
-                    await (supabase as any).from('lockers').update({ assignment_end_date: inlineValue }).eq('id', lockerData.id);
-                    await (supabase as any).from('locker_assignments').update({ end_date: inlineValue }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
+                    await query('lockers').update({ assignment_end_date: inlineValue }).eq('id', lockerData.id);
+                    await query('locker_assignments').update({ end_date: inlineValue }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
                 }
-                const res = await (supabase as any).from('members')
+                const res = await query('members')
                     .update({ locker_end_date: inlineValue })
                     .eq('id', member.id)
                     .select();
@@ -375,9 +368,7 @@ export default function MemberDetailPage() {
         setLockerAssignForm({ locker_number: '', start_date: new Date().toISOString().split('T')[0], end_date: '' });
         setShowLockerAssignModal(true);
         // Load available lockers
-        const supabase = createClient();
-        const { data } = await (supabase as any)
-            .from('lockers')
+        const { data } = await query('lockers')
             .select('id, locker_number, size')
             .eq('status', 'available')
             .order('locker_number');
@@ -387,7 +378,6 @@ export default function MemberDetailPage() {
     async function assignLockerToMember() {
         if (!lockerAssignForm.locker_number || !lockerAssignForm.end_date || !member) return;
         setSavingLocker(true);
-        const supabase = createClient();
         const selectedLocker = availableLockers.find(l => l.locker_number === lockerAssignForm.locker_number);
         if (!selectedLocker) {
             toastError('선택한 락커를 찾을 수 없습니다.');
@@ -396,7 +386,7 @@ export default function MemberDetailPage() {
         }
 
         // 1. Update locker status
-        await (supabase as any).from('lockers').update({
+        await query('lockers').update({
             status: 'occupied',
             assigned_member_id: member.id,
             assignment_start_date: lockerAssignForm.start_date,
@@ -404,7 +394,7 @@ export default function MemberDetailPage() {
         }).eq('id', selectedLocker.id);
 
         // 2. Create assignment record
-        await (supabase as any).from('locker_assignments').insert({
+        await query('locker_assignments').insert({
             locker_id: selectedLocker.id,
             member_id: member.id,
             start_date: lockerAssignForm.start_date,
@@ -413,7 +403,7 @@ export default function MemberDetailPage() {
         });
 
         // 3. Update member locker info
-        await (supabase as any).from('members').update({
+        await query('members').update({
             locker_number: lockerAssignForm.locker_number,
             locker_end_date: lockerAssignForm.end_date,
         }).eq('id', member.id);
@@ -434,14 +424,12 @@ export default function MemberDetailPage() {
     async function confirmReleaseLocker() {
         if (!member || !member.locker_number) return;
         setReleasingLocker(true);
-
-        const supabase = createClient();
-        const { data: lockerData } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+        const { data: lockerData } = await query('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
         if (lockerData) {
-            await (supabase as any).from('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', lockerData.id);
-            await (supabase as any).from('locker_assignments').update({ status: 'released' }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
+            await query('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', lockerData.id);
+            await query('locker_assignments').update({ status: 'released' }).eq('locker_id', lockerData.id).eq('member_id', member.id).eq('status', 'active');
         }
-        await (supabase as any).from('members').update({ locker_number: null, locker_end_date: null }).eq('id', member.id);
+        await query('members').update({ locker_number: null, locker_end_date: null }).eq('id', member.id);
         setShowLockerReleaseConfirm(false);
         setReleasingLocker(false);
         success('락커 배정이 해제되었습니다.');
@@ -452,8 +440,7 @@ export default function MemberDetailPage() {
     async function openLockerEditModal(_mode: string) {
         setSelectedNewLocker('');
         setShowLockerChangeModal(true);
-        const supabase = createClient();
-        const { data } = await (supabase as any).from('lockers').select('id, locker_number, size').eq('status', 'available').order('locker_number');
+        const { data } = await query('lockers').select('id, locker_number, size').eq('status', 'available').order('locker_number');
         if (data) setAvailableLockers(data);
     }
 
@@ -461,23 +448,22 @@ export default function MemberDetailPage() {
     async function changeLockerNumber() {
         if (!member || !member.locker_number || !selectedNewLocker) return;
         setSavingLocker(true);
-        const supabase = createClient();
         const newLocker = availableLockers.find(l => l.locker_number === selectedNewLocker);
         if (!newLocker) { toastError('선택한 락커를 찾을 수 없습니다.'); setSavingLocker(false); return; }
 
         // Release old
-        const { data: oldLocker } = await (supabase as any).from('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
+        const { data: oldLocker } = await query('lockers').select('id').eq('locker_number', member.locker_number).eq('assigned_member_id', member.id).single();
         if (oldLocker) {
-            await (supabase as any).from('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', oldLocker.id);
-            await (supabase as any).from('locker_assignments').update({ status: 'released' }).eq('locker_id', oldLocker.id).eq('member_id', member.id).eq('status', 'active');
+            await query('lockers').update({ status: 'available', assigned_member_id: null, assignment_start_date: null, assignment_end_date: null }).eq('id', oldLocker.id);
+            await query('locker_assignments').update({ status: 'released' }).eq('locker_id', oldLocker.id).eq('member_id', member.id).eq('status', 'active');
         }
 
         // Assign new
         const startDate = new Date().toISOString().split('T')[0];
         const endDate = member.locker_end_date || null;
-        await (supabase as any).from('lockers').update({ status: 'occupied', assigned_member_id: member.id, assignment_start_date: startDate, assignment_end_date: endDate }).eq('id', newLocker.id);
-        await (supabase as any).from('locker_assignments').insert({ locker_id: newLocker.id, member_id: member.id, start_date: startDate, end_date: endDate, status: 'active' });
-        await (supabase as any).from('members').update({ locker_number: selectedNewLocker }).eq('id', member.id);
+        await query('lockers').update({ status: 'occupied', assigned_member_id: member.id, assignment_start_date: startDate, assignment_end_date: endDate }).eq('id', newLocker.id);
+        await query('locker_assignments').insert({ locker_id: newLocker.id, member_id: member.id, start_date: startDate, end_date: endDate, status: 'active' });
+        await query('members').update({ locker_number: selectedNewLocker }).eq('id', member.id);
 
         setShowLockerChangeModal(false);
         success(`락커가 ${selectedNewLocker}번으로 변경되었습니다.`);

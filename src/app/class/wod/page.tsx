@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 interface WodItem {
     id: string;
@@ -47,12 +48,11 @@ export default function ClassWodPage() {
     }, [tickClock]);
 
     async function loadTodayWod() {
-        const supabase: any = createClient();
         const today = new Date().toISOString().split('T')[0];
 
         try {
-            const { data } = await supabase
-                .from('wods')
+            const { data } = await query('wods')
+                
                 .select('*')
                 .eq('session_date', today)
                 .order('created_at', { ascending: false })

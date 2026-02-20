@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface SessionItem {
@@ -23,12 +24,11 @@ export default function CoachSchedulePage() {
 
     const loadSessions = useCallback(async () => {
         if (!user) return;
-        const supabase: any = createClient();
         setLoading(true);
 
         try {
-            const { data: coachData } = await supabase
-                .from('coaches')
+            const { data: coachData } = await query('coaches')
+                
                 .select('id')
                 .eq('user_id', user.id)
                 .single();
@@ -38,8 +38,8 @@ export default function CoachSchedulePage() {
                 return;
             }
 
-            const { data: sessionCoaches } = await supabase
-                .from('session_coaches')
+            const { data: sessionCoaches } = await query('session_coaches')
+                
                 .select('session_id')
                 .eq('coach_id', coachData.id);
 
@@ -65,8 +65,8 @@ export default function CoachSchedulePage() {
                 endDate = weekEnd.toISOString().split('T')[0];
             }
 
-            const { data } = await supabase
-                .from('sessions')
+            const { data } = await query('sessions')
+                
                 .select('*')
                 .in('id', sessionIds)
                 .gte('session_date', startDate)

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 
 interface Transaction {
@@ -26,16 +27,16 @@ export default function PaymentsPage() {
             if (!user) { setLoading(false); return; }
 
             // transactions는 member_id → members.id FK이므로 먼저 member 조회
-            const { data: memberData }: any = await supabase
-                .from('members')
+            const { data: memberData }: any = await query('members')
+                
                 .select('id')
                 .eq('user_id', user.id)
                 .single();
 
             if (user) {
                 // user_id 또는 member_id 둘 다 체크 (회원 데이터 정합 성 확보)
-                const { data }: any = await (supabase as any)
-                    .from('transactions')
+                const { data }: any = await query('transactions')
+                    
                     .select('*')
                     .or(`user_id.eq.${user.id},member_id.eq.${memberData?.id}`)
                     .order('created_at', { ascending: false });

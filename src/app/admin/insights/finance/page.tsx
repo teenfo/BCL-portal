@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import { IconBarChart, IconDollar, IconClipboard } from '@/components/icons/AdminIcons';
 
@@ -38,16 +39,16 @@ export default function FinanceReportPage() {
         const startDate = new Date();
         startDate.setMonth(startDate.getMonth() - months);
 
-        let query = (supabase.from('transactions') as any)
+        let dbQ = (query('transactions') as any)
             .select('amount, payment_status, transaction_type, category, source, created_at')
             .gte('created_at', startDate.toISOString())
             .order('created_at', { ascending: true });
 
         if (sourceFilter !== 'all') {
-            query = query.eq('source', sourceFilter);
+            dbQ = dbQ.eq('source', sourceFilter);
         }
 
-        const { data: transactions }: any = await query;
+        const { data: transactions }: any = await dbQ;
 
         if (transactions && transactions.length > 0) {
             // Monthly aggregation

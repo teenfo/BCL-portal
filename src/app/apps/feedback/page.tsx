@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 
 interface FeedbackRecord {
@@ -31,18 +32,18 @@ export default function UserFeedbackPage() {
     useEffect(() => { loadData(); }, []);
 
     async function loadData() {
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
         // auth user.id → members.id 변환
-        const { data: memberRow }: any = await supabase
-            .from('members').select('id').eq('user_id', user.id).single();
+        const { data: memberRow }: any = await query('members')
+            .select('id').eq('user_id', user.id).single();
         const memberId = memberRow?.id;
         if (!memberId) { setLoading(false); return; }
 
-        const { data: bookings }: any = await supabase
-            .from('bookings')
+        const { data: bookings }: any = await query('bookings')
+            
             .select('id, session_id, sessions(title, start_time, coach_name)')
             .eq('member_id', memberId)
             .in('status', ['completed', 'confirmed'])
@@ -61,8 +62,8 @@ export default function UserFeedbackPage() {
             }));
         }
 
-        const { data: fbs }: any = await supabase
-            .from('session_feedback')
+        const { data: fbs }: any = await query('session_feedback')
+            
             .select('*, sessions(title, coach_name)')
             .eq('member_id', memberId)
             .order('created_at', { ascending: false });
@@ -79,17 +80,17 @@ export default function UserFeedbackPage() {
     async function handleSubmit() {
         if (!selectedSession || rating === 0 || submitting) return;
         setSubmitting(true);
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { toast.warning('로그인이 필요합니다.'); setSubmitting(false); return; }
 
         // auth user.id → members.id 변환
-        const { data: memberRow }: any = await supabase
-            .from('members').select('id').eq('user_id', user.id).single();
+        const { data: memberRow }: any = await query('members')
+            .select('id').eq('user_id', user.id).single();
         const memberId = memberRow?.id;
         if (!memberId) { toast.warning('회원 정보를 찾을 수 없습니다.'); setSubmitting(false); return; }
 
-        const { error }: any = await supabase.from('session_feedback').insert({
+        const { error }: any = await query('session_feedback').insert({
             session_id: selectedSession, member_id: memberId,
             rating, comment: comments.trim() || null,
         });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconQRCode, IconSmartphone, IconMonitor, IconUser, IconHand, IconFaceId, IconClock } from '@/components/icons/AdminIcons';
@@ -37,24 +38,23 @@ export default function CheckinsPage() {
 
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let query: any = supabase
-                .from('checkins')
+            let dbQ: any = query('checkins')
                 .select('*, members!checkins_member_id_fkey(name, email), sessions!checkins_session_id_fkey(title, session_date, start_time), facilities!checkins_facility_id_fkey(name)')
                 .gte('checkin_time', selectedDate + 'T00:00:00')
                 .lte('checkin_time', selectedDate + 'T23:59:59')
                 .order('checkin_time', { ascending: false });
 
             if (filterMethod !== 'all') {
-                query = query.eq('checkin_method', filterMethod);
+                dbQ = dbQ.eq('checkin_method', filterMethod);
             }
 
-            const { data, error } = await query;
+            const { data, error } = await dbQ;
 
             if (error) {
                 // Fallback: query without joins using 'time' column
                 console.warn('Checkins JOIN query failed, trying fallback:', error.message);
-                let fallbackQuery: any = supabase
-                    .from('checkins')
+                let fallbackQuery: any = query('checkins')
+                    
                     .select('*')
                     .order('created_at', { ascending: false });
 
@@ -114,7 +114,7 @@ export default function CheckinsPage() {
     useEffect(() => {
         async function loadMembers() {
             const supabase = createClient();
-            const { data } = await supabase.from('members').select('id, name, email').order('name');
+            const { data } = await query('members').select('id, name, email').order('name');
             if (data) setMembers(data);
         }
         loadMembers();
@@ -132,7 +132,7 @@ export default function CheckinsPage() {
     async function manualCheckin() {
         if (!manualForm.member_id) return;
         const supabase = createClient();
-        await supabase.from('checkins').insert({
+        await query('checkins').insert({
             member_id: manualForm.member_id,
             checkin_time: new Date().toISOString(),
             checkin_method: 'manual',

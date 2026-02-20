@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { usePushSubscription } from '@/hooks/usePushSubscription';
 import Link from 'next/link';
 
@@ -56,8 +57,8 @@ export default function NotificationSettingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        const { data } = await supabase
-            .from('notification_preferences')
+        const { data } = await query('notification_preferences')
+            
             .select('*')
             .eq('user_id', user.id)
             .single();
@@ -102,13 +103,13 @@ export default function NotificationSettingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSaving(false); return; }
 
-        const { data: member } = await supabase
-            .from('members')
+        const { data: member } = await query('members')
+            
             .select('id')
             .eq('user_id', user.id)
             .single();
 
-        await (supabase as any).from('notification_preferences').upsert({
+        await query('notification_preferences').upsert({
             user_id: user.id,
             push_enabled: newPrefs.push_enabled,
             kakao_enabled: newPrefs.kakao_enabled,

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 interface LeaderEntry {
     id: string;
@@ -35,7 +36,7 @@ export default function LeaderboardPage() {
 
     async function loadLeaderboard() {
         setLoading(true);
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (user) setCurrentUserId(user.id);
 
@@ -45,8 +46,8 @@ export default function LeaderboardPage() {
                 if (period === 'week') since.setDate(since.getDate() - 7);
                 else since.setMonth(since.getMonth() - 1);
 
-                const { data: checkins }: any = await supabase
-                    .from('checkins')
+                const { data: checkins }: any = await query('checkins')
+                    
                     .select('member_id, members(name)')
                     .gte('time', since.toISOString());
 
@@ -73,9 +74,9 @@ export default function LeaderboardPage() {
                 }
             } else if (type === 'streak') {
                 // Calculate streak from checkins
-                const { data: members }: any = await supabase.from('members').select('id, name');
-                const { data: checkins }: any = await supabase
-                    .from('checkins')
+                const { data: members }: any = await query('members').select('id, name');
+                const { data: checkins }: any = await query('checkins')
+                    
                     .select('member_id, time')
                     .gte('time', new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString())
                     .order('time', { ascending: false });
@@ -120,8 +121,8 @@ export default function LeaderboardPage() {
                 }
             } else {
                 // WOD records
-                const { data: wods }: any = await supabase
-                    .from('session_feedback')
+                const { data: wods }: any = await query('session_feedback')
+                    
                     .select('member_id, rating, members(name)')
                     .not('rating', 'is', null)
                     .order('created_at', { ascending: false })

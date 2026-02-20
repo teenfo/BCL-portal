@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 
 interface Membership {
@@ -24,8 +25,8 @@ export default function MembershipsPage() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) { setLoading(false); return; }
 
-            const { data } = await (supabase as any)
-                .from('memberships')
+            const { data } = await query('memberships')
+                
                 .select('*, membership_plans(name, type)')
                 .eq('user_id', user.id)
                 .order('start_date', { ascending: false });

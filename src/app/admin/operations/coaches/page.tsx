@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCoach, IconPhone, IconEdit, IconTrash, IconCamera, IconTrophy, IconTarget, IconBarChart } from '@/components/icons/AdminIcons';
@@ -88,11 +89,11 @@ export default function OperationsCoachesPage() {
     const loadCoaches = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
-        let query = supabase.from('coaches').select('*').order('name');
+        let dbQ = query('coaches').select('*').order('name');
         if (filterStatus !== 'all') {
-            query = query.eq('status', filterStatus);
+            dbQ = dbQ.eq('status', filterStatus);
         }
-        const { data }: any = await query;
+        const { data }: any = await dbQ;
         if (data) setCoaches(data as any);
         setLoading(false);
     }, [filterStatus]);
@@ -118,10 +119,10 @@ export default function OperationsCoachesPage() {
         setMemberSearching(true);
         const supabase = createClient();
         // profiles에서 role='member'이고 승인된 회원만 검색 (이미 코치인 사람 제외)
-        let query: any = supabase.from('profiles').select('id, full_name, avatar_url, role');
-        query = query.eq('role', 'member').eq('approval_status', 'approved');
-        query = query.ilike('full_name', `%${term}%`).limit(5);
-        const { data: profiles } = await query;
+        let dbQ: any = query('profiles').select('id, full_name, avatar_url, role');
+        dbQ = dbQ.eq('role', 'member').eq('approval_status', 'approved');
+        dbQ = dbQ.ilike('full_name', `%${term}%`).limit(5);
+        const { data: profiles } = await dbQ;
 
         if (profiles) {
             // auth.users에서 이메일 가져오기 (profiles에 email 없으므로)
@@ -278,14 +279,14 @@ export default function OperationsCoachesPage() {
                     coachData.email = coachEmail;
                 }
 
-                await supabase.from('coaches').update(coachData).eq('id', editingCoach.id);
+                await query('coaches').update(coachData).eq('id', editingCoach.id);
             } else {
                 // 신규 등록: 회원을 코치로 승격
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) throw new Error('관리자 인증 정보를 확인할 수 없습니다.');
 
                 // 1) promote_to_coach RPC 호출 (profiles.role → 'coach')
-                const { error: promoteError } = await (supabase.rpc as any)('promote_to_coach', {
+                const { error: promoteError } = await rpc('promote_to_coach', {
                     target_user_id: selectedMember!.id,
                     admin_user_id: user.id,
                 });
@@ -307,11 +308,11 @@ export default function OperationsCoachesPage() {
                     linked_by: user.id,
                 };
 
-                const { data: newCoach }: any = await supabase.from('coaches').insert(coachData).select('id').single();
+                const { data: newCoach }: any = await query('coaches').insert(coachData).select('id').single();
 
                 if (newCoach && selectedFile) {
                     profileImageUrl = await uploadImage(newCoach.id);
-                    await supabase.from('coaches').update({ profile_image_url: profileImageUrl } as any).eq('id', newCoach.id);
+                    await query('coaches').update({ profile_image_url: profileImageUrl } as any).eq('id', newCoach.id);
                 }
             }
 
@@ -338,7 +339,7 @@ export default function OperationsCoachesPage() {
             if (coach?.user_id) {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    await (supabase.rpc as any)('demote_from_coach', {
+                    await rpc('demote_from_coach', {
                         target_user_id: coach.user_id,
                         admin_user_id: user.id,
                     });
@@ -348,7 +349,7 @@ export default function OperationsCoachesPage() {
             if (coach?.profile_image_url) {
                 await deleteOldImage(coach.profile_image_url);
             }
-            await supabase.from('coaches').delete().eq('id', id);
+            await query('coaches').delete().eq('id', id);
             toast.success('코치가 삭제되었습니다.');
             loadCoaches();
             setPerfLoaded(false);
@@ -362,8 +363,8 @@ export default function OperationsCoachesPage() {
         const supabase = createClient();
         setPerfLoading(true);
 
-        const { data: coachData }: any = await supabase
-            .from('coaches')
+        const { data: coachData }: any = await query('coaches')
+
             .select('*')
             .eq('status', 'active');
 
@@ -488,6 +489,24 @@ export default function OperationsCoachesPage() {
                 {/* ========== Management Tab ========== */}
                 {activeTab === 'management' && (
                     <>
+                        {/* Unlinked coach warning banner */}
+                        {(() => {
+                            const unlinkedCount = coaches.filter(c => !c.user_id && c.status === 'active').length;
+                            return unlinkedCount > 0 ? (
+                                <div className="flex items-center gap-3 px-5 py-3 mb-6 rounded-xl" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                    <span className="text-lg">⚠️</span>
+                                    <div className="flex-1">
+                                        <p className="text-xs font-bold" style={{ color: '#F59E0B' }}>
+                                            계정 미연결 코치 {unlinkedCount}명
+                                        </p>
+                                        <p className="text-[10px] text-white/40 mt-0.5">
+                                            코치 수정 화면에서 회원 계정을 연결하면 코치 앱 로그인이 가능합니다.
+                                        </p>
+                                    </div>
+                                </div>
+                            ) : null;
+                        })()}
+
                         {/* Filters */}
                         <div className="flex items-center gap-4 mb-8">
                             <div className="flex gap-2">
@@ -837,7 +856,12 @@ export default function OperationsCoachesPage() {
                                                         </div>
                                                     </td>
                                                     <td className="p-6 text-center">
-                                                        <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase" style={{ background: sc.bg, color: sc.color }}>{sc.label}</span>
+                                                            {!coach.user_id && (
+                                                                <span className="px-1.5 py-0.5 rounded text-[7px] font-black" style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B' }} title="계정 미연결 — 코치 앱 로그인 불가">⚠️</span>
+                                                            )}
+                                                        </div>
                                                     </td>
                                                     <td className="p-6 text-right font-black text-white text-sm">{formatCurrency(coach.base_salary || 0)}</td>
                                                     <td className="p-6 text-right font-black text-[var(--primary)] text-sm">{formatCurrency(coach.session_allowance || 0)}</td>

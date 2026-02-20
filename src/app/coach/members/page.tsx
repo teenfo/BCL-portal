@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface MemberItem {
@@ -27,11 +28,10 @@ export default function CoachMembersPage() {
 
     async function loadMembers() {
         if (!user) return;
-        const supabase: any = createClient();
 
         try {
-            const { data } = await supabase
-                .from('members')
+            const { data } = await query('members')
+                
                 .select('id, name, email, phone, status, created_at')
                 .order('name', { ascending: true });
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconDatabase, IconCreditCard, IconBell, IconRadio, IconSettings, IconLink, IconEdit } from '@/components/icons/AdminIcons';
@@ -38,11 +39,10 @@ export default function SystemPage() {
     const [connectionTests, setConnectionTests] = useState<Record<string, { status: 'idle' | 'testing' | 'success' | 'error'; message?: string }>>({});
 
     const loadConfigs = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('system_config')
+            const { data, error } = await query('system_config')
+                
                 .select('*')
                 .order('category')
                 .order('config_key');
@@ -68,7 +68,6 @@ export default function SystemPage() {
     async function saveConfig() {
         if (!editingConfig) return;
         setSaving(true);
-        const supabase = createClient();
         const updates: any = {
             updated_at: new Date().toISOString(),
             description: editForm.description
@@ -79,8 +78,8 @@ export default function SystemPage() {
             updates.config_value = editForm.config_value;
         }
 
-        const { error } = await supabase
-            .from('system_config')
+        const { error } = await query('system_config')
+            
             .update(updates)
             .eq('id', editingConfig.id);
 
@@ -97,8 +96,7 @@ export default function SystemPage() {
     async function addConfig() {
         if (!addForm.config_key.trim()) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('system_config').insert({
+        const { error } = await query('system_config').insert({
             config_key: addForm.config_key,
             config_value: addForm.config_value,
             category: addForm.category,
@@ -118,8 +116,7 @@ export default function SystemPage() {
 
     async function deleteConfig(id: string) {
         if (!confirm('이 설정을 삭제하시겠습니까?')) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('system_config').delete().eq('id', id);
+        const { error } = await query('system_config').delete().eq('id', id);
         if (error) {
             toastError(`삭제 실패: ${error.message}`);
         } else {
@@ -133,14 +130,12 @@ export default function SystemPage() {
 
         try {
             if (service === 'supabase') {
-                const supabase = createClient();
-                const { error: err } = await supabase.from('facilities').select('id', { count: 'exact', head: true });
+                const { error: err } = await query('facilities').select('id', { count: 'exact', head: true });
                 if (err) throw err;
                 setConnectionTests(prev => ({ ...prev, [service]: { status: 'success', message: '연결 성공 ✓' } }));
                 success('Supabase 연결에 성공했습니다.');
             } else if (service === 'pg') {
-                const supabase = createClient();
-                const { data, error: err } = await supabase.from('pg_settings').select('id, payment_mode').eq('is_active', true).maybeSingle();
+                const { data, error: err } = await query('pg_settings').select('id, payment_mode').eq('is_active', true).maybeSingle();
                 if (err) throw err;
                 if (!data) throw new Error('활성화된 PG 설정이 없습니다.');
 

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import { IconCreditCard, IconLock, IconCheck, IconAlertCircle } from '@/components/icons/AdminIcons';
 
@@ -40,8 +41,8 @@ export default function PGSettings() {
         const supabase = createClient();
         setLoading(true);
         try {
-            const { data, error } = await (supabase as any)
-                .from('pg_settings')
+            const { data, error } = await query('pg_settings')
+                
                 .select('*')
                 .eq('is_active', true)
                 .limit(1)
@@ -263,8 +264,8 @@ export default function PGSettings() {
                                     const { data: { session } } = await supabase.auth.getSession();
                                     if (!session) throw new Error('Not authenticated');
 
-                                    const { data: fac } = await (supabase as any)
-                                        .from('facilities')
+                                    const { data: fac } = await query('facilities')
+                                        
                                         .select('id')
                                         .limit(1)
                                         .single();

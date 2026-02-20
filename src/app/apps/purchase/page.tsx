@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import { loadPaymentWidget } from '@tosspayments/payment-widget-sdk';
 
@@ -30,9 +31,9 @@ export default function UserPurchasePage() {
     useEffect(() => { loadPlans(); }, []);
 
     async function loadPlans() {
-        const supabase: any = createClient();
-        const { data }: any = await supabase
-            .from('membership_plans')
+        const supabase = createClient();
+        const { data }: any = await query('membership_plans')
+            
             .select('*')
             .eq('is_active', true)
             .order('price', { ascending: true });
@@ -96,13 +97,13 @@ export default function UserPurchasePage() {
             // 2단계: 거래 기록 생성 (Pending)
             const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
-            const { data: memberData } = await supabase
-                .from('members')
+            const { data: memberData } = await query('members')
+                
                 .select('id, facility_id')
                 .eq('user_id', user.id)
                 .single() as any;
 
-            const { error: txnError } = await (supabase as any).from('transactions').insert({
+            const { error: txnError } = await query('transactions').insert({
                 id: orderId, // Use orderId as ID or separate
                 member_id: memberData?.id,
                 user_id: user.id,
@@ -119,8 +120,8 @@ export default function UserPurchasePage() {
 
             // 3단계: Toss 위젯 초기화 및 요청
             // PG 설정 로드 (기본 키 or DB 키)
-            const { data: pgSettings }: any = await (supabase as any)
-                .from('pg_settings')
+            const { data: pgSettings }: any = await query('pg_settings')
+                
                 .select('test_client_key, live_client_key, payment_mode')
                 .eq('is_active', true)
                 .limit(1)

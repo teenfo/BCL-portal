@@ -63,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 17: Known Issues 정비 — Phase 1,2 완료 / Phase 3,4 대기**
+- **Current Focus**: **Priority 17: Known Issues 정비 — 전체 완료 (v0.5.0)**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 17 Phase 1+2 완료 (AuthContext memberId 추가, 5개 파일 member_id 혼용 수정) — v0.4.0
+- **Last Action**: Priority 17 Phase 3+4 완료 — as any 제거 (58파일 query() 전환) + 코치 미연결 경고 강화 — v0.5.0
 
 ---
 
@@ -258,7 +258,7 @@
     - [ ] SMS 서비스(알리고/네이버 SENS) API 연동
     - [ ] Edge Function 실제 API 교체 + 재배포
 
-#### � Priority 17: Known Issues 일괄 정비 (개발 진행 중 — Phase 1,2 완료)
+#### ✅ Priority 17: Known Issues 일괄 정비 (완료)
   > **기획서**: `.docs/archive/planning/known-issues-cleanup.md`
   > **문제**: user_id/member_id 혼용으로 데이터 조회 불일치 위험 + `as any` 32개 파일 타입 안전성 부재
   > **방안**: AuthContext 확장 → member_id 혼용 수정 → query() 헬퍼 일괄 전환
@@ -274,23 +274,23 @@
     - [x] `apps/feedback/page.tsx` — loadData/handleSubmit 3건 수정
     - [x] `apps/profile/page.tsx` — memberships/checkins/bookings 수정
     - [x] 전수 검사 완료 (grep 기반 확인)
-  - [ ] Phase 3: Supabase 타입 정리 (as any 제거) → 💻 **Developer (Sonnet)**
-    - [ ] `createClient() as any` → `query()` 헬퍼 전환 (32개 파일)
-    - [ ] `(supabase as any).rpc()` → `rpc()` 헬퍼 전환
-    - [ ] auth 관련 호출은 `createClient()` 유지
-  - [ ] Phase 4: 코치 방어 코드 + 문서 동기화 → 💻 **Developer (Sonnet)**
-    - [ ] Admin 코치 목록 `user_id=null` 경고 배지 강화
-    - [ ] Known Issues 상태 갱신 (RESOLVED)
-    - [ ] 버전 갱신 + blueprint/sitemap 동기화
+  - [x] Phase 3: Supabase 타입 정리 (as any 제거) → 💻 **Developer (Sonnet)** ✅
+    - [x] `createClient() as any` → `query()` 헬퍼 전환 (58개 파일)
+    - [x] `(supabase as any).rpc()` → `rpc()` 헬퍼 전환
+    - [x] auth 관련 호출은 `createClient()` 유지
+    - [x] 빌드 검증 완료 (0 errors)
+  - [x] Phase 4: 코치 방어 코드 + 문서 동기화 → 💻 **Developer (Sonnet)** ✅
+    - [x] Admin 코치 관리 탭 미연결 경고 배너 추가 (active 코치 중 user_id=null 카운트)
+    - [x] Admin 정산 탭 테이블에 미연결 코치 ⚠️ 표시 추가
+    - [x] Known Issues 상태 갱신 (RESOLVED)
+    - [x] 버전 갱신 + blueprint/sitemap 동기화
 
 ---
 
 ### Known Issues (Active)
 - ✅ ~~**Check-in QR 비표준 렌더링** (RESOLVED): `qrcode.react` QRCodeSVG로 교체 완료. ISO/IEC 18004 규격 QR 코드 생성, 키오스크 스캐너 인식 가능.~~
-- ⚠️ **@supabase/supabase-js 타입 복잡도** (MITIGATED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 신규 코드는 `query()` 헬퍼 사용 권장. 기존 40+ 파일의 `as any` 리팩토링은 향후 진행.
-- 🟡 **코치 계정 미연결** (OPERATIONAL): coaches.user_id=NULL → 코드적 해결 완료 (Admin 코치 연결 UI + promote_to_coach RPC). 운영 단계에서 관리자가 수동 연결 필요. → [기획서](./archive/planning/coach-account-architecture.md)
-- ✅ ~~**배지 시스템 하드코딩** (RESOLVED): badge_definitions + badge_awards DB 테이블로 이관 완료. WOD/PR 카운트 버그 4건 해결, Admin CRUD + User RPC 전환 완료.~~
-- ✅ ~~**QR 체크인 시스템 미동작** (RESOLVED): QR 페이로드 JSON 인코딩 + 키오스크 인증 전면 재작성 완료. 타임스탬프 검증, 회원 확인, 수업 예약 자동 감지, 중복 체크인 방지 구현.~~
+- ✅ ~~**@supabase/supabase-js 타입 복잡도** (RESOLVED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 58개 파일에서 `query()` / `rpc()` 헬퍼로 전환 완료. 신규 코드는 반드시 `query()` 헬퍼 사용.~~
+- ✅ ~~**코치 계정 미연결** (RESOLVED): Admin 코치 관리 화면에 미연결 경고 배너 + 정산 탭 ⚠️ 표시 추가. promote_to_coach RPC + 관리자 UI로 운영 시 계정 연결 가능. → [기획서](./archive/planning/coach-account-architecture.md)~~
 - ✅ ~~**user_id / member_id 혼용** (RESOLVED — Phase 1+2): AuthContext에 memberId 추가, 프론트엔드 5개 파일에서 auth.users.id를 member_id로 직접 사용하던 패턴 전량 수정 완료.~~
 
 ### 참고 문서

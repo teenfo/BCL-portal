@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCreditCard } from '@/components/icons/AdminIcons';
@@ -61,7 +62,7 @@ export default function AdminPlansPage() {
     const loadPlans = useCallback(async () => {
         const supabase = createClient();
         setLoading(true);
-        const { data, error } = await supabase.from('membership_plans').select('*').order('price', { ascending: true });
+        const { data, error } = await query('membership_plans').select('*').order('price', { ascending: true });
         if (error) {
             toastError('요금제를 불러오는데 실패했습니다.');
         } else if (data) {
@@ -115,9 +116,9 @@ export default function AdminPlansPage() {
 
         let result;
         if (editingPlan) {
-            result = await supabase.from('membership_plans').update(planData).eq('id', editingPlan.id);
+            result = await query('membership_plans').update(planData).eq('id', editingPlan.id);
         } else {
-            result = await supabase.from('membership_plans').insert([planData]);
+            result = await query('membership_plans').insert([planData]);
         }
 
         if (result.error) {
@@ -133,7 +134,7 @@ export default function AdminPlansPage() {
         if (!confirm('정말 삭제하시겠습니까?')) return;
 
         const supabase = createClient();
-        const { error } = await supabase.from('membership_plans').delete().eq('id', id);
+        const { error } = await query('membership_plans').delete().eq('id', id);
 
         if (error) {
             toastError('삭제에 실패했습니다: ' + error.message);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 
 interface AuditLog {
@@ -28,23 +29,21 @@ export default function AuditLogsPage() {
     const [dateTo, setDateTo] = useState('');
 
     const loadLogs = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
         try {
-            let query = supabase
-                .from('audit_logs')
+            let dbQ = query('audit_logs')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(100);
 
             if (filterAction !== 'all') {
-                query = query.eq('action', filterAction);
+                dbQ = dbQ.eq('action', filterAction);
             }
             // T2-10: Date range filtering
-            if (dateFrom) query = query.gte('created_at', `${dateFrom}T00:00:00`);
-            if (dateTo) query = query.lte('created_at', `${dateTo}T23:59:59`);
+            if (dateFrom) dbQ = dbQ.gte('created_at', `${dateFrom}T00:00:00`);
+            if (dateTo) dbQ = dbQ.lte('created_at', `${dateTo}T23:59:59`);
 
-            const { data, error } = await query;
+            const { data, error } = await dbQ;
             if (error) {
                 console.error('Error loading audit logs:', error);
             } else if (data) {

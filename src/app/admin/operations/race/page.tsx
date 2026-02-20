@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconFlag, IconRadio, IconTrophy, IconRowing } from '@/components/icons/AdminIcons';
@@ -60,19 +61,18 @@ export default function RacePage() {
     const { success, error: toastError, info } = useToast();
 
     const loadData = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
         try {
             // Load events
-            const { data: eventsData } = await supabase
-                .from('race_events')
+            const { data: eventsData } = await query('race_events')
+
                 .select('*')
                 .order('event_date', { ascending: false });
 
             if (eventsData) {
                 // Count participants per event
-                const { data: recordCounts } = await supabase
-                    .from('race_records')
+                const { data: recordCounts } = await query('race_records')
+
                     .select('event_id');
                 const counts: Record<string, number> = {};
                 (recordCounts || []).forEach((r: any) => {
@@ -81,24 +81,24 @@ export default function RacePage() {
                 setEvents(eventsData.map((e: any) => ({ ...e, participantCount: counts[e.id] || 0 })));
             }
 
-            loadDevices(supabase);
+            loadDevices();
 
             // Load records with member names
-            const { data: recordsData, error: recErr } = await supabase
-                .from('race_records')
+            const { data: recordsData, error: recErr } = await query('race_records')
+
                 .select('*, members(name), race_events(name, event_type)')
                 .order('result_time', { ascending: true })
                 .limit(20);
 
             if (recErr) {
-                const { data: fallbackRecords } = await supabase.from('race_records').select('*').order('created_at', { ascending: false }).limit(20);
+                const { data: fallbackRecords } = await query('race_records').select('*').order('created_at', { ascending: false }).limit(20);
                 if (fallbackRecords) setRecords(fallbackRecords as any);
             } else if (recordsData) {
                 setRecords(recordsData as any);
             }
 
             // Load facilities for device mapping
-            const { data: facData } = await supabase.from('facilities').select('id, name').order('name');
+            const { data: facData } = await query('facilities').select('id, name').order('name');
             if (facData) setFacilities(facData);
         } catch (e) {
             console.error('Error loading race data:', e);
@@ -106,14 +106,14 @@ export default function RacePage() {
         setLoading(false);
     }, []);
 
-    const loadDevices = async (supabase: any) => {
-        const { data: devicesData, error: devErr } = await supabase
-            .from('pm5_devices')
+    const loadDevices = async () => {
+        const { data: devicesData, error: devErr } = await query('pm5_devices')
+
             .select('*, facilities(name)')
             .order('serial_number');
 
         if (devErr) {
-            const { data: fallbackDevices } = await supabase.from('pm5_devices').select('*').order('serial_number');
+            const { data: fallbackDevices } = await query('pm5_devices').select('*').order('serial_number');
             if (fallbackDevices) setDevices(fallbackDevices as any);
         } else if (devicesData) {
             setDevices(devicesData as any);
@@ -125,8 +125,7 @@ export default function RacePage() {
     async function createEvent() {
         if (!eventForm.name.trim() || !eventForm.date) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('race_events').insert({
+        const { error } = await query('race_events').insert({
             name: eventForm.name,
             event_date: eventForm.date,
             event_type: eventForm.sport,
@@ -167,7 +166,6 @@ export default function RacePage() {
     async function saveDevice() {
         if (!deviceForm.serial_number.trim()) return;
         setSaving(true);
-        const supabase = createClient();
         const payload = {
             serial_number: deviceForm.serial_number,
             device_type: deviceForm.device_type,
@@ -178,11 +176,11 @@ export default function RacePage() {
         };
 
         if (editingDevice) {
-            const { error } = await supabase.from('pm5_devices').update(payload).eq('id', editingDevice.id);
+            const { error } = await query('pm5_devices').update(payload).eq('id', editingDevice.id);
             if (error) toastError(`수정 실패: ${error.message}`);
             else success('기기 정보가 수정되었습니다.');
         } else {
-            const { error } = await supabase.from('pm5_devices').insert(payload);
+            const { error } = await query('pm5_devices').insert(payload);
             if (error) toastError(`등록 실패: ${error.message}`);
             else success('새 기기가 등록되었습니다.');
         }
@@ -193,8 +191,7 @@ export default function RacePage() {
 
     async function deleteDevice(id: string) {
         if (!confirm('이 기기를 삭제하시겠습니까? 관련 데이터가 소실될 수 있습니다.')) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('pm5_devices').delete().eq('id', id);
+        const { error } = await query('pm5_devices').delete().eq('id', id);
         if (error) {
             toastError(`삭제 실패: ${error.message}`);
         } else {
@@ -206,8 +203,7 @@ export default function RacePage() {
     // T3-4: Rapid status toggle for monitoring simulation
     async function toggleDeviceStatus(device: PM5Device) {
         const nextStatus = device.status === 'online' ? 'offline' : device.status === 'offline' ? 'maintenance' : 'online';
-        const supabase = createClient();
-        const { error } = await supabase.from('pm5_devices').update({ status: nextStatus, last_sync_at: new Date().toISOString() }).eq('id', device.id);
+        const { error } = await query('pm5_devices').update({ status: nextStatus, last_sync_at: new Date().toISOString() }).eq('id', device.id);
         if (error) {
             toastError(`상태 변경 실패: ${error.message}`);
         } else {

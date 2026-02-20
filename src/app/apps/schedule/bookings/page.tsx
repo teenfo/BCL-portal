@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 import { AppSkeleton, AppEmptyState } from '@/components/apps';
@@ -32,8 +33,8 @@ export default function MyBookingsPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
-        const { data } = await (supabase as any)
-            .from('bookings')
+        const { data } = await query('bookings')
+            
             .select('*, sessions(title, session_date, start_time, end_time, coach_name)')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
@@ -66,15 +67,15 @@ export default function MyBookingsPage() {
         if (!user) { setCancelling(null); return; }
 
         // Use RPC for credit refund
-        const { data, error } = await (supabase as any).rpc('fn_cancel_booking_with_credit', {
+        const { data, error } = await rpc('fn_cancel_booking_with_credit', {
             p_booking_id: bookingId,
             p_user_id: user.id,
         });
 
         if (error) {
             // Fallback to simple cancel if RPC not available
-            const { error: updateError } = await (supabase as any)
-                .from('bookings')
+            const { error: updateError } = await query('bookings')
+                
                 .update({ status: 'cancelled' })
                 .eq('id', bookingId);
 

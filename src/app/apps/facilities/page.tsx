@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import { AppSkeleton, AppEmptyState } from '@/components/apps';
 
@@ -79,9 +80,8 @@ export default function UserFacilitiesPage() {
     }, []);
 
     async function loadFacilities() {
-        const supabase = createClient();
-        const { data } = await supabase
-            .from('facilities')
+        const { data } = await query('facilities')
+            
             .select('*')
             .order('name');
         if (data) setFacilities(data as any);

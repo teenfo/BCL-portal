@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/ui/Toast';
 import { AppSkeleton } from '@/components/apps';
@@ -36,11 +37,10 @@ export default function SettingsPage() {
     useEffect(() => {
         if (!user) return;
         async function loadSettings() {
-            const supabase: any = createClient();
 
             // Try members.preferences first
-            const { data: memberData } = await supabase
-                .from('members')
+            const { data: memberData } = await query('members')
+                
                 .select('preferences')
                 .eq('user_id', user!.id)
                 .single();
@@ -52,8 +52,8 @@ export default function SettingsPage() {
             }
 
             // Fallback: profiles.notification_settings
-            const { data: profileData } = await supabase
-                .from('profiles')
+            const { data: profileData } = await query('profiles')
+                
                 .select('notification_settings')
                 .eq('id', user!.id)
                 .single();
@@ -86,11 +86,10 @@ export default function SettingsPage() {
         if (!user) return;
         setSaving(true);
 
-        const supabase: any = createClient();
 
         // Save to members.preferences (server sync)
-        const { error: memberError } = await supabase
-            .from('members')
+        const { error: memberError } = await query('members')
+            
             .update({ preferences: settings })
             .eq('user_id', user.id);
 
@@ -101,8 +100,8 @@ export default function SettingsPage() {
             reminder_time: settings.reminder_time,
             marketing_enabled: settings.marketing_enabled,
         };
-        await supabase
-            .from('profiles')
+        await query('profiles')
+            
             .update({ notification_settings: notifSettings })
             .eq('id', user.id);
 

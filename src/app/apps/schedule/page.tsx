@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import { AppSkeleton, AppEmptyState, SessionDetailModal } from '@/components/apps';
 
@@ -38,35 +39,33 @@ export default function UserSchedulePage() {
     const toast = useToast();
 
     const loadSessions = useCallback(async () => {
-        const supabase: any = createClient();
+        const supabase = createClient();
         setLoading(true);
 
-        let query = supabase
-            .from('sessions')
+        let dbQ = query('sessions')
             .select('*')
             .eq('session_date', selectedDate)
             .order('start_time', { ascending: true });
 
         if (filterMode === 'beginner') {
-            query = query.eq('intensity', 'beginner');
+            dbQ = dbQ.eq('intensity', 'beginner');
         }
         if (filterMode === 'coach' && selectedCoach) {
-            query = query.eq('coach_name', selectedCoach);
+            dbQ = dbQ.eq('coach_name', selectedCoach);
         }
 
-        const { data } = await query;
+        const { data } = await dbQ;
         if (data) setSessions(data);
         setLoading(false);
     }, [selectedDate, filterMode, selectedCoach]);
 
     // Load user's existing bookings for the selected date
     const loadMyBookings = useCallback(async () => {
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data } = await supabase
-            .from('bookings')
+        const { data } = await query('bookings')
             .select('session_id')
             .eq('user_id', user.id)
             .in('status', ['confirmed', 'waitlisted']);
@@ -78,9 +77,7 @@ export default function UserSchedulePage() {
 
     useEffect(() => {
         async function loadCoaches() {
-            const supabase = createClient();
-            const { data } = await (supabase as any)
-                .from('sessions')
+            const { data } = await query('sessions')
                 .select('coach_name')
                 .not('coach_name', 'is', null)
                 .limit(50);
@@ -129,7 +126,7 @@ export default function UserSchedulePage() {
         }
 
         // Use RPC function for credit-based booking
-        const { data, error } = await (supabase as any).rpc('fn_book_with_credit', {
+        const { data, error } = await rpc('fn_book_with_credit', {
             p_session_id: sessionId,
             p_user_id: user.id,
         });
@@ -171,8 +168,7 @@ export default function UserSchedulePage() {
             startOfWeek.setDate(now.getDate() - ((now.getDay() + 6) % 7));
             const weekStart = startOfWeek.toISOString().split('T')[0];
 
-            const { count } = await (supabase as any)
-                .from('bookings')
+            const { count } = await query('bookings')
                 .select('id', { count: 'exact', head: true })
                 .eq('user_id', user.id)
                 .in('status', ['confirmed', 'attended'])

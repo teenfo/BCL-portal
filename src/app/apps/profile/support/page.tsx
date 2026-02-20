@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 
@@ -26,11 +27,11 @@ export default function SupportPage() {
     useEffect(() => { loadTickets(); }, []);
 
     async function loadTickets() {
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
-        const { data }: any = await supabase
-            .from('support_tickets')
+        const { data }: any = await query('support_tickets')
+            
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false });
@@ -41,11 +42,11 @@ export default function SupportPage() {
     async function handleSubmit() {
         if (!subject.trim() || !message.trim() || submitting) return;
         setSubmitting(true);
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSubmitting(false); return; }
 
-        const { error }: any = await supabase.from('support_tickets').insert({
+        const { error }: any = await query('support_tickets').insert({
             user_id: user.id,
             subject: subject.trim(),
             content: message.trim(),

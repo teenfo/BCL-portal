@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -36,7 +37,7 @@ export default function UserProfilePage() {
     }, []);
 
     async function loadProfile() {
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
@@ -44,8 +45,8 @@ export default function UserProfilePage() {
 
         // 1차: auth 레이어 + members 조회 (member_id 확보)
         const [memberResult, profileResult] = await Promise.all([
-            supabase.from('members').select('id, name, avatar_url').eq('user_id', user.id).single(),
-            supabase.from('profiles').select('role').eq('id', user.id).single(),
+            query('members').select('id, name, avatar_url').eq('user_id', user.id).single(),
+            query('profiles').select('role').eq('id', user.id).single(),
         ]);
 
         const memberId = memberResult.data?.id;
@@ -53,15 +54,15 @@ export default function UserProfilePage() {
         // 2차: member_id 의존 쿼리
         const [membershipResult, checkinCount, bookingCount] = await Promise.all([
             memberId
-                ? supabase.from('memberships').select('*, membership_plans(name)')
+                ? query('memberships').select('*, membership_plans(name)')
                     .eq('member_id', memberId).eq('status', 'active')
                     .order('end_date', { ascending: false }).limit(1).single()
                 : Promise.resolve({ data: null }),
             memberId
-                ? supabase.from('checkins').select('id', { count: 'exact', head: true }).eq('member_id', memberId)
+                ? query('checkins').select('id', { count: 'exact', head: true }).eq('member_id', memberId)
                 : Promise.resolve({ count: 0 }),
             memberId
-                ? supabase.from('bookings').select('id', { count: 'exact', head: true }).eq('member_id', memberId).in('status', ['confirmed', 'attended'])
+                ? query('bookings').select('id', { count: 'exact', head: true }).eq('member_id', memberId).in('status', ['confirmed', 'attended'])
                 : Promise.resolve({ count: 0 }),
         ]);
 
@@ -101,7 +102,7 @@ export default function UserProfilePage() {
         }
 
         setUploading(true);
-        const supabase: any = createClient();
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setUploading(false); return; }
 
@@ -125,7 +126,7 @@ export default function UserProfilePage() {
 
         if (publicUrl) {
             // Update members table
-            await supabase.from('members').update({ avatar_url: publicUrl }).eq('user_id', user.id);
+            await query('members').update({ avatar_url: publicUrl }).eq('user_id', user.id);
             setAvatarUrl(publicUrl);
             toast.success('프로필 사진이 업데이트되었습니다! ✅');
         }

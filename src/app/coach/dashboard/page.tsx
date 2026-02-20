@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -34,27 +35,26 @@ export default function CoachDashboardPage() {
 
     async function loadDashboard() {
         if (!user) return;
-        const supabase: any = createClient();
         const today = new Date().toISOString().split('T')[0];
 
         try {
             // 코치의 오늘 세션
-            const { data: coachData } = await supabase
-                .from('coaches')
+            const { data: coachData } = await query('coaches')
+                
                 .select('id')
                 .eq('user_id', user.id)
                 .single();
 
             if (coachData) {
-                const { data: sessionCoaches } = await supabase
-                    .from('session_coaches')
+                const { data: sessionCoaches } = await query('session_coaches')
+                    
                     .select('session_id')
                     .eq('coach_id', coachData.id);
 
                 if (sessionCoaches && sessionCoaches.length > 0) {
                     const sessionIds = sessionCoaches.map((sc: any) => sc.session_id);
-                    const { data: sessions } = await supabase
-                        .from('sessions')
+                    const { data: sessions } = await query('sessions')
+                        
                         .select('*')
                         .in('id', sessionIds)
                         .eq('session_date', today)
@@ -65,15 +65,15 @@ export default function CoachDashboardPage() {
             }
 
             // 오늘 체크인 수
-            const { count } = await supabase
-                .from('checkins')
+            const { count } = await query('checkins')
+                
                 .select('id', { count: 'exact', head: true })
                 .gte('checkin_time', today + 'T00:00:00');
             setTodayCheckins(count || 0);
 
             // 코치 공지
-            const { data: noticeData } = await supabase
-                .from('notices')
+            const { data: noticeData } = await query('notices')
+                
                 .select('*')
                 .eq('is_published', true)
                 .order('created_at', { ascending: false })

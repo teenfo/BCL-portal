@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
 /* ─── Role-based dashboard path helper ─── */
@@ -615,14 +616,13 @@ export default function HomePage() {
     const [facilities, setFacilities] = useState<Facility[]>([]);
 
     useEffect(() => {
-        const supabase = createClient();
 
         // Fetch public data (anon RLS enabled)
         const fetchData = async () => {
             const [coachRes, planRes, facilityRes] = await Promise.all([
-                supabase.from('coaches').select('id, name, specialties, bio, profile_image_url').limit(8) as any,
-                supabase.from('membership_plans').select('id, name, price, duration_days, credit_count, description, is_active').eq('is_active', true).order('price', { ascending: true }) as any,
-                supabase.from('facilities').select('id, name, address, phone, operating_hours') as any,
+                query('coaches').select('id, name, specialties, bio, profile_image_url').limit(8) as any,
+                query('membership_plans').select('id, name, price, duration_days, credit_count, description, is_active').eq('is_active', true).order('price', { ascending: true }) as any,
+                query('facilities').select('id, name, address, phone, operating_hours') as any,
             ]);
 
             if (coachRes.data) setCoaches(coachRes.data);

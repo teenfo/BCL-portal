@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconMegaphone, IconPalette } from '@/components/icons/AdminIcons';
@@ -85,19 +86,17 @@ export default function ContentPage() {
     const { success, error: toastError, info } = useToast();
 
     const loadNotices = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
-        let query = supabase.from('notices').select('*, facilities(name)').order('created_at', { ascending: false });
-        if (filterCategory !== 'all') query = query.eq('category', filterCategory);
-        const { data } = await query;
+        let dbQ = query('notices').select('*, facilities(name)').order('created_at', { ascending: false });
+        if (filterCategory !== 'all') dbQ = dbQ.eq('category', filterCategory);
+        const { data } = await dbQ;
         if (data) setNotices(data as any);
         setLoading(false);
     }, [filterCategory]);
 
     const loadBanners = useCallback(async () => {
-        const supabase = createClient();
-        const { data, error } = await supabase
-            .from('banners')
+        const { data, error } = await query('banners')
+            
             .select('*')
             .order('priority_order', { ascending: true });
 
@@ -127,14 +126,13 @@ export default function ContentPage() {
     }
 
     async function saveNotice() {
-        const supabase = createClient();
         const data = { ...form, published_at: form.is_published ? new Date().toISOString() : null };
         if (editingNotice) {
-            const { error } = await supabase.from('notices').update(data).eq('id', editingNotice.id);
+            const { error } = await query('notices').update(data).eq('id', editingNotice.id);
             if (error) toastError(`공지 수정 실패: ${error.message}`);
             else success('공지가 수정되었습니다.');
         } else {
-            const { error } = await supabase.from('notices').insert(data);
+            const { error } = await query('notices').insert(data);
             if (error) toastError(`공지 등록 실패: ${error.message}`);
             else success('새 공지가 등록되었습니다.');
         }
@@ -144,8 +142,7 @@ export default function ContentPage() {
 
     async function deleteNotice(id: string) {
         if (!confirm('이 공지를 삭제하시겠습니까?')) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('notices').delete().eq('id', id);
+        const { error } = await query('notices').delete().eq('id', id);
         if (error) {
             toastError(`공지 삭제 실패: ${error.message}`);
         } else {
@@ -155,8 +152,7 @@ export default function ContentPage() {
     }
 
     async function togglePublish(notice: Notice) {
-        const supabase = createClient();
-        const { error } = await supabase.from('notices').update({ is_published: !notice.is_published, published_at: !notice.is_published ? new Date().toISOString() : null }).eq('id', notice.id);
+        const { error } = await query('notices').update({ is_published: !notice.is_published, published_at: !notice.is_published ? new Date().toISOString() : null }).eq('id', notice.id);
         if (error) {
             toastError(`상태 변경 실패: ${error.message}`);
         } else {
@@ -195,18 +191,17 @@ export default function ContentPage() {
     }
 
     async function saveBanner() {
-        const supabase = createClient();
         const payload = {
             ...bannerForm,
             start_date: new Date(bannerForm.start_date).toISOString(),
             end_date: new Date(bannerForm.end_date).toISOString(),
         };
         if (editingBanner) {
-            const { error } = await supabase.from('banners').update(payload).eq('id', editingBanner.id);
+            const { error } = await query('banners').update(payload).eq('id', editingBanner.id);
             if (error) toastError(`배너 수정 실패: ${error.message}`);
             else success('배너가 수정되었습니다.');
         } else {
-            const { error } = await supabase.from('banners').insert(payload);
+            const { error } = await query('banners').insert(payload);
             if (error) toastError(`배너 등록 실패: ${error.message}`);
             else success('새 배너가 등록되었습니다.');
         }
@@ -216,8 +211,7 @@ export default function ContentPage() {
 
     async function deleteBanner(id: string) {
         if (!confirm('이 배너를 삭제하시겠습니까?')) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('banners').delete().eq('id', id);
+        const { error } = await query('banners').delete().eq('id', id);
         if (error) {
             toastError(`배너 삭제 실패: ${error.message}`);
         } else {
@@ -227,8 +221,7 @@ export default function ContentPage() {
     }
 
     async function toggleBannerActive(banner: Banner) {
-        const supabase = createClient();
-        await supabase.from('banners').update({ is_active: !banner.is_active }).eq('id', banner.id);
+        await query('banners').update({ is_active: !banner.is_active }).eq('id', banner.id);
         // Optimistic update
         setBanners(prev => prev.map(b => b.id === banner.id ? { ...b, is_active: !b.is_active } : b));
     }

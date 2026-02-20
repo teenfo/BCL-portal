@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 // ─── Types (DB RPC 반환 타입) ────────────────────────────
 interface Badge {
@@ -34,12 +35,12 @@ export default function BadgesPage() {
     useEffect(() => { loadBadges(); }, []);
 
     async function loadBadges() {
-        const supabase = createClient() as any;
+        const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setLoading(false); return; }
 
         // 단일 RPC 호출로 모든 배지 + 진행도 + 달성 여부 조회
-        const { data, error } = await supabase.rpc('fn_get_my_badges', {
+        const { data, error } = await rpc('fn_get_my_badges', {
             p_user_id: user.id,
         });
 

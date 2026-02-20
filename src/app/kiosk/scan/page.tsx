@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 type ScanState = 'scanning' | 'processing' | 'error';
 
@@ -112,7 +113,6 @@ export default function KioskScanPage() {
         await stopScanner();
 
         try {
-            const supabase: any = createClient();
 
             // 1. JSON 파싱
             let parsed: { mid: string; fid: string; ts: number; v: number };
@@ -143,8 +143,8 @@ export default function KioskScanPage() {
             }
 
             // 3. 회원 존재 확인
-            const { data: memberData, error: memberErr } = await supabase
-                .from('members')
+            const { data: memberData, error: memberErr } = await query('members')
+                
                 .select('id, user_id, name')
                 .eq('id', mid)
                 .single();
@@ -158,8 +158,8 @@ export default function KioskScanPage() {
 
             // 4. 중복 체크인 방지 (5분 이내 동일 회원)
             const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-            const { data: recentCheckin } = await supabase
-                .from('checkins')
+            const { data: recentCheckin } = await query('checkins')
+                
                 .select('id')
                 .eq('member_id', mid)
                 .gte('checkin_time', fiveMinAgo)
@@ -182,8 +182,8 @@ export default function KioskScanPage() {
             let sessionTime = '';
             let coachName = '';
 
-            const { data: bookings } = await supabase
-                .from('bookings')
+            const { data: bookings } = await query('bookings')
+                
                 .select(`
                     id,
                     session_id,
@@ -245,8 +245,8 @@ export default function KioskScanPage() {
                 checkinData.notes = '시설 출석 체크인';
             }
 
-            const { error: checkInError } = await supabase
-                .from('checkins')
+            const { error: checkInError } = await query('checkins')
+                
                 .insert(checkinData);
 
             if (checkInError) {
@@ -259,8 +259,8 @@ export default function KioskScanPage() {
 
             // 7. 수업 체크인이면 booking 상태 업데이트
             if (bookingId) {
-                await supabase
-                    .from('bookings')
+                await query('bookings')
+                    
                     .update({ status: 'attended' })
                     .eq('id', bookingId);
             }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconSmartphone, IconBuilding, IconMonitor, IconEdit, IconTrash, IconChat, IconPlus } from '@/components/icons/AdminIcons';
@@ -58,12 +59,11 @@ export default function InfrastructurePage() {
     const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
     const loadData = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         const [facilitiesRes, kiosksRes] = await Promise.all([
-            supabase.from('facilities').select('*').order('name'),
-            supabase.from('kiosk_devices').select('*, facilities(name)').order('device_name'),
+            query('facilities').select('*').order('name'),
+            query('kiosk_devices').select('*, facilities(name)').order('device_name'),
         ]);
 
         if (facilitiesRes.data) setFacilities(facilitiesRes.data);
@@ -106,8 +106,6 @@ export default function InfrastructurePage() {
             toastError('기기명과 지점을 입력하세요.');
             return;
         }
-
-        const supabase = createClient();
         const payload = {
             device_name: kioskForm.device_name,
             facility_id: kioskForm.facility_id,
@@ -118,7 +116,7 @@ export default function InfrastructurePage() {
         };
 
         if (editingKiosk) {
-            const { error } = await supabase.from('kiosk_devices').update(payload).eq('id', editingKiosk.id);
+            const { error } = await query('kiosk_devices').update(payload).eq('id', editingKiosk.id);
             if (error) {
                 toastError(`수정 실패: ${error.message}`);
             } else {
@@ -127,7 +125,7 @@ export default function InfrastructurePage() {
                 loadData();
             }
         } else {
-            const { error } = await supabase.from('kiosk_devices').insert(payload);
+            const { error } = await query('kiosk_devices').insert(payload);
             if (error) {
                 toastError(`등록 실패: ${error.message}`);
             } else {
@@ -141,9 +139,7 @@ export default function InfrastructurePage() {
     // Delete kiosk
     const deleteKiosk = async (id: string) => {
         if (!confirm('이 키오스크를 삭제하시겠습니까?')) return;
-
-        const supabase = createClient();
-        const { error } = await supabase.from('kiosk_devices').delete().eq('id', id);
+        const { error } = await query('kiosk_devices').delete().eq('id', id);
         if (error) {
             toastError(`삭제 실패: ${error.message}`);
         } else {
@@ -163,9 +159,8 @@ export default function InfrastructurePage() {
 
     // Update display message
     const updateMessage = async () => {
-        const supabase = createClient();
-        const { error } = await supabase
-            .from('kiosk_devices')
+        const { error } = await query('kiosk_devices')
+            
             .update({ display_message: messageForm.message || null, updated_at: new Date().toISOString() })
             .eq('id', messageForm.kiosk_id);
 

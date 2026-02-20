@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconShield, IconMembers } from '@/components/icons/AdminIcons';
@@ -54,11 +55,10 @@ export default function RolesPage() {
     const [loadingUsers, setLoadingUsers] = useState(false);
 
     const loadRoles = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
         try {
-            const { data: rolesData, error } = await supabase
-                .from('admin_roles')
+            const { data: rolesData, error } = await query('admin_roles')
+                
                 .select('*')
                 .order('created_at', { ascending: true });
 
@@ -66,7 +66,7 @@ export default function RolesPage() {
                 console.error('Error loading roles:', error);
             } else if (rolesData) {
                 // Count users per role
-                const { data: userRoles } = await supabase.from('admin_user_roles').select('role_id');
+                const { data: userRoles } = await query('admin_user_roles').select('role_id');
                 const roleCounts: Record<string, number> = {};
                 (userRoles || []).forEach((ur: any) => {
                     roleCounts[ur.role_id] = (roleCounts[ur.role_id] || 0) + 1;
@@ -89,8 +89,7 @@ export default function RolesPage() {
     async function addRole() {
         if (!addForm.name.trim() || !addForm.display_name.trim()) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('admin_roles').insert({
+        const { error } = await query('admin_roles').insert({
             name: addForm.name.toLowerCase().replace(/\s+/g, '_'),
             display_name: addForm.display_name,
             description: addForm.description || null,
@@ -112,9 +111,8 @@ export default function RolesPage() {
         const role = roles.find(r => r.id === roleId);
         if (!role || role.is_system_role) return;
         if (!confirm(`"${role.display_name}" 역할을 삭제하시겠습니까?`)) return;
-        const supabase = createClient();
-        const { error: err1 } = await supabase.from('admin_user_roles').delete().eq('role_id', roleId);
-        const { error: err2 } = await supabase.from('admin_roles').delete().eq('id', roleId);
+        const { error: err1 } = await query('admin_user_roles').delete().eq('role_id', roleId);
+        const { error: err2 } = await query('admin_roles').delete().eq('id', roleId);
 
         if (err1 || err2) {
             toastError('역할 삭제 중 오류가 발생했습니다.');
@@ -136,9 +134,7 @@ export default function RolesPage() {
         } else {
             updated[groupKey] = [...groupPerms, perm];
         }
-
-        const supabase = createClient();
-        const { error } = await supabase.from('admin_roles').update({ permissions: updated }).eq('id', roleId);
+        const { error } = await query('admin_roles').update({ permissions: updated }).eq('id', roleId);
         if (!error) {
             success('권한 설정이 변경되었습니다.');
             setRoles(roles.map(r => r.id === roleId ? { ...r, permissions: updated } : r));
@@ -161,18 +157,16 @@ export default function RolesPage() {
         setLoadingUsers(true);
         setAssignSearch('');
 
-        const supabase = createClient();
-
         // Load users assigned to this role
-        const { data: assigned } = await supabase
-            .from('admin_user_roles')
+        const { data: assigned } = await query('admin_user_roles')
+            
             .select('*, profiles(full_name, email, avatar_url)')
             .eq('role_id', role.id);
         setAssignedUsers((assigned || []) as unknown as AdminUser[]);
 
         // Load available profiles
-        const { data: profiles } = await supabase
-            .from('profiles')
+        const { data: profiles } = await query('profiles')
+            
             .select('id, full_name, email')
             .order('full_name');
         setAvailableUsers((profiles || []) as any);
@@ -182,8 +176,7 @@ export default function RolesPage() {
 
     async function assignUser(userId: string) {
         if (!selectedRole) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('admin_user_roles').insert({
+        const { error } = await query('admin_user_roles').insert({
             user_id: userId,
             role_id: selectedRole.id,
         });
@@ -198,8 +191,7 @@ export default function RolesPage() {
 
     async function unassignUser(userId: string) {
         if (!selectedRole) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('admin_user_roles').delete()
+        const { error } = await query('admin_user_roles').delete()
             .eq('user_id', userId)
             .eq('role_id', selectedRole.id);
 

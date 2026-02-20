@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { useToast } from '@/components/ui/Toast';
@@ -78,12 +79,11 @@ export default function BadgesPage() {
 
     // ─── Data Loading ───────────────────────────────────
     const loadBadges = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         // badge_definitions with award count
-        const { data, error } = await (supabase as any)
-            .from('badge_definitions')
+        const { data, error } = await query('badge_definitions')
+            
             .select('*, badge_awards(count)')
             .order('category')
             .order('sort_order');
@@ -155,7 +155,6 @@ export default function BadgesPage() {
             toast.warning('이름과 설명을 입력해주세요.');
             return;
         }
-        const supabase = createClient();
         const payload = {
             name: form.name.trim(),
             description: form.description.trim(),
@@ -168,11 +167,11 @@ export default function BadgesPage() {
         };
 
         if (editingBadge) {
-            const { error } = await (supabase as any).from('badge_definitions').update(payload).eq('id', editingBadge.id);
+            const { error } = await query('badge_definitions').update(payload).eq('id', editingBadge.id);
             if (error) { toast.error('수정 실패: ' + error.message); return; }
             toast.success('배지가 수정되었습니다.');
         } else {
-            const { error } = await (supabase as any).from('badge_definitions').insert(payload);
+            const { error } = await query('badge_definitions').insert(payload);
             if (error) { toast.error('등록 실패: ' + error.message); return; }
             toast.success('새 배지가 등록되었습니다.');
         }
@@ -182,16 +181,14 @@ export default function BadgesPage() {
 
     async function deleteBadge(id: string, name: string) {
         if (!confirm(`"${name}" 배지를 삭제하시겠습니까?\n\n⚠️ 이미 수여된 기록도 함께 삭제됩니다.`)) return;
-        const supabase = createClient();
-        const { error } = await (supabase as any).from('badge_definitions').delete().eq('id', id);
+        const { error } = await query('badge_definitions').delete().eq('id', id);
         if (error) { toast.error('삭제 실패: ' + error.message); return; }
         toast.success('배지가 삭제되었습니다.');
         loadBadges();
     }
 
     async function toggleActive(badge: BadgeDefinition) {
-        const supabase = createClient();
-        await (supabase as any).from('badge_definitions')
+        await query('badge_definitions')
             .update({ is_active: !badge.is_active })
             .eq('id', badge.id);
         loadBadges();

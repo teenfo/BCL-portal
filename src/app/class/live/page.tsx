@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 interface LiveMember {
     id: string;
@@ -187,14 +188,13 @@ export default function ClassLivePage() {
     }, [session]);
 
     async function loadLiveData() {
-        const supabase: any = createClient();
         const now = new Date();
         const today = now.toISOString().split('T')[0];
         const timeStr = now.toTimeString().slice(0, 8);
 
         try {
-            const { data: sessionData } = await supabase
-                .from('sessions')
+            const { data: sessionData } = await query('sessions')
+                
                 .select('*')
                 .eq('session_date', today)
                 .lte('start_time', timeStr)
@@ -204,8 +204,8 @@ export default function ClassLivePage() {
 
             if (sessionData) {
                 setSession(sessionData);
-                const { data: checkinData } = await supabase
-                    .from('checkins')
+                const { data: checkinData } = await query('checkins')
+                    
                     .select('member_id, members!checkins_member_id_fkey(name)')
                     .gte('checkin_time', today + 'T00:00:00')
                     .limit(20);

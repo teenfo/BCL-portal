@@ -6,6 +6,7 @@ import NotificationToast from '@/components/ui/NotificationToast';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ReactNode, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import '../apps/apps.css';
 
@@ -16,8 +17,7 @@ function CoachUnlinkedBanner() {
     useEffect(() => {
         if (!user) return;
         (async () => {
-            const supabase: any = createClient();
-            const { data } = await supabase.from('coaches').select('id').eq('user_id', user.id).maybeSingle();
+            const { data } = await query('coaches').select('id').eq('user_id', user.id).maybeSingle();
             setIsLinked(!!data);
         })();
     }, [user]);

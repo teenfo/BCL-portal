@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import AppSkeleton from '@/components/apps/AppSkeleton';
 import StatCard from '@/components/apps/StatCard';
@@ -84,7 +85,7 @@ export default function UserDashboardPage() {
     }, []);
 
     async function loadDashboard() {
-        const supabase: any = createClient();
+        const supabase = createClient();
         setLoading(true);
         setError(false);
 
@@ -109,25 +110,25 @@ export default function UserDashboardPage() {
                 unreadResult,
             ] = await Promise.all([
                 // 1. 회원 정보 (id + name) — user_id 기반
-                supabase.from('members').select('id, name').eq('user_id', user.id).single(),
+                query('members').select('id, name').eq('user_id', user.id).single(),
                 // 2. 다음 수업 (session_date = today AND start_time > now)
-                supabase
-                    .from('sessions')
+                query('sessions')
+                    
                     .select('*')
                     .eq('session_date', todayStr)
                     .gte('start_time', now.toISOString())
                     .order('start_time', { ascending: true })
                     .limit(1),
                 // 3. 공지사항
-                supabase
-                    .from('notices')
+                query('notices')
+                    
                     .select('*')
                     .eq('is_published', true)
                     .order('created_at', { ascending: false })
                     .limit(3),
                 // 4. 미읽음 알림 수 (user_id 사용 — 정상)
-                supabase
-                    .from('notifications')
+                query('notifications')
+                    
                     .select('id', { count: 'exact', head: true })
                     .eq('user_id', user.id)
                     .eq('is_read', false),
@@ -146,8 +147,8 @@ export default function UserDashboardPage() {
             if (memberId) {
                 const [msResult, ciResult, wbResult, skResult] = await Promise.all([
                     // 멤버십
-                    supabase
-                        .from('memberships')
+                    query('memberships')
+                        
                         .select('*, membership_plans(name, credits)')
                         .eq('member_id', memberId)
                         .eq('status', 'active')
@@ -155,22 +156,22 @@ export default function UserDashboardPage() {
                         .limit(1)
                         .single(),
                     // 오늘 체크인 여부
-                    supabase
-                        .from('checkins')
+                    query('checkins')
+                        
                         .select('id', { count: 'exact', head: true })
                         .eq('member_id', memberId)
                         .gte('checkin_time', todayStr + 'T00:00:00')
                         .lte('checkin_time', todayStr + 'T23:59:59'),
                     // 이번 주 수업 수
-                    supabase
-                        .from('bookings')
+                    query('bookings')
+                        
                         .select('id', { count: 'exact', head: true })
                         .eq('member_id', memberId)
                         .in('status', ['confirmed', 'attended'])
                         .gte('created_at', weekStart + 'T00:00:00'),
                     // 연속 출석일 (최근 30일 체크인)
-                    supabase
-                        .from('checkins')
+                    query('checkins')
+                        
                         .select('checkin_time')
                         .eq('member_id', memberId)
                         .order('checkin_time', { ascending: false })

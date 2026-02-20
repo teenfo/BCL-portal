@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import WidgetSection from '@/components/dashboard/WidgetSection';
@@ -74,28 +75,28 @@ export default function AdminDashboardPage() {
                 thisWeekCheckinsRes, prevWeekCheckinsRes,
                 thisWeekMembersRes, prevWeekMembersRes
             ] = await Promise.all([
-                supabase.from('members').select('id', { count: 'exact', head: true }),
-                supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
-                supabase.from('members').select('id', { count: 'exact', head: true }).eq('status', 'Expired'),
-                supabase.from('checkins').select('id', { count: 'exact', head: true }).or(`checkin_time.gte.${todayStr}T00:00:00,time.gte.${todayStr}T00:00:00`),
-                supabase.from('bookings').select('id', { count: 'exact', head: true }).gte('created_at', todayStr + 'T00:00:00'),
-                supabase.from('transactions').select('amount').gte('created_at', startOfMonth + 'T00:00:00').or('payment_status.eq.completed,status.eq.completed'),
-                supabase.from('memberships').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-                supabase.from('coaches').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-                supabase.from('transactions').select('id, amount, payment_status, status, category, created_at, member_id, members!transactions_member_id_fkey(name)').order('created_at', { ascending: false }).limit(5),
-                supabase.from('checkins').select('id, checkin_time, time, checkin_method, member_id, member_name, members!checkins_member_id_fkey(name), facility_id, facility, facilities!checkins_facility_id_fkey(name)').order('created_at', { ascending: false }).limit(6),
+                query('members').select('id', { count: 'exact', head: true }),
+                query('members').select('id', { count: 'exact', head: true }).eq('status', 'Active'),
+                query('members').select('id', { count: 'exact', head: true }).eq('status', 'Expired'),
+                query('checkins').select('id', { count: 'exact', head: true }).or(`checkin_time.gte.${todayStr}T00:00:00,time.gte.${todayStr}T00:00:00`),
+                query('bookings').select('id', { count: 'exact', head: true }).gte('created_at', todayStr + 'T00:00:00'),
+                query('transactions').select('amount').gte('created_at', startOfMonth + 'T00:00:00').or('payment_status.eq.completed,status.eq.completed'),
+                query('memberships').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+                query('coaches').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+                query('transactions').select('id, amount, payment_status, status, category, created_at, member_id, members!transactions_member_id_fkey(name)').order('created_at', { ascending: false }).limit(5),
+                query('checkins').select('id, checkin_time, time, checkin_method, member_id, member_name, members!checkins_member_id_fkey(name), facility_id, facility, facilities!checkins_facility_id_fkey(name)').order('created_at', { ascending: false }).limit(6),
 
                 // Revenue WoW
-                supabase.from('transactions').select('amount').gte('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
-                supabase.from('transactions').select('amount').gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
+                query('transactions').select('amount').gte('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
+                query('transactions').select('amount').gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo).or('payment_status.eq.completed,status.eq.completed'),
 
                 // Checkins WoW
-                supabase.from('checkins').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
-                supabase.from('checkins').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
+                query('checkins').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+                query('checkins').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
 
                 // Members WoW
-                supabase.from('members').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
-                supabase.from('members').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
+                query('members').select('id', { count: 'exact', head: true }).gte('created_at', sevenDaysAgo),
+                query('members').select('id', { count: 'exact', head: true }).gte('created_at', fourteenDaysAgo).lt('created_at', sevenDaysAgo),
             ]);
 
             const monthlyRevenue = txRes.data?.reduce((sum: number, t: { amount: number }) => sum + Number(t.amount), 0) || 0;

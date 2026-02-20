@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconNotes } from '@/components/icons/AdminIcons';
@@ -34,25 +35,23 @@ export default function ReservationsPage() {
     };
 
     const loadBookings = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         try {
-            let query: any = supabase
-                .from('bookings')
+            let dbQ: any = query('bookings')
                 .select('*, members!bookings_member_id_fkey(name, phone), sessions!bookings_session_id_fkey(title, start_time, max_participants)');
 
             if (filter !== 'all') {
-                query = query.eq('status', filter);
+                dbQ = dbQ.eq('status', filter);
             }
 
-            const { data, error } = await query.order('created_at', { ascending: false });
+            const { data, error } = await dbQ.order('created_at', { ascending: false });
 
             if (error) {
                 // Fallback: query without joins
                 console.warn('Bookings JOIN query error, trying fallback:', error.message);
-                const { data: fallbackData } = await supabase
-                    .from('bookings')
+                const { data: fallbackData } = await query('bookings')
+                    
                     .select('*')
                     .order('created_at', { ascending: false });
 
@@ -79,8 +78,7 @@ export default function ReservationsPage() {
     }, [loadBookings]);
 
     async function updateStatus(bookingId: string, newStatus: string) {
-        const supabase = createClient();
-        await supabase.from('bookings').update({ status: newStatus }).eq('id', bookingId);
+        await query('bookings').update({ status: newStatus }).eq('id', bookingId);
 
         // T1-5: If cancelling a confirmed booking, auto-promote next waitlisted
         if (newStatus === 'cancelled' || newStatus === 'no_show') {
@@ -90,7 +88,7 @@ export default function ReservationsPage() {
                     .filter(b => b.session_id === booking.session_id && b.status === 'waitlist')
                     .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
                 if (nextWaitlist) {
-                    await supabase.from('bookings').update({ status: 'confirmed' }).eq('id', nextWaitlist.id);
+                    await query('bookings').update({ status: 'confirmed' }).eq('id', nextWaitlist.id);
                 }
             }
         }

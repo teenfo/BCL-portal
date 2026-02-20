@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCreditCard } from '@/components/icons/AdminIcons';
@@ -61,42 +62,39 @@ export default function MembershipsPage() {
     const [extendDays, setExtendDays] = useState(30);
 
     const loadData = useCallback(async () => {
-        const supabase: any = createClient();
         setLoading(true);
 
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            let query: any = supabase
-                .from('memberships')
+            let msQuery: any = query('memberships')
                 .select('*, members!memberships_member_id_fkey(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count, max_pauses)')
                 .order('created_at', { ascending: false });
 
             if (filter !== 'all') {
-                query = query.eq('status', filter);
+                msQuery = msQuery.eq('status', filter);
             }
 
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const [msRes, membersRes, plansRes]: any[] = await Promise.all([
-                query,
-                supabase.from('members').select('id, name, email').order('name'),
-                supabase.from('membership_plans').select('*').order('price'),
+                msQuery,
+                query('members').select('id, name, email').order('name'),
+                query('membership_plans').select('*').order('price'),
             ]);
 
             if (msRes.error) {
                 console.warn('Memberships JOIN error, trying fallback:', msRes.error.message);
                 // Fallback: query without explicit FK name
-                let fallbackQuery: any = supabase
-                    .from('memberships')
+                let fallbackQ: any = query('memberships')
                     .select('*, members(id, name, email, phone), membership_plans(id, name, type, price, duration_days, credit_count, max_pauses)')
                     .order('created_at', { ascending: false });
-                if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
-                const { data: fallbackData, error: fallbackError } = await fallbackQuery;
+                if (filter !== 'all') fallbackQ = fallbackQ.eq('status', filter);
+                const { data: fallbackData, error: fallbackError } = await fallbackQ;
                 if (fallbackError) {
                     console.warn('Memberships fallback also failed, trying raw:', fallbackError.message);
                     // Final fallback: no joins
-                    let rawQuery: any = supabase.from('memberships').select('*').order('created_at', { ascending: false });
-                    if (filter !== 'all') rawQuery = rawQuery.eq('status', filter);
-                    const { data: rawData } = await rawQuery;
+                    let rawQ: any = query('memberships').select('*').order('created_at', { ascending: false });
+                    if (filter !== 'all') rawQ = rawQ.eq('status', filter);
+                    const { data: rawData } = await rawQ;
                     if (rawData) setMemberships(rawData as any);
                 } else {
                     if (fallbackData) setMemberships(fallbackData as any);
@@ -126,14 +124,13 @@ export default function MembershipsPage() {
 
     async function createMembership() {
         if (!createForm.member_id || !createForm.plan_id) return;
-        const supabase: any = createClient();
         const plan = plans.find(p => p.id === createForm.plan_id);
         if (!plan) return;
 
         const startDate = new Date(createForm.start_date);
         const endDate = plan.duration_days ? new Date(startDate.getTime() + plan.duration_days * 86400000) : null;
 
-        await supabase.from('memberships').insert({
+        await query('memberships').insert({
             member_id: createForm.member_id,
             plan_id: createForm.plan_id,
             start_date: createForm.start_date,
@@ -163,7 +160,6 @@ export default function MembershipsPage() {
             setShowHoldModal(true);
         } else if (ms.status === 'expired' || ms.status === 'paused') {
             // Resume: extend end_date by paused duration
-            const supabase: any = createClient();
             let newEndDate = ms.end_date;
             if (ms.paused_at && ms.end_date) {
                 const pausedMs = Date.now() - new Date(ms.paused_at).getTime();
@@ -171,16 +167,15 @@ export default function MembershipsPage() {
                 const extEnd = new Date(new Date(ms.end_date).getTime() + pausedDays * 86400000);
                 newEndDate = extEnd.toISOString().split('T')[0];
             }
-            await supabase.from('memberships').update({ status: 'active', paused_at: null, pause_reason: null, end_date: newEndDate }).eq('id', ms.id);
+            await query('memberships').update({ status: 'active', paused_at: null, pause_reason: null, end_date: newEndDate }).eq('id', ms.id);
             loadData();
         }
     }
 
     async function adjustCredits() {
         if (!selectedMembership || creditAdjust === 0) return;
-        const supabase: any = createClient();
         const newCredits = (selectedMembership.remaining_credits || 0) + creditAdjust;
-        await supabase.from('memberships').update({ remaining_credits: Math.max(0, newCredits) }).eq('id', selectedMembership.id);
+        await query('memberships').update({ remaining_credits: Math.max(0, newCredits) }).eq('id', selectedMembership.id);
         setShowCreditModal(false);
         setSelectedMembership(null);
         setCreditAdjust(0);
@@ -191,8 +186,7 @@ export default function MembershipsPage() {
     // T1-3: Confirm hold with reason
     async function confirmHold() {
         if (!holdTarget) return;
-        const supabase: any = createClient();
-        await supabase.from('memberships').update({
+        await query('memberships').update({
             status: 'paused',
             paused_at: new Date().toISOString(),
             pause_count: (holdTarget.pause_count ?? 0) + 1,
@@ -206,9 +200,8 @@ export default function MembershipsPage() {
     // T1-3: Custom day extension
     async function extendMembership(ms: Membership, days: number) {
         if (!ms.end_date) return;
-        const supabase: any = createClient();
         const newEnd = new Date(new Date(ms.end_date).getTime() + days * 86400000);
-        await supabase.from('memberships').update({ end_date: newEnd.toISOString().split('T')[0] }).eq('id', ms.id);
+        await query('memberships').update({ end_date: newEnd.toISOString().split('T')[0] }).eq('id', ms.id);
         loadData();
     }
 

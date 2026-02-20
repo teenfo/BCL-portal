@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconCircle, IconFlag, IconStar, IconClock, IconSettings, IconSend, IconBell } from '@/components/icons/AdminIcons';
@@ -99,19 +100,17 @@ export default function NotificationsPage() {
 
     // ── Load Data ──
     const loadNotifications = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
-        let query = supabase
-            .from('notifications')
+        let dbQ = query('notifications')
             .select('*, members!notifications_member_id_fkey(name, email)')
             .order('created_at', { ascending: false })
             .limit(200);
 
-        if (filterType !== 'all') query = query.eq('type', filterType);
-        const { data, error } = await query;
+        if (filterType !== 'all') dbQ = dbQ.eq('type', filterType);
+        const { data, error } = await dbQ;
         if (error) {
             console.warn('Notifications JOIN error, using fallback:', error.message);
-            const { data: fallbackData } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(200);
+            const { data: fallbackData } = await query('notifications').select('*').order('created_at', { ascending: false }).limit(200);
             if (fallbackData) setNotifications(fallbackData as any);
         } else {
             if (data) setNotifications(data);
@@ -120,9 +119,7 @@ export default function NotificationsPage() {
     }, [filterType]);
 
     const loadRules = useCallback(async () => {
-        const supabase = createClient();
-        const { data } = await supabase
-            .from('notification_rules')
+        const { data } = await query('notification_rules')
             .select('*')
             .order('created_at', { ascending: false });
         if (data) setRules(data as any);
@@ -135,8 +132,7 @@ export default function NotificationsPage() {
 
     useEffect(() => {
         async function loadMembers() {
-            const { data } = await createClient()
-                .from('members')
+            const { data } = await query('members')
                 .select('id, name, user_id')
                 .order('name');
             if (data) setMembers(data);
@@ -148,7 +144,6 @@ export default function NotificationsPage() {
     async function sendNotification() {
         if (!sendForm.title || !sendForm.message) return;
         setSending(true);
-        const supabase = createClient();
 
         if (sendForm.target === 'all') {
             const inserts = members.map(m => ({
@@ -163,7 +158,7 @@ export default function NotificationsPage() {
                 sent_via: sendForm.channel,
             }));
             if (inserts.length > 0) {
-                const { error } = await supabase.from('notifications').insert(inserts);
+                const { error } = await query('notifications').insert(inserts);
                 if (error) {
                     toastError(`전송 실패: ${error.message}`);
                     setSending(false);
@@ -173,7 +168,7 @@ export default function NotificationsPage() {
         } else if (sendForm.targetMemberId) {
             const member = members.find(m => m.id === sendForm.targetMemberId);
             if (member) {
-                const { error } = await supabase.from('notifications').insert({
+                const { error } = await query('notifications').insert({
                     user_id: member.user_id,
                     member_id: member.id,
                     title: sendForm.title,
@@ -200,8 +195,7 @@ export default function NotificationsPage() {
     }
 
     async function toggleRule(rule: NotifRule) {
-        const supabase = createClient();
-        const { error } = await supabase.from('notification_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
+        const { error } = await query('notification_rules').update({ is_active: !rule.is_active }).eq('id', rule.id);
         if (error) {
             toastError(`변경 실패: ${error.message}`);
         } else {
@@ -232,7 +226,6 @@ export default function NotificationsPage() {
     async function saveRule() {
         if (!ruleForm.name || !ruleForm.title_template) return;
         setSavingRule(true);
-        const supabase = createClient();
         const payload = {
             name: ruleForm.name, description: ruleForm.description || null,
             trigger_type: ruleForm.trigger_type, trigger_config: {},
@@ -241,9 +234,9 @@ export default function NotificationsPage() {
             is_active: ruleForm.is_active,
         };
         if (editingRule) {
-            await (supabase as any).from('notification_rules').update(payload).eq('id', editingRule.id);
+            await query('notification_rules').update(payload).eq('id', editingRule.id);
         } else {
-            await (supabase as any).from('notification_rules').insert(payload);
+            await query('notification_rules').insert(payload);
         }
         setShowRuleModal(false);
         setSavingRule(false);
@@ -252,8 +245,7 @@ export default function NotificationsPage() {
 
     async function deleteRule(id: string) {
         if (!confirm('이 규칙을 삭제하시겠습니까?')) return;
-        const supabase = createClient();
-        await supabase.from('notification_rules').delete().eq('id', id);
+        await query('notification_rules').delete().eq('id', id);
         loadRules();
     }
 

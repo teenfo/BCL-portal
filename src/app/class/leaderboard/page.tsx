@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 type RecordType = 'For Time' | 'AMRAP' | 'Weight';
 
@@ -48,7 +49,6 @@ export default function LeaderboardPage() {
 
     async function loadLeaderboard() {
         setLoading(true);
-        const supabase: any = createClient();
 
         try {
             // race_records에서 최근 이벤트 기록 조회
@@ -58,8 +58,8 @@ export default function LeaderboardPage() {
                 'Weight': 'weight',
             };
 
-            const { data: eventData } = await supabase
-                .from('race_events')
+            const { data: eventData } = await query('race_events')
+                
                 .select('id')
                 .eq('event_type', typeMap[activeType])
                 .order('event_date', { ascending: false })
@@ -67,8 +67,8 @@ export default function LeaderboardPage() {
                 .single();
 
             if (eventData) {
-                const { data: records } = await supabase
-                    .from('race_records')
+                const { data: records } = await query('race_records')
+                    
                     .select('*, members!race_records_member_id_fkey(name)')
                     .eq('event_id', eventData.id)
                     .order('result_time', { ascending: activeType === 'For Time' })

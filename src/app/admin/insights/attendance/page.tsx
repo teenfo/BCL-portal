@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import { IconTrendingUp, IconClock, IconSmartphone } from '@/components/icons/AdminIcons';
 
@@ -40,7 +41,6 @@ export default function AttendancePage() {
     const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([]);
 
     const loadData = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
 
         const days = period === '7d' ? 7 : period === '30d' ? 30 : 90;
@@ -48,8 +48,8 @@ export default function AttendancePage() {
         startDate.setDate(startDate.getDate() - days);
         const startStr = startDate.toISOString();
 
-        const { data: checkins }: any = await supabase
-            .from('checkins')
+        const { data: checkins }: any = await query('checkins')
+            
             .select('checkin_time, checkin_method')
             .gte('checkin_time', startStr)
             .order('checkin_time', { ascending: true });

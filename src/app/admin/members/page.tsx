@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
@@ -51,10 +52,9 @@ export default function AdminMembersPage() {
     }, [view]);
 
     async function loadMembers() {
-        const supabase = createClient();
         setLoading(true);
-        const { data, error } = await supabase
-            .from('members')
+        const { data, error } = await query('members')
+
             .select('*')
             .order('created_at', { ascending: false });
 
@@ -63,11 +63,9 @@ export default function AdminMembersPage() {
     }
 
     async function loadPendingUsers() {
-        const supabase = createClient();
         setLoading(true);
 
-        const { data: profiles, error: profileError } = await (supabase as any)
-            .from('profiles')
+        const { data: profiles, error: profileError } = await query('profiles')
             .select('*')
             .eq('approval_status', 'pending')
             .order('updated_at', { ascending: false });
@@ -91,12 +89,11 @@ export default function AdminMembersPage() {
 
     async function handleApproval(id: string, approve: boolean) {
         setSaving(true);
-        const supabase = createClient();
 
         const newStatus = approve ? 'approved' : 'rejected';
 
-        const { error } = await supabase
-            .from('profiles')
+        const { error } = await query('profiles')
+
             .update({ approval_status: newStatus } as any)
             .eq('id', id);
 
@@ -104,7 +101,7 @@ export default function AdminMembersPage() {
             if (approve) {
                 const userProfile = pendingUsers.find(u => u.id === id);
                 if (userProfile) {
-                    await supabase.from('members').insert({
+                    await query('members').insert({
                         name: userProfile.full_name,
                         email: userProfile.email !== 'N/A' ? userProfile.email : '',
                         status: 'Active',
@@ -119,8 +116,7 @@ export default function AdminMembersPage() {
     async function addMember() {
         if (!addForm.name.trim() || !addForm.email.trim()) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase.from('members').insert({
+        const { error } = await query('members').insert({
             name: addForm.name,
             email: addForm.email,
             phone: addForm.phone || null,

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconHeadphones, IconEdit, IconTrash } from '@/components/icons/AdminIcons';
@@ -61,12 +62,12 @@ export default function SupportPage() {
         const supabase = createClient();
         setLoading(true);
         try {
-            let query = supabase.from('support_tickets').select('*, members!support_tickets_member_id_fkey(name, email)').order('created_at', { ascending: false });
-            if (filterStatus !== 'all') query = query.eq('status', filterStatus);
-            const { data, error } = await query;
+            let dbQ = query('support_tickets').select('*, members!support_tickets_member_id_fkey(name, email)').order('created_at', { ascending: false });
+            if (filterStatus !== 'all') dbQ = dbQ.eq('status', filterStatus);
+            const { data, error } = await dbQ;
             if (error) {
                 console.warn('Support tickets JOIN error, using fallback:', error.message);
-                let fallbackQuery = supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+                let fallbackQuery = query('support_tickets').select('*').order('created_at', { ascending: false });
                 if (filterStatus !== 'all') fallbackQuery = fallbackQuery.eq('status', filterStatus);
                 const { data: fallbackData } = await fallbackQuery;
                 if (fallbackData) setTickets(fallbackData.map((t: any) => ({ ...t, description: t.description || t.content || '' })) as any);
@@ -86,9 +87,9 @@ export default function SupportPage() {
         const supabase = createClient();
         setFaqLoading(true);
         try {
-            let query = (supabase as any).from('faqs').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
-            if (faqFilter !== 'all') query = query.eq('category', faqFilter);
-            const { data, error } = await query;
+            let dbQ = query('faqs').select('*').order('sort_order', { ascending: true }).order('created_at', { ascending: false });
+            if (faqFilter !== 'all') dbQ = dbQ.eq('category', faqFilter);
+            const { data, error } = await dbQ;
             if (!error && data) setFaqs(data as FAQItem[]);
         } catch (e) {
             console.error('Error loading FAQs:', e);
@@ -109,7 +110,7 @@ export default function SupportPage() {
     async function updateTicketStatus(id: string, status: string) {
         const supabase = createClient();
         const updates: any = { status };
-        const { error } = await supabase.from('support_tickets').update(updates).eq('id', id);
+        const { error } = await query('support_tickets').update(updates).eq('id', id);
         if (error) {
             toastError(`상태 변경 실패: ${error.message}`);
         } else {
@@ -130,7 +131,7 @@ export default function SupportPage() {
             ? `${existingReply}\n---\n[${timestamp}] ${replyText.trim()}`
             : `[${timestamp}] ${replyText.trim()}`;
 
-        const { error } = await supabase.from('support_tickets').update({
+        const { error } = await query('support_tickets').update({
             admin_reply: newReply,
             status: selectedTicket.status === 'open' ? 'in_progress' : selectedTicket.status,
         }).eq('id', selectedTicket.id);
@@ -175,11 +176,11 @@ export default function SupportPage() {
         };
 
         if (editingFaq) {
-            const { error } = await (supabase as any).from('faqs').update(payload).eq('id', editingFaq.id);
+            const { error } = await query('faqs').update(payload).eq('id', editingFaq.id);
             if (error) toastError(`수정 실패: ${error.message}`);
             else success('FAQ가 수정되었습니다.');
         } else {
-            const { error } = await (supabase as any).from('faqs').insert(payload);
+            const { error } = await query('faqs').insert(payload);
             if (error) toastError(`등록 실패: ${error.message}`);
             else success('새 FAQ가 등록되었습니다.');
         }
@@ -190,7 +191,7 @@ export default function SupportPage() {
     async function deleteFaq(id: string) {
         if (!confirm('이 FAQ를 삭제하시겠습니까?')) return;
         const supabase = createClient();
-        const { error } = await (supabase as any).from('faqs').delete().eq('id', id);
+        const { error } = await query('faqs').delete().eq('id', id);
         if (error) {
             toastError(`삭제 실패: ${error.message}`);
         } else {
@@ -201,7 +202,7 @@ export default function SupportPage() {
 
     async function toggleFaqPublished(faq: FAQItem) {
         const supabase = createClient();
-        const { error } = await (supabase as any).from('faqs').update({ is_published: !faq.is_published, updated_at: new Date().toISOString() }).eq('id', faq.id);
+        const { error } = await query('faqs').update({ is_published: !faq.is_published, updated_at: new Date().toISOString() }).eq('id', faq.id);
         if (error) {
             toastError(`상태 변경 실패: ${error.message}`);
         } else {

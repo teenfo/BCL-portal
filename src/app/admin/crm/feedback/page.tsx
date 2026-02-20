@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 
@@ -34,19 +35,18 @@ export default function FeedbackPage() {
     const [dateTo, setDateTo] = useState('');
 
     const loadFeedback = useCallback(async () => {
-        const supabase = createClient();
         setLoading(true);
         try {
             // Try with JOINs first
-            const { data, error } = await supabase
-                .from('session_feedback')
+            const { data, error } = await query('session_feedback')
+                
                 .select('*, members(name, email), sessions(title), coaches(name)')
                 .order('created_at', { ascending: false });
 
             if (error) {
                 console.warn('Feedback JOIN error, using fallback:', error.message);
-                const { data: fallbackData } = await supabase
-                    .from('session_feedback')
+                const { data: fallbackData } = await query('session_feedback')
+                    
                     .select('*')
                     .order('created_at', { ascending: false });
                 if (fallbackData) setFeedback(fallbackData as any);
@@ -64,9 +64,8 @@ export default function FeedbackPage() {
     async function submitReply(feedbackId: string) {
         if (!replyText.trim()) return;
         setSaving(true);
-        const supabase = createClient();
-        const { error } = await supabase
-            .from('session_feedback')
+        const { error } = await query('session_feedback')
+            
             .update({ admin_response: replyText, responded_at: new Date().toISOString() })
             .eq('id', feedbackId);
         setSaving(false);

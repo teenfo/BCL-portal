@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -33,11 +34,10 @@ export default function CoachProfilePage() {
 
     async function loadCoachProfile() {
         if (!user) return;
-        const supabase: any = createClient();
 
         try {
-            const { data: coachData } = await supabase
-                .from('coaches')
+            const { data: coachData } = await query('coaches')
+                
                 .select('*')
                 .eq('user_id', user.id)
                 .single();
@@ -46,8 +46,8 @@ export default function CoachProfilePage() {
                 setCoachInfo(coachData);
 
                 // 총 수업 수
-                const { data: allSessionCoaches } = await supabase
-                    .from('session_coaches')
+                const { data: allSessionCoaches } = await query('session_coaches')
+                    
                     .select('session_id')
                     .eq('coach_id', coachData.id);
 
@@ -61,8 +61,8 @@ export default function CoachProfilePage() {
                 let thisMonthSessions = 0;
                 if (allSessionCoaches && allSessionCoaches.length > 0) {
                     const sessionIds = allSessionCoaches.map((sc: any) => sc.session_id);
-                    const { count } = await supabase
-                        .from('sessions')
+                    const { count } = await query('sessions')
+                        
                         .select('id', { count: 'exact', head: true })
                         .in('id', sessionIds)
                         .gte('session_date', monthStart)

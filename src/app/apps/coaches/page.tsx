@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 interface Coach {
     id: string;
@@ -20,11 +21,9 @@ export default function CoachesPage() {
     useEffect(() => { loadCoaches(); }, []);
 
     async function loadCoaches() {
-        const supabase: any = createClient();
 
         // coaches 테이블에서 직접 조회 (active 상태인 코치만)
-        const { data, error }: any = await supabase
-            .from('coaches')
+        const { data, error }: any = await query('coaches')
             .select('*')
             .eq('status', 'active')
             .order('name', { ascending: true });

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { useToast } from '@/components/ui/Toast';
 import Link from 'next/link';
 import { AppSkeleton } from '@/components/apps';
@@ -23,8 +24,8 @@ export default function ProfileEditPage() {
             if (!user) { setLoading(false); return; }
             setEmail(user.email || '');
 
-            const { data } = await supabase
-                .from('members')
+            const { data } = await query('members')
+                
                 .select('name, phone, birthday, emergency_contact')
                 .eq('user_id', user.id)
                 .single();
@@ -45,8 +46,8 @@ export default function ProfileEditPage() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setSaving(false); return; }
 
-        const { error } = await supabase
-            .from('members')
+        const { error } = await query('members')
+            
             .update({
                 name: name.trim(),
                 phone: phone.trim(),

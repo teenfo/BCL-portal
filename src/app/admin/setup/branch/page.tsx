@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import Image from 'next/image';
@@ -46,9 +47,8 @@ export default function BranchSetupPage() {
     useEffect(() => { loadFacilities(); }, []);
 
     async function loadFacilities() {
-        const supabase = createClient();
         setLoading(true);
-        const { data } = await supabase.from('facilities').select('*').order('name');
+        const { data } = await query('facilities').select('*').order('name');
         if (data) {
             setFacilities(data as any);
         }
@@ -67,14 +67,13 @@ export default function BranchSetupPage() {
     }
 
     async function saveFacility() {
-        const supabase = createClient();
         const data = { name: form.name, address: form.address || null, phone: form.phone || null, map_image_url: form.map_image_url || null };
         if (editingFacility) {
-            const { error } = await supabase.from('facilities').update(data).eq('id', editingFacility.id);
+            const { error } = await query('facilities').update(data).eq('id', editingFacility.id);
             if (error) toastError(`지점 정보 수정 실패: ${error.message}`);
             else success('지점 정보가 수정되었습니다.');
         } else {
-            const { error } = await supabase.from('facilities').insert(data);
+            const { error } = await query('facilities').insert(data);
             if (error) toastError(`지점 등록 실패: ${error.message}`);
             else success('새 지점이 등록되었습니다.');
         }
@@ -84,8 +83,7 @@ export default function BranchSetupPage() {
 
     async function deleteFacility(id: string) {
         if (!confirm('이 지점을 삭제하시겠습니까? 관련 데이터가 모두 영향을 받을 수 있습니다.')) return;
-        const supabase = createClient();
-        const { error } = await supabase.from('facilities').delete().eq('id', id);
+        const { error } = await query('facilities').delete().eq('id', id);
         if (error) {
             toastError(`지점 삭제 실패: ${error.message}`);
         } else {
@@ -111,8 +109,7 @@ export default function BranchSetupPage() {
     // T1-4: Save operating hours
     async function saveOperatingHours() {
         if (!hoursTarget) return;
-        const supabase = createClient();
-        const { error } = await (supabase as any).from('facilities').update({ operating_hours: hoursForm }).eq('id', hoursTarget.id);
+        const { error } = await query('facilities').update({ operating_hours: hoursForm }).eq('id', hoursTarget.id);
         if (error) {
             toastError(`운영시간 저장 실패: ${error.message}`);
         } else {
@@ -144,8 +141,7 @@ export default function BranchSetupPage() {
 
     async function saveImages() {
         if (!imageTarget) return;
-        const supabase = createClient();
-        const { error } = await (supabase as any).from('facilities').update({
+        const { error } = await query('facilities').update({
             map_image_url: mapUrl || null,
             gallery_images: galleryUrls.length > 0 ? galleryUrls : null,
         }).eq('id', imageTarget.id);

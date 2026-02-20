@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import { Suspense } from 'react';
 
 interface MembershipInfo {
@@ -27,18 +28,17 @@ function SuccessContent() {
     // 멤버십 정보 로드
     const loadMemberInfo = useCallback(async () => {
         if (!memberId) return;
-        const supabase: any = createClient();
 
         // 멤버 테이블에서 user_id를 조회한 후 멤버십 확인
-        const { data: memberData } = await supabase
-            .from('members')
+        const { data: memberData } = await query('members')
+            
             .select('user_id')
             .eq('id', memberId)
             .single();
 
         if (memberData?.user_id) {
-            const { data: membershipData } = await supabase
-                .from('memberships')
+            const { data: membershipData } = await query('memberships')
+                
                 .select('remaining_credits, status')
                 .eq('user_id', memberData.user_id)
                 .eq('status', 'active')

@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 
 export default function KioskIdlePage() {
     const router = useRouter();
@@ -27,11 +28,10 @@ export default function KioskIdlePage() {
 
     // DB에서 키오스크 메시지, 공지 불러오기
     const loadData = useCallback(async () => {
-        const supabase = createClient();
 
         // 키오스크 메시지
-        const { data: kioskData } = await supabase
-            .from('kiosk_devices')
+        const { data: kioskData } = await query('kiosk_devices')
+            
             .select('display_message')
             .eq('status', 'active')
             .not('display_message', 'is', null)
@@ -42,8 +42,8 @@ export default function KioskIdlePage() {
         }
 
         // 공지사항
-        const { data: noticeData } = await supabase
-            .from('notices')
+        const { data: noticeData } = await query('notices')
+            
             .select('title')
             .eq('is_published', true)
             .order('created_at', { ascending: false })
@@ -68,9 +68,8 @@ export default function KioskIdlePage() {
     // Heartbeat (30초 간격)
     useEffect(() => {
         const heartbeat = async () => {
-            const supabase = createClient();
-            await supabase
-                .from('kiosk_devices')
+            await query('kiosk_devices')
+                
                 .update({ last_heartbeat: new Date().toISOString() })
                 .eq('status', 'active')
                 .limit(1);

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query, rpc } from '@/lib/supabase/query';
 import AdminPageHeader from '@/components/layout/AdminPageHeader';
 import AdminModal from '@/components/layout/AdminModal';
 import { IconFileText, IconCheck, IconAlertCircle } from '@/components/icons/AdminIcons';
@@ -54,24 +55,23 @@ export default function TransactionsPage() {
         setLoading(true);
 
         try {
-            let query = supabase
-                .from('transactions')
+            let dbQ = query('transactions')
                 .select('*, members!transactions_member_id_fkey(name, email)')
                 .gte('created_at', dateRange.start + 'T00:00:00')
                 .lte('created_at', dateRange.end + 'T23:59:59')
                 .order('created_at', { ascending: false });
 
             if (filterStatus !== 'all') {
-                query = (query as any).or(`payment_status.eq.${filterStatus},status.eq.${filterStatus}`);
+                dbQ = (dbQ as any).or(`payment_status.eq.${filterStatus},status.eq.${filterStatus}`);
             }
             if (filterCategory !== 'all') {
-                query = (query as any).eq('category', filterCategory);
+                dbQ = (dbQ as any).eq('category', filterCategory);
             }
             if (filterSource !== 'all') {
-                query = (query as any).eq('source', filterSource);
+                dbQ = (dbQ as any).eq('source', filterSource);
             }
 
-            const { data, error } = await query;
+            const { data, error } = await dbQ;
 
             if (data) {
                 const mapped = data.map((t: any) => ({
