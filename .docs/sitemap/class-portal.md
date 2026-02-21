@@ -29,6 +29,12 @@
 - **구현 파일**: `src/app/class/live/page.tsx`
 - **라이브 대시보드**: 현재 진행 중인 세션 감지, 체크인 회원 실시간 표시.
 
+### 5) 2.5D Race Live View (`/class/race/live`) 🚧 기획 중
+- **경로**: `/class/race/live`
+- **Stitch Screen ID**: `972e51977bcb42b198f7f9fb70b96ef2`
+- **Device Type**: Desktop (TV/대형 모니터)
+- **레이스 뷰**: LERP 기반 애니메이션, 아바타, 실시간 레이싱 시각화.
+
 ---
 
 ## 2. 🛠️ 기술 아키텍처 및 UI 원칙
