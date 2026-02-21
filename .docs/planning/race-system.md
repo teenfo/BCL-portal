@@ -1,6 +1,6 @@
 # BCL Portal – Race 시스템 기획서
 
-> **Status**: In Progress
+> **Status**: Approved
 > **Author**: Architect (Opus/Gemini)
 > **Created**: 2026-02-19
 > **Last Updated**: 2026-02-21 (Session 5)
@@ -744,7 +744,25 @@ type RaceEvent =
 - **Global Controls**: 전체 레이스 동시 시작/종료 소켓 메시지 (`Supabase Broadcast`) 발송
 - **Live Status**: 각 레인의 BLE 연결 상태 확인 및 실시간 거리/SPM 텍스트 모니터링
 
-### 6.3 2.5D Race Live View 상세 (핵심)
+### 6.3 2.5D Race Live View 애니메이션 및 동기화 설계 (핵심)
+
+레이싱 뷰의 생명은 **자연스러운 모션**과 **정확한 실시간 상태 동기화**입니다. 다음 규칙을 통해 끊김 현상과 어색함을 방지합니다.
+
+#### 1) State Interpolation (상태 보간 및 부드러운 이동)
+* **문제점**: Supabase Realtime Broadcast는 초당 약 2~5회(200~500ms 간격) 데이터를 송신하므로, 좌표를 그대로 반영하면 캐릭터가 뚝뚝 끊기며 이동함.
+* **해결책 (Linear Interpolation - LERP)**:
+  * 리액트 `requestAnimationFrame` 루프를 캔버스(또는 CSS Transform) 렌더링에 사용.
+  * 이전 수신 거리(`prev_distance`)와 목표 거리(`target_distance`) 사이를 렌더링 프레임마다 LERP로 계산하여 캐릭터의 `X/Y 좌표` 결정.
+  * 수신 지연 시 남은 거리를 추정하여 등속 이동 브레딕션(Prediction) 적용.
+
+#### 2) 로잉 캐릭터 애니메이션 (CSS Sprite 또는 Canvas)
+* SPM(Stroke Per Minute) 데이터에 비례하여 캐릭터의 로잉 애니메이션 재생 속도를 동적으로 조절 (`animation-duration = 60 / SPM` 초).
+* 캐릭터 상태 플래그: `IDLE` (정지), `RACING` (로잉 루프), `FINISHED` (환호/휴식 모션).
+
+#### 3) Edge Case 관리 전략 (데이터 랙 및 끊김)
+* **네트워크 지연/손실**: 특정 레인의 데이터가 1초 이상 갱신되지 않으면, 마지막 SPM을 기준으로 가상(Mock) 거리를 전진시키되, 캐릭터 위탁 반투명 처리나 `[Reconnecting...]` 배지 노출.
+* **BLE 일시 끊김**: Python 서버가 `disconnect` 이벤트를 Broadcast 하면, 해당 레인의 속도를 서서히 0으로 줄임(자연스럽게 정지).
+* **기기 완전 오프라인**: 레이스 중 이탈 시 해당 선수의 레인을 회색조(Grayscale) 처리.
 
 ```
 컴포넌트 구조:
@@ -754,29 +772,24 @@ type RaceEvent =
 │   │   ├── ProgressBar (전체 진행률)
 │   │   └── RaceTimer (경과 시간)
 │   │
-│   ├── RaceArena (Zone B: 2.5D 레이싱 뷰)
+│   ├── RaceArena (Zone B: 2.5D 레이싱 뷰 - Canvas/CSS Hybrid)
 │   │   ├── ArenaBackground (경기장 배경 + 조명)
-│   │   ├── WaterEffect (물/파도 효과)
-│   │   ├── LaneRenderer (원근감 레인 구분선)
-│   │   ├── RowerSprite (에르고미터 캐릭터 × N)
-│   │   │   ├── RowingAnimation (로잉 동작)
-│   │   │   ├── PositionIndicator (거리 기반 위치)
-│   │   │   └── LeaderGlow (선두 주자 발광)
-│   │   └── EffectsOverlay (LEVEL UP!, 순위 변동 등)
+│   │   ├── WaterEffect (물/파도 효과 - Canvas)
+│   │   ├── LaneRenderer (원근감 레인 구분선 - CSS Perspective)
+│   │   ├── RowerUnit (에르고미터 캐릭터 컴포넌트 × N)
+│   │   │   ├── useLerpPosition (거리 LERP 훅)
+│   │   │   ├── useSpmAnimation (SPM 비례 애니메이션 훅)
+│   │   │   ├── PositionIndicator (거리 기반 텍스트)
+│   │   │   └── LeaderGlow (1위 선두 주자 발광 효과)
+│   │   └── EffectsOverlay (LEVEL UP!, 하트레이트 경고 등)
 │   │
 │   └── CrowdBar (Zone C: 관중 실루엣)
 │       └── CrowdSilhouette (미세 응원 애니메이션)
 │
 ├── hooks/
 │   ├── useRaceRealtime (Supabase Realtime 구독)
-│   ├── usePM5Bluetooth (Web Bluetooth API)
-│   ├── useRaceSimulator (TypeScript 시뮬레이터)
-│   └── useRaceState (ERG 상태 관리)
-│
-└── lib/
-    ├── pm5-parsers.ts (BLE 데이터 파싱)
-    ├── pm5-spec.ts (UUID 상수)
-    └── race-simulator.ts (시뮬레이터 로직)
+│   ├── useRaceState (ERG 통합 상태 관리 + Prediction)
+...
 ```
 
 ---
@@ -902,20 +915,29 @@ type RaceEvent =
 | 4-4 | 연결 끊김 복구 | 레이스 중 PM5 연결 끊김 → 자동 재연결 |
 
 ### Phase 5: 2.5D Race Live View (🔴 핵심 난이도)
-> **담당**: ⚡ **Specialist (Gemini)** | **공수**: 3~5일 (반복 리팩토링 필요)
+> **담당**: ⚡ **Specialist (Gemini)** | **공수**: 4~6일 (단계를 3개의 Sub-Phase로 분리)
 
+**Phase 5-A: 기본 구조 및 데이터 바인딩 (수치적 렌더링)**
 | # | 작업 | 서브태스크 |
 |---|------|-----------|
-| 5-1 | 렌더링 엔진 선택/설정 | PixiJS 설치 또는 Canvas 2D 기반 구조 결정 |
-| 5-2 | Zone A: 스코어보드 HUD | ERG 스코어 카드, 프로그레스 바, 레이스 타이머 |
-| 5-3 | Zone B: 경기장 배경 | 조명, 레인 구분선, 원근감 |
-| 5-4 | Zone B: 캐릭터 스프라이트 | 에르고미터 + 캐릭터 로잉 애니메이션 |
-| 5-5 | Zone B: 위치 시스템 | 거리 데이터 → 2.5D 화면 좌표 변환 |
-| 5-6 | Zone B: 물 이펙트 | 파도, 반사광, 물결 |
-| 5-7 | Zone B: 이펙트 오버레이 | 선두 발광, LEVEL UP!, 순위 변동 화살표 |
-| 5-8 | Zone C: 관중 실루엣 | SVG 실루엣 + 응원 미세 애니메이션 |
-| 5-9 | 성능 최적화 | 60fps 유지, 메모리 관리, GPU 최적화 |
-| 5-10 | 반복 리팩토링 | 시각 품질 개선 (최소 2~3회 반복 예상) |
+| 5-1 | HUD 스코어보드 구현 | 상단 Zone A (ErgScoreCard, ProgressBar). 실시간 데이터 연결 확인 |
+| 5-2 | 2D 평면 기반 캐릭터 이동 | 캐릭터를 단순히 가로(X축)로 거리 비례 이동 테스트 |
+| 5-3 | LERP 보간 로직 적용 | 뚝뚝 끊기는 이동을 부드러운 애니메이션 프레임 기반으로 변환 |
+
+**Phase 5-B: 2.5D 그래픽 및 이펙트 적용 (시각화)**
+| # | 작업 | 서브태스크 |
+|---|------|-----------|
+| 5-4 | 2.5D 레인(Lane) 렌더링 | CSS Transform `perspective`, `rotateX`를 이용한 입체 경기장 구현 |
+| 5-5 | 캐릭터 스프라이트 애니메이션 | SPM 값과 CSS Animation `animation-duration` 연동하여 젓는 속도 조절 |
+| 5-6 | Canvas 기반 물 이펙트 | 캐릭터 주변 파도, 트레일, 반사광 등 기초 Canvas 렌더링 영역 결합 |
+
+**Phase 5-C: 고도화 및 예외 처리 (폴리싱)**
+| # | 작업 | 서브태스크 |
+|---|------|-----------|
+| 5-7 | 선두(1위) 동적 이펙트 | 1위 레인에 테두리 발광, 입자 효과 추가 |
+| 5-8 | 레이스 상태 및 팝업 이펙트 | 시작/끝 애니메이션 도입, 목표 도달 축하 이펙트 |
+| 5-9 | 네트워크 지연/끊김 예외 구현 | 데이터 수신 1초 초과 시 Mock 속도 적용, 그 이상 시 회색 처리 로직 |
+| 5-10 | GPU/메모리 컴포넌트 최적화 | React.memo, useCallback 적용, Canvas 프레임 드랍 최적화 |
 
 ### Phase 6: 참가 등록 + 결과 기록
 > **담당**: 💻 **Developer (Sonnet)** | **공수**: 0.5일
@@ -1035,12 +1057,17 @@ type RaceEvent =
   - UI Phase 진행 시 `Stitch MCP`로 2.5D 뷰 및 Coach Control 화면 생성.
 
 ### Session 5 — 2026-02-21
-- **변경 사항**: 기획안 고도화를 위해 Status를 `In Progress`로 롤백.
-- **Status**: **In Progress**
+- **변경 사항**: 기획안 고도화를 위해 Status를 `In Progress`로 롤백 및 내용 세분화 업데이트.
+- **가장 큰 변경점 (2.5D 레이싱 화면 고도화)**:
+  - 레이스 컴포넌트에서 프레임드랍/뚝뚝 끊기는 현상을 방지하기 위해 **LERP(선형 보간) 프레임 기반 위치 렌더링** 전략 추가.
+  - SPM(Stroke Per Minute) 데이터 비율에 연동하여 캐릭터 로잉 애니메이션 속도 제어 로직 기획 반영.
+  - 레이스 중 흔히 발생할 수 있는 데이터 누락/BLE 끊김 현상을 대비한 **에지 케이스(Edge Case) 대응 전략** 추가.
+  - 너무 큰 범위의 작업을 단계별로 나누기 위해 **Phase 5를 5-A(데이터), 5-B(2.5D 그래픽), 5-C(폴리싱)** 로 세분화.
+- **Status**: **Approved** (고도화 완료, 다시 블루프린트 등록 대기 상태)
 - **TODO (진행 중)**:
-  - 사용자 요구사항 청취 후 고도화할 섹션 확정
-  - [ ] (추가할 고도화 상세 항목)
+  - 2.5D 레이싱 UI/UX의 세부 에지 케이스, 보간 전략까지 기획 완료.
+  - 이제 승인(Approved) 상태이므로 `/plan-to-blueprint`를 통해 작업을 분배할 예정.
 
 ---
-**문서 버전**: 0.4.0 (In Progress — 기획 고도화)
+**문서 버전**: 0.4.0 (Approved — 2.5D 기획 딥 다이브 반영)
 **최종 업데이트**: 2026-02-21
