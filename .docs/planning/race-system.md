@@ -3,7 +3,7 @@
 > **Status**: In Progress
 > **Author**: Architect (Opus/Gemini)
 > **Created**: 2026-02-19
-> **Last Updated**: 2026-02-21 (Session 4)
+> **Last Updated**: 2026-02-21 (Session 5)
 > **Related**: 
 >   - `.docs/planning/remaining-improvements.md` (통합 기획서에서 분리됨)
 >   - `.docs/archive/technical/race/` (레거시 기술 문서 5건)
@@ -1034,6 +1034,13 @@ type RaceEvent =
   - `/plan-to-blueprint` 워크플로우를 실행하여 블루프린트에 관점별 작업 등록.
   - UI Phase 진행 시 `Stitch MCP`로 2.5D 뷰 및 Coach Control 화면 생성.
 
+### Session 5 — 2026-02-21
+- **변경 사항**: 기획안 고도화를 위해 Status를 `In Progress`로 롤백.
+- **Status**: **In Progress**
+- **TODO (진행 중)**:
+  - 사용자 요구사항 청취 후 고도화할 섹션 확정
+  - [ ] (추가할 고도화 상세 항목)
+
 ---
-**문서 버전**: 0.3.0 (In Progress — BLE 기기 등록 + 레코딩 추가)
+**문서 버전**: 0.4.0 (In Progress — 기획 고도화)
 **최종 업데이트**: 2026-02-21
