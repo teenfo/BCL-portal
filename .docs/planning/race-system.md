@@ -1,9 +1,9 @@
 # BCL Portal – Race 시스템 기획서
 
-> **Status**: Approved
+> **Status**: In Progress
 > **Author**: Architect (Opus/Gemini)
 > **Created**: 2026-02-19
-> **Last Updated**: 2026-02-21 (Session 5)
+> **Last Updated**: 2026-02-21 (Session 6)
 > **Related**: 
 >   - `.docs/planning/remaining-improvements.md` (통합 기획서에서 분리됨)
 >   - `.docs/archive/technical/race/` (레거시 기술 문서 5건)
@@ -1068,6 +1068,12 @@ type RaceEvent =
   - 2.5D 레이싱 UI/UX의 세부 에지 케이스, 보간 전략까지 기획 완료.
   - 이제 승인(Approved) 상태이므로 `/plan-to-blueprint`를 통해 작업을 분배할 예정.
 
+### Session 6 — 2026-02-21
+- **변경 사항**: 사용자의 요청에 의해 기획안 상태를 다시 `In Progress`로 변경.
+- **Status**: **In Progress**
+- **TODO (진행 중)**:
+  - 계속해서 고도화할 기획 내용(추가 요구사항 등) 대기 중.
+
 ---
-**문서 버전**: 0.4.0 (Approved — 2.5D 기획 딥 다이브 반영)
+**문서 버전**: 0.4.1 (In Progress — 기획 고도화 지속)
 **최종 업데이트**: 2026-02-21
