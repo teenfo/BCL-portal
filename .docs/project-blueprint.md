@@ -364,11 +364,11 @@
     - [x] 레코딩 시작/중지 컨트롤
     - [x] 실시간 모니터링 그리드 뷰 (/class/race/run)
     - [x] 레코딩 목록/상세 조회
-  - [ ] Phase 1: Realtime 인프라 (useRaceRealtime 훅 + 상태 관리) → 💻 **Developer (권장: Sonnet)**
-    - [ ] useRaceRealtime 커스텀 훅 (Supabase Broadcast Subscribe)
-    - [ ] race_live_state 스냅샷 기반 재접속 복원 로직
-    - [ ] 레이스 상태 머신 (setup→lobby→countdown→racing→finished)
-    - [ ] 팀전 거리 합산 로직 (team_id별 distance 클라이언트 합산)
+  - [x] Phase 1: Realtime 인프라 (useRaceRealtime 훅 + 상태 관리) → 💻 **Developer (권장: Sonnet)**
+    - [x] useRaceRealtime 커스텀 훅 (Supabase Broadcast Subscribe)
+    - [x] race_live_state 스냅샷 기반 재접속 복원 로직
+    - [x] 레이스 상태 머신 (setup→lobby→countdown→racing→finished)
+    - [x] 팀전 거리 합산 로직 (team_id별 distance 클라이언트 합산)
   - [ ] Phase 2~4: 시뮬레이터 + 그리드 뷰 + BLE 연동 → ⚡ **Specialist (권장: Gemini)**
     - [ ] JSONL Replay 기반 시뮬레이터 (9레인 다중 브로드캐스트)
     - [ ] ERG 실시간 그리드 뷰 화면 (/class/race/run)
