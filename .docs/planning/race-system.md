@@ -1,9 +1,9 @@
 # BCL Portal – Race 시스템 기획서
 
 > **Status**: In Progress
-> **Author**: Architect (Opus)
+> **Author**: Architect (Opus/Gemini)
 > **Created**: 2026-02-19
-> **Last Updated**: 2026-02-21
+> **Last Updated**: 2026-02-21 (Session 4)
 > **Related**: 
 >   - `.docs/planning/remaining-improvements.md` (통합 기획서에서 분리됨)
 >   - `.docs/archive/technical/race/` (레거시 기술 문서 5건)
@@ -245,6 +245,197 @@ StrokeData (19 bytes):
 
 ---
 
+## 4-A. Race Python 서버 아키텍처 (race/ 디렉토리)
+
+> ⚠️ **핵심 결정**: BLE 통신은 **Python (Bleak)** 이 담당한다.
+> Web Bluetooth API가 아닌, 레거시 시스템과 동일하게 Python 서버가 BLE 스캔/연결/데이터 수신을 처리한다.
+> 프론트엔드(Next.js)는 Python 서버의 HTTP API + WebSocket으로 데이터를 수신한다.
+
+### 4-A.1 현재 race/ 디렉토리 상태
+
+```
+race/
+├── main.py              # FastAPI 서버 (골격만 존재, Mock 데이터)
+├── requirements.txt     # fastapi, uvicorn, websockets, supabase
+└── Dockerfile           # Python 3.11-slim, port 8000
+```
+
+### 4-A.2 확장 후 디렉토리 구조 (To-Be)
+
+```
+race/
+├── main.py              # FastAPI 메인 앱 (라우터 통합)
+├── pm5_spec.py          # 🆕 PM5 BLE UUID 상수 (레거시 이식)
+├── pm5_parsers.py       # 🆕 BLE 패킷 파싱 (레거시 이식)
+├── pm5_manager.py       # 🆕 Bleak BLE 스캔/연결/구독
+├── recorder.py          # 🆕 JSONL 파일 기반 데이터 레코딩
+├── simulator.py         # 🆕 시뮬레이터 (레거시 이식)
+├── requirements.txt     # + bleak 추가
+├── Dockerfile           # port 8001로 변경
+└── data/
+    └── recordings/      # 🆕 JSONL 레코딩 파일 저장
+        ├── rec_20260221_093000_rower_PM5430123.jsonl
+        └── index.json   # 레코딩 목록 인덱스
+```
+
+### 4-A.3 Python ↔ Next.js 통신 아키텍처
+
+```
+┌───────────────────────────────────────────────────────┐
+│ Next.js 프론트엔드 (port 3000)                         │
+│  /coach/race, /admin/operations/race                  │
+│  → HTTP API 호출 + WebSocket 실시간 수신               │
+└──────────────────────┬────────────────────────────────┘
+                       │ HTTP + WebSocket
+                       ▼
+┌───────────────────────────────────────────────────────┐
+│ Python FastAPI 서버 (port 8001)                        │
+│  race/main.py                                         │
+│                                                        │
+│  ┌─ PM5Manager (Bleak) ─────────────────────────────┐ │
+│  │  • BLE 스캔 → MAC 주소 + 기기명 검출              │ │
+│  │  • BLE 연결 → GATT Characteristic 구독           │ │
+│  │  • Notification 수신 → pm5_parsers로 파싱         │ │
+│  └──────────────────────┬────────────────────────────┘ │
+│                         │ parsed data                   │
+│  ┌──────────────────────▼────────────────────────────┐ │
+│  │  Recorder (recorder.py)                           │ │
+│  │  • 모든 BLE Notification을 JSONL 파일에 기록       │ │
+│  │  • 레코딩 시작/종료 제어                           │ │
+│  │  • 종료 시 요약 → Supabase race_recordings INSERT  │ │
+│  └───────────────────────────────────────────────────┘ │
+│                                                        │
+│  API Endpoints:                                        │
+│    GET  /api/pm5/scan         → BLE 스캔               │
+│    GET  /api/pm5/devices      → 연결된 기기 목록       │
+│    POST /api/pm5/register     → pm5_devices에 등록     │
+│    POST /api/pm5/connect      → 특정 MAC BLE 연결      │
+│    POST /api/pm5/disconnect   → BLE 연결 해제          │
+│    POST /api/recording/start  → 레코딩 시작            │
+│    POST /api/recording/stop   → 레코딩 종료            │
+│    GET  /api/recording/status → 레코딩 상태            │
+│    GET  /api/recording/list   → 레코딩 목록            │
+│    WS   /ws/race              → 실시간 데이터 스트림   │
+└──────────────────────┬────────────────────────────────┘
+                       │ Bleak (BLE)
+                       ▼
+┌───────────────────────────────────────────────────────┐
+│ Concept2 PM5 에르고미터 (로잉머신 / 스키머신)           │
+│  BLE Service: CE060030-43E5-11E4-916C-0800200C9A66   │
+└───────────────────────────────────────────────────────┘
+```
+
+### 4-A.4 BLE 기기 스캔 → 등록 흐름
+
+```
+[코치/관리자가 "BLE 스캔" 버튼 클릭]
+       │
+       ▼ (Next.js → Python API)
+  GET /api/pm5/scan
+       │
+       ▼ (Python 서버)
+  Bleak.BleakScanner.discover(timeout=5)
+  → PM5 서비스 UUID 필터링
+  → 검출된 기기 목록 반환:
+    [
+      { "mac": "AA:BB:CC:DD:EE:FF", "name": "PM5 430123456", "rssi": -45 },
+      { "mac": "11:22:33:44:55:66", "name": "PM5 430789012", "rssi": -52 }
+    ]
+       │
+       ▼ (프론트엔드)
+  스캔 결과 UI에 표시 → 사용자가 기기 선택
+       │
+       ▼ (Next.js → Python API)
+  POST /api/pm5/register
+    { "mac": "AA:BB:CC:DD:EE:FF", "name": "PM5 430123456", "device_type": "rower" }
+       │
+       ▼ (Python 서버 → Supabase)
+  pm5_devices INSERT (
+    mac_address: "AA:BB:CC:DD:EE:FF",
+    ble_name: "PM5 430123456",
+    serial_number: "430123456",  -- 이름에서 추출
+    device_type: "rower"
+  )
+```
+
+### 4-A.5 데이터 레코딩 설계
+
+#### 레코딩 대상: 모든 BLE Notification (raw 전체)
+
+PM5는 여러 Characteristic에서 각각 다른 주기로 Notification을 보냄:
+
+| Characteristic | UUID 끝자리 | 데이터 | 크기 | 주기 |
+|---|---|---|---|---|
+| General Status | `0031` | elapsed_time, distance, power, spm, cal | 19B | ~매 스트로크 |
+| Stroke Data | `0036` | drive_length, drive_time, recovery_time, peak/avg_force, work, power, spm | 19B | ~매 스트로크 |
+| Additional Status | `0032` | heart_rate, elapsed_time | 14B | ~1초 |
+| Workout Summary | `0039` | total_distance, avg_power, avg_spm | 20B | 종료 시 |
+
+#### 저장 형식: JSONL (JSON Lines)
+
+**한 줄에 하나의 BLE Notification**을 기록:
+
+```jsonl
+{"ts":1708487400123,"ch":"0031","raw":"0a1b2c3d...","parsed":{"elapsed_ms":1200,"distance_m":2.3,"power_w":185,"spm":28,"calories":1}}
+{"ts":1708487400125,"ch":"0036","raw":"ff0e2a3b...","parsed":{"drive_length_cm":142,"drive_time_cs":88,"recovery_time_cs":112,"peak_force":320,"avg_force":280,"work_per_stroke":210,"stroke_power":185,"stroke_rate":28}}
+{"ts":1708487400340,"ch":"0032","raw":"a1b2c3d4...","parsed":{"heart_rate":72,"elapsed_time_2":1400}}
+```
+
+각 필드:
+- **`ts`**: Unix timestamp (ms) — 노티 도착 정확한 시각
+- **`ch`**: Characteristic UUID 끝 4자리
+- **`raw`**: hex 인코딩된 **원본 바이트** (파싱 로직 검증/디버깅용)
+- **`parsed`**: 파싱된 값 (재생 시 편의용)
+
+#### 데이터 볼륨 예상
+
+```
+1 스트로크 ≈ 0031 + 0036 + 0032 = 3 노티
+SPM 28 기준 → 초당 ~2.4 노티
+
+30분 레코딩: ~4,320줄 × ~200B = ~864KB
+1시간 레코딩: ~8,640줄 = ~1.7MB
+```
+
+→ 로컬 JSONL 파일로 충분. DB 부하 없음.
+
+#### 저장 위치
+
+- **프레임 데이터**: `race/data/recordings/*.jsonl` (로컬 파일)
+- **요약 메타**: Supabase `race_recordings` 테이블 (종료 시 1건만 INSERT)
+- **`race_recording_frames` 테이블 불필요** — 로컬 파일로 대체
+
+#### Recorder 핵심 로직 (Python)
+
+```python
+class Recorder:
+    def start(self, device_mac, device_type):
+        """레코딩 시작 — JSONL 파일 열기"""
+        ts = time.strftime("%Y%m%d_%H%M%S")
+        self.filename = f"rec_{ts}_{device_type}_{device_mac.replace(':','')}.jsonl"
+        self.file = open(f"data/recordings/{self.filename}", 'a')
+        self.recording = True
+
+    def on_notify(self, char_uuid: str, raw_bytes: bytes, parsed: dict):
+        """모든 BLE Notification을 기록"""
+        if not self.recording: return
+        line = json.dumps({
+            "ts": int(time.time() * 1000),
+            "ch": char_uuid[-4:],
+            "raw": raw_bytes.hex(),
+            "parsed": parsed
+        }, ensure_ascii=False)
+        self.file.write(line + "\n")
+        self.file.flush()
+        self.frame_count += 1
+
+    def stop(self) -> dict:
+        """레코딩 종료 → 요약 반환 (Supabase INSERT용)"""
+        self.file.close()
+        self.recording = False
+        return {"filename": self.filename, "frame_count": self.frame_count}
+```
+
 ## 4. 개선 설계 (To-Be)
 
 ### 4.1 아키텍처 마이그레이션 전략
@@ -398,9 +589,8 @@ PM5 BLE Parsing (Python)      →   TypeScript BLE Parser
 | **PixiJS (WebGL 2D)** | ⭐⭐⭐⭐ | 🟢🟢 최고 | ⭐⭐⭐⭐⭐ | 게임급 2D 렌더링, 스프라이트/파티클 |
 | **Three.js (WebGL 3D)** | ⭐⭐⭐⭐⭐ | 🟡 | ⭐⭐⭐⭐⭐ | 오버엔지니어링 가능성 |
 
-**권장 선택**: **PixiJS** 또는 **CSS Transform + Canvas 하이브리드**
-- PixiJS: 프로토타입 이미지의 물 이펙트, 캐릭터 스프라이트, 파티클(불꽃/LEVEL UP)에 최적
-- CSS 하이브리드: 초기 빌드 후 점진적으로 이펙트 추가 가능
+**최종 결정**: **CSS Transform + Canvas 하이브리드**
+- MVP 단계에서는 PixiJS의 무거운 번들(약 400KB)을 피하고, 브라우저 네이티브 CSS 3D Transform으로 원근감을, Canvas 2D로 물결/입자 이펙트를 구현하여 성능과 개발 속도의 균형을 맞춘다. 추후 고도화 필요 시 PixiJS로 전환할 수 있도록 컴포넌트를 분리한다.
 
 #### 시각 이펙트 상세
 
@@ -456,10 +646,42 @@ CREATE POLICY "race_live_state_write" ON race_live_state
     );
 ```
 
-### 5.2 기존 테이블 변경 없음
+### 5.2 신규 테이블: `race_recordings` (시뮬레이션/레코딩용)
+
+> Python 서버에서 추출한 BLE 데이터 파일(.jsonl)의 메타 정보를 저장.
+
+```sql
+CREATE TABLE IF NOT EXISTS race_recordings (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    facility_id uuid REFERENCES facilities(id),
+    device_mac varchar NOT NULL,        -- 기기 MAC 주소
+    device_serial varchar,              -- PM5 시리얼
+    recorded_at timestamptz DEFAULT now(),
+    duration_interval interval,         -- 총 레코딩 시간
+    total_distance numeric,             -- 총 주행 거리
+    file_path varchar NOT NULL,         -- JSONL 파일 경로 (ex: rec_20260221_093000.jsonl)
+    frame_count integer,                -- 저장된 BLE 노티프레임 수
+    created_by uuid REFERENCES auth.users(id),
+    status varchar DEFAULT 'completed', -- recording, completed, error
+    created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE race_recordings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "race_recordings_read" ON race_recordings
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "race_recordings_write" ON race_recordings
+    FOR ALL USING (
+        auth.uid() IN (SELECT user_id FROM admins WHERE role IN ('super_admin', 'admin')) OR
+        auth.uid() IN (SELECT user_id FROM coaches)
+    );
+```
+
+### 5.3 기존 테이블 변경
+- `pm5_devices`: BLE 스캔 시 식별을 위해 `mac_address` (VARCHAR) 및 `ble_name` (VARCHAR) 컬럼 추가.
 - `race_events`: 현재 스키마 그대로 활용
 - `race_records`: 레이스 완료 시 결과 저장
-- `pm5_devices`: BLE MAC 주소 매핑 정보 추가 고려
 
 ### 5.3 Supabase Realtime Channel 설계
 
@@ -492,7 +714,37 @@ type RaceEvent =
 | 🆕 Race Join | `/apps/race/join` | ⭐⭐ | 참가 등록 |
 | 🆕 Race Result | `/class/race/result` | ⭐⭐ | 최종 결과 리더보드 |
 
-### 6.2 2.5D Race Live View 상세 (핵심)
+### 6.2 Coach Race Control (운영 주체 화면) UI 상세 레이아웃
+
+코치가 태블릿/노트북에서 레이스를 제어하는 핵심 운영 화면.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 탭 메뉴: [ 레이스 설정 ]  [ 실시간 제어 ]  [ BLE & 레코딩 ]       │
+├─────────────────────────────────────────────────────────────┤
+│ (실시간 제어 탭 선택 시)                                       │
+│ ┌──────────────────────┐ ┌────────────────────────────────┐ │
+│ │ Event: 주말 정기 레이스  │ │ GLOBAL CONTROLS                │ │
+│ │ Target: 2000m        │ │ [ START ]  [ STOP ]  [ RESET ] │ │
+│ └──────────────────────┘ └────────────────────────────────┘ │
+│                                                             │
+│ ┌─────────────────────────────────────────────────────────┐ │
+│ │ ERG ASSIGNMENTS & LIVE STATUS                           │ │
+│ │                                                         │ │
+│ │  ERG 1 [BLE 연결완료] | User: 김철수   | 240m | 24spm | 1:45 │ │
+│ │  ERG 2 [BLE 연결완료] | User: 이영희   | 245m | 26spm | 1:42 │ │
+│ │  ERG 3 [오프라인]     | User: 박지훈   | ---  | ---   | ---  │ │
+│ │                                                         │ │
+│ │ [+ 추가 레인 배정]                                          │ │
+│ └─────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+- **상단 탭**: 레이스 설정(종목/목표 설정), 설정이 끝나면 실시간 제어로 이동, 디버그 및 백그라운드 작업을 위한 BLE & 레코딩 탭 분리
+- **Global Controls**: 전체 레이스 동시 시작/종료 소켓 메시지 (`Supabase Broadcast`) 발송
+- **Live Status**: 각 레인의 BLE 연결 상태 확인 및 실시간 거리/SPM 텍스트 모니터링
+
+### 6.3 2.5D Race Live View 상세 (핵심)
 
 ```
 컴포넌트 구조:
@@ -553,7 +805,58 @@ type RaceEvent =
 
 ## 8. 구현 단계 및 에이전트 배분
 
-> ⚠️ 이 기획은 Draft 초안입니다. 각 Phase의 상세 작업은 `/plan` 이어쓰기를 통해 정밀화합니다.
+> ⚠️ 이 기획은 In Progress 상태입니다. Session 3에서 BLE 기기 등록 + 레코딩 Phase 추가.
+> Phase A~D는 **기기 등록 + 데이터 레코딩** 선행 작업 (이번 기획 추가분)
+> Phase 1~7은 **레이스 시스템 본 기능** (기존 기획, 추후 정밀화)
+
+### 🆕 Phase A: DB 확장 (pm5_devices + race_recordings)
+> **담당**: 💎 **Senior Dev (Opus)** | **공수**: 0.5일
+
+| # | 작업 | 상세 |
+|---|------|------|
+| A-1 | `pm5_devices` 테이블 확장 | `mac_address VARCHAR(17)`, `ble_name VARCHAR(100)` 컬럼 추가 |
+| A-2 | `race_recordings` 테이블 생성 | 레코딩 세션 요약 메타 (기기, 종목, 총거리/시간, 파일명 등) |
+| A-3 | RLS 정책 | Coach/Admin 쓰기, 인증 사용자 읽기 |
+| A-4 | 인덱스 | device_id, created_by, recorded_at |
+
+### 🆕 Phase B: Python 서버 확장 (race/ — BLE + 레코딩)
+> **담당**: ⚡ **Specialist (Gemini)** | **공수**: 1.5일
+
+| # | 작업 | 상세 |
+|---|------|------|
+| B-1 | `race/pm5_spec.py` | 레거시 `app/pm5_spec.py` 이식 — PM5 BLE UUID 상수 |
+| B-2 | `race/pm5_parsers.py` | 레거시 `app/pm5_parsers.py` 이식 — BLE 패킷 파싱 |
+| B-3 | `race/pm5_manager.py` | 레거시 `app/pm5.py` 이식 — Bleak BLE 스캔/연결/구독 |
+| B-4 | `race/recorder.py` | 🆕 JSONL 파일 기반 레코딩 — 모든 BLE Notification raw 기록 |
+| B-5 | `race/main.py` 확장 | BLE 스캔/등록/연결 API + 레코딩 API 추가 |
+| B-6 | `race/requirements.txt` | `bleak` 추가 |
+| B-7 | `race/Dockerfile` | port 8001로 변경 |
+
+### 🆕 Phase C: 프론트엔드 — 기기 등록 + 레코딩 UI
+> **담당**: 🎨 **UI Developer (Gemini)** | **공수**: 1일
+
+| # | 작업 | 상세 |
+|---|------|------|
+| C-1 | Admin 기기 등록 모달 개선 | "BLE 스캔" 버튼 → Python `/api/pm5/scan` 호출 → 결과에서 선택 → 자동 등록 |
+| C-2 | Coach Race 기기 관리 섹션 | 기기 스캔/등록/연결 UI |
+| C-3 | 연결 상태 실시간 표시 | Python 서버 WebSocket → 기기 연결/미연결 반영 |
+| C-4 | 레코딩 시작/중지 컨트롤 | 연결 기기 선택 → 레코딩 → 모니터링 → 종료 |
+| C-5 | 실시간 모니터링 뷰 | 거리, 파워, SPM, HR 실시간 표시 (WebSocket) |
+| C-6 | 레코딩 목록/상세 | 저장된 레코딩 조회 + 요약 통계 |
+| C-7 | 브라우저 호환성 안내 | Python 서버 연결 불가 시 안내 메시지 |
+
+### 🆕 Phase D: 문서 동기화 (기기 등록 + 레코딩)
+> **담당**: 🏛️ **Architect** | **공수**: 0.5일
+
+| # | 작업 | 상세 |
+|---|------|------|
+| D-1 | sitemap 갱신 | 기기 등록 BLE 스캔, 레코딩 기능 추가 |
+| D-2 | database-reference.md 갱신 | pm5_devices 확장 + race_recordings 추가 |
+| D-3 | project-blueprint.md 갱신 | Phase A~D 완료 처리 |
+
+---
+
+> **이하 Phase 1~7은 레이스 본 기능 (기존 기획, 기기등록/레코딩 완료 후 진행)**
 
 ### Phase 1: 기반 인프라 (Realtime + 데이터 레이어)
 > **담당**: 💻 **Developer (Sonnet)** | **공수**: 1일
@@ -566,16 +869,16 @@ type RaceEvent =
 | 1-4 | **Coach Race Control 페이지** | `/coach/race/control` — 레이스 시작/중지/리셋/배정 + Realtime 발행 |
 | 1-5 | Admin Race 링크 연동 | `/admin/operations/race`에서 Coach Control 화면 임베드/링크 |
 
-### Phase 2: 시뮬레이터 이식 (Python → TypeScript)
+### Phase 2: 시뮬레이터 — 레코딩 데이터 기반 재생
 > **담당**: ⚡ **Specialist (Gemini)** | **공수**: 1일
+> ⚠️ Phase A~D에서 레코딩한 JSONL 데이터를 재생하는 시뮬레이터
 
 | # | 작업 | 상세 |
 |---|------|------|
-| 2-1 | `pm5-spec.ts` | PM5 BLE UUID 상수 이식 |
-| 2-2 | `pm5-parsers.ts` | 19바이트 StrokeData 파싱 (DataView) |
-| 2-3 | `race-simulator.ts` | Python Simulator → TS (requestAnimationFrame 기반, 0.2초 업데이트) |
-| 2-4 | `useRaceSimulator` 훅 | 시뮬레이터 시작/중지, Realtime Broadcast 발행 |
-| 2-5 | Simulator Setup UI | Admin Race 탭에서 시뮬레이터 제어 |
+| 2-1 | `race/replay.py` | JSONL 파일 읽기 → 타임스탬프 기반 재생 → WebSocket 스트리밍 |
+| 2-2 | `/api/sim/replay` API | 레코딩 파일 선택 → 재생 시작/속도/중지 제어 |
+| 2-3 | `race/simulator.py` | 레거시 시뮬레이터 이식 (랜덤 데이터, 레코딩 없을 때 사용) |
+| 2-4 | Realtime Broadcast 발행 | 재생 데이터를 Supabase Realtime으로 전송 |
 
 ### Phase 3: Race Run View (ERG 그리드)
 > **담당**: ⚡ **Specialist (Gemini)** | **공수**: 1일
@@ -587,15 +890,16 @@ type RaceEvent =
 | 3-3 | 상태 뱃지 애니메이션 | IDLE→RACING→FINISHED 전환 효과 |
 | 3-4 | 결과 리더보드 | `/class/race/result` 페이지 |
 
-### Phase 4: PM5 BLE 연동
+### Phase 4: PM5 BLE 실시간 레이스 연동
 > **담당**: ⚡ **Specialist (Gemini)** | **공수**: 1.5일
+> ⚠️ Python 서버(Bleak) 기반. Phase B에서 구축한 BLE 인프라 활용.
 
 | # | 작업 | 상세 |
 |---|------|------|
-| 4-1 | `usePM5Bluetooth` 훅 | Web Bluetooth requestDevice, GATT connect, characteristic subscribe |
-| 4-2 | PM5 기기 스캔 UI | Admin Race에서 BLE 기기 검색/연결/해제 |
-| 4-3 | 실시간 데이터 파이프라인 | BLE notify → parse → Realtime broadcast |
-| 4-4 | PM5 ↔ ERG 매핑 | MAC 주소 → ERG ID 매핑 UI 및 저장 |
+| 4-1 | PM5 실시간 → Realtime Broadcast | BLE notify → parse → Supabase Broadcast 자동 연결 |
+| 4-2 | 기기 ↔ ERG 매핑 | MAC → ERG ID 매핑 API + 프론트엔드 UI |
+| 4-3 | 레이스 중 데이터 파이프라인 | BLE → parse → broadcast + DB live_state 동시 기록 |
+| 4-4 | 연결 끊김 복구 | 레이스 중 PM5 연결 끊김 → 자동 재연결 |
 
 ### Phase 5: 2.5D Race Live View (🔴 핵심 난이도)
 > **담당**: ⚡ **Specialist (Gemini)** | **공수**: 3~5일 (반복 리팩토링 필요)
@@ -630,10 +934,17 @@ type RaceEvent =
 ## 9. 블루프린트 등록용 체크리스트
 
 ```markdown
+--- 기기 등록 + 데이터 레코딩 (선행) ---
+- [ ] Phase A: DB 확장 (pm5_devices + race_recordings) → 💎 Senior Dev
+- [ ] Phase B: Python 서버 확장 (BLE + 레코딩) → ⚡ Specialist
+- [ ] Phase C: 프론트엔드 기기등록 + 레코딩 UI → 🎨 UI Developer
+- [ ] Phase D: 문서 동기화 (기기등록/레코딩) → 🏛️ Architect
+
+--- 레이스 본 기능 ---
 - [ ] Phase 1: 기반 인프라 → 💻 Developer
-- [ ] Phase 2: 시뮬레이터 이식 → ⚡ Specialist
+- [ ] Phase 2: 시뮬레이터 (레코딩 재생) → ⚡ Specialist
 - [ ] Phase 3: Race Run View → ⚡ Specialist
-- [ ] Phase 4: PM5 BLE 연동 → ⚡ Specialist
+- [ ] Phase 4: PM5 BLE 실시간 레이스 → ⚡ Specialist
 - [ ] Phase 5: 2.5D Race Live View → ⚡ Specialist (🔴 핵심)
 - [ ] Phase 6: 참가 등록 + 결과 기록 → 💻 Developer
 - [ ] Phase 7: 문서 동기화 → 🏛️ Architect
@@ -643,15 +954,21 @@ type RaceEvent =
 
 ## 10. 테스트 시나리오
 
-### 정상 흐름
-1. **시뮬레이터 레이스 E2E**: Admin에서 시뮬레이터 시작 → 9개 ERG 생성 → 레이스 시작 → `/class/race/live`에서 2.5D 뷰 실시간 갱신 → 목표 도달 시 결과 생성
-2. **PM5 BLE E2E**: Admin에서 BLE 스캔 → PM5 연결 → ERG 매핑 → 레이스 시작 → 실제 기기 데이터 실시간 표시
-3. **다중 클라이언트 동기화**: 브라우저 탭 3개 (Admin, Race Run, Race Live) 열고 → 데이터 동시 갱신 확인 (300ms 이내)
+### 정상 흐름 — 기기 등록 + 레코딩
+1. **BLE 스캔 → 기기 등록**: Coach/Admin에서 "BLE 스캔" 클릭 → Python 서버가 Bleak 스캔 → 결과 목록 표시 → 선택 → pm5_devices 등록
+2. **데이터 레코딩**: 등록된 기기 선택 → 레코딩 시작 → 실시간 모니터링 (거리/파워/SPM) → 30분 운동 → 레코딩 종료 → JSONL 파일 저장 + Supabase 요약 저장
+3. **레코딩 재생**: 저장된 JSONL 선택 → 시뮬레이터 재생 → WebSocket으로 프론트엔드에 실시간 스트리밍
+
+### 정상 흐름 — 레이스 본 기능
+4. **시뮬레이터 레이스 E2E**: 레코딩 데이터 기반 시뮬레이터 → 9개 ERG 재생 → 레이스 시작 → 2.5D 뷰 실시간 갱신
+5. **PM5 실시간 레이스 E2E**: BLE 연결 → ERG 매핑 → 레이스 시작 → 실제 기기 데이터 실시간 표시
+6. **다중 클라이언트 동기화**: 브라우저 탭 3개 (Coach, Race Run, Race Live) 열고 → 데이터 동시 갱신 (300ms 이내)
 
 ### 예외 흐름
-1. **BLE 연결 해제**: 레이스 중 PM5 기기 연결 끊김 → ERG 상태 "DISCONNECTED" → 재연결 시 자동 복구
-2. **브라우저 비호환**: Web Bluetooth 미지원 (Firefox) → 안내 메시지 표시, 시뮬레이터 모드 권장
-3. **Realtime 연결 끊김**: Supabase Realtime 끊김 → 자동 재연결 → 최신 스냅샷 동기화
+1. **BLE 연결 해제**: 레이스/레코딩 중 PM5 연결 끊김 → 상태 "DISCONNECTED" → 레코딩은 자동 일시정지 → 재연결 시 자동 속개
+2. **Python 서버 미기동**: 프론트엔드에서 Python 서버 연결 불가 → 안내 메시지 + 시뮬레이터 모드 권장
+3. **레코딩 중 서버 종료**: JSONL 파일은 flush()로 실시간 기록되므로 마지막 프레임까지 보존
+4. **Realtime 연결 끊김**: Supabase Realtime 끊김 → 자동 재연결 → 최신 스냅샷 동기화
 
 ---
 
@@ -659,10 +976,11 @@ type RaceEvent =
 
 | 리스크 | 영향 | 완화 방안 |
 |--------|------|----------|
-| 2.5D 렌더링 난이도 | 개발 기간 초과 | 단계적 접근: CSS → Canvas → PixiJS. Phase 3(Run View)을 먼저 완성하여 기본 기능 보장 |
-| Web Bluetooth 호환성 | Chrome/Edge만 지원 | 시뮬레이터 모드를 기본 제공, BLE는 선택적 확장 |
+| Python 서버 BLE 환경 | macOS/Linux Bleak 호환성 | macOS는 CoreBluetooth 백엔드 자동 사용, Docker에서는 호스트 BLE 패스스루 필요 |
+| PM5 기기 미보유 | 실 BLE 테스트 불가 | 레거시 시뮬레이터 모드로 합성 데이터 생성, 레코딩과 동일한 JSONL 포맷 |
+| 레코딩 데이터 용량 | 장기 누적 시 디스크 사용 | 1시간 ≈ 1.7MB, 월 100회 ≈ 170MB — 문제없음. 필요시 오래된 파일 아카이브 |
+| 2.5D 렌더링 난이도 | 개발 기간 초과 | 단계적 접근: CSS → Canvas → PixiJS. Phase 3(Run View)을 먼저 완성 |
 | Supabase Realtime 성능 | 9 ERG × 5Hz = 45 msg/sec | Broadcast 사용 (DB 부하 없음), 필요시 message throttling |
-| PM5 기기 미보유 | 실 테스트 불가 | RecordedData로 BLE 응답 모킹, 시뮬레이터 완성도 우선 |
 | PixiJS 번들 크기 | 초기 로딩 지연 | dynamic import, Race 페이지만 로딩 |
 | 리팩토링 반복 (Phase 5) | 일정 예측 어려움 | MVP → 이터레이션 방식, 최소 3회 리팩토링 일정 포함 |
 
@@ -692,13 +1010,30 @@ type RaceEvent =
   - 아키텍처 상태 흐름: Coach 중심으로 재설계
   - Coach + Admin이 Supabase Realtime으로 동시 시청 가능
 - **Status**: **In Progress**
-- **TODO (다음 세션)**:
-  - [ ] 2.5D 렌더링 엔진 최종 결정 (PixiJS vs Canvas vs CSS 하이브리드)
-  - [ ] 캐릭터 스프라이트 에셋 준비 방안 결정
-  - [ ] Phase 5 서브태스크 상세화 (각 이펙트별 구현 방법)
-  - [ ] Coach Race Control UI 상세 레이아웃 설계
-  - [ ] Stitch MCP로 Race UI 디자인 생성 (기획 승인 후)
+
+### Session 3 — 2026-02-21
+- **변경 사항**: BLE 기기 등록 + 시뮬레이션 데이터 레코딩 기능 추가
+- **변경 근거**: race 시스템 구축에 필요한 시뮬레이션 소스 데이터를 실제 머신(로잉/스키)에서 레코딩
+- **핵심 결정 사항**:
+  - ❌ Web Bluetooth API → ✅ **Python Bleak** (레거시 아키텍처 유지)
+  - BLE 통신은 `race/` Python 서버가 전담, 프론트엔드는 HTTP/WS로 접근
+  - 레코딩 데이터는 **로컬 JSONL 파일**에 저장 (모든 BLE Notification raw 기록)
+  - DB에는 **요약 메타만** 저장 (`race_recordings` — `race_recording_frames` 불필요)
+  - 기기 등록: Python 서버가 Bleak 스캔 → MAC 주소 검출 → Supabase `pm5_devices` INSERT
+- **추가된 섹션**: 4-A (Race Python 서버 아키텍처)
+- **수정된 섹션**: 5 (DB 변경), 8 (Phase A~D 추가), 9 (체크리스트), 10 (테스트), 11 (리스크)
+- **Status**: **In Progress** (미확정 — 사용자 리뷰 필요)
+### Session 4 — 2026-02-21
+- **변경 사항**: Session 3의 TODO 항목 작성 완료
+- **핵심 작성 내용**:
+  - `race_recordings` DB 스키마 상세화 (SQL 추가).
+  - 2.5D 렌더링 엔진 최종 결정을 "CSS Transform + Canvas 하이브리드"로 확정.
+  - Coach Race Control UI 상세 레이아웃 스케치 추가.
+- **Status**: **Approved** (최종 기획 확정)
+- **다음 액션**:
+  - `/plan-to-blueprint` 워크플로우를 실행하여 블루프린트에 관점별 작업 등록.
+  - UI Phase 진행 시 `Stitch MCP`로 2.5D 뷰 및 Coach Control 화면 생성.
 
 ---
-**문서 버전**: 0.2.0 (In Progress — Coach 중심 재설계)
+**문서 버전**: 0.3.0 (In Progress — BLE 기기 등록 + 레코딩 추가)
 **최종 업데이트**: 2026-02-21
