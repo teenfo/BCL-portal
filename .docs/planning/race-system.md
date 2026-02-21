@@ -41,11 +41,13 @@
 * **레이스 운영 주체**: Coach (`/coach/race/control` 접속으로 제어 수행). Admin은 읽기 전용으로 임베드 모니터링 가능.
 
 ### 2.2 2.5D Race Live View 애니메이션 및 동기화 (핵심)
+* **대기방 게이미피케이션 (Zwift 벤치마크)**: 레이스 시작 전, 배정 완료된 참가자들의 아바타가 스타트 라인(Starting Pen)에 도열하여 대기하는 모습을 2.5D 뷰로 실감나게 연출. 그룹 레이스의 텐션과 몰입감을 극대화합니다.
 * **상태 보간 (State Interpolation - LERP)**: Realtime 수신 주기(2~5Hz)로 인한 끊김 방지. `requestAnimationFrame` 내에서 이전 수신 거리와 목표 거리 간 LERP 처리 및 등속 예측(Prediction) 적용.
 * **로잉 애니메이션 제어**: 실시간 SPM 에 반비례하여 CSS `animation-duration` 조절.
-* **Edge Case 대응**: 
-  - 1초 이상 수신 지연 시 Mock 전진 + `[Reconnecting]` 배지.
-  - 완전 단절 시 레인 Grayscale 처리 및 정지 애니메이션(IDLE).
+* **Edge Case 및 공정성 방어**: 
+  - **부정 출발(False Start) 감지 (ErgZone 벤치마크)**: 코치의 GO 신호나 카운트다운 완료(5초 윈도우) 전에 장비를 당겼을 경우, 시스템이 이를 감지하여 해당 레인에 경고 배지를 띄우거나 기록을 리셋합니다.
+  - 네트워크 지연(1초 이상): 앞 방향 Mock 전진 + `[Reconnecting]` 배지로 튀는 현상 완충.
+  - 기기 완전 단절: 레인 Grayscale(흑백) 처리 및 강제 정지 애니메이션(IDLE).
 * **렌더링 기술 선택**: **CSS 3D Transform (원근감) + Canvas 2D (물 이펙트) 하이브리드**. MVP 특성상 PixiJS의 무거운 번들을 피함.
 
 ---
@@ -113,7 +115,7 @@
 | **관전** | `🆕 /class/race/live` | 2.5D 레이싱 뷰, 대형 스크린(TV) 렌더링 목적 |
 | **관전** | `🆕 /class/race/run` | 데이터 중심의 ERG 실시간 상황 그리드 |
 | **운영** | `🔄 /admin/operations/race` | Coach 레이스 제어 화면 임베드, 이벤트 CRUD |
-| **결과** | `🆕 /class/race/result` | 종료 후 최종 리더보드 및 PR 표기 |
+| **결과** | `🆕 /class/race/result` | 종료 후 리더보드 출력. **다각도 컴피티션 (ErgZone 벤치마크)**: 단순 통과 순위뿐 아니라 개인별 Max Watts, 최고 심박수, 칼로리 등을 표기하여 경쟁의 재미를 다각화. |
 
 ---
 
