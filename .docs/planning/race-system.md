@@ -50,9 +50,32 @@
 
 ---
 
+## 3. 장비 등록 및 스캔 프로세스 (Admin ↔ Python)
+
+관리자가 **어드민 화면(`Next.js`)**에서 장비를 최초 등록할 때의 프로세스는 다음과 같이 진행됩니다. 다수의 장비 및 다중 동글 환경을 고려한 흐름입니다.
+
+1. **스캔 요청 (Admin UI → Python)**:
+   - 관리자기 어드민 화면에서 `[장비 스캔]` 버튼 클릭.
+   - Next.js 기반 Admin이 **Python 서버의 스캔 API(`GET /api/pm5/scan`)**를 호출.
+
+2. **하드웨어 스캔 및 동글 매핑 (Python 서버)**:
+   - 파이썬 서버가 즉시 `Bleak`를 이용해 가용 가능한 모든 블루투스 동글/어댑터를 순회하며 스캔 시작(기본 3~5초).
+   - 주변의 모든 장비 목록 수집 (PM5 서비스 UUID 필터링).
+   - 반환 데이터 예시: `[{ mac: "AA:11", name: "PM5 123", rssi: -45, adapter: "hci0" }, ...]` (각 기기가 어떤 동글/어댑터에서 가장 신호가 좋은지도 판별).
+
+3. **결과 반환 및 등록 (Python → Admin UI → Supabase)**:
+   - 파이썬 서버가 수집한 후보 기기 목록을 Admin 화면에 띄워줌.
+   - 관리자가 등록할 기기를 선택하고(다중 선택 가능), 각 머신의 식별 이름(예: "Lane 1 Rower", "Lane 2 Ski")을 부여하여 등록(Save).
+   - 어드민 서버(Next.js)가 이 정보를 **Supabase의 `pm5_devices` 테이블**에 `mac_address`, `ble_name`, `device_type`으로 영구 저장.
+
+4. **운영 통보**: 
+   - 이후 레이스가 시작될 때, 파이썬 서버는 오직 `pm5_devices` 테이블에 등록된/활성화된 MAC 주소들에 대해서만 백그라운드 연결을 시도하고 데이터를 수집합니다.
+
+---
+
 ## 4. 데이터베이스 및 채널 변경사항
 
-### 3.1 신규 테이블
+### 4.1 신규 테이블
 1. **`race_live_state`**: 레이스 중 실시간 상태 저장 (event_id, erg_id, distance_m, power_w 등).
 2. **`race_recordings`**: Python 서버가 기록한 JSONL 파일의 메타데이터(total_distance, duration, MAC 주소 등) 요약 정보 보관.
 
