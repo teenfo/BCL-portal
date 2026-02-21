@@ -658,3 +658,136 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.close()
         except Exception:
             pass
+
+
+# ─────────────────────────────────────────────
+# Simulator API (Development/Demo Mode)
+# ─────────────────────────────────────────────
+
+from simulator import RaceSimulator, ReplaySimulator
+
+# Simulator singleton
+_simulator: Optional[RaceSimulator] = None
+_replay_sim: Optional[ReplaySimulator] = None
+
+
+def on_sim_data(serial: str, snapshot: dict):
+    """Route simulated data into the broadcast buffer (same as real BLE)."""
+    _broadcast_buffer[serial] = snapshot
+
+
+class SimStartRequest(BaseModel):
+    lane_count: int = Field(9, ge=2, le=20, description="Number of simulated lanes")
+    event_id: Optional[str] = Field(None, description="Race event ID to associate")
+    tick_interval: float = Field(0.3, ge=0.1, le=2.0, description="Data emission interval")
+
+
+class SimReplayRequest(BaseModel):
+    event_id: str = Field(..., description="Event ID of recorded JSONL to replay")
+    playback_speed: float = Field(1.0, ge=0.25, le=10.0, description="Playback speed multiplier")
+
+
+@app.post("/api/sim/start")
+async def sim_start(req: SimStartRequest):
+    """Start the race simulator (random data generation)."""
+    global _simulator
+
+    if _simulator and _simulator.is_running:
+        _simulator.stop()
+
+    _simulator = RaceSimulator(
+        lane_count=req.lane_count,
+        on_data_callback=on_sim_data,
+        tick_interval=req.tick_interval,
+    )
+
+    # Auto-setup a race session if event_id provided
+    event_id = req.event_id or f"sim-{int(time.time())}"
+    race_session.event_id = event_id
+    race_session.status = RaceStatus.RACING
+    race_session.lane_assignments = _simulator.get_lane_assignments()
+
+    _simulator.start()
+
+    # Start snapshot loop if not already running
+    if race_session.snapshot_task is None or race_session.snapshot_task.done():
+        race_session.snapshot_task = asyncio.create_task(snapshot_loop())
+
+    logger.info(f"🎮 Simulator started: {req.lane_count} lanes, event={event_id}")
+    return {
+        "status": "running",
+        "lane_count": req.lane_count,
+        "event_id": event_id,
+        "serials": _simulator.get_rower_serials(),
+    }
+
+
+@app.post("/api/sim/stop")
+async def sim_stop():
+    """Stop the simulator."""
+    global _simulator
+
+    if _simulator and _simulator.is_running:
+        _simulator.stop()
+
+    race_session.status = RaceStatus.FINISHED
+    return {"status": "stopped"}
+
+
+@app.post("/api/sim/reset")
+async def sim_reset():
+    """Reset the simulator and race session."""
+    global _simulator
+
+    if _simulator:
+        _simulator.reset()
+
+    _broadcast_buffer.clear()
+    race_session.reset()
+    return {"status": "reset"}
+
+
+@app.get("/api/sim/status")
+async def sim_status():
+    """Get simulator status."""
+    return {
+        "simulator_running": _simulator.is_running if _simulator else False,
+        "lane_count": len(_simulator.rowers) if _simulator else 0,
+        "race_status": race_session.status,
+        "event_id": race_session.event_id,
+        "live_data_count": len(_broadcast_buffer),
+    }
+
+
+@app.post("/api/sim/replay")
+async def sim_replay(req: SimReplayRequest):
+    """Start replaying a recorded JSONL event."""
+    global _replay_sim
+
+    from recorder import RECORDINGS_DIR
+    event_dir = os.path.join(RECORDINGS_DIR, req.event_id)
+    if not os.path.exists(event_dir):
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    if _replay_sim and _replay_sim.is_running:
+        _replay_sim.stop()
+
+    _replay_sim = ReplaySimulator(
+        event_dir=event_dir,
+        on_data_callback=on_sim_data,
+        playback_speed=req.playback_speed,
+    )
+
+    race_session.event_id = req.event_id
+    race_session.status = RaceStatus.RACING
+
+    _replay_sim.start()
+
+    logger.info(f"🔁 Replay started: event={req.event_id}, speed={req.playback_speed}x")
+    return {
+        "status": "replaying",
+        "event_id": req.event_id,
+        "device_count": _replay_sim.device_count,
+        "playback_speed": req.playback_speed,
+    }
+

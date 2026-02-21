@@ -369,10 +369,10 @@
     - [x] race_live_state 스냅샷 기반 재접속 복원 로직
     - [x] 레이스 상태 머신 (setup→lobby→countdown→racing→finished)
     - [x] 팀전 거리 합산 로직 (team_id별 distance 클라이언트 합산)
-  - [ ] Phase 2~4: 시뮬레이터 + 그리드 뷰 + BLE 연동 → ⚡ **Specialist (권장: Gemini)**
-    - [ ] JSONL Replay 기반 시뮬레이터 (9레인 다중 브로드캐스트)
-    - [ ] ERG 실시간 그리드 뷰 화면 (/class/race/run)
-    - [ ] Python BLE ↔ 프론트엔드 통합 안정화
+  - [x] Phase 2~4: 시뮬레이터 + 그리드 뷰 + BLE 연동 → ⚡ **Specialist (권장: Gemini)**
+    - [x] JSONL Replay 기반 시뮬레이터 (9레인 다중 브로드캐스트)
+    - [x] ERG 실시간 그리드 뷰 화면 (/class/race/run)
+    - [x] Python BLE ↔ 프론트엔드 통합 안정화
   - [ ] Phase 5-A: 2.5D 개발 준비 — HUD + 평면 LERP 이동 → ⚡ **Specialist (권장: Gemini)**
     - [ ] rAF 기반 애니메이션 컨트롤러 (useRef + DOM 직접 조작)
     - [ ] LERP 보간 엔진 (prevDistance → targetDistance 보간)
