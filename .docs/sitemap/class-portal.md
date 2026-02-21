@@ -29,25 +29,28 @@
 - **구현 파일**: `src/app/class/live/page.tsx`
 - **라이브 대시보드**: 현재 진행 중인 세션 감지, 체크인 회원 실시간 표시.
 
-### 5) 2.5D Race Live View (`/class/race/live`) 🚧 기획 완료
-- **경로**: `/class/race/live`
+### 5) 2.5D Race View (`/class/race/view`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/race/view/page.tsx`
 - **Stitch Screen ID**: `972e51977bcb42b198f7f9fb70b96ef2`
 - **Device Type**: Desktop (TV/대형 모니터)
-- **레이스 뷰**: LERP 기반 애니메이션, 아바타, 실시간 레이싱 시각화.
-- **대기방(Starting Pen)**: 배정 완료 참가자 아바타 도열(Zwift 벤치마크).
-- **상세 설계**: [Race 시스템 기획서](../planning/race-system.md) 참조.
+- **CSS 3D perspective 트랙**: LERP 기반 60fps 보간, 로잉 스프라이트, 워터 파티클.
+- **HUD**: 실시간 리더보드, 타이머, 연결 상태 표시.
+- **에지 케이스**: 1위 글로우 이펙트, 오프라인 Grayscale, 완주 시 🏆 포디움 오버레이.
+- **상세 설계**: [Race 시스템 기획서](../archive/planning/race-system.md) 참조.
 
-### 6) ERG 실시간 그리드 (`/class/race/run`) 🚧 기획 완료
-- **경로**: `/class/race/run`
+### 6) ERG 실시간 그리드 (`/class/race/run`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/race/run/page.tsx`
 - **Device Type**: Desktop (TV/대형 모니터)
-- **데이터 그리드**: 참가자별 거리, 파워, SPM, 심박수 실시간 표시.
-- **용도**: 2.5D 뷰 대신 데이터 중심으로 상황을 모니터링할 때 사용.
+- **useRaceRealtime 훅**: Supabase Broadcast + Polling 하이브리드.
+- **데이터 그리드**: 참가자별 거리, 파워, SPM, 심박수 실시간 표시 + 자동 순위.
+- **팀 스코어보드**: 팀전 시 팀별 총 거리 합산 표시.
 
-### 7) Race 결과 리더보드 (`/class/race/result`) 🚧 기획 완료
-- **경로**: `/class/race/result`
+### 7) Race 결과 리더보드 (`/class/race/result`) ✅ 구현 완료
+- **구현 파일**: `src/app/class/race/result/page.tsx`
 - **Device Type**: Desktop (TV/대형 모니터)
-- **종료 후 리더보드**: 순위, 완주 시간, Max Watts, 최고 심박수, 칼로리 표시.
-- **다각도 컴피티션**: ErgZone 벤치마크 수준의 다각도 스코어링.
+- **포디움 뷰**: 1/2/3위 메달 카드 + 전체 순위 테이블.
+- **다각도 컴피티션**: 거리/Max Watts/SPM/HR 탭 전환으로 다각도 스코어링.
+- **PR 배지**: Personal Record 판정 시 🏆 PR 뱃지 표시.
 
 ---
 

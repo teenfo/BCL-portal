@@ -373,29 +373,29 @@
     - [x] JSONL Replay 기반 시뮬레이터 (9레인 다중 브로드캐스트)
     - [x] ERG 실시간 그리드 뷰 화면 (/class/race/run)
     - [x] Python BLE ↔ 프론트엔드 통합 안정화
-  - [ ] Phase 5-A: 2.5D 개발 준비 — HUD + 평면 LERP 이동 → ⚡ **Specialist (권장: Gemini)**
-    - [ ] rAF 기반 애니메이션 컨트롤러 (useRef + DOM 직접 조작)
-    - [ ] LERP 보간 엔진 (prevDistance → targetDistance 보간)
-    - [ ] HUD 바인딩 (순위표, 타이머, 거리 표시)
-  - [ ] Phase 5-B: 2.5D 그래픽 — CSS 3D + 캐릭터 + 물 이펙트 → ⚡ **Specialist (권장: Gemini)**
-    - [ ] CSS 3D Transform 원근감 트랙
-    - [ ] 로잉 캐릭터 스프라이트 애니메이션 (SPM 연동)
-    - [ ] Canvas 2D 물 파티클 이펙트
-    - [ ] 대기방(Starting Pen) 게이미피케이션 연출
-  - [ ] Phase 5-C: 2.5D 폴리싱 — Edge Case + 최적화 → ⚡ **Specialist (권장: Gemini)**
-    - [ ] 선두 이펙트 (1위 하이라이트)
-    - [ ] 네트워크 단절: Grayscale + [Reconnecting] 배지
-    - [ ] 기기 오프라인: IDLE 애니메이션 + [Offline] 상태
-    - [ ] 메모리 최적화 (20레인 동시 렌더링)
-  - [ ] Phase 6: 결과 적재 + 리더보드 → 💻 **Developer (권장: Sonnet)**
-    - [ ] JSONL → race_records 요약 추출 및 적재 (Python 서버)
-    - [ ] race_recordings 메타데이터 INSERT
-    - [ ] 결과 리더보드 화면 (/class/race/result) — 다각도 컴피티션 (Max Watts, HR, 칼로리)
-    - [ ] PR(Personal Record) 판정 및 is_pr 플래그
-  - [ ] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
-    - [ ] sitemap 갱신 (coach-app, class-portal 화면 추가 반영 확인)
-    - [ ] database-reference.md 갱신 (race_live_state, race_recordings, race_teams 추가)
-    - [ ] project-blueprint.md 갱신
+  - [x] Phase 5-A: 2.5D 개발 준비 — HUD + 평면 LERP 이동 → ⚡ **Specialist (권장: Gemini)**
+    - [x] rAF 기반 애니메이션 컨트롤러 (useRef + DOM 직접 조작)
+    - [x] LERP 보간 엔진 (prevDistance → targetDistance 보간)
+    - [x] HUD 바인딩 (순위표, 타이머, 거리 표시)
+  - [x] Phase 5-B: 2.5D 그래픽 — CSS 3D + 캐릭터 + 물 이펙트 → ⚡ **Specialist (권장: Gemini)**
+    - [x] CSS 3D Transform 원근감 트랙
+    - [x] 로잉 캐릭터 스프라이트 애니메이션 (SPM 연동)
+    - [x] Canvas 2D 물 파티클 이펙트
+    - [x] 대기방(Starting Pen) 게이미피케이션 연출
+  - [x] Phase 5-C: 2.5D 폴리싱 — Edge Case + 최적화 → ⚡ **Specialist (권장: Gemini)**
+    - [x] 선두 이펙트 (1위 하이라이트)
+    - [x] 네트워크 단절: Grayscale + [Reconnecting] 배지
+    - [x] 기기 오프라인: IDLE 애니메이션 + [Offline] 상태
+    - [x] 메모리 최적화 (20레인 동시 렌더링)
+  - [x] Phase 6: 결과 적재 + 리더보드 → 💻 **Developer (권장: Sonnet)**
+    - [x] JSONL → race_records 요약 추출 및 적재 (Python 서버)
+    - [x] race_recordings 메타데이터 INSERT
+    - [x] 결과 리더보드 화면 (/class/race/result) — 다각도 컴피티션 (Max Watts, HR, 칼로리)
+    - [x] PR(Personal Record) 판정 및 is_pr 플래그
+  - [x] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
+    - [x] sitemap 갱신 (coach-app, class-portal 화면 추가 반영 확인)
+    - [x] database-reference.md 갱신 (race_live_state, race_recordings, race_teams 추가)
+    - [x] project-blueprint.md 갱신
 
 ---
 
