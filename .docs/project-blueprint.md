@@ -345,17 +345,17 @@
     - [x] race_records 확장 (max_watts, max_hr_bpm, avg_spm, avg_hr_bpm, recording_id, team_id, lane_number, finish_rank) + event_id NULLABLE
     - [x] RLS 정책 (Coach/Admin 쓰기, 인증 사용자 읽기) — 3테이블
     - [x] 인덱스 (race_live_state, race_recordings, race_teams)
-  - [ ] Phase B: Python 서버 확장 (race/ — BLE + JSONL 레코딩) → ⚡ **Specialist (권장: Sonnet)**
-    - [ ] race/pm5_spec.py (레거시 PM5 BLE UUID 상수 이식)
-    - [ ] race/pm5_parsers.py (레거시 BLE 패킷 파싱 — stroke_distance, stroke_power, spm, hr, cal, max_watts)
-    - [ ] race/pm5_manager.py (Bleak BLE 스캔/연결/구독 — 다중 동글 분산)
-    - [ ] race/recorder.py (JSONL 파일 기반 — {event_id}/{device_serial}.jsonl 형태 Append)
-    - [ ] race/main.py 확장 (BLE 스캔/등록/연결 API + 레코딩 API + Supabase Broadcast 발행)
-    - [ ] race/main.py: race_live_state 5초 간격 스냅샷 UPSERT 로직
-    - [ ] race/main.py: race_status READY 시 Early Start 데이터 무시 처리
-    - [ ] requirements.txt에 bleak 추가
-    - [ ] Dockerfile port 8001로 변경
-    - [ ] Supabase Service Role Key 환경 변수 설정
+  - [x] Phase B: Python 서버 확장 (race/ — BLE + JSONL 레코딩) → ⚡ **Specialist (권장: Sonnet)**
+    - [x] race/pm5_spec.py (레거시 PM5 BLE UUID 상수 이식)
+    - [x] race/pm5_parsers.py (레거시 BLE 패킷 파싱 — stroke_distance, stroke_power, spm, hr, cal, max_watts)
+    - [x] race/pm5_manager.py (Bleak BLE 스캔/연결/구독 — 다중 동글 분산)
+    - [x] race/recorder.py (JSONL 파일 기반 — {event_id}/{device_serial}.jsonl 형태 Append)
+    - [x] race/main.py 확장 (BLE 스캔/등록/연결 API + 레코딩 API + Supabase Broadcast 발행)
+    - [x] race/main.py: race_live_state 5초 간격 스냅샷 UPSERT 로직
+    - [x] race/main.py: race_status READY 시 Early Start 데이터 무시 처리
+    - [x] requirements.txt에 bleak 추가
+    - [x] Dockerfile port 8001로 변경
+    - [x] Supabase Service Role Key 환경 변수 설정
   - [ ] Phase C: 프론트엔드 — 기기 등록 + 레코딩 제어 UI → 🎨 **UI Developer (권장: Gemini)**
     - [ ] Admin 기기 등록 모달 개선 (Web Bluetooth 스캔 → 시리얼 파싱 → 자동 등록)
     - [ ] Coach Race Control 페이지 (/coach/race/control) — 레이스 룸 설정, 기기/포맷 선택

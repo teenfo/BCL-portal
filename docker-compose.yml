@@ -34,8 +34,23 @@ services:
     image: bcl-race-server:latest
     container_name: bcl-race-server
     restart: unless-stopped
-    # Internal port 8000 — accessed by portal via Docker network
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env.local
+    environment:
+      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    volumes:
+      - race-recordings:/app/recordings
+    # BLE access requires privileged mode and host network on Linux
+    privileged: true
+    # Internal port 8001 — accessed by portal via Docker network
 
 volumes:
   portal-uploads:
+    driver: local
+  race-recordings:
     driver: local
