@@ -1152,34 +1152,46 @@ export type Database = {
       }
       pm5_devices: {
         Row: {
+          ble_name: string | null
           created_at: string | null
+          current_mode: string | null
           device_type: string
           facility_id: string | null
           firmware_version: string | null
           id: string
           last_sync_at: string | null
+          mac_address: string | null
+          qr_identifier: string | null
           serial_number: string
           status: string | null
           updated_at: string | null
         }
         Insert: {
+          ble_name?: string | null
           created_at?: string | null
+          current_mode?: string | null
           device_type: string
           facility_id?: string | null
           firmware_version?: string | null
           id?: string
           last_sync_at?: string | null
+          mac_address?: string | null
+          qr_identifier?: string | null
           serial_number: string
           status?: string | null
           updated_at?: string | null
         }
         Update: {
+          ble_name?: string | null
           created_at?: string | null
+          current_mode?: string | null
           device_type?: string
           facility_id?: string | null
           firmware_version?: string | null
           id?: string
           last_sync_at?: string | null
+          mac_address?: string | null
+          qr_identifier?: string | null
           serial_number?: string
           status?: string | null
           updated_at?: string | null
@@ -1279,6 +1291,7 @@ export type Database = {
       }
       race_events: {
         Row: {
+          coach_id: string | null
           created_at: string | null
           description: string | null
           distance_meters: number | null
@@ -1287,11 +1300,16 @@ export type Database = {
           event_type: string
           facility_id: string | null
           id: string
+          lobby_status: string | null
           name: string
+          race_format: string | null
+          session_id: string | null
           status: string | null
+          target_distance_m: number | null
           updated_at: string | null
         }
         Insert: {
+          coach_id?: string | null
           created_at?: string | null
           description?: string | null
           distance_meters?: number | null
@@ -1300,11 +1318,16 @@ export type Database = {
           event_type: string
           facility_id?: string | null
           id?: string
+          lobby_status?: string | null
           name: string
+          race_format?: string | null
+          session_id?: string | null
           status?: string | null
+          target_distance_m?: number | null
           updated_at?: string | null
         }
         Update: {
+          coach_id?: string | null
           created_at?: string | null
           description?: string | null
           distance_meters?: number | null
@@ -1313,13 +1336,178 @@ export type Database = {
           event_type?: string
           facility_id?: string | null
           id?: string
+          lobby_status?: string | null
           name?: string
+          race_format?: string | null
+          session_id?: string | null
           status?: string | null
+          target_distance_m?: number | null
           updated_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "race_events_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "race_events_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      race_live_state: {
+        Row: {
+          calories_burned: number | null
+          connection_status: string | null
+          device_id: string
+          distance_m: number | null
+          event_id: string
+          hr_bpm: number | null
+          id: string
+          lane_number: number
+          last_updated_at: string | null
+          max_watts: number | null
+          member_id: string | null
+          power_w: number | null
+          stroke_rate_spm: number | null
+          team_id: string | null
+        }
+        Insert: {
+          calories_burned?: number | null
+          connection_status?: string | null
+          device_id: string
+          distance_m?: number | null
+          event_id: string
+          hr_bpm?: number | null
+          id?: string
+          lane_number: number
+          last_updated_at?: string | null
+          max_watts?: number | null
+          member_id?: string | null
+          power_w?: number | null
+          stroke_rate_spm?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          calories_burned?: number | null
+          connection_status?: string | null
+          device_id?: string
+          distance_m?: number | null
+          event_id?: string
+          hr_bpm?: number | null
+          id?: string
+          lane_number?: number
+          last_updated_at?: string | null
+          max_watts?: number | null
+          member_id?: string | null
+          power_w?: number | null
+          stroke_rate_spm?: number | null
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_live_state_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "pm5_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_live_state_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "race_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_live_state_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_live_state_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "race_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      race_recordings: {
+        Row: {
+          created_at: string | null
+          device_id: string | null
+          device_serial: string
+          duration_seconds: number | null
+          event_id: string | null
+          facility_id: string | null
+          file_path: string
+          file_size_bytes: number | null
+          id: string
+          recorded_at: string | null
+          recorded_by: string | null
+          total_data_points: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          device_id?: string | null
+          device_serial: string
+          duration_seconds?: number | null
+          event_id?: string | null
+          facility_id?: string | null
+          file_path: string
+          file_size_bytes?: number | null
+          id?: string
+          recorded_at?: string | null
+          recorded_by?: string | null
+          total_data_points?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          device_id?: string | null
+          device_serial?: string
+          duration_seconds?: number | null
+          event_id?: string | null
+          facility_id?: string | null
+          file_path?: string
+          file_size_bytes?: number | null
+          id?: string
+          recorded_at?: string | null
+          recorded_by?: string | null
+          total_data_points?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_recordings_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "pm5_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_recordings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "race_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_recordings_facility_id_fkey"
             columns: ["facility_id"]
             isOneToOne: false
             referencedRelation: "facilities"
@@ -1329,43 +1517,67 @@ export type Database = {
       }
       race_records: {
         Row: {
+          avg_hr_bpm: number | null
           avg_pace: unknown
+          avg_spm: number | null
           avg_watts: number | null
           calories_burned: number | null
           created_at: string | null
           device_serial: string | null
           event_id: string | null
+          finish_rank: number | null
           id: string
           is_pr: boolean | null
+          lane_number: number | null
+          max_hr_bpm: number | null
+          max_watts: number | null
           member_id: string | null
+          recording_id: string | null
           result_distance: number | null
           result_time: unknown
+          team_id: string | null
         }
         Insert: {
+          avg_hr_bpm?: number | null
           avg_pace?: unknown
+          avg_spm?: number | null
           avg_watts?: number | null
           calories_burned?: number | null
           created_at?: string | null
           device_serial?: string | null
           event_id?: string | null
+          finish_rank?: number | null
           id?: string
           is_pr?: boolean | null
+          lane_number?: number | null
+          max_hr_bpm?: number | null
+          max_watts?: number | null
           member_id?: string | null
+          recording_id?: string | null
           result_distance?: number | null
           result_time?: unknown
+          team_id?: string | null
         }
         Update: {
+          avg_hr_bpm?: number | null
           avg_pace?: unknown
+          avg_spm?: number | null
           avg_watts?: number | null
           calories_burned?: number | null
           created_at?: string | null
           device_serial?: string | null
           event_id?: string | null
+          finish_rank?: number | null
           id?: string
           is_pr?: boolean | null
+          lane_number?: number | null
+          max_hr_bpm?: number | null
+          max_watts?: number | null
           member_id?: string | null
+          recording_id?: string | null
           result_distance?: number | null
           result_time?: unknown
+          team_id?: string | null
         }
         Relationships: [
           {
@@ -1380,6 +1592,55 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_records_recording_id_fkey"
+            columns: ["recording_id"]
+            isOneToOne: false
+            referencedRelation: "race_recordings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "race_records_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "race_teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      race_teams: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          team_color: string
+          team_name: string
+          total_distance_m: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          team_color?: string
+          team_name: string
+          total_distance_m?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          team_color?: string
+          team_name?: string
+          total_distance_m?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "race_teams_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "race_events"
             referencedColumns: ["id"]
           },
         ]

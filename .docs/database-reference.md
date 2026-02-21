@@ -70,9 +70,12 @@
 #### Race 시스템 (Race Management) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `race_events` | Race 이벤트 | name, event_date, event_type, distance_meters, status |
-| `race_records` | Race 기록 | event_id, member_id, result_time, result_distance, is_pr |
-| `pm5_devices` | PM5 기기 | serial_number, device_type, status, firmware_version |
+| `race_events` | Race 이벤트 | name, event_type, distance_meters, status, race_format, lobby_status |
+| `race_records` | Race 최종 결과 | event_id, member_id, result_distance, max_watts, avg_spm, is_pr |
+| `pm5_devices` | PM5 기기 | serial_number, mac_address, ble_name, current_mode, status |
+| `race_live_state` | Race 실시간 상태 | event_id, device_id, distance_m, power_w, connection_status |
+| `race_recordings` | 원시 레코딩 정보 | event_id, device_serial, file_path, file_size_bytes |
+| `race_teams` | 팀전 정보 (임시/지속) | event_id, team_name, team_color, total_distance_m |
 
 #### RBAC (역할 기반 접근 제어) 🆕
 | 테이블 | 설명 | 주요 컬럼 |

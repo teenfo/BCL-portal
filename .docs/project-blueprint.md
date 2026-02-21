@@ -120,7 +120,7 @@
   - [x] Phase 5: 문서 동기화 → 🏛️ **Architect (Opus)** ✅
     - [x] sitemap/blueprint/complete 갱신
 
-  > ※ **PM5/Race 시스템**: 별도 기획서 작성 중 (`.docs/planning/race-system.md`) → 등록 대기
+  > ※ **PM5/Race 시스템**: 기획서 승인 완료 → Priority 19로 등록됨 (`.docs/archive/planning/race-system.md`)
 
 #### ✅ Priority 12: User App 핵심 화면 고도화 (완료)
   > **기획서**: `.docs/archive/planning/user-app-enhancement.md`
@@ -330,6 +330,72 @@
     - [x] Coach Race: 기록 입력 UI
   - [x] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
     - [x] project-blueprint.md 갱신
+
+#### 🟠 Priority 19: Race 시스템 — 전체 구현 (개발 진행 중)
+  > **기획서**: `.docs/archive/planning/race-system.md`
+  > **문제**: Race 시스템의 전체 파이프라인 미구현. PM5 BLE 데이터 수집/레코딩 없음, 2.5D 렌더링 미개발, 팀전/배정/결과 저장 로직 없음.
+  > **방안**: DB 확장(6테이블) → Python BLE+JSONL 레코딩 → 프론트엔드 기기 등록/배정 UI → Realtime 훅 → 시뮬레이터 → 2.5D 렌더링(CSS 3D+Canvas) → 결과 적재
+
+  - [x] Phase A: DB 확장 (pm5_devices + race_live_state + race_recordings + race_teams + race_events/records 확장) → 💎 **Senior Dev (권장: Opus)**
+    - [x] pm5_devices 컬럼 추가 (mac_address, ble_name, current_mode, qr_identifier) + device_type CHECK 확장
+    - [x] race_live_state 테이블 생성 (Ephemeral — 재접속 복원용)
+    - [x] race_recordings 테이블 생성 (JSONL 파일 메타데이터)
+    - [x] race_teams 테이블 생성 (팀전 지원)
+    - [x] race_events 확장 (race_format, session_id, coach_id, target_distance_m, lobby_status)
+    - [x] race_records 확장 (max_watts, max_hr_bpm, avg_spm, avg_hr_bpm, recording_id, team_id, lane_number, finish_rank) + event_id NULLABLE
+    - [x] RLS 정책 (Coach/Admin 쓰기, 인증 사용자 읽기) — 3테이블
+    - [x] 인덱스 (race_live_state, race_recordings, race_teams)
+  - [ ] Phase B: Python 서버 확장 (race/ — BLE + JSONL 레코딩) → ⚡ **Specialist (권장: Sonnet)**
+    - [ ] race/pm5_spec.py (레거시 PM5 BLE UUID 상수 이식)
+    - [ ] race/pm5_parsers.py (레거시 BLE 패킷 파싱 — stroke_distance, stroke_power, spm, hr, cal, max_watts)
+    - [ ] race/pm5_manager.py (Bleak BLE 스캔/연결/구독 — 다중 동글 분산)
+    - [ ] race/recorder.py (JSONL 파일 기반 — {event_id}/{device_serial}.jsonl 형태 Append)
+    - [ ] race/main.py 확장 (BLE 스캔/등록/연결 API + 레코딩 API + Supabase Broadcast 발행)
+    - [ ] race/main.py: race_live_state 5초 간격 스냅샷 UPSERT 로직
+    - [ ] race/main.py: race_status READY 시 Early Start 데이터 무시 처리
+    - [ ] requirements.txt에 bleak 추가
+    - [ ] Dockerfile port 8001로 변경
+    - [ ] Supabase Service Role Key 환경 변수 설정
+  - [ ] Phase C: 프론트엔드 — 기기 등록 + 레코딩 제어 UI → 🎨 **UI Developer (권장: Gemini)**
+    - [ ] Admin 기기 등록 모달 개선 (Web Bluetooth 스캔 → 시리얼 파싱 → 자동 등록)
+    - [ ] Coach Race Control 페이지 (/coach/race/control) — 레이스 룸 설정, 기기/포맷 선택
+    - [ ] 레인 배정 UI (출석 기반 자동 배정 + QR 자율 배정)
+    - [ ] 연결 상태 실시간 표시 (Supabase Realtime 연동)
+    - [ ] 레코딩 시작/중지 컨트롤
+    - [ ] 실시간 모니터링 그리드 뷰 (/class/race/run)
+    - [ ] 레코딩 목록/상세 조회
+  - [ ] Phase 1: Realtime 인프라 (useRaceRealtime 훅 + 상태 관리) → 💻 **Developer (권장: Sonnet)**
+    - [ ] useRaceRealtime 커스텀 훅 (Supabase Broadcast Subscribe)
+    - [ ] race_live_state 스냅샷 기반 재접속 복원 로직
+    - [ ] 레이스 상태 머신 (setup→lobby→countdown→racing→finished)
+    - [ ] 팀전 거리 합산 로직 (team_id별 distance 클라이언트 합산)
+  - [ ] Phase 2~4: 시뮬레이터 + 그리드 뷰 + BLE 연동 → ⚡ **Specialist (권장: Gemini)**
+    - [ ] JSONL Replay 기반 시뮬레이터 (9레인 다중 브로드캐스트)
+    - [ ] ERG 실시간 그리드 뷰 화면 (/class/race/run)
+    - [ ] Python BLE ↔ 프론트엔드 통합 안정화
+  - [ ] Phase 5-A: 2.5D 개발 준비 — HUD + 평면 LERP 이동 → ⚡ **Specialist (권장: Gemini)**
+    - [ ] rAF 기반 애니메이션 컨트롤러 (useRef + DOM 직접 조작)
+    - [ ] LERP 보간 엔진 (prevDistance → targetDistance 보간)
+    - [ ] HUD 바인딩 (순위표, 타이머, 거리 표시)
+  - [ ] Phase 5-B: 2.5D 그래픽 — CSS 3D + 캐릭터 + 물 이펙트 → ⚡ **Specialist (권장: Gemini)**
+    - [ ] CSS 3D Transform 원근감 트랙
+    - [ ] 로잉 캐릭터 스프라이트 애니메이션 (SPM 연동)
+    - [ ] Canvas 2D 물 파티클 이펙트
+    - [ ] 대기방(Starting Pen) 게이미피케이션 연출
+  - [ ] Phase 5-C: 2.5D 폴리싱 — Edge Case + 최적화 → ⚡ **Specialist (권장: Gemini)**
+    - [ ] 선두 이펙트 (1위 하이라이트)
+    - [ ] 네트워크 단절: Grayscale + [Reconnecting] 배지
+    - [ ] 기기 오프라인: IDLE 애니메이션 + [Offline] 상태
+    - [ ] 메모리 최적화 (20레인 동시 렌더링)
+  - [ ] Phase 6: 결과 적재 + 리더보드 → 💻 **Developer (권장: Sonnet)**
+    - [ ] JSONL → race_records 요약 추출 및 적재 (Python 서버)
+    - [ ] race_recordings 메타데이터 INSERT
+    - [ ] 결과 리더보드 화면 (/class/race/result) — 다각도 컴피티션 (Max Watts, HR, 칼로리)
+    - [ ] PR(Personal Record) 판정 및 is_pr 플래그
+  - [ ] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
+    - [ ] sitemap 갱신 (coach-app, class-portal 화면 추가 반영 확인)
+    - [ ] database-reference.md 갱신 (race_live_state, race_recordings, race_teams 추가)
+    - [ ] project-blueprint.md 갱신
 
 ---
 

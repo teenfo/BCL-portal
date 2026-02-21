@@ -16,9 +16,12 @@ description: 새로운 기능/아키텍처 기획 문서를 작성하고 블루�
 >
 > 이 워크플로우는 Inbox → Execution Plan → Archive 순서로 **단방향 흐름**을 수행한다.
 > 1. `.docs/planning/` 또는 `.docs/audit/`에 새 문서를 작성한다.
-> 2. 블루프린트에 등록한다.
+> 2. **Status가 `Approved`인 문서만** 블루프린트에 등록한다.
 > 3. 등록 완료된 문서를 각각의 아카이브 폴더로 이동한다.
-> 4. Inbox 폴더는 항상 비어있는 것이 정상 상태이다.
+> 4. 미승인(Draft/In Progress/Status 없음) 문서는 planning 폴더에 잔류한다.
+>
+> ⚠️ **절대 규칙: `Status: Approved`가 아닌 기획 문서는 블루프린트에 등록하지 않는다.**
+> Status 헤더가 없는 문서도 미승인으로 간주하여 무조건 스킵한다.
 
 ---
 
@@ -60,6 +63,11 @@ find .docs/planning/ .docs/audit/ -name "*.md" -type f 2>/dev/null
 | **관점 배분** | `## 8. 구현 단계 및 관점 배분` 또는 `## 9. 블루프린트 등록용 체크리스트` 섹션 |
 | **Priority 레벨** | 문제 심각도 기반 판단 (🔴 Critical / 🟠 High / 🟡 Medium / 📄 Low) |
 
+> ⚠️ **승인 필터링 (필수)**:
+> - `Status: Approved`인 문서만 등록 대상으로 진행한다.
+> - `Status: Draft`, `Status: In Progress`, 또는 **Status 헤더 자체가 없는 문서**는 **무조건 스킵**한다.
+> - 스킵된 문서는 `.docs/planning/`에 그대로 남긴다 (아카이브 이동 안 함).
+
 #### B. 감사 보고서 (`.docs/audit/`)
 각 감사 보고서에서 다음 정보를 추출한다:
 
@@ -69,7 +77,7 @@ find .docs/planning/ .docs/audit/ -name "*.md" -type f 2>/dev/null
 | **🟡 등록 필요 항목** | `## 3. 발견 사항` → `### 🟡 등록 필요` 섹션 |
 | **Priority 레벨** | Status 기반 (FAILED → 🔴, CONDITIONAL → 🟠, PASSED → 등록 불필요) |
 
-> **기획 문서 + 감사 보고서가 모두 0건이면** "동기화할 문서 없음"을 보고하고 종료한다.
+> **승인된 기획 문서 + 등록 필요 감사 보고서가 모두 0건이면** "동기화할 문서 없음"을 보고하고 종료한다.
 
 ---
 
@@ -83,12 +91,14 @@ find .docs/planning/ .docs/audit/ -name "*.md" -type f 2>/dev/null
 
 | 상태 | 판단 기준 | 액션 |
 |---|---|---|
-| **미등록** | 블루프린트에 해당 기획서 링크가 없음 | → **등록 대상** |
+| **미승인** | `Status`가 `Approved`가 아님 (Draft/In Progress/없음) | → **무조건 스킵** |
+| **승인 + 미등록** | `Status: Approved` + 블루프린트에 링크 없음 | → **등록 대상** |
 | **등록됨 + 진행 중** | 블루프린트에 `(개발 대기)` 또는 체크박스 있음 | → **스킵** (변경 불필요) |
 | **등록됨 + 완료** | 모든 체크박스가 `[x]` | → **스킵** |
 | **등록됨 + 내용 불일치** | 기획서의 Phase가 블루프린트와 다름 | → **갱신 대상** |
 
-**미등록 목록**과 **갱신 대상 목록**을 정리한다.
+**승인된 미등록 목록**과 **갱신 대상 목록**을 정리한다.
+**미승인 스킵 목록**도 별도로 정리하여 결과 보고에 포함한다.
 
 ---
 
@@ -158,7 +168,8 @@ find .docs/planning/ .docs/audit/ -name "*.md" -type f 2>/dev/null
 등록 완료 후 다음을 최종 확인한다:
 
 ```
-[ ] .docs/planning/ 의 모든 기획 문서가 블루프린트에 1:1 대응됨
+[ ] .docs/planning/ 의 Approved 기획 문서가 블루프린트에 1:1 대응됨
+[ ] 미승인 문서는 등록하지 않고 planning 폴더에 잔류 확인
 [ ] Priority 번호가 순차적으로 증가함 (중복/누락 없음)
 [ ] 각 Priority 항목에 기획서 링크가 올바르게 걸려있음 (archive/planning 경로)
 [ ] 관점 배분이 기획서 내용과 일치함
@@ -184,8 +195,9 @@ mv .docs/planning/{파일명}.md .docs/archive/planning/
 mv .docs/audit/{파일명}.md .docs/archive/audit/
 ```
 
-> ⚠️ **planning / audit 폴더에는 아직 블루프린트에 등록되지 않은 문서만 남아야 한다.**
-> 동기화가 정상 완료되면 두 폴더 모두 비어있어야 한다.
+> ⚠️ **planning 폴더에는 미승인(Draft/In Progress/Status 없음) 문서만 남을 수 있다.**
+> 승인된 문서가 모두 아카이브로 이동되면 정상이다.
+> audit 폴더는 처리 완료 시 비어있어야 한다.
 
 이동 후 최종 확인:
 ```bash
@@ -205,13 +217,14 @@ ls .docs/archive/audit/
 📋 Planning → Blueprint 동기화 결과:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   전체 기획 문서:  N건
-  ✅ 신규 등록:    N건
+  ✅ 신규 등록:    N건 (Approved만)
+  ⏭️ 스킵 (미승인): N건 (Draft/In Progress/Status 없음)
   ⏭️ 이미 등록됨:  N건
   🔄 갱신:         N건
   📦 아카이브 이동: N건
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Planning ↔ Blueprint 정합성: ✅ 일치
-  .docs/planning/ 상태: ✅ 비어있음 (모든 문서 아카이브 완료)
+  .docs/planning/ 상태: 미승인 문서 N건 잔류 (정상)
 ```
 
 ---

@@ -29,11 +29,25 @@
 - **구현 파일**: `src/app/class/live/page.tsx`
 - **라이브 대시보드**: 현재 진행 중인 세션 감지, 체크인 회원 실시간 표시.
 
-### 5) 2.5D Race Live View (`/class/race/live`) 🚧 기획 중
+### 5) 2.5D Race Live View (`/class/race/live`) 🚧 기획 완료
 - **경로**: `/class/race/live`
 - **Stitch Screen ID**: `972e51977bcb42b198f7f9fb70b96ef2`
 - **Device Type**: Desktop (TV/대형 모니터)
 - **레이스 뷰**: LERP 기반 애니메이션, 아바타, 실시간 레이싱 시각화.
+- **대기방(Starting Pen)**: 배정 완료 참가자 아바타 도열(Zwift 벤치마크).
+- **상세 설계**: [Race 시스템 기획서](../planning/race-system.md) 참조.
+
+### 6) ERG 실시간 그리드 (`/class/race/run`) 🚧 기획 완료
+- **경로**: `/class/race/run`
+- **Device Type**: Desktop (TV/대형 모니터)
+- **데이터 그리드**: 참가자별 거리, 파워, SPM, 심박수 실시간 표시.
+- **용도**: 2.5D 뷰 대신 데이터 중심으로 상황을 모니터링할 때 사용.
+
+### 7) Race 결과 리더보드 (`/class/race/result`) 🚧 기획 완료
+- **경로**: `/class/race/result`
+- **Device Type**: Desktop (TV/대형 모니터)
+- **종료 후 리더보드**: 순위, 완주 시간, Max Watts, 최고 심박수, 칼로리 표시.
+- **다각도 컴피티션**: ErgZone 벤치마크 수준의 다각도 스코어링.
 
 ---
 

@@ -34,7 +34,16 @@
 - **구현 파일**: `src/app/coach/race/page.tsx`
 - **기기 제어**: 로잉/와트바이크(PM5) 하드웨어 연결 모니터링 및 페어링.
 - **경기 운영**: 실시간 리더보드 중계, 경기 시작/종료 제어 및 레인 자동 배정.
-- **상세 설계**: [Race Technical Module](../technical/race/) 참조.
+- **상세 설계**: [Race 시스템 기획서](../planning/race-system.md) 참조.
+
+#### 4-1) Race Control (`/coach/race/control`) 🚧 기획 완료
+- **경로**: `/coach/race/control`
+- **Device Type**: Mobile/Tablet (코치 패드)
+- **레이스 룸 설정**: 기기 종류 필터, 목표 거리(커스텀), 개인전/팀전 포맷 선택.
+- **레인 배정**: 출석 기반 자동 배정 + QR 자율 배정 보조.
+- **실시간 제어**: 카운트다운(5초 윈도우) → GO → 종료/리셋.
+- **BLE 연결 상태**: Python 서버 연동, 기기별 연결/단절 모니터링.
+- **팀 관리**: 팀 생성, 레인-팀 매핑, 팀별 컬러 설정.
 
 ### 5) Profile (`/coach/profile`) ✅ 구현 완료
 - **구현 파일**: `src/app/coach/profile/page.tsx`
