@@ -356,14 +356,14 @@
     - [x] requirements.txt에 bleak 추가
     - [x] Dockerfile port 8001로 변경
     - [x] Supabase Service Role Key 환경 변수 설정
-  - [ ] Phase C: 프론트엔드 — 기기 등록 + 레코딩 제어 UI → 🎨 **UI Developer (권장: Gemini)**
-    - [ ] Admin 기기 등록 모달 개선 (Web Bluetooth 스캔 → 시리얼 파싱 → 자동 등록)
-    - [ ] Coach Race Control 페이지 (/coach/race/control) — 레이스 룸 설정, 기기/포맷 선택
-    - [ ] 레인 배정 UI (출석 기반 자동 배정 + QR 자율 배정)
-    - [ ] 연결 상태 실시간 표시 (Supabase Realtime 연동)
-    - [ ] 레코딩 시작/중지 컨트롤
-    - [ ] 실시간 모니터링 그리드 뷰 (/class/race/run)
-    - [ ] 레코딩 목록/상세 조회
+  - [x] Phase C: 프론트엔드 — 기기 등록 + 레코딩 제어 UI → 🎨 **UI Developer (권장: Gemini)**
+    - [x] Admin 기기 등록 모달 개선 (Web Bluetooth 스캔 → 시리얼 파싱 → 자동 등록)
+    - [x] Coach Race Control 페이지 (/coach/race/control) — 레이스 룸 설정, 기기/포맷 선택
+    - [x] 레인 배정 UI (출석 기반 자동 배정 + QR 자율 배정)
+    - [x] 연결 상태 실시간 표시 (Supabase Realtime 연동)
+    - [x] 레코딩 시작/중지 컨트롤
+    - [x] 실시간 모니터링 그리드 뷰 (/class/race/run)
+    - [x] 레코딩 목록/상세 조회
   - [ ] Phase 1: Realtime 인프라 (useRaceRealtime 훅 + 상태 관리) → 💻 **Developer (권장: Sonnet)**
     - [ ] useRaceRealtime 커스텀 훅 (Supabase Broadcast Subscribe)
     - [ ] race_live_state 스냅샷 기반 재접속 복원 로직
