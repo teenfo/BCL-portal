@@ -50,6 +50,18 @@
   - 기기 완전 단절: 레인 Grayscale(흑백) 처리 및 강제 정지 애니메이션(IDLE).
 * **렌더링 기술 선택**: **CSS 3D Transform (원근감) + Canvas 2D (물 이펙트) 하이브리드**. MVP 특성상 PixiJS의 무거운 번들을 피함.
 
+### 2.3 로우 데이터 파서 (Raw Data Parser) 기획
+다각도 컴피티션과 부정 출발 감지 기능을 구현하기 위해 Python 서버의 **BLE 특성(Characteristic) 파서**가 다음 데이터를 정밀하게 추출하여 프론트엔드로 브로드캐스트합니다.
+
+* **스트로크 데이터 파싱 (PM5 Stroke Data - 19 Bytes)**:
+  - `stroke_distance(m)`, `stroke_power(watts)`, `stroke_rate(SPM)`를 0.3초 단위로 추출하여 애니메이션과 실시간 순위 산정에 사용합니다.
+* **추가 지표 파싱 (다각도 컴피티션용)**:
+  - `hr_bpm` (심박수), `calories_burned` (소모 칼로리)를 추가 구독하여 개인별 한계 돌파 지표로 사용.
+  - 전송 주기 내 최고 와트를 기록해두어 **Max Watts** 랭킹을 집계합니다.
+* **부정 출발(False Start) 감지 트리거**:
+  - `race_status`가 `READY`(카운트다운 중)일 때 파이썬이 `stroke_power > 0` 또는 `stroke_distance > 0`인 바이트 값 변화를 감지하면 즉시 `false_start: true` 플래그를 Broadcast에 실어 보냅니다.
+  - 프론트엔드(`Next.js`)는 이 플래그를 수신하면 해당 레인의 화면을 붉게 점멸시키고 UI 경고를 띄웁니다.
+
 ---
 
 ## 3. 장비 등록 및 스캔 프로세스 (Web Bluetooth ↔ Python 분업)
