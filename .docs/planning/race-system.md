@@ -74,14 +74,27 @@
 
 ## 4. 데이터베이스 및 채널 변경사항
 
-### 4.1 신규 테이블
+### 4.1 신규 및 확장 테이블
 1. **`race_live_state`**: 레이스 중 실시간 상태 저장 (event_id, erg_id, distance_m, power_w 등).
-2. **`race_recordings`**: Python 서버가 기록한 JSONL 파일의 메타데이터(total_distance, duration, MAC 주소 등) 요약 정보 보관.
+2. **`race_recordings`**: Python 서버가 기록한 JSONL 파일의 메타데이터 요약 정보 보관.
+3. **`pm5_devices` (기존 테이블 확장)**: 
+   - BLE 스캔/식별용 `mac_address`, `ble_name` 컬럼 추가.
+   - **QR 인식용 식별자**: 각 기기의 `id(UUID)` 또는 식별 해시 값을 생성하여 물리적 QR 코드로 부착.
+   - **현재 상태(`current_mode`)**: `idle`, `racing`, `personal_recording` 등의 상태를 추가하여, 레이스 진행 중인 기기에 개인 기록용 스캔이 개입하지 못하도록 충돌을 방어.
 
-### 3.2 기존 테이블 변경
-* **`pm5_devices`**: BLE 스캔/식별용 `mac_address`, `ble_name` 컬럼 추가.
+### 4.2 Personal Recording (QR 바인딩) 연동을 위한 레이스 시스템의 요구사항
+추후 도입될 **사용자 QR 스캔 기반 개인 기록 시스템**과 레이스 시스템이 매끄럽게 호환되기 위해 다음 메커니즘이 사전에 고려/반영되어야 합니다.
 
-### 3.3 Realtime Channel
+1. **기기 고유 식별 주소 체계**:
+   - 기기 등록 시, 어드민 화면에서 기기별 고유 접속 URL(예: `/apps/erg/bind?device_id=UUID`)이 담긴 QR 코드 이미지를 생성/출력할 수 있는 기능이 필요합니다.
+2. **레이스 대기방(Lobby) 자율 배정(Realtime)**:
+   - 코치가 수동으로 레인에 사람을 배정하는 방식뿐만 아니라, **QR 자율 배정 모드**가 필요합니다.
+   - 코치가 레이스 방을 열면, 참가자들이 각자 자리에 앉아 기기 앞의 QR을 찍습니다.
+   - 레이스 시스템(`Next.js`)은 `Supabase Realtime`을 통해 누가 어떤 기기(레인)에 앉았는지 즉각 수신하여 화면에 프로필을 동적으로 띄워주어야 합니다.
+3. **세션 충돌 제어 (Locking)**:
+   - 기기가 '레이스 진행 중(racing)' 상태일 때, 외부 사용자가 실수로 QR을 스캔하여 개인 기록(Personal Recording) 모드로 탈취가 일어나지 않도록 막는 **Lock 메커니즘**이 필요합니다.
+
+### 4.3 Realtime Channel
 * **이름**: `race:{event_id}`
 * **Events**: `race_start`, `race_finish`, `race_reset`, `erg_update`, `state_snapshot`
 
