@@ -26,6 +26,12 @@ interface AdminUser {
     profiles?: { full_name: string | null; email: string | null; avatar_url: string | null };
 }
 
+interface AvailableUser {
+    id: string;
+    full_name: string | null;
+    email: string | null;
+}
+
 const PERMISSION_GROUPS = {
     members: { label: '회원 관리', items: ['view', 'edit', 'delete'] },
     finance: { label: '재무', items: ['view', 'refund', 'export'] },
@@ -50,7 +56,7 @@ export default function RolesPage() {
     // T2-7: User assignment states
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [assignedUsers, setAssignedUsers] = useState<AdminUser[]>([]);
-    const [availableUsers, setAvailableUsers] = useState<{ id: string; full_name: string | null; email: string | null }[]>([]);
+    const [availableUsers, setAvailableUsers] = useState<AvailableUser[]>([]);
     const [assignSearch, setAssignSearch] = useState('');
     const [loadingUsers, setLoadingUsers] = useState(false);
 
@@ -159,17 +165,18 @@ export default function RolesPage() {
 
         // Load users assigned to this role
         const { data: assigned } = await query('admin_user_roles')
-            
-            .select('*, profiles(full_name, email, avatar_url)')
+            .select('id, user_id, role_id, profiles(full_name, email, avatar_url)')
             .eq('role_id', role.id);
         setAssignedUsers((assigned || []) as unknown as AdminUser[]);
 
-        // Load available profiles
-        const { data: profiles } = await query('profiles')
-            
+        // Load available profiles (email 컬럼 포함)
+        const { data: profiles, error: profilesErr } = await query('profiles')
             .select('id, full_name, email')
             .order('full_name');
-        setAvailableUsers((profiles || []) as any);
+        if (profilesErr) {
+            console.error('[Roles] profiles load error:', profilesErr);
+        }
+        setAvailableUsers((profiles || []) as AvailableUser[]);
 
         setLoadingUsers(false);
     }

@@ -27,6 +27,18 @@ export function getSupabaseConfig() {
 }
 
 export function createClient() {
-    const { url, anonKey } = getSupabaseConfig();
-    return createBrowserClient<Database>(url, anonKey);
+    const { url, anonKey, env } = getSupabaseConfig();
+    return createBrowserClient<Database>(url, anonKey, {
+        auth: {
+            // 세션을 localStorage에 영속적으로 저장 (탭/창 재오픈 후에도 로그인 유지)
+            persistSession: true,
+            // 만료 10분 전 access token 자동 갱신
+            autoRefreshToken: true,
+            // OAuth/Magic Link 콜백 처리
+            detectSessionInUrl: true,
+            // 환경별 고유 storage key (dev/prod 세션 충돌 방지)
+            storageKey: `bcl-portal-${env}-session`,
+        },
+    });
 }
+

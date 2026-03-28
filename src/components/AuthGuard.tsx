@@ -7,7 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 interface AuthGuardProps {
     children: ReactNode;
     requireAuth?: boolean;
-    requiredRole?: 'admin' | 'coach' | 'member';
+    /** 허용 역할: 단일 문자열 또는 배열. admin은 항상 모든 경로에 접근 가능 */
+    requiredRole?: 'admin' | 'coach' | 'member' | Array<'admin' | 'coach' | 'member'>;
     redirectTo?: string;
 }
 
@@ -16,6 +17,8 @@ interface AuthGuardProps {
  *
  * 미들웨어(1차)가 서버 측에서 비인증 사용자를 차단.
  * AuthGuard(2차)는 클라이언트에서 역할/승인상태 기반 세밀한 접근 제어.
+ *
+ * 규칙: admin 역할은 requiredRole에 관계없이 항상 접근 허용.
  */
 export function AuthGuard({
     children,
@@ -103,14 +106,19 @@ export function AuthGuard({
         }
 
         // ─── 역할 확인 ───
-        if (requiredRole && profile.role !== requiredRole) {
-            const roleRoutes: Record<string, string> = {
-                admin: '/admin/dashboard',
-                coach: '/coach/dashboard',
-                member: '/apps/dashboard',
-            };
-            router.replace(roleRoutes[profile.role] || '/apps/dashboard');
-            return;
+        // admin은 모든 경로에 접근 가능 (슈퍼유저)
+        if (requiredRole && profile.role !== 'admin') {
+            const allowedRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
+            if (!allowedRoles.includes(profile.role as any)) {
+                // 역할에 맞는 기본 경로로 리다이렉트
+                const roleRoutes: Record<string, string> = {
+                    admin: '/admin/dashboard',
+                    coach: '/coach/dashboard',
+                    member: '/apps/dashboard',
+                };
+                router.replace(roleRoutes[profile.role] || '/apps/dashboard');
+                return;
+            }
         }
 
         // ─── 모든 검증 통과 ───
