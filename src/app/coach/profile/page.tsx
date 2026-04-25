@@ -2,9 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { query, rpc } from '@/lib/supabase/query';
+import { query } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import { useCoachRuntimeContext } from '@/components/coach/CoachStateGate';
+import type { CoachContextStatus } from '@/components/coach/types';
 
 interface CoachInfo {
     id: string;
@@ -31,8 +33,17 @@ interface Settlement {
     status: string;
 }
 
+const STATE_BADGE_CONFIG: Record<CoachContextStatus, { label: string; emoji: string; color: string; bg: string; description: string }> = {
+    unauthenticated: { label: '미인증', emoji: '🔒', color: 'rgba(255,255,255,0.7)', bg: 'rgba(255,255,255,0.08)', description: '로그인이 필요합니다.' },
+    unlinked: { label: '미연결', emoji: '⚠️', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', description: '관리자에게 코치 계정 연결을 요청해주세요.' },
+    linked_unassigned: { label: '배정 대기', emoji: '⏳', color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', description: '아직 배정된 세션이 없습니다. 관리자에게 문의해주세요.' },
+    linked_active: { label: '활동 중', emoji: '✅', color: '#22C55E', bg: 'rgba(34,197,94,0.12)', description: '운영 중인 세션이 있습니다.' },
+    on_leave: { label: '휴직 중', emoji: '🛌', color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', description: '휴직 상태이므로 운영 기능이 제한됩니다.' },
+};
+
 export default function CoachProfilePage() {
     const { user, profile, signOut } = useAuth();
+    const { context: coachContext } = useCoachRuntimeContext();
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [coachInfo, setCoachInfo] = useState<CoachInfo | null>(null);
@@ -263,6 +274,26 @@ export default function CoachProfilePage() {
                 <p style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)', marginTop: 4 }}>
                     {user?.email}
                 </p>
+
+                {coachContext && coachContext.status !== 'unauthenticated' && (() => {
+                    const cfg = STATE_BADGE_CONFIG[coachContext.status];
+                    return (
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: '0.75rem', padding: '0.375rem 0.75rem', borderRadius: 999, background: cfg.bg, color: cfg.color, fontWeight: 700, fontSize: '0.75rem' }}>
+                            <span aria-hidden>{cfg.emoji}</span>
+                            <span>{cfg.label}</span>
+                            {coachContext.status === 'linked_active' && typeof coachContext.assignment_count === 'number' && (
+                                <span style={{ opacity: 0.85 }}>· 배정 {coachContext.assignment_count}건</span>
+                            )}
+                        </div>
+                    );
+                })()}
+
+                {coachContext && coachContext.status !== 'linked_active' && coachContext.status !== 'unauthenticated' && (
+                    <p style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', marginTop: '0.5rem', maxWidth: 320, margin: '0.5rem auto 0' }}>
+                        {STATE_BADGE_CONFIG[coachContext.status].description}
+                    </p>
+                )}
+
                 {coachInfo?.specialties && coachInfo.specialties.length > 0 && !isEditing && (
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '0.375rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
                         {coachInfo.specialties.map((s, i) => (
@@ -328,25 +359,27 @@ export default function CoachProfilePage() {
                 </button>
             )}
 
-            {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                <div className="app-glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--app-accent)' }}>
-                        {stats.thisMonthSessions}
+            {/* Stats — only show when actively assigned */}
+            {(!coachContext || coachContext.status === 'linked_active') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
+                    <div className="app-glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--app-accent)' }}>
+                            {stats.thisMonthSessions}
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
+                            이번 달 수업
+                        </div>
                     </div>
-                    <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        이번 달 수업
+                    <div className="app-glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
+                        <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--app-accent)' }}>
+                            {stats.totalSessions}
+                        </div>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
+                            총 수업
+                        </div>
                     </div>
                 </div>
-                <div className="app-glass-card" style={{ padding: '1.25rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--app-accent)' }}>
-                        {stats.totalSessions}
-                    </div>
-                    <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        총 수업
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Bio */}
             {coachInfo?.bio && !isEditing && (
@@ -406,13 +439,13 @@ export default function CoachProfilePage() {
                 )}
             </div>
 
-            {/* Menu Items */}
+            {/* Menu Items — operational links only when active */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-                {[
+                {(!coachContext || coachContext.status === 'linked_active' ? [
                     { icon: '📅', label: '내 수업 일정', href: '/coach/schedule' },
                     { icon: '👥', label: '회원 관리', href: '/coach/members' },
                     { icon: '🏁', label: 'Race 관리', href: '/coach/race' },
-                ].map(item => (
+                ] : []).map(item => (
                     <a
                         key={item.label}
                         href={item.href}

@@ -37,8 +37,8 @@
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
 | `sessions` | 수업 일정 | title, session_date, start_time, capacity, wod_description |
-| `session_coaches` | 수업-코치 매핑 | session_id, coach_id, role |
-| `bookings` | 예약 내역 | session_id, member_id, status |
+| `session_coaches` | 수업-코치 매핑 | session_id, coach_id, assignment_role |
+| `bookings` | 예약 내역 | session_id, member_id, status, attendance_outcome |
 | `checkins` | 체크인 로그 | member_id, session_id, checkin_time, checkin_method |
 
 #### 결제 및 금융 (Finance)
@@ -106,9 +106,12 @@
 | `fn_send_membership_expiry_reminders` | Cron Function | `memberships` | 멤버십 만료 전 d-7, d-3, d-1 알림 발송 |
 | `fn_book_with_credit` | RPC Function | `bookings`, `memberships` | 예약 생성 + 크레딧 차감 + 정원 초과 시 Waitlist 자동 분기 |
 | `fn_cancel_booking_with_credit` | RPC Function | `bookings`, `memberships` | 예약 취소 + 크레딧 환원 |
-| `fn_get_coach_dashboard` | RPC Function | `sessions`, `checkins` | 코치 로그인 시 대시보드 데이터 조회 (당일 수업, 출결 등) 🆕 |
-| `fn_get_session_attendees` | RPC Function | `bookings`, `checkins` | 수업 참석자 목록 및 출석 상태 조회 🆕 |
-| `fn_coach_mark_attendance` | RPC Function | `checkins` | 코치가 특정 회원의 출석을 수동으로 체킹 🆕 |
+| `fn_get_my_coach_context` | RPC Function | `coaches`, `session_coaches` | 코치 로그인 시 현재 연결 상태 및 스케줄 유무 진입점 🆕 |
+| `fn_get_my_coach_dashboard` | RPC Function | `sessions`, `checkins` | 코치 로그인 시 대시보드 데이터 조회 (당일 수업, 출결 등) 🆕 |
+| `fn_get_coach_schedule` | RPC Function | `sessions`, `bookings` | 기간별 코치 스케줄 및 출석 요약 조회 🆕 |
+| `fn_get_coach_session_board` | RPC Function | `bookings`, `checkins` | 수업 운영 보드 (참석자, 코치 목록, 출석 상태) 통합 조회 🆕 |
+| `fn_mark_session_attendance` | RPC Function | `checkins`, `bookings` | 개별 회원의 출결 상태 머신 업데이트 (서버 권한 검증) 🆕 |
+| `fn_bulk_mark_session_attendance` | RPC Function | `bookings` | 일괄 출결 처리 (부분 성공 반환 지원) 🆕 |
 | `fn_get_coach_performance_stats`| RPC Function | `session_coaches`, `session_feedback` | Admin 화면용 코치별 성과/수업통계/평점 집계 🆕 |
 | `fn_calculate_monthly_settlement`| RPC Function | `coach_settlements` | Admin의 월간 코치 정산 내역 생성 및 갱신 🆕 |
 
@@ -170,7 +173,9 @@ supabase/migrations/
 ├── 20260218230100_payment_rpc_helpers.sql (Payment RPC Helpers)
 ├── 20260218231500_create_system_config_table.sql (System Config Table) 🆕
 ├── 20260219165300_user_app_enhancement_phase1.sql (User App Enhancement Phase 1) 🆕
-└── 20260221000000_coach_feature_enhancement.sql (Coach Feature Enhancement) 🆕
+├── 20260221000000_coach_feature_enhancement.sql (Coach Feature Enhancement) 🆕
+├── 20260221084721_race_system_enhancement.sql (Race System Enhancement) 🆕
+└── 20260425120000_coach_p0_session_ops.sql (Coach App P0 Session Ops) 🆕
 ```
 
 ### 실행 방법
@@ -371,6 +376,6 @@ Logs → Postgres Logs
 
 ---
 
-**문서 버전**: 2.0.0  
-**최종 업데이트**: 2026년 2월 16일  
-**이전 버전**: 1.0.0 (간략 버전)
+**문서 버전**: 2.1.0  
+**최종 업데이트**: 2026년 4월 25일  
+**이전 버전**: 2.0.0

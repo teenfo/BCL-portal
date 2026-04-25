@@ -48,6 +48,7 @@
 | Known Issues 정비 | ✅ 완료 | as any 제거, member_id 혼용 해결 (v0.5.0) |
 | 코치 기능 고도화 | ✅ 완료 | 7 Phase 완료 (v0.6.0) |
 | Race 시스템 전체 구현 | ✅ 완료 | BLE+시뮬레이터+2.5D+결과적재 (v0.7.0) |
+| Priority 22: 코치앱 P0 운영 안정화 | ✅ 코드 완료 | 마이그레이션+RPC 6종+상태 게이트+세션 운영 보드 + 빌드 통과 (수용 시나리오 검증 예정) |
 
 
 ---
@@ -66,11 +67,12 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 20: 출시 전 정비 — Phase 1+2+3 완료 (P0 완료)**
+- **Current Focus**: **Priority 22: 코치앱 P0 운영 안정화 — Phase 1~5 완료, typecheck/lint/build 통과**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 성공
+- **Build Status**: ✅ `npm run typecheck` / `npm run lint` (0 errors) / `npm run build` 모두 통과
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 20 Phase 1+2+3+5 완료 — lint 0 errors + typecheck 통과 + README 갱신 + 외부 알림 mock 명시 + 품질 CI 워크플로우 신설
+- **Last Action**: Priority 22 Phase 1~5 구현 완료 — DB 마이그레이션(`20260425120000_coach_p0_session_ops.sql`) + 6종 RPC + `CoachStateGate`/`CoachStateScreen`/`AttendanceOutcomeChip`/`SessionOperationsBoard` + Schedule/Dashboard/Members/Profile 정합성 정리 + 사이트맵 갱신 + 빌드 검증
+- **Planning Note**: Priority 22 P0 실행 스펙은 `.docs/archive/planning/coach-app-p0-execution-20260425.md` 기준. **다음 단계**: Supabase migration 적용 + 운영 수용 시나리오(권한/세션 운영/출결/회귀) 수동 검증.
 
 ---
 
@@ -400,7 +402,7 @@
     - [x] database-reference.md 갱신 (race_live_state, race_recordings, race_teams 추가)
     - [x] project-blueprint.md 갱신
 
-#### 🟡 Priority 20: 출시 전 정비 — Release Readiness Stabilization (일부 완료)
+#### ✅ Priority 20: 출시 전 정비 — Release Readiness Stabilization (완료)
   > **기획서**: `.docs/archive/planning/release-readiness-stabilization-task.md`
   > **감사보고서**: `.docs/archive/audit/audit-pm-gap-analysis-20260419.md`, `.docs/archive/audit/audit-full-project-20260419.md`
   > **문제**: 품질 게이트 부재(lint 76 errors, test 미정의), 문서-코드 드리프트(README Next.js 14 vs 실제 16, version 0.4.0 vs 0.5.0), 외부 알림 mock 상태, 보안 문서 과장, 운영 지표 TODO 잔존
@@ -419,39 +421,150 @@
     - [x] 외부 알림 v1 제외 결정 — Edge Function에 ⚠️ MOCK 상태 명시
     - [x] README에 알림 시스템 운영 상태 분리 표기
     - [x] Priority 14 운영 의존 대기 상태 유지 (blueprint 명확 분리)
-  - [ ] Phase 4: 보안 문서-구현 정렬 (P1) → 💎 **Senior Dev (권장: Opus)**
-    - [ ] 구현된 통제 식별 (middleware, nginx, auth guard 기준 확인)
-    - [ ] 보안 문서 재분류 (적용 완료 / 부분 적용 / 향후 계획)
-    - [ ] 누락된 최소 보안 항목 반영 (보강 가능한 헤더/설정 적용 검토)
+  - [x] Phase 4: 보안 문서-구현 정렬 (P1) → 💎 **Senior Dev (Opus)** ✅
+    - [x] 구현된 통제 식별 (middleware, nginx, auth guard 기준 확인) — `src/proxy.ts`, `nginx-host.conf`, Supabase Auth/RLS
+    - [x] 보안 문서 재분류 (적용 완료 / 부분 적용 / 향후 계획) — `.docs/security/README.md` v2.0.0
+    - [x] 누락된 최소 보안 항목 반영 — `nginx-host.conf`에 `server_tokens off`, `Permissions-Policy` 추가 + HSTS/Rate Limit 주석 템플릿
   - [x] Phase 5: 운영 지표 TODO 제거 (P1) → 💻 **Developer** ✅
     - [x] 지원 지표 정의 (pending=open|in_progress, today=오늘 생성, urgent=priority urgent+open, recent=최근 미처리 2건)
     - [x] `support_tickets` 기반 실제 쿼리 연결 (4건: support_pending_count, support_today_count, support_urgent_count, support_recent_tickets)
     - [x] members FK 조인으로 회원명 표시 (support_tickets_member_id_fkey)
-  - [ ] Phase 6: Race 운영 수용 기준 수립 (P1) → ⚡ **Specialist (권장: Gemini/Codex)**
-    - [ ] Acceptance checklist 작성 (BLE, reconnect, recording, results, cleanup)
-    - [ ] 시뮬레이터/실장비 검증 구분 명시
-    - [ ] Race 관련 lint issue 및 운영 문구 정비
-  - [ ] Phase 7: 감사/문서 운영 체계화 (P2) → 🏛️ **Architect (권장: Pro High)**
-    - [ ] audit-planning 참조 규칙 정리 (planning ↔ audit ↔ blueprint 연결 방식 통일)
-    - [ ] release checklist 정의 (반복 가능한 문서화 프로세스 확립)
-    - [ ] 갱신 책임 명시 (어떤 문서를 언제 갱신하는지 기준 수립)
+  - [x] Phase 6: Race 운영 수용 기준 수립 (P1) → ⚡ **Specialist (Opus)** ✅
+    - [x] Acceptance checklist 작성 (BLE, 운영 상태 머신, Realtime/Reconnect, Recording/Results, Cleanup, 권한) — `.docs/testing/race-acceptance-checklist.md`
+    - [x] 시뮬레이터/실장비 검증 4단계 구분(L1~L4) 명시
+    - [x] Race 관련 코드 TODO/Mock 잔존 0건 확인 (race/, useRaceRealtime, useRaceAnimator)
+  - [x] Phase 7: 감사/문서 운영 체계화 (P2) → 🏛️ **Architect (Opus)** ✅
+    - [x] audit-planning 참조 규칙 정리 — `.docs/process/documentation-governance.md` §1.2
+    - [x] release checklist 정의 — `.docs/process/release-checklist.md` (10개 섹션)
+    - [x] 갱신 책임 매트릭스 명시 — `.docs/process/documentation-governance.md` §2
 
-#### 🟠 Priority 21: Race System Improvements (개발 대기)
+#### 🟡 Priority 21: Race System Improvements (Phase 1~3 완료, Phase 4 운영 검증 대기)
   > **기획서**: `.docs/archive/planning/race-system-improvement-20260425.md`
   > **문제**: Race 시스템의 결과 마감 자동화, 스냅샷 정합성, 장비 상태 동기화 등 운영 단계 수용 미비
-  > **방안**: DB 정합성(device_id 통일), Python 파이프라인(stop 트리거) 및 프론트엔드 팀전 연동
+  > **방안**: 결과 적재 자동화 + snapshot/identity 정합성 + 팀전 연동 + 운영 수용 재검증
 
-  - [ ] Phase 1: DB 정합성 및 Backend 파이프라인 → 💎 **Senior Dev (권장: Opus)**
-    - [ ] Race 종료(`stop`) 시 `race_records` 적재 자동화 로직 통합
-    - [ ] Recorder 메타데이터(`lane_assignments`) 완전 저장
-    - [ ] 시뮬레이터 가상 ID 처리 (device_id)
-  - [ ] Phase 2: Frontend Data 정합성 및 팀전 연동 → 💻 **Developer (권장: Sonnet)**
-    - [ ] `pm5_devices` 상태 필터(`online`) 및 `adapter` 정보 전달 정합성 확보
-    - [ ] `race_live_state` snapshot 복원 식별자(`device_id`) 통일
-    - [ ] Coach/Class 화면 팀전 데이터(`race_teams`) 연동
-  - [ ] Phase 3: 품질 최적화 및 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
-    - [ ] Race 관련 프론트엔드 훅 Lint 경고 해결
-    - [ ] blueprint 및 sitemap 갱신
+  - [x] Phase 1: DB 정합성 및 Backend 파이프라인 → 💎 **Senior Dev (Opus)** ✅
+    - [x] Race 종료(`stop`) 시 `race_records` 적재 자동화 로직 통합 — `_load_race_results()` 헬퍼 분리 + stop 액션에서 자동 호출 + 멱등성 보장
+    - [x] Recorder 메타데이터(`lane_assignments`) 완전 저장 — race_setup이 lane_assignments를 recorder meta에 합쳐 `_meta.json`에 영속화
+    - [x] 시뮬레이터 `device_id` 전략 확정 — `_ensure_simulator_devices()`로 synthetic `pm5_devices` upsert + lane_assignments에 device_id 채움 + snapshot loop에 device_id 가드 추가
+  - [x] Phase 2: Frontend Data 정합성 및 팀전 연동 → 💻 **Developer (Sonnet)** ✅
+    - [x] `pm5_devices.status` 필터: `'active'` → `'online'` (DB enum과 정합)
+    - [x] BLE Connect 시 `adapter` Payload 포함 (다중 동글 분산)
+    - [x] `race_live_state` snapshot 복원: `device_id` FK 기준 + `pm5_devices(serial_number)` JOIN으로 BLE serial 매핑
+    - [x] LaneData에 `device_id` 필드 추가 (broadcast/snapshot 양쪽에서 채움)
+    - [x] `race_teams` 데이터 로드 + 팀 생성/색상 선택 UI + 레인별 팀 배정 UI (Coach Control)
+    - [x] useRaceRealtime이 `race_teams` 메타(name/color)를 DB에서 로드하여 하드코딩 `#FF6A00` 제거
+  - [x] Phase 3: 품질 최적화 및 문서 동기화 → 🏛️ **Architect (Opus)** ✅
+    - [x] Race 도메인 unused import / hint 정리 (coach race control, useRaceRealtime)
+    - [x] `README.md` Race 시스템 상태 문구 동기화 (코드 완료 + 운영 수용 진행 중)
+    - [x] blueprint Active Context + Priority 21 체크박스 갱신
+  - [ ] Phase 4: 운영 수용 재검증 → ⚡ **Specialist (권장: Codex/Gemini)**
+    - [ ] `.docs/testing/race-acceptance-checklist.md` 기준 L1~L4 재실행
+    - [ ] 결과 적재, reconnect, simulator, team race, cleanup 재검증
+    > 비고: 본 Phase는 실장비(L2~L4) 또는 시뮬레이터(L1) 환경에서 수동 검증 필요. 코드 변경 없음.
+
+#### 🟢 Priority 22: 코치앱 P0 운영 안정화 (구현 완료, 빌드 검증 진행 중)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md` · 실행 스펙: `.docs/archive/planning/coach-app-p0-execution-20260425.md`
+  > **문제**: 코치앱의 권한 검증이 클라이언트 입력에 일부 의존하며, `미연결/미배정 코치` 상태가 제품 상태로 분리돼 있지 않고, 실제 현장 출결(`no_show`, `late_cancel`, `coach_excused`)과 세션 단위 운영 흐름이 부족함.
+  > **방안**: `auth.uid()` 기반 권한 재설계, `bookings`/`session_coaches` 확장, 코치 상태 게이트웨이, 세션 운영 보드(Session Operations Board), Dashboard/Schedule/Members/Profile의 P0 정합성 정리.
+
+  - [x] Phase 1: DB 마이그레이션 및 신규 RPC 도입 → 💎 **Senior Dev (Opus)** ✅
+    - [x] `bookings` 확장: `attendance_outcome`, `attendance_marked_at`, `attendance_marked_by`, `waitlist_promoted_at`, `cancel_reason` (`supabase/migrations/20260425120000_coach_p0_session_ops.sql`)
+    - [x] `session_coaches` 확장: `assignment_role`, `display_order`
+    - [x] 신규 RPC 6종 구현: `fn_get_my_coach_context`, `fn_get_my_coach_dashboard`, `fn_get_coach_schedule`, `fn_get_coach_session_board`, `fn_mark_session_attendance`, `fn_bulk_mark_session_attendance`
+    - [x] 기존 `fn_get_coach_dashboard`, `fn_get_session_attendees`, `fn_coach_mark_attendance`을 DEPRECATED COMMENT로 마킹 (즉시 삭제 시 호환성 위험 회피)
+  - [x] Phase 2: 코치 상태 게이트웨이 및 공통 컴포넌트 구현 → 🎨 **UI Developer (Opus)** ✅
+    - [x] `CoachStateGate`, `CoachStateScreen`, `AttendanceOutcomeChip`, `useCoachContext` 훅 구현 (`src/components/coach/`)
+    - [x] `src/app/coach/layout.tsx`에 상태 기반 진입 제어 적용 (`unlinked`, `linked_unassigned`, `linked_active`, `on_leave`) — `/coach/profile`은 항상 통과
+    - [x] 기존 상단 배너 기반 미연결 처리 제거
+  - [x] Phase 3: 세션 운영 보드 및 Schedule 리팩터링 → 💻 **Developer (Opus)** ✅
+    - [x] `SessionOperationsBoard` 컴포넌트 구현 (세션 헤더, 7개 운영 요약, 참석자 리스트, 빠른 액션 바, 대기열)
+    - [x] `Schedule` 로딩을 `fn_get_coach_schedule()`로 전환 + race 연동 배지/카운트 노출
+    - [x] 세션 클릭 시 `fn_get_coach_session_board()` 연동 + `?session_id=` 자동 진입
+    - [x] 개별/일괄 출결 처리 (`checked_in`, `no_show`, `late_cancel`, `coach_excused`) 구현
+    - [x] 기존 WOD 수정 기능 유지
+  - [x] Phase 4: Dashboard, Members, Profile 정합성 정리 → 💻 **Developer (Opus)** ✅
+    - [x] `Dashboard`를 `fn_get_my_coach_dashboard()` 연동으로 교체
+    - [x] Dashboard에 `waitlist`, `unchecked confirmed`, `곧 시작할 세션` 요약 + Next Session CTA 카드 반영
+    - [x] `Members` 기본 스코프를 `담당 회원`으로 변경, `시설 전체` 사용 안내 추가
+    - [x] `Profile`에 코치 상태 배지(활동 중/배정 대기/휴직/미연결) 및 상태별 통계/메뉴 노출 정책 반영
+  - [x] Phase 5: 문서 동기화 및 수용 검증 → 🏛️ **Architect (Opus)** 🔄
+    - [x] `.docs/sitemap/coach-app.md` P0 반영 (RPC 인터페이스, 출결 상태기계, `session_coaches` 확장)
+    - [x] blueprint/Active Context 갱신
+    - [ ] 권한/세션 운영/출결/회귀 테스트 체크리스트 검증 (typecheck → lint → build → 수용 시나리오)
+
+#### 🟠 Priority 23: 코치앱 P1-A 수업 표준화 및 회원 컨텍스트 (개발 대기)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
+  > **문제**: P0 이후에도 코치가 수업 전 준비를 시스템으로 표준화할 수 없고, Trial/부상/만기 예정 등 회원 맥락이 구조화되어 있지 않으며, WOD가 `sessions.wod_description`와 `/class/wod`의 분리된 소스로 관리되어 Admin/Coach/Class Display 사이에 공통 자산으로 공유되지 않음.
+  > **방안**: 클래스 런시트 템플릿 + 세션 런시트 + 공통 WOD 라이브러리/세션 WOD 스냅샷 + 회원 컨텍스트 플래그를 도입하여 수업 품질과 현장 판단을 시스템화.
+  > **의존성**: Priority 22 완료 후 착수 권장
+
+  - [ ] Phase 1: DB 스키마 및 권한 설계 → 💎 **Senior Dev (권장: Opus)**
+    - [ ] `class_runbook_templates`, `session_runbooks`, `movement_library`, `wod_templates`, `wod_template_movements`, `session_wods`, `member_alert_flags` 테이블 설계 및 RLS 적용
+    - [ ] `.docs/planning/wod_exercise_list.md`를 `movement_library` + benchmark seed로 변환하는 import 전략 수립
+    - [ ] 템플릿/런시트/WOD/회원 플래그 CRUD용 RPC 설계
+  - [ ] Phase 2: Schedule 런시트 편집 도입 → 🎨 **UI Developer (권장: Gemini)**
+    - [ ] 세션 운영 보드 내 `warm-up`, `movement prep`, `scaling`, `cue`, `safety`, `finish note` 편집 UI
+    - [ ] Admin/Coach 공통 WOD Builder: 포맷, time cap, rounds, movement line, RX/scale, coach/class note 편집 UX
+    - [ ] 최근 사용 템플릿 불러오기 및 세션별 오버라이드 UX
+  - [ ] Phase 3: Members 및 Session Board 컨텍스트 강화 + Class WOD 소스 통합 → 💻 **Developer (권장: Sonnet)**
+    - [ ] Admin에서 만든 공유 WOD 템플릿을 Coach 세션 보드에서 선택/복제/게시 가능하도록 연결
+    - [ ] `/class/wod`를 `session_wods` 또는 동등 게시 소스로 전환
+    - [ ] 기존 `sessions.wod_description` 백필/호환 계층 정리
+    - [ ] Trial, injury, renewal_due, returning_after_absence 등 플래그 표시
+    - [ ] `Members` 화면 상세 프로필에 활성 플래그/최근 코칭 노트/출석 패턴 반영
+    - [ ] Dashboard에 오늘 경고 요약(Trial/만기예정/주의회원) 반영
+  - [ ] Phase 4: 문서 및 테스트 → 🏛️ **Architect (권장: Pro High)**
+    - [ ] `.docs/sitemap/coach-app.md` P1-A 반영
+    - [ ] 템플릿 적용, 세션 오버라이드, WOD 공유/게시, 플래그 노출 권한 테스트
+
+#### 🟡 Priority 24: 코치앱 P1-B KPI/정산/스크린 모드 (개발 대기)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
+  > **문제**: 코치가 월간 운영 성과, 예상 정산, 재등록 리스크를 한 눈에 볼 수 없고, 현장 공개 보드(Screen Mode)가 부재함.
+  > **방안**: KPI/리텐션/예상 정산 집계 계층과 Coach 화면 요약 위젯, Screen Mode/Class Board를 구축.
+  > **의존성**: Priority 22 완료 후 착수 권장
+
+  - [ ] Phase 1: 집계 뷰 및 RPC 도입 → 💎 **Senior Dev (권장: Opus)**
+    - [ ] `fn_get_coach_monthly_settlement_basis` Basis Layer 도입
+    - [ ] `vw_coach_monthly_kpis`, `vw_member_retention_signals` 또는 동등 RPC 설계
+    - [ ] `fn_get_coach_monthly_kpis`, `fn_get_coach_retention_panel` 구현
+    - [ ] `fn_calculate_monthly_settlement`가 Basis Layer를 재사용하도록 정리
+    - [ ] 예상 정산 vs 확정 정산 계산식 명세 및 Admin Settlements와 정합성 확보
+    - [ ] 정산 책임 분리 고정: Admin=`단가 설정/월 정산 실행/상태 변경/CSV`, Coach=`본인 예상/확정 정산 조회`
+  - [ ] Phase 2: Coach Dashboard/Profile KPI 반영 → 💻 **Developer (권장: Sonnet)**
+    - [ ] `Dashboard`에 운영 위험 + KPI Snapshot 반영
+    - [ ] `Profile`에 이번 달 KPI, 예상 정산, 확정 정산, 품질 지표, 역할 상태 요약 반영
+    - [ ] Coach 화면은 read-only 원칙 유지 (정산 실행/상태 변경/운영용 다운로드 미노출)
+  - [ ] Phase 3: Screen Mode / Class Board 구현 → 🎨 **UI Developer (권장: Gemini)**
+    - [ ] 코치 세션 운영 보드와 동일 데이터 소스를 쓰는 공개 보드 화면 설계
+    - [ ] 클래스명, 시간, 담당 코치, 출결 현황, 오늘 WOD, 공개 가능한 축하/PR 정보 표시
+    - [ ] 민감 정보(부상 상세, 재등록 위험 등) 비노출 규칙 적용
+  - [ ] Phase 4: Admin/문서/테스트 정합성 → 🏛️ **Architect (권장: Pro High)**
+    - [ ] Admin Performance/Settlements와 KPI 정의 일치 확인
+    - [ ] `.docs/sitemap/coach-app.md`, blueprint 갱신
+    - [ ] KPI 계산식, Screen 공개/비공개 정보 분리 테스트
+
+#### 🔵 Priority 25: 코치앱 P2 퍼포먼스/후속 액션/Race 재통합 (개발 대기)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
+  > **문제**: Race가 코치 운영 흐름과 분리돼 있고, 일반 수업용 퍼포먼스 기록(PR/Benchmark)과 수업 후 후속 관리 체계가 없음.
+  > **방안**: 퍼포먼스 시스템 일반화 + 후속 조치 태스크 + Race 운영 허브 재통합으로 코치앱을 운영 OS 수준으로 확장.
+  > **의존성**: Priority 22 완료 후 착수 권장
+
+  - [ ] Phase 1: 퍼포먼스 스키마 및 RPC → 💎 **Senior Dev (권장: Opus)**
+    - [ ] `benchmark_definitions`, `member_benchmark_results`, `coach_followups` 테이블 설계 및 RLS 적용
+    - [ ] Benchmark/PR 기록, follow-up 생성/완료, 회원 케어 프로필 RPC 구현
+  - [ ] Phase 2: 후속 액션 워크플로우 구현 → 💻 **Developer (권장: Sonnet)**
+    - [ ] 수업 후 `injury`, `renewal`, `trial`, `absence`, `motivation` 기반 follow-up 생성
+    - [ ] Dashboard/Member 상세에 미완료 후속 조치 노출
+    - [ ] 완료/해제 상태 전환 및 due date 관리
+  - [ ] Phase 3: Race IA 및 세션 연동 재통합 → 🎨 **UI Developer (권장: Gemini)**
+    - [ ] `/coach/race`를 `Live / History / Devices` 허브 구조로 재정의
+    - [ ] 세션 운영 보드에서 `Race 수업 시작` 진입 경로 연결
+    - [ ] `session_id` 기준 Race 이벤트 생성/재개 UX 정리
+  - [ ] Phase 4: 퍼포먼스 데이터 연결 및 검증 → 🏛️ **Architect / Developer**
+    - [ ] Race 결과를 회원 퍼포먼스 이력과 연결
+    - [ ] 일반 클래스 Benchmark/PR과 Race 기록 조회 정합성 검증
+    - [ ] `.docs/sitemap/coach-app.md`, blueprint, 관련 운영 문서 갱신
 
 ---
 
@@ -470,6 +583,10 @@
 - **DB 스키마 감사**: `.docs/archive/result/DATABASE_SCHEMA_AUDIT_2026-02-17.md`
 - **Sitemap SSOT**: `.docs/sitemap/README.md`
 - **DB 스키마 참조**: `.docs/database-reference.md`
+- **보안 아키텍처**: `.docs/security/README.md` (v2.0.0 — 적용/부분/계획 분리)
+- **Race 운영 수용 체크리스트**: `.docs/testing/race-acceptance-checklist.md`
+- **문서 거버넌스**: `.docs/process/documentation-governance.md`
+- **릴리즈 체크리스트**: `.docs/process/release-checklist.md`
 
 ---
 

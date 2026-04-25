@@ -4,13 +4,13 @@
 > **Author**: Agent (Architect 관점)
 > **Created**: 2026-04-25
 > **Last Updated**: 2026-04-25
-> **Related**: `.docs/audit/audit-race-system-20260425.md`
+> **Related**: `.docs/archive/audit/audit-race-system-20260425.md`
 
 ---
 
 ## 1. 개요 및 배경
 ### 1.1 목적
-본 기획서는 2026-04-25 기준 진행된 Race 시스템 감사 결과(`.docs/audit/audit-race-system-20260425.md`)를 바탕으로, 실장비 운영 수용 전 확인된 Major 결함(7건) 및 Minor 결함(3건)을 해결하여 Race 시스템을 실운영 가능한 상태(Acceptance Ready)로 끌어올리는 것을 목적으로 한다.
+본 기획서는 2026-04-25 기준 진행된 Race 시스템 감사 결과(`.docs/archive/audit/audit-race-system-20260425.md`)를 바탕으로, 실장비 운영 수용 전 확인된 Major 결함(7건) 및 Minor 결함(3건)을 해결하여 Race 시스템을 실운영 가능한 상태(Acceptance Ready)로 끌어올리는 것을 목적으로 한다.
 
 ### 1.2 현재 상태 (As-Is)
 - Race 시스템의 핵심 아키텍처, 데이터 모델, Python BLE 브리지, UI 컴포넌트, 시뮬레이터는 구현 완료 상태.
@@ -59,7 +59,7 @@
   ├─ 3. 레이스 종료 (stop)
       ├─ recorder.stop() 호출
       ├─ _meta.json에 lane_assignments 전체 매핑 저장
-      └─ /api/results/load 엔드포인트 자동 트리거 (M-1 해결)
+      └─ `/api/recordings/{event_id}/load-results` 자동 트리거 (M-1 해결)
 
 [Class Live / Result View]
   ├─ Live: race_live_state 및 race_teams(팀 이름/색상) 실시간 반영
@@ -71,7 +71,7 @@
 ## 4. 데이터베이스 변경 (필요 시)
 ### 4.1 마이그레이션 SQL
 - **[M-2] 대응**: 필요 시 `race_live_state` 테이블에 `device_serial` 컬럼 추가 또는 클라이언트 로직을 `device_id` 기준으로 변경.
-- **[M-6] 대응**: Simulator 용 가상 `device_id` 발급 로직 마련. (DB 변경보다는 Python 서버 측 가상 ID 생성 로직으로 처리 권장)
+- **[M-6] 대응**: Simulator 용 `device_id` 전략 확정. (`pm5_devices` synthetic 레코드 매핑 또는 simulator 전용 snapshot write 경로로 처리 권장)
 
 ### 4.2 RLS 정책
 - 기존 `race_records`, `race_teams`, `race_live_state`의 RLS 정책은 정상 작동하므로 변경 없음.
@@ -94,7 +94,7 @@
 |:---|:---|:---:|
 | `race/main.py` | `stop` 로직 내 자동 결과 적재, `adapter` 파라미터 수용 | O |
 | `race/recorder.py` | `_meta.json`에 `lane_assignments` 전체 기록 | O |
-| `race/simulator.py` | `device_id`에 가상 UUID 발급 적용 | O |
+| `race/simulator.py` | `device_id` 전략 적용 (`synthetic pm5_devices` 또는 simulator 전용 snapshot write) | O |
 | `src/hooks/useRaceRealtime.ts` | snapshot 복원을 `device_id` 기준으로 수정, lint 정리 | O |
 | `src/app/coach/race/control/page.tsx` | `status` 필터 수정, `adapter` 전달, `race_teams` 연동 | O |
 | `src/app/class/race/run/page.tsx` | 하드코딩된 팀 정보 제거 및 DB 매핑 | O |
@@ -114,7 +114,7 @@
 - **작업 내용**:
   1. `race/main.py`의 `stop` 액션에서 결과 자동 적재(`load-results`) 로직 트리거 연결.
   2. `race/recorder.py`에서 `_meta.json` 저장 시 `lane_assignments` 전체 메타데이터 포함.
-  3. `race/simulator.py`에서 가상 기기 할당 시 null 대신 가상의 `device_id` (UUID) 삽입.
+  3. `race/simulator.py`에서 `device_id` NULL 문제를 해결할 수 있는 전략 확정. (`pm5_devices` synthetic 레코드 매핑 또는 simulator 전용 snapshot write)
 
 ### Phase 2: Frontend Data 정합성 및 팀전 연동 (M-2, M-3, M-4, M-5)
 - **담당 관점**: 💻 Developer
@@ -128,17 +128,24 @@
 - **담당 관점**: 🏛️ Architect / 💻 Developer
 - **작업 내용**:
   1. `src/hooks/useRaceRealtime.ts`, `useRaceAnimator.ts` 등 Race 도메인 내 lint warning(의존성, 초기화 경고) 해결.
-  2. `README.md` 및 블루프린트 문서 내 Race 시스템 상태를 "코드 완료 / acceptance 미완료"로 통일.
+  2. `README.md`, blueprint, sitemap 문서 내 Race 시스템 상태를 "코드 완료 / acceptance 미완료"로 통일.
+
+### Phase 4: 운영 수용 재검증
+- **담당 관점**: ⚡ Specialist
+- **작업 내용**:
+  1. `.docs/testing/race-acceptance-checklist.md` 기준 L1~L4 재실행
+  2. 결과 적재, reconnect, simulator, team race, cleanup 시나리오 재검증
 
 ---
 
 ## 9. 블루프린트 등록용 체크리스트
 - [ ] (P1) Race 종료(`stop`) 시 `race_records` 적재 자동화 로직 통합
 - [ ] (P1) `pm5_devices` 상태 필터(`online`) 및 `adapter` 정보 전달 정합성 확보
-- [ ] (P1) `race_live_state` snapshot 복원 식별자(`device_id`) 통일 및 시뮬레이터 가상 ID 처리
+- [ ] (P1) `race_live_state` snapshot 복원 식별자(`device_id`) 통일 및 시뮬레이터 `device_id` 전략 확정
 - [ ] (P2) Coach/Class 화면 팀전 데이터(`race_teams`) 연동
 - [ ] (P2) Recorder 메타데이터(`lane_assignments`) 완전 저장
 - [ ] (P3) Race 관련 프론트엔드 훅 Lint 경고 해결 및 문서 상태 갱신
+- [ ] (P3) Race acceptance checklist 기준 운영 수용 재검증
 
 ---
 

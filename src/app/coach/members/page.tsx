@@ -37,7 +37,7 @@ export default function CoachMembersPage() {
     // Filters
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-    const [filterScope, setFilterScope] = useState<'all' | 'my'>('all');
+    const [filterScope, setFilterScope] = useState<'all' | 'my'>('my');
 
     // Selection & Notes
     const [selectedMember, setSelectedMember] = useState<MemberItem | null>(null);
@@ -234,13 +234,14 @@ export default function CoachMembersPage() {
                     회원 관리
                 </h2>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)', marginTop: 4 }}>
+                    {filterScope === 'my' ? '내 수업 회원 ' : '시설 전체 '}
                     {filteredMembers.length}명 표시 / 전체 {members.length}명
                 </p>
             </div>
 
             {/* Scope Filter */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                {(['all', 'my'] as const).map(f => (
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                {(['my', 'all'] as const).map(f => (
                     <button
                         key={f}
                         onClick={() => setFilterScope(f)}
@@ -253,10 +254,15 @@ export default function CoachMembersPage() {
                             fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer',
                         }}
                     >
-                        {f === 'all' ? '전체 회원' : '담당 회원'}
+                        {f === 'my' ? `담당 회원 (${myMemberIds.length})` : '시설 전체'}
                     </button>
                 ))}
             </div>
+            <p style={{ fontSize: '0.6875rem', color: 'var(--app-text-muted)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                {filterScope === 'my'
+                    ? '내가 배정된 세션을 예약한 회원만 표시합니다.'
+                    : '시설 전체 회원 검색은 코칭 노트 작성과 출결 보조 목적으로만 사용해주세요.'}
+            </p>
 
             {/* Status Filter */}
             <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>

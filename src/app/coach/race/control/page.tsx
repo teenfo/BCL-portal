@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 import { query } from '@/lib/supabase/query';
-import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Types ───────────────────────────────────────
 interface PM5Device {
@@ -20,6 +19,7 @@ interface PM5Device {
 interface BLEDeviceInfo {
     serial: string;
     address: string;
+    adapter?: string | null;
     connected: boolean;
     distance_m: number;
     power_w: number;
@@ -40,6 +40,13 @@ interface MemberOption {
     name: string;
 }
 
+interface RaceTeam {
+    id: string;
+    event_id: string;
+    team_name: string;
+    team_color: string;
+}
+
 interface RaceEvent {
     id: string;
     name: string;
@@ -58,8 +65,6 @@ const RACE_SERVER_URL = process.env.NEXT_PUBLIC_RACE_SERVER_URL || 'http://local
 
 // ─── Component ───────────────────────────────────
 export default function CoachRaceControlPage() {
-    const { user } = useAuth();
-
     // Setup state
     const [devices, setDevices] = useState<PM5Device[]>([]);
     const [members, setMembers] = useState<MemberOption[]>([]);
@@ -73,6 +78,11 @@ export default function CoachRaceControlPage() {
 
     // Lane assignments
     const [lanes, setLanes] = useState<LaneAssignment[]>([]);
+
+    // Team race
+    const [teams, setTeams] = useState<RaceTeam[]>([]);
+    const [newTeamName, setNewTeamName] = useState('');
+    const [newTeamColor, setNewTeamColor] = useState('#FF6A00');
 
     // Race state
     const [raceStatus, setRaceStatus] = useState<RaceStatus>('setup');
@@ -105,7 +115,8 @@ export default function CoachRaceControlPage() {
     async function loadInitialData() {
         try {
             const [devicesRes, membersRes, eventsRes] = await Promise.all([
-                query('pm5_devices').select('*').eq('status', 'active').order('serial_number'),
+                // pm5_devices.status enum: online | offline | maintenance
+                query('pm5_devices').select('*').eq('status', 'online').order('serial_number'),
                 query('members').select('id, name').eq('status', 'active').order('name'),
                 query('race_events').select('*').order('event_date', { ascending: false }).limit(10),
             ]);
@@ -118,6 +129,49 @@ export default function CoachRaceControlPage() {
             setError('데이터 로딩 실패');
         }
         setLoading(false);
+    }
+
+    async function loadTeams(eventId: string) {
+        try {
+            const res = await query('race_teams')
+                .select('id, event_id, team_name, team_color')
+                .eq('event_id', eventId)
+                .order('team_name');
+            setTeams((res.data as unknown as RaceTeam[]) || []);
+        } catch {
+            setTeams([]);
+        }
+    }
+
+    useEffect(() => {
+        if (selectedEvent && raceFormat === 'team') {
+            loadTeams(selectedEvent.id);
+        } else {
+            setTeams([]);
+        }
+    }, [selectedEvent, raceFormat]);
+
+    async function handleCreateTeam() {
+        if (!selectedEvent || !newTeamName.trim()) return;
+        try {
+            const res = await query('race_teams').insert({
+                event_id: selectedEvent.id,
+                team_name: newTeamName.trim(),
+                team_color: newTeamColor,
+            }).select().single();
+            if (res.data) {
+                setTeams(prev => [...prev, res.data as unknown as RaceTeam]);
+                setNewTeamName('');
+            }
+        } catch (e: any) {
+            setError(`팀 생성 실패: ${e.message ?? e}`);
+        }
+    }
+
+    function updateLaneTeam(laneNum: number, teamId: string) {
+        setLanes(prev => prev.map(l =>
+            l.lane === laneNum ? { ...l, team_id: teamId || null } : l
+        ));
     }
 
     // ─── Race Server Communication ───────────────
@@ -150,10 +204,10 @@ export default function CoachRaceControlPage() {
         setScanning(false);
     }
 
-    async function handleBLEConnect(address: string, serial: string) {
+    async function handleBLEConnect(address: string, serial: string, adapter?: string | null) {
         setConnecting(serial);
         try {
-            await raceAPI('/api/ble/connect', 'POST', { address, serial });
+            await raceAPI('/api/ble/connect', 'POST', { address, serial, adapter: adapter ?? null });
             setBleDevices(prev => prev.map(d => d.serial === serial ? { ...d, connected: true } : d));
         } catch (e: any) {
             setError(`연결 실패 (${serial}): ${e.message}`);
@@ -472,7 +526,7 @@ export default function CoachRaceControlPage() {
                                         </div>
                                         {bleInfo && !isConnected ? (
                                             <button
-                                                onClick={() => handleBLEConnect(bleInfo.address, bleInfo.serial)}
+                                                onClick={() => handleBLEConnect(bleInfo.address, bleInfo.serial, bleInfo.adapter)}
                                                 disabled={connecting === dev.serial_number}
                                                 style={{ ...btnSmall, background: 'var(--app-accent)' }}
                                             >
@@ -487,8 +541,55 @@ export default function CoachRaceControlPage() {
                         </div>
                     </SectionCard>
 
+                    {/* Team Management (team race only) */}
+                    {raceFormat === 'team' && selectedEvent && (
+                        <SectionCard title="3. 팀 구성" icon="👥">
+                            <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.5rem' }}>
+                                <input
+                                    type="text"
+                                    value={newTeamName}
+                                    placeholder="팀 이름"
+                                    onChange={e => setNewTeamName(e.target.value)}
+                                    style={{ ...inputStyle, flex: 1 }}
+                                />
+                                <input
+                                    type="color"
+                                    value={newTeamColor}
+                                    onChange={e => setNewTeamColor(e.target.value)}
+                                    style={{ width: 48, padding: 2, border: '1px solid var(--app-border)', borderRadius: 8, background: 'var(--app-surface)' }}
+                                />
+                                <button onClick={handleCreateTeam} disabled={!newTeamName.trim()} style={{
+                                    ...btnPrimary, opacity: !newTeamName.trim() ? 0.5 : 1,
+                                }}>
+                                    + 추가
+                                </button>
+                            </div>
+                            {teams.length === 0 ? (
+                                <p style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', textAlign: 'center', padding: '0.5rem 0' }}>
+                                    팀을 먼저 생성한 뒤 레인 배정 단계에서 팀을 선택하세요
+                                </p>
+                            ) : (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                                    {teams.map(t => (
+                                        <span key={t.id} style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                            padding: '0.25rem 0.625rem', borderRadius: 14,
+                                            background: `${t.team_color}22`, border: `1px solid ${t.team_color}66`,
+                                            color: t.team_color, fontSize: '0.6875rem', fontWeight: 700,
+                                        }}>
+                                            <span style={{
+                                                width: 8, height: 8, borderRadius: '50%', background: t.team_color,
+                                            }} />
+                                            {t.team_name}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </SectionCard>
+                    )}
+
                     {/* Lane Assignment */}
-                    <SectionCard title="3. 레인 배정" icon="🏷️">
+                    <SectionCard title={raceFormat === 'team' ? '4. 레인 배정' : '3. 레인 배정'} icon="🏷️">
                         <button onClick={autoAssignLanes} style={{ ...btnSecondary, marginBottom: '0.75rem', width: '100%' }}>
                             ⚡ 자동 배정 (연결된 기기 기준)
                         </button>
@@ -498,35 +599,52 @@ export default function CoachRaceControlPage() {
                             </p>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                                {lanes.map(lane => (
-                                    <div key={lane.lane} style={{
-                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
-                                        padding: '0.5rem 0.75rem', borderRadius: 10,
-                                        background: 'var(--app-surface)', border: '1px solid var(--app-border)',
-                                    }}>
-                                        <div style={{
-                                            width: 28, height: 28, borderRadius: '50%',
-                                            background: 'var(--app-accent-bg)', color: 'var(--app-accent)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                            fontWeight: 800, fontSize: '0.75rem', flexShrink: 0,
+                                {lanes.map(lane => {
+                                    const team = teams.find(t => t.id === lane.team_id);
+                                    return (
+                                        <div key={lane.lane} style={{
+                                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                            padding: '0.5rem 0.75rem', borderRadius: 10,
+                                            background: 'var(--app-surface)',
+                                            border: `1px solid ${team ? `${team.team_color}66` : 'var(--app-border)'}`,
+                                            borderLeft: team ? `4px solid ${team.team_color}` : '1px solid var(--app-border)',
                                         }}>
-                                            {lane.lane}
+                                            <div style={{
+                                                width: 28, height: 28, borderRadius: '50%',
+                                                background: 'var(--app-accent-bg)', color: 'var(--app-accent)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontWeight: 800, fontSize: '0.75rem', flexShrink: 0,
+                                            }}>
+                                                {lane.lane}
+                                            </div>
+                                            <div style={{ flex: 1, fontSize: '0.75rem', color: 'var(--app-text-secondary)' }}>
+                                                {lane.device_serial}
+                                            </div>
+                                            <select
+                                                value={lane.member_id || ''}
+                                                onChange={e => updateLaneMember(lane.lane, e.target.value)}
+                                                style={{ ...inputStyle, width: 'auto', flex: 1, fontSize: '0.75rem', padding: '0.375rem' }}
+                                            >
+                                                <option value="">미배정</option>
+                                                {members.map(m => (
+                                                    <option key={m.id} value={m.id}>{m.name}</option>
+                                                ))}
+                                            </select>
+                                            {raceFormat === 'team' && (
+                                                <select
+                                                    value={lane.team_id || ''}
+                                                    onChange={e => updateLaneTeam(lane.lane, e.target.value)}
+                                                    style={{ ...inputStyle, width: 'auto', flex: '0 0 96px', fontSize: '0.75rem', padding: '0.375rem' }}
+                                                >
+                                                    <option value="">팀 없음</option>
+                                                    {teams.map(t => (
+                                                        <option key={t.id} value={t.id}>{t.team_name}</option>
+                                                    ))}
+                                                </select>
+                                            )}
                                         </div>
-                                        <div style={{ flex: 1, fontSize: '0.75rem', color: 'var(--app-text-secondary)' }}>
-                                            {lane.device_serial}
-                                        </div>
-                                        <select
-                                            value={lane.member_id || ''}
-                                            onChange={e => updateLaneMember(lane.lane, e.target.value)}
-                                            style={{ ...inputStyle, width: 'auto', flex: 1, fontSize: '0.75rem', padding: '0.375rem' }}
-                                        >
-                                            <option value="">미배정</option>
-                                            {members.map(m => (
-                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                     </SectionCard>

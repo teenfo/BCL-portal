@@ -18,7 +18,7 @@ BCL Portal은 CrossFit 및 피트니스 센터를 위한 **통합 운영 관리 
 | **Coach App** | `/coach/*` | 코치 전용 | ✅ 운영 가능 |
 | **Class Portal** | `/class/*` | 센터 내 대형 스크린 | ✅ 운영 가능 |
 | **Kiosk App** | `/kiosk/*` | 무인 체크인 단말기 | ✅ 운영 가능 |
-| **Race System** | `/class/race/*`, `/coach/race/*` | ERG 레이스 (코드 완료) | ⚠️ 현장 검증 필요 |
+| **Race System** | `/class/race/*`, `/coach/race/*` | ERG 레이스 (코드 완료, 결과 자동 적재) | ⚠️ 운영 수용 검증 진행 중 |
 
 > **알림 시스템 상태**: In-app 알림은 운영 가능. 외부 채널(카카오 비즈메시지, SMS)은 **미연동 상태** (v1 제외). Push 알림은 코드 완료, 현장 검증 필요.
 
@@ -163,7 +163,7 @@ const { data, error } = await query('table_name').select('...');
 | Class Portal | ✅ 완료 | WOD/타이머/리더보드/레이스 |
 | Kiosk (QR 체크인) | ✅ 완료 | JSON 페이로드 + 타임스탬프 검증 |
 | 배지 시스템 | ✅ 완료 | DB 트리거 기반 자동 달성 |
-| Race 시스템 | ✅ 코드 완료 | BLE/현장 검증은 별도 |
+| Race 시스템 | ✅ 코드 완료 / 🟡 운영 수용 진행 | 결과 자동 적재 + 팀전 + simulator 정합성 (Priority 21) — L3/L4 현장 재검증 필요 |
 | 외부 알림 | ⚠️ Mock 상태 | 카카오/SMS v1 미포함 |
 | 품질 게이트 | ✅ 구축 | lint 0 errors, typecheck 통과 |
 

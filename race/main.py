@@ -135,6 +135,11 @@ async def snapshot_loop():
 
             for serial, snapshot in _broadcast_buffer.items():
                 lane_info = race_session.lane_assignments.get(serial, {})
+                device_id = lane_info.get("device_id")
+                if not device_id:
+                    # Skip devices without pm5_devices identity (race_live_state.device_id NOT NULL)
+                    continue
+
                 acc = pm5_manager.get_accumulator(serial)
                 conn_status = "racing" if (acc and acc.race_active) else "connected"
 
@@ -147,7 +152,7 @@ async def snapshot_loop():
                     supabase.table("race_live_state").upsert(
                         {
                             "event_id": race_session.event_id,
-                            "device_id": lane_info.get("device_id"),
+                            "device_id": device_id,
                             "member_id": lane_info.get("member_id"),
                             "lane_number": lane_info.get("lane", 0),
                             "team_id": lane_info.get("team_id"),
@@ -337,10 +342,16 @@ async def race_setup(req: RaceSetupRequest):
     race_session.lane_assignments = req.lane_assignments
     race_session.status = RaceStatus.LOBBY
 
-    # Initialize recorder
+    # Initialize recorder — persist lane_assignments into _meta.json
+    # so post-race result loaders can recover lane/member/team mapping
+    # even after the in-memory race_session is reset.
     device_serials = list(req.lane_assignments.keys())
+    recorder_meta = {
+        **(req.meta or {}),
+        "lane_assignments": req.lane_assignments,
+    }
     race_session.recorder = Recorder(event_id=req.event_id)
-    race_session.recorder.start(device_serials=device_serials, meta=req.meta)
+    race_session.recorder.start(device_serials=device_serials, meta=recorder_meta)
 
     # Reset all accumulators
     pm5_manager.reset_all()
@@ -462,10 +473,22 @@ async def race_control(req: RaceControlRequest):
             except Exception as e:
                 logger.error(f"Failed to broadcast race_finish: {e}")
 
+        # Auto-load results into race_records (M-1: end-to-end pipeline)
+        results_summary = {}
+        if supabase and race_session.event_id:
+            try:
+                results_summary = _load_race_results(race_session.event_id)
+                logger.info(
+                    f"🏆 Auto-loaded {results_summary.get('results_loaded', 0)} race_records for event {race_session.event_id}"
+                )
+            except Exception as e:
+                logger.error(f"Auto load_results failed: {e}")
+
         logger.info("🏁 RACE FINISHED")
         return {
             "status": "finished",
             "recordings": recording_results,
+            "results": results_summary,
         }
 
     elif action == "reset":
@@ -543,28 +566,33 @@ async def recording_summary(event_id: str):
     return {"event_id": event_id, "summaries": summaries}
 
 
-@app.post("/api/recordings/{event_id}/load-results")
-async def load_results(event_id: str):
-    """Extract JSONL summaries and load into race_records table.
+def _load_race_results(event_id: str) -> dict:
+    """Internal helper that extracts JSONL summaries and loads them into
+    race_records. Reused by the explicit endpoint and the stop action so a
+    finished race always results in persisted records without a manual
+    follow-up call.
 
-    This endpoint is called after a race finishes to populate
-    the permanent race_records with computed results.
+    Lane assignments are read from `_meta.json` first (durable across
+    process restarts) and fall back to the in-memory race_session.
     """
     if not supabase:
-        raise HTTPException(status_code=503, detail="Supabase not connected")
+        return {"event_id": event_id, "results_loaded": 0, "devices": [], "error": "supabase_unavailable"}
 
     from recorder import RECORDINGS_DIR
     event_dir = os.path.join(RECORDINGS_DIR, event_id)
     if not os.path.exists(event_dir):
-        raise HTTPException(status_code=404, detail="Recording not found")
+        return {"event_id": event_id, "results_loaded": 0, "devices": [], "error": "recording_not_found"}
 
-    # Load lane assignments from the meta file
+    # Load lane assignments from meta (durable, survives session reset)
+    lane_assignments_from_meta: dict = {}
     meta_path = os.path.join(event_dir, "_meta.json")
-    lane_meta = {}
     if os.path.exists(meta_path):
-        with open(meta_path, "r") as f:
-            meta = json.load(f)
-            # lane_meta is stored during race setup
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                meta = json.load(f)
+                lane_assignments_from_meta = meta.get("lane_assignments") or {}
+        except Exception as e:
+            logger.error(f"Failed to read _meta.json: {e}")
 
     results_loaded = []
     for entry in os.scandir(event_dir):
@@ -576,7 +604,20 @@ async def load_results(event_id: str):
         if not summary or summary.get("data_points", 0) == 0:
             continue
 
-        lane_info = race_session.lane_assignments.get(serial, {})
+        lane_info = (
+            lane_assignments_from_meta.get(serial)
+            or race_session.lane_assignments.get(serial, {})
+        )
+
+        # Idempotency: skip if record already exists for this event+device
+        try:
+            existing = supabase.table("race_records").select("id").eq(
+                "event_id", event_id
+            ).eq("device_serial", serial).limit(1).execute()
+            if existing.data:
+                continue
+        except Exception:
+            pass
 
         # Find recording_id
         recording_id = None
@@ -629,6 +670,24 @@ async def load_results(event_id: str):
         "results_loaded": len(results_loaded),
         "devices": results_loaded,
     }
+
+
+@app.post("/api/recordings/{event_id}/load-results")
+async def load_results(event_id: str):
+    """Extract JSONL summaries and load into race_records table.
+
+    Public entry point. Race stop also triggers this internally so the
+    endpoint typically only re-runs for manual recovery / late-arrival files.
+    """
+    if not supabase:
+        raise HTTPException(status_code=503, detail="Supabase not connected")
+
+    from recorder import RECORDINGS_DIR
+    event_dir = os.path.join(RECORDINGS_DIR, event_id)
+    if not os.path.exists(event_dir):
+        raise HTTPException(status_code=404, detail="Recording not found")
+
+    return _load_race_results(event_id)
 
 
 # ─────────────────────────────────────────────
@@ -687,6 +746,41 @@ class SimReplayRequest(BaseModel):
     playback_speed: float = Field(1.0, ge=0.25, le=10.0, description="Playback speed multiplier")
 
 
+def _ensure_simulator_devices(serials: list) -> Dict[str, str]:
+    """Upsert synthetic pm5_devices rows for simulator serials.
+
+    Returns a serial → device_id mapping so lane_assignments can carry a
+    valid device_id (race_live_state.device_id is NOT NULL). Without this,
+    snapshot UPSERT silently fails for every simulator tick (M-6).
+    """
+    if not supabase:
+        return {}
+
+    serial_to_id: Dict[str, str] = {}
+    for serial in serials:
+        try:
+            resp = supabase.table("pm5_devices").select("id").eq(
+                "serial_number", serial
+            ).limit(1).execute()
+            if resp.data:
+                serial_to_id[serial] = resp.data[0]["id"]
+                continue
+
+            ins = supabase.table("pm5_devices").insert({
+                "serial_number": serial,
+                "device_type": "rower",
+                "status": "online",
+                "ble_name": f"Simulator {serial}",
+                "current_mode": "racing",
+            }).execute()
+            if ins.data:
+                serial_to_id[serial] = ins.data[0]["id"]
+        except Exception as e:
+            logger.error(f"Synthetic device upsert failed for {serial}: {e}")
+
+    return serial_to_id
+
+
 @app.post("/api/sim/start")
 async def sim_start(req: SimStartRequest):
     """Start the race simulator (random data generation)."""
@@ -705,7 +799,15 @@ async def sim_start(req: SimStartRequest):
     event_id = req.event_id or f"sim-{int(time.time())}"
     race_session.event_id = event_id
     race_session.status = RaceStatus.RACING
-    race_session.lane_assignments = _simulator.get_lane_assignments()
+
+    # Ensure synthetic pm5_devices rows so race_live_state UPSERT succeeds
+    sim_serials = _simulator.get_rower_serials()
+    serial_to_device_id = _ensure_simulator_devices(sim_serials)
+
+    lane_assignments = _simulator.get_lane_assignments()
+    for serial, info in lane_assignments.items():
+        info["device_id"] = serial_to_device_id.get(serial)
+    race_session.lane_assignments = lane_assignments
 
     _simulator.start()
 

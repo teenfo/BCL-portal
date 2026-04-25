@@ -22,6 +22,7 @@ export type RaceStatus = 'setup' | 'lobby' | 'countdown' | 'racing' | 'finished'
 
 export interface LaneData {
     device_serial: string;
+    device_id: string | null;
     lane: number;
     member_id: string | null;
     member_name: string | null;
@@ -62,20 +63,6 @@ const RACE_SERVER_URL = process.env.NEXT_PUBLIC_RACE_SERVER_URL || 'http://local
 const POLL_INTERVAL_MS = 300;
 const RECONNECT_SNAPSHOT_DELAY = 1000;
 
-// ─── State Machine ───────────────────────────────
-
-const VALID_TRANSITIONS: Record<RaceStatus, RaceStatus[]> = {
-    setup: ['lobby'],
-    lobby: ['countdown', 'setup'],
-    countdown: ['racing', 'lobby'],
-    racing: ['finished'],
-    finished: ['setup'],
-};
-
-function isValidTransition(from: RaceStatus, to: RaceStatus): boolean {
-    return VALID_TRANSITIONS[from]?.includes(to) ?? false;
-}
-
 // ─── Hook ────────────────────────────────────────
 
 export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
@@ -91,6 +78,7 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const raceStartRef = useRef<number>(0);
     const statusRef = useRef<RaceStatus>('setup');
+    const teamMetaRef = useRef<Map<string, { team_name: string; team_color: string }>>(new Map());
 
     // Keep statusRef in sync
     useEffect(() => {
@@ -107,6 +95,7 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
 
             const updated: LaneData = {
                 device_serial: serial,
+                device_id: payload.device_id ?? existing?.device_id ?? null,
                 lane: payload.lane ?? existing?.lane ?? 0,
                 member_id: payload.member_id ?? existing?.member_id ?? null,
                 member_name: payload.member_name ?? existing?.member_name ?? null,
@@ -145,6 +134,7 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
         setLaneData(_prev => {
             const newData: LaneData[] = entries.map(([serial, payload]: [string, any]) => ({
                 device_serial: serial,
+                device_id: payload.device_id ?? null,
                 lane: payload.lane ?? 0,
                 member_id: payload.member_id ?? null,
                 member_name: payload.member_name ?? null,
@@ -185,14 +175,17 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
             return;
         }
 
-        const teamEntries: TeamData[] = Array.from(teamMap.entries()).map(([teamId, agg]) => ({
-            team_id: teamId,
-            team_name: teamId, // Will be enriched from DB if needed
-            team_color: '#FF6A00',
-            total_distance_m: Math.round(agg.total * 100) / 100,
-            member_count: agg.count,
-            rank: 0,
-        }));
+        const teamEntries: TeamData[] = Array.from(teamMap.entries()).map(([teamId, agg]) => {
+            const meta = teamMetaRef.current.get(teamId);
+            return {
+                team_id: teamId,
+                team_name: meta?.team_name ?? teamId,
+                team_color: meta?.team_color ?? '#FF6A00',
+                total_distance_m: Math.round(agg.total * 100) / 100,
+                member_count: agg.count,
+                rank: 0,
+            };
+        });
 
         // Rank teams by total distance
         teamEntries.sort((a, b) => b.total_distance_m - a.total_distance_m);
@@ -200,6 +193,34 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
 
         setTeams(teamEntries);
     }, [laneData]);
+
+    // ─── Load team metadata (race_teams) once per event ───
+    useEffect(() => {
+        if (!eventId) {
+            teamMetaRef.current = new Map();
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                const { data } = await query('race_teams')
+                    .select('id, team_name, team_color')
+                    .eq('event_id', eventId);
+                if (cancelled || !data) return;
+                const map = new Map<string, { team_name: string; team_color: string }>();
+                for (const t of data as any[]) {
+                    map.set(t.id, { team_name: t.team_name, team_color: t.team_color });
+                }
+                teamMetaRef.current = map;
+                // Trigger team aggregate recompute by nudging laneData state
+                setLaneData(prev => [...prev]);
+            } catch (e) {
+                console.error('[useRaceRealtime] race_teams load failed:', e);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [eventId]);
 
     // ─── Race timer ──────────────────────────────
     useEffect(() => {
@@ -222,15 +243,19 @@ export function useRaceRealtime(eventId: string | null): UseRaceRealtimeReturn {
     }, [raceStatus]);
 
     // ─── Snapshot recovery from DB ───────────────
+    // race_live_state stores `device_id` (FK → pm5_devices.id), not the
+    // BLE serial. Joining pm5_devices(serial_number) lets us reconcile
+    // recovered rows with broadcast payloads keyed by device_serial.
     const recoverFromSnapshot = useCallback(async (eid: string) => {
         try {
             const { data } = await query('race_live_state')
-                .select('*')
+                .select('*, pm5_devices(serial_number)')
                 .eq('event_id', eid);
 
             if (data && data.length > 0) {
                 const recoveredLanes: LaneData[] = data.map((row: any) => ({
-                    device_serial: row.device_serial || '',
+                    device_serial: row.pm5_devices?.serial_number || '',
+                    device_id: row.device_id || null,
                     lane: row.lane_number ?? 0,
                     member_id: row.member_id,
                     member_name: null,

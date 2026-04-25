@@ -13,9 +13,17 @@ interface TodaySession {
     end_time: string;
     capacity: number;
     session_date: string;
-    wod_description?: string;
+    wod_description?: string | null;
     booked_count: number;
     checkin_count: number;
+    waitlist_count: number;
+    unchecked_count: number;
+}
+
+interface RiskSummary {
+    waitlist: number;
+    unchecked_confirmed: number;
+    starting_soon: number;
 }
 
 interface CoachNotice {
@@ -26,50 +34,47 @@ interface CoachNotice {
 }
 
 export default function CoachDashboardPage() {
-    const { user, profile } = useAuth();
+    const { profile } = useAuth();
     const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
     const [notices, setNotices] = useState<CoachNotice[]>([]);
     const [todayCheckins, setTodayCheckins] = useState(0);
     const [todayBookings, setTodayBookings] = useState(0);
     const [weekSessions, setWeekSessions] = useState(0);
+    const [risk, setRisk] = useState<RiskSummary>({ waitlist: 0, unchecked_confirmed: 0, starting_soon: 0 });
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         loadDashboard();
-    }, [user]);
+    }, []);
 
     async function loadDashboard() {
-        if (!user) return;
-
         try {
-            // 코치 대시보드 통계 및 수업 정보 통합 조회 (RPC)
-            const { data: dashboardData, error: dbError } = await rpc('fn_get_coach_dashboard', {
-                p_user_id: user.id
-            });
+            const { data: dashboardData, error: dbError } = await rpc('fn_get_my_coach_dashboard');
 
             if (dbError && process.env.NODE_ENV === 'development') {
                 console.error('Error fetching dashboard data:', dbError);
             }
 
-            if (dashboardData && !dashboardData.error) {
-                setTodaySessions(dashboardData.today_sessions || []);
-                setTodayCheckins(dashboardData.today_total_checkins || 0);
-                setTodayBookings(dashboardData.today_total_bookings || 0);
-                setWeekSessions(dashboardData.week_sessions || 0);
+            if (dashboardData?.success) {
+                const payload = dashboardData.data ?? {};
+                setTodaySessions(Array.isArray(payload.today_sessions) ? payload.today_sessions : []);
+                setTodayCheckins(payload.today_total_checkins ?? 0);
+                setTodayBookings(payload.today_total_bookings ?? 0);
+                setWeekSessions(payload.week_sessions ?? 0);
+                setRisk({
+                    waitlist: payload.risk_summary?.waitlist ?? 0,
+                    unchecked_confirmed: payload.risk_summary?.unchecked_confirmed ?? 0,
+                    starting_soon: payload.risk_summary?.starting_soon ?? 0,
+                });
             }
 
-            // 코치 공지 (coach 카테고리 포함)
             const { data: noticeData } = await query('notices')
                 .select('*')
                 .eq('is_published', true)
                 .order('created_at', { ascending: false })
                 .limit(3);
 
-            if (noticeData) {
-                // UI에서는 공지를 다 보여주되 코치 공지가 있으면 뱃지를 달아주거나 우선순위 가능
-                setNotices(noticeData);
-            }
-
+            if (noticeData) setNotices(noticeData);
         } catch (error) {
             if (process.env.NODE_ENV === 'development') console.error('Coach dashboard load error:', error);
         }
@@ -97,18 +102,19 @@ export default function CoachDashboardPage() {
         );
     }
 
+    const now = new Date();
     const currentSession = todaySessions.find(s => {
-        const now = new Date();
         const start = new Date(`${s.session_date}T${s.start_time}`);
         const end = s.end_time ? new Date(`${s.session_date}T${s.end_time}`) : new Date(start.getTime() + 60 * 60 * 1000);
         return now >= start && now <= end;
     });
 
-    const upcomingSessions = todaySessions.filter(s => {
-        const now = new Date();
+    const nextSession = todaySessions.find(s => {
         const start = new Date(`${s.session_date}T${s.start_time}`);
         return start > now;
     });
+
+    const hasRisk = risk.waitlist + risk.unchecked_confirmed + risk.starting_soon > 0;
 
     return (
         <div className="app-page">
@@ -123,40 +129,31 @@ export default function CoachDashboardPage() {
             </div>
 
             {/* Quick Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <div className="app-glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--app-accent)' }}>
-                        {todaySessions.length}
-                    </div>
-                    <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        오늘 수업
-                    </div>
-                </div>
-                <div className="app-glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--app-accent)' }}>
-                        {todayBookings}
-                    </div>
-                    <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        예약
-                    </div>
-                </div>
-                <div className="app-glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.375rem', fontWeight: 800, color: 'var(--app-accent)' }}>
-                        {todayCheckins}
-                    </div>
-                    <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        출석
-                    </div>
-                </div>
-                <div className="app-glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.375rem', fontWeight: 800, color: '#3B82F6' }}>
-                        {weekSessions}
-                    </div>
-                    <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
-                        이번 주
-                    </div>
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem', marginBottom: '1rem' }}>
+                <StatCard value={todaySessions.length} label="오늘 수업" accent="var(--app-accent)" />
+                <StatCard value={todayBookings} label="예약" accent="var(--app-accent)" />
+                <StatCard value={todayCheckins} label="출석" accent="var(--app-accent)" />
+                <StatCard value={weekSessions} label="이번 주" accent="#3B82F6" />
             </div>
+
+            {/* Risk Summary */}
+            {hasRisk && (
+                <div className="app-glass-card" style={{
+                    padding: '0.875rem 1rem',
+                    marginBottom: '1.5rem',
+                    border: '1px solid rgba(245,158,11,0.25)',
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(245,158,11,0.02) 100%)',
+                }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#F59E0B', marginBottom: 8 }}>
+                        🚨 운영 위험 요약
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                        <RiskStat value={risk.starting_soon} label="60분 내 시작" accent="#F59E0B" />
+                        <RiskStat value={risk.unchecked_confirmed} label="시작 후 미체크인" accent="#EF4444" />
+                        <RiskStat value={risk.waitlist} label="대기열" accent="#A78BFA" />
+                    </div>
+                </div>
+            )}
 
             {/* Current Session */}
             {currentSession && (
@@ -187,11 +184,36 @@ export default function CoachDashboardPage() {
                             <Link href={`/coach/schedule?session_id=${currentSession.id}`} style={{
                                 display: 'inline-block', color: 'var(--app-accent)', fontSize: '0.875rem', fontWeight: 600, textDecoration: 'none'
                             }}>
-                                출석 명단 보기 &rarr;
+                                운영 보드 열기 →
                             </Link>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Next Session CTA */}
+            {!currentSession && nextSession && (
+                <Link href={`/coach/schedule?session_id=${nextSession.id}`} style={{ textDecoration: 'none' }}>
+                    <div className="app-glass-card" style={{
+                        padding: '1rem 1.25rem',
+                        marginBottom: '1.5rem',
+                        border: '1px solid var(--app-accent)',
+                        background: 'linear-gradient(135deg, rgba(255,106,0,0.08) 0%, rgba(255,106,0,0.02) 100%)',
+                    }}>
+                        <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--app-accent)', marginBottom: 4 }}>
+                            다음 세션
+                        </div>
+                        <div style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--app-text-primary)', marginBottom: 4 }}>
+                            {nextSession.title}
+                        </div>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
+                            {nextSession.start_time.slice(0, 5)} 시작 · 예약 {nextSession.booked_count}명{nextSession.waitlist_count > 0 ? ` · 대기 ${nextSession.waitlist_count}명` : ''}
+                        </div>
+                        <div style={{ marginTop: 8, fontSize: '0.8125rem', color: 'var(--app-accent)', fontWeight: 600 }}>
+                            운영 보드 열기 →
+                        </div>
+                    </div>
+                </Link>
             )}
 
             {/* Upcoming Sessions */}
@@ -217,8 +239,20 @@ export default function CoachDashboardPage() {
                                                 {session.title}
                                             </h4>
                                             <p style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
-                                                {session.start_time.slice(0, 5)} ~ {session.end_time?.slice(0, 5) || ''} · {session.booked_count}/{session.capacity} (✅ {session.checkin_count}명)
+                                                {session.start_time.slice(0, 5)} ~ {session.end_time?.slice(0, 5) || ''} · {session.booked_count}/{session.capacity} (✅ {session.checkin_count})
                                             </p>
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                                                {session.waitlist_count > 0 && (
+                                                    <span style={{ fontSize: '0.6875rem', color: '#A78BFA', fontWeight: 600 }}>
+                                                        대기 {session.waitlist_count}
+                                                    </span>
+                                                )}
+                                                {session.unchecked_count > 0 && (
+                                                    <span style={{ fontSize: '0.6875rem', color: '#F59E0B', fontWeight: 600 }}>
+                                                        미처리 {session.unchecked_count}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <div style={{
                                             width: 40, height: 40, borderRadius: 12,
@@ -260,6 +294,30 @@ export default function CoachDashboardPage() {
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function StatCard({ value, label, accent }: { value: number; label: string; accent: string }) {
+    return (
+        <div className="app-glass-card" style={{ padding: '0.875rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.375rem', fontWeight: 800, color: accent }}>
+                {value}
+            </div>
+            <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-secondary)', marginTop: 4 }}>
+                {label}
+            </div>
+        </div>
+    );
+}
+
+function RiskStat({ value, label, accent }: { value: number; label: string; accent: string }) {
+    return (
+        <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: '1.125rem', fontWeight: 800, color: accent }}>{value}</div>
+            <div style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--app-text-muted)', marginTop: 2 }}>
+                {label}
+            </div>
         </div>
     );
 }
