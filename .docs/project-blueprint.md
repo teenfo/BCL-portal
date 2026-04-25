@@ -436,6 +436,23 @@
     - [ ] release checklist 정의 (반복 가능한 문서화 프로세스 확립)
     - [ ] 갱신 책임 명시 (어떤 문서를 언제 갱신하는지 기준 수립)
 
+#### 🟠 Priority 21: Race System Improvements (개발 대기)
+  > **기획서**: `.docs/archive/planning/race-system-improvement-20260425.md`
+  > **문제**: Race 시스템의 결과 마감 자동화, 스냅샷 정합성, 장비 상태 동기화 등 운영 단계 수용 미비
+  > **방안**: DB 정합성(device_id 통일), Python 파이프라인(stop 트리거) 및 프론트엔드 팀전 연동
+
+  - [ ] Phase 1: DB 정합성 및 Backend 파이프라인 → 💎 **Senior Dev (권장: Opus)**
+    - [ ] Race 종료(`stop`) 시 `race_records` 적재 자동화 로직 통합
+    - [ ] Recorder 메타데이터(`lane_assignments`) 완전 저장
+    - [ ] 시뮬레이터 가상 ID 처리 (device_id)
+  - [ ] Phase 2: Frontend Data 정합성 및 팀전 연동 → 💻 **Developer (권장: Sonnet)**
+    - [ ] `pm5_devices` 상태 필터(`online`) 및 `adapter` 정보 전달 정합성 확보
+    - [ ] `race_live_state` snapshot 복원 식별자(`device_id`) 통일
+    - [ ] Coach/Class 화면 팀전 데이터(`race_teams`) 연동
+  - [ ] Phase 3: 품질 최적화 및 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
+    - [ ] Race 관련 프론트엔드 훅 Lint 경고 해결
+    - [ ] blueprint 및 sitemap 갱신
+
 ---
 
 ### Known Issues (Active)
