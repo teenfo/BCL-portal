@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
                                 {/* Success Title */}
                                 <h3 className="text-2xl font-semibold text-white mb-3">Check Your Email!</h3>
                                 <p className="text-sm mb-8" style={{ color: 'var(--foreground-secondary)' }}>
-                                    We've sent a password reset link to{' '}
+                                    We&apos;ve sent a password reset link to{' '}
                                     <strong style={{ color: 'var(--bcl-orange)' }}>{email}</strong>
                                 </p>
 
@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
                                 {/* Form Title */}
                                 <h2 className="text-2xl font-semibold text-white mb-2">Reset Password</h2>
                                 <p className="text-sm mb-6" style={{ color: 'var(--foreground-secondary)' }}>
-                                    Enter your email and we'll send you a reset link
+                                    Enter your email and we&apos;ll send you a reset link
                                 </p>
 
                                 {/* Error Message */}

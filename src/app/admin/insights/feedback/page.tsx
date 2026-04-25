@@ -344,7 +344,7 @@ export default function FeedbackInsightsPage() {
                                     {[1, 2, 3, 4, 5].map(s => <IconStar key={s} size={14} className={s <= selectedFeedback.rating ? 'text-yellow-400' : 'text-white/5'} />)}
                                 </div>
                             </div>
-                            <p className="text-sm text-white/80 leading-relaxed font-medium italic">"{selectedFeedback.comment || 'No comment provided.'}"</p>
+                            <p className="text-sm text-white/80 leading-relaxed font-medium italic">&quot;{selectedFeedback.comment || 'No comment provided.'}&quot;</p>
                             <div className="mt-4 pt-4 border-t border-white/5">
                                 <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-widest">Target Session</p>
                                 <p className="text-xs font-bold text-white mt-1">{selectedFeedback.sessions?.title} with {selectedFeedback.coaches?.name}</p>

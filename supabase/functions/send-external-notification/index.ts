@@ -2,11 +2,18 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 /**
  * BCL Portal - 카카오 알림톡/SMS 발송 Edge Function
- * 
- * 환경변수:
- * - KAKAO_API_KEY: 카카오 비즈메시지 API 키
- * - SMS_API_KEY: SMS 서비스 API 키
- * - SMS_SENDER: 발신 번호
+ *
+ * ⚠️ 운영 상태: MOCK (v1 제외)
+ *   - 카카오 비즈메시지: 실제 API 미연동. 로그만 출력하고 성공 응답 반환.
+ *   - SMS: 실제 API 미연동. 로그만 출력하고 성공 응답 반환.
+ *   - 실제 연동 시: 아래 주석 처리된 fetch() 코드 활성화 필요.
+ *
+ * 실제 연동을 위한 준비물:
+ *   - KAKAO_API_KEY: 카카오 비즈메시지 계약 후 API 키 발급
+ *   - SMS_API_KEY: SMS 서비스(알리고/네이버 SENS 등) API 키
+ *   - SMS_SENDER: 발신 번호 (사전 등록 필요)
+ *
+ * 참고: Priority 14 (알림 시스템 실 가동 QA) — 운영 환경 의존 대기
  */
 
 const KAKAO_API_KEY = Deno.env.get('KAKAO_API_KEY') || '';
