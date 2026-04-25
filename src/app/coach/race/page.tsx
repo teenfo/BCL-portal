@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -61,7 +61,7 @@ export default function CoachRacePage() {
 
             if (eventData) setEvents(eventData);
         } catch (error) {
-            console.error('Race events load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Race events load error:', error);
         }
         setLoading(false);
     }
@@ -75,7 +75,7 @@ export default function CoachRacePage() {
 
             if (data) setRecords(data);
         } catch (error) {
-            console.error('Race records load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Race records load error:', error);
         }
     }
 
@@ -87,7 +87,7 @@ export default function CoachRacePage() {
                 .order('name', { ascending: true });
             setMembers(data || []);
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
         }
     }
 
@@ -104,8 +104,7 @@ export default function CoachRacePage() {
         }
         setCreating(true);
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('race_events').insert({
+            const { data, error } = await query('race_events').insert({
                 name: newEvent.name.trim(),
                 event_date: newEvent.event_date,
                 event_type: newEvent.event_type,
@@ -120,7 +119,7 @@ export default function CoachRacePage() {
                 setNewEvent({ name: '', event_date: '', event_type: '2000m', distance_meters: 2000 });
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             alert('이벤트 생성에 실패했습니다.');
         }
         setCreating(false);
@@ -128,9 +127,7 @@ export default function CoachRacePage() {
 
     async function handleStatusChange(event: RaceEvent, newStatus: string) {
         try {
-            const supabase = createClient();
-            const { error } = await supabase
-                .from('race_events')
+            const { error } = await query('race_events')
                 .update({ status: newStatus })
                 .eq('id', event.id);
 
@@ -140,7 +137,7 @@ export default function CoachRacePage() {
                 setSelectedEvent({ ...event, status: newStatus });
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             alert('상태 변경에 실패했습니다.');
         }
     }
@@ -161,8 +158,7 @@ export default function CoachRacePage() {
 
         setAddingRecord(true);
         try {
-            const supabase = createClient();
-            const { data, error } = await supabase.from('race_records').insert({
+            const { data, error } = await query('race_records').insert({
                 event_id: selectedEvent.id,
                 member_id: recordForm.member_id,
                 result_time: totalSeconds,
@@ -177,7 +173,7 @@ export default function CoachRacePage() {
                 setShowRecordForm(false);
             }
         } catch (e: any) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             if (e.code === '23505') {
                 alert('이미 해당 회원의 기록이 있습니다.');
             } else {

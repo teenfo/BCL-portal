@@ -5,7 +5,7 @@ import UserTopHeader from '@/components/layout/UserTopHeader';
 import NotificationToast from '@/components/ui/NotificationToast';
 import { AuthGuard } from '@/components/AuthGuard';
 import { ReactNode, useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import '../apps/apps.css';

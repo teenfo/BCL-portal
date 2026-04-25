@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/supabase/query';
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
@@ -84,20 +85,19 @@ export function usePushSubscription(): UsePushSubscriptionReturn {
             if (!user) return false;
 
             // Get member_id
-            const { data: member } = await supabase
-                .from('members')
+            const { data: member } = await query('members')
                 .select('id')
                 .eq('user_id', user.id)
                 .single();
 
-            await (supabase as any).from('push_subscriptions').upsert({
+            await query('push_subscriptions').upsert({
                 user_id: user.id,
-                subscription: subJson as any,
+                subscription: subJson,
                 device_info: {
                     device_type: getDeviceType(),
                     user_agent: navigator.userAgent,
                     last_used_at: new Date().toISOString(),
-                } as any,
+                },
                 updated_at: new Date().toISOString(),
             }, {
                 onConflict: 'user_id',
@@ -123,8 +123,7 @@ export function usePushSubscription(): UsePushSubscriptionReturn {
                 const supabase = createClient();
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
-                    await (supabase as any)
-                        .from('push_subscriptions')
+                    await query('push_subscriptions')
                         .delete()
                         .eq('user_id', user.id);
                 }

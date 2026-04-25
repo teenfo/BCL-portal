@@ -63,11 +63,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 17: Known Issues 정비 — 전체 완료 (v0.5.0)**
+- **Current Focus**: **Priority 20: 출시 전 정비 — Phase 5 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npm run build` 성공
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 17 Phase 3+4 완료 — as any 제거 (58파일 query() 전환) + 코치 미연결 경고 강화 — v0.5.0
+- **Last Action**: Priority 20 Phase 5 완료 — Admin 대시보드 고객지원 위젯 TODO 제거, support_tickets 실제 쿼리 연결 (4건: pending/today/urgent/recent)
 
 ---
 
@@ -396,6 +396,46 @@
     - [x] sitemap 갱신 (coach-app, class-portal 화면 추가 반영 확인)
     - [x] database-reference.md 갱신 (race_live_state, race_recordings, race_teams 추가)
     - [x] project-blueprint.md 갱신
+
+#### 🔴 Priority 20: 출시 전 정비 — Release Readiness Stabilization (개발 대기)
+  > **기획서**: `.docs/archive/planning/release-readiness-stabilization-task.md`
+  > **감사보고서**: `.docs/archive/audit/audit-pm-gap-analysis-20260419.md`, `.docs/archive/audit/audit-full-project-20260419.md`
+  > **문제**: 품질 게이트 부재(lint 76 errors, test 미정의), 문서-코드 드리프트(README Next.js 14 vs 실제 16, version 0.4.0 vs 0.5.0), 외부 알림 mock 상태, 보안 문서 과장, 운영 지표 TODO 잔존
+  > **방안**: P0(품질 게이트+문서 기준선+운영 범위) → P1(보안 정렬+지표 연결+Race 수용) → P2(감사 체계화) 순서로 출시 기준선 정비
+
+  - [ ] Phase 1: 품질 게이트 복구 (P0) → 💻 **Developer (권장: Sonnet/Codex)**
+    - [ ] lint 오류 분류 (hooks/set-state, 선언순서, markup, 이미지 경고 등 카테고리별 정리)
+    - [ ] `package.json`에 `test`, `typecheck` 스크립트 추가
+    - [ ] 최소 smoke test 또는 핵심 흐름 검증 가능한 러너 구성
+    - [ ] `npm run lint` failure 해소 (76 errors → 0 errors)
+    - [ ] 배포와 분리된 품질 CI 워크플로우 신설
+  - [ ] Phase 2: Release Baseline 문서/버전 동기화 (P0) → 🏛️ **Architect (권장: Pro High)**
+    - [ ] README 정리 (실제 스택/명령 기준 갱신: Next.js 16, React 19 등)
+    - [ ] blueprint 정리 (Current Focus, version, 대기/완료 상태 정렬)
+    - [ ] version 통일 (`package.json`, `src/lib/version.ts`, 문서 버전 동기화)
+    - [ ] database-reference 정리 (마이그레이션/참조 목록 현재 저장소 기준 수정)
+    - [ ] testing docs 현실화 (실제 테스트 체계 기준 문서 갱신)
+  - [ ] Phase 3: 운영 범위 명확화 (P0) → 💎 **Senior Dev (권장: Opus)**
+    - [ ] 외부 알림 상태 결정 (실제 연동 또는 v1 제외)
+    - [ ] mock 상태 명시 (코드/문서/배포 가이드에 동일 반영)
+    - [ ] Priority 14 재정렬 (운영 의존 항목 blueprint에서 명확 분리)
+    - [ ] 배포 가이드 보강 (운영 가능/미운영 기능 목록 분리)
+  - [ ] Phase 4: 보안 문서-구현 정렬 (P1) → 💎 **Senior Dev (권장: Opus)**
+    - [ ] 구현된 통제 식별 (middleware, nginx, auth guard 기준 확인)
+    - [ ] 보안 문서 재분류 (적용 완료 / 부분 적용 / 향후 계획)
+    - [ ] 누락된 최소 보안 항목 반영 (보강 가능한 헤더/설정 적용 검토)
+  - [x] Phase 5: 운영 지표 TODO 제거 (P1) → 💻 **Developer** ✅
+    - [x] 지원 지표 정의 (pending=open|in_progress, today=오늘 생성, urgent=priority urgent+open, recent=최근 미처리 2건)
+    - [x] `support_tickets` 기반 실제 쿼리 연결 (4건: support_pending_count, support_today_count, support_urgent_count, support_recent_tickets)
+    - [x] members FK 조인으로 회원명 표시 (support_tickets_member_id_fkey)
+  - [ ] Phase 6: Race 운영 수용 기준 수립 (P1) → ⚡ **Specialist (권장: Gemini/Codex)**
+    - [ ] Acceptance checklist 작성 (BLE, reconnect, recording, results, cleanup)
+    - [ ] 시뮬레이터/실장비 검증 구분 명시
+    - [ ] Race 관련 lint issue 및 운영 문구 정비
+  - [ ] Phase 7: 감사/문서 운영 체계화 (P2) → 🏛️ **Architect (권장: Pro High)**
+    - [ ] audit-planning 참조 규칙 정리 (planning ↔ audit ↔ blueprint 연결 방식 통일)
+    - [ ] release checklist 정의 (반복 가능한 문서화 프로세스 확립)
+    - [ ] 갱신 책임 명시 (어떤 문서를 언제 갱신하는지 기준 수립)
 
 ---
 

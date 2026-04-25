@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +47,7 @@ export default function CoachDashboardPage() {
                 p_user_id: user.id
             });
 
-            if (dbError) {
+            if (dbError && process.env.NODE_ENV === 'development') {
                 console.error('Error fetching dashboard data:', dbError);
             }
 
@@ -71,7 +71,7 @@ export default function CoachDashboardPage() {
             }
 
         } catch (error) {
-            console.error('Coach dashboard load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Coach dashboard load error:', error);
         }
         setLoading(false);
     }

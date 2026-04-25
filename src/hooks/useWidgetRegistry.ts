@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/supabase/query';
 import { WidgetDefinition, ModalDefinition } from '@/types/widget';
 import { defaultWidgetRegistry } from '@/config/widget-registry';
 import { defaultModalRegistry } from '@/config/modal-registry';
@@ -19,11 +19,8 @@ export function useWidgetRegistry() {
 
     const fetchDbDefinitions = useCallback(async () => {
         try {
-            const supabase = createClient();
-
             // AI/커스텀 위젯 로드
-            const { data: widgetRows } = await (supabase as any)
-                .from('widget_definitions')
+            const { data: widgetRows } = await query('widget_definitions')
                 .select('*')
                 .in('source', ['ai_generated', 'custom'])
                 .order('default_order', { ascending: true });
@@ -50,8 +47,7 @@ export function useWidgetRegistry() {
             }
 
             // AI/커스텀 모달 로드
-            const { data: modalRows } = await (supabase as any)
-                .from('modal_definitions')
+            const { data: modalRows } = await query('modal_definitions')
                 .select('*')
                 .in('source', ['ai_generated', 'custom']);
 

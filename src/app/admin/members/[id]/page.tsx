@@ -158,7 +158,7 @@ export default function MemberDetailPage() {
             query('memberships').select('*, membership_plans(name, price, duration_days, credits, max_pauses)').eq('member_id', memberId).order('created_at', { ascending: false }),
         ]);
 
-        console.log('[MemberDetail] membershipsRes:', { data: membershipsRes.data, error: membershipsRes.error, memberId });
+
 
         if (memberRes.data) setMember(memberRes.data as any);
         if (checkinsRes.data) setCheckins(checkinsRes.data);
@@ -298,7 +298,7 @@ export default function MemberDetailPage() {
                             .update({ membership_start_date: inlineValue })
                             .eq('id', member.id);
                     }
-                    console.log('[saveInlineEdit] memberships start_date update:', { error: res.error, data: res.data, updated, value: inlineValue });
+
                 } else {
                     // Fallback: update members table directly
                     const res = await query('members')
@@ -307,7 +307,7 @@ export default function MemberDetailPage() {
                         .select();
                     error = res.error;
                     updated = !error && res.data && res.data.length > 0;
-                    console.log('[saveInlineEdit] members fallback start_date update:', { error: res.error, data: res.data, updated, value: inlineValue });
+
                 }
                 if (updated) success('시작일이 수정되었습니다.');
                 else if (!error) { toastError('수정 권한이 없거나 대상 레코드를 찾을 수 없습니다.'); }

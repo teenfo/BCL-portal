@@ -220,14 +220,32 @@ async function executeQuery(queryKey: string): Promise<number | string | unknown
         }
 
         // ── 고객지원 ──
-        case 'support_pending_count':
-            return 0; // TODO: support_tickets 테이블
-        case 'support_today_count':
-            return 0;
-        case 'support_urgent_count':
-            return 0;
-        case 'support_recent_tickets':
-            return [];
+        case 'support_pending_count': {
+            const { count }: any = await supabase.from('support_tickets').select('id', { count: 'exact', head: true })
+                .in('status', ['open', 'in_progress']);
+            return count ?? 0;
+        }
+        case 'support_today_count': {
+            const { count }: any = await supabase.from('support_tickets').select('id', { count: 'exact', head: true })
+                .gte('created_at', today + 'T00:00:00');
+            return count ?? 0;
+        }
+        case 'support_urgent_count': {
+            const { count }: any = await supabase.from('support_tickets').select('id', { count: 'exact', head: true })
+                .eq('priority', 'urgent').in('status', ['open', 'in_progress']);
+            return count ?? 0;
+        }
+        case 'support_recent_tickets': {
+            const { data }: any = await supabase.from('support_tickets')
+                .select('id, subject, category, priority, created_at, member_id, members!support_tickets_member_id_fkey(name)')
+                .in('status', ['open', 'in_progress'])
+                .order('created_at', { ascending: false }).limit(2);
+            return (data || []).map((t: any) => ({
+                subject: t.subject || '제목 없음',
+                member_name: t.members?.name || 'Unknown',
+                created_at: t.created_at,
+            }));
+        }
 
         default:
             console.warn(`[useWidgetData] Unknown queryKey: ${queryKey}`);

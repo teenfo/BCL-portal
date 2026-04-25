@@ -97,7 +97,7 @@ export default function CoachProfilePage() {
                 setStats({ totalSessions, thisMonthSessions });
             }
         } catch (error) {
-            console.error('Coach profile load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Coach profile load error:', error);
         }
         setLoading(false);
     }
@@ -106,10 +106,8 @@ export default function CoachProfilePage() {
         if (!coachInfo) return;
         setSaving(true);
         try {
-            const supabase = createClient();
             const specialtiesArr = editSpecialties.split(',').map(s => s.trim()).filter(Boolean);
-            const { error } = await supabase
-                .from('coaches')
+            const { error } = await query('coaches')
                 .update({
                     bio: editBio.trim() || null,
                     phone: editPhone.trim() || null,
@@ -129,7 +127,7 @@ export default function CoachProfilePage() {
                 alert('저장에 실패했습니다.');
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             alert('오류가 발생했습니다.');
         }
         setSaving(false);
@@ -162,8 +160,7 @@ export default function CoachProfilePage() {
             const { data: urlData } = supabase.storage.from('profiles').getPublicUrl(filePath);
             const publicUrl = urlData.publicUrl + '?t=' + Date.now();
 
-            const { error: updateError } = await supabase
-                .from('coaches')
+            const { error: updateError } = await query('coaches')
                 .update({ profile_image_url: publicUrl })
                 .eq('id', coachInfo.id);
 
@@ -171,7 +168,7 @@ export default function CoachProfilePage() {
                 setCoachInfo(prev => prev ? { ...prev, profile_image_url: publicUrl } : null);
             }
         } catch (err) {
-            console.error(err);
+            if (process.env.NODE_ENV === 'development') console.error(err);
             alert('이미지 업로드에 실패했습니다.');
         }
         setUploadingImage(false);
@@ -189,7 +186,7 @@ export default function CoachProfilePage() {
 
             setSettlements(data || []);
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
         }
         setSettlementsLoading(false);
     }

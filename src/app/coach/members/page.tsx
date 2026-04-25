@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -93,7 +93,7 @@ export default function CoachMembersPage() {
 
             if (data) setMembers(data);
         } catch (error) {
-            console.error('Members load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Members load error:', error);
         }
         setLoading(false);
     }
@@ -143,7 +143,7 @@ export default function CoachMembersPage() {
                 thisMonthSessions: thisMonthSessions || 0,
             });
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             setNotes([]);
         }
         setNoteLoading(false);
@@ -168,8 +168,7 @@ export default function CoachMembersPage() {
         }
         setSavingNote(true);
         try {
-            const supabase = createClient();
-            const { data } = await supabase.from('coaching_notes').insert({
+            const { data } = await query('coaching_notes').insert({
                 coach_id: coachId,
                 member_id: selectedMember.id,
                 note_type: newNoteType,
@@ -181,7 +180,7 @@ export default function CoachMembersPage() {
                 setNewNoteContent('');
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             alert('저장 실패');
         }
         setSavingNote(false);
@@ -190,11 +189,10 @@ export default function CoachMembersPage() {
     const handleDeleteNote = async (noteId: string) => {
         if (!confirm('이 노트를 삭제하시겠습니까?')) return;
         try {
-            const supabase = createClient();
-            await supabase.from('coaching_notes').delete().eq('id', noteId);
+            await query('coaching_notes').delete().eq('id', noteId);
             setNotes(prev => prev.filter(n => n.id !== noteId));
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
         }
     };
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query, rpc } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSearchParams } from 'next/navigation';
@@ -56,7 +56,7 @@ function SchedulePageContent() {
                 p_user_id: user.id
             });
 
-            if (dbError) {
+            if (dbError && process.env.NODE_ENV === 'development') {
                 console.error('Error fetching dashboard data:', dbError);
             }
 
@@ -120,7 +120,7 @@ function SchedulePageContent() {
                 }
             }
         } catch (error) {
-            console.error('Coach schedule load error:', error);
+            if (process.env.NODE_ENV === 'development') console.error('Coach schedule load error:', error);
         }
         setLoading(false);
     }, [user, selectedDate, viewMode, focusSessionId]);
@@ -147,7 +147,7 @@ function SchedulePageContent() {
             });
             if (data && !error) setAttendees(data);
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
         }
         setAttendeesLoading(false);
     };
@@ -169,7 +169,7 @@ function SchedulePageContent() {
                 alert(res.data?.error || '출석 처리에 실패했습니다.');
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
             alert('오류가 발생했습니다.');
         }
     };
@@ -177,9 +177,7 @@ function SchedulePageContent() {
     const handleSaveWod = async () => {
         if (!selectedSession) return;
         try {
-            const supabase = createClient();
-            const { error } = await supabase
-                .from('sessions')
+            const { error } = await query('sessions')
                 .update({ wod_description: wodText })
                 .eq('id', selectedSession.id);
 
@@ -189,7 +187,7 @@ function SchedulePageContent() {
                 setSelectedSession(prev => prev ? { ...prev, wod_description: wodText } : null);
             }
         } catch (e) {
-            console.error(e);
+            if (process.env.NODE_ENV === 'development') console.error(e);
         }
     };
 

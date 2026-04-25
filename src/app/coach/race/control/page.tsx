@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { createClient } from '@/lib/supabase/client';
+
 import { query } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -114,7 +114,7 @@ export default function CoachRaceControlPage() {
             if (membersRes.data) setMembers(membersRes.data);
             if (eventsRes.data) setEvents(eventsRes.data as unknown as RaceEvent[]);
         } catch (e) {
-            console.error('Load error:', e);
+            if (process.env.NODE_ENV === 'development') console.error('Load error:', e);
             setError('데이터 로딩 실패');
         }
         setLoading(false);
@@ -132,7 +132,7 @@ export default function CoachRaceControlPage() {
             }
             return await res.json();
         } catch (e: any) {
-            console.error(`Race API error (${endpoint}):`, e);
+            if (process.env.NODE_ENV === 'development') console.error(`Race API error (${endpoint}):`, e);
             throw e;
         }
     }

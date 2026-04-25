@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { query } from '@/lib/supabase/query';
 
 interface AIWidgetLog {
     id: string;
@@ -33,16 +33,13 @@ export default function WidgetSettingsManager({ isOpen, onClose }: WidgetSetting
 
     const fetchData = useCallback(async () => {
         setLoading(true);
-        const supabase = createClient();
 
         const [logResult, widgetResult] = await Promise.all([
-            (supabase as any)
-                .from('ai_widget_generation_logs')
+            query('ai_widget_generation_logs')
                 .select('id, prompt, model_used, generated_widget_id, generated_modal_ids, status, error_message, created_at')
                 .order('created_at', { ascending: false })
                 .limit(20),
-            (supabase as any)
-                .from('widget_definitions')
+            query('widget_definitions')
                 .select('id, title, source, created_at')
                 .order('default_order', { ascending: true }),
         ]);
@@ -58,8 +55,7 @@ export default function WidgetSettingsManager({ isOpen, onClose }: WidgetSetting
 
     const handleDeleteWidget = async (widgetId: string) => {
         if (!confirm(`위젯 "${widgetId}"을 삭제하시겠습니까?`)) return;
-        const supabase = createClient();
-        await (supabase as any).from('widget_definitions').delete().eq('id', widgetId);
+        await query('widget_definitions').delete().eq('id', widgetId);
         fetchData();
     };
 

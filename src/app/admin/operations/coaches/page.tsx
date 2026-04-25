@@ -363,15 +363,7 @@ export default function OperationsCoachesPage() {
         setPerfLoading(true);
 
         try {
-            // Get stats for current month
-            const today = new Date();
-            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-
-            const { data, error } = await rpc('fn_get_coach_performance_stats', {
-                p_start_date: firstDay,
-                p_end_date: lastDay
-            });
+            const { data, error } = await rpc('fn_get_coach_performance_stats');
 
             if (data && !error && Array.isArray(data)) {
                 const performances: CoachPerformance[] = data.map((c: any) => ({
@@ -381,7 +373,7 @@ export default function OperationsCoachesPage() {
                     specialty: c.specialties && c.specialties.length > 0 ? c.specialties[0] : 'General',
                     status: c.status,
                     totalSessions: c.total_sessions || 0,
-                    avgRating: Number((4 + Math.random()).toFixed(1)), // Mock rating for now
+                    avgRating: c.avg_rating != null ? Number(Number(c.avg_rating).toFixed(1)) : 0,
                     totalMembers: c.total_members || 0,
                     retention: c.avg_attendance_rate || 0,
                 }));
@@ -487,9 +479,7 @@ export default function OperationsCoachesPage() {
 
     const handleSettlementStatusChange = async (settlementId: string, newStatus: string) => {
         try {
-            const supabase = createClient();
-            const { error } = await supabase
-                .from('coach_settlements')
+            const { error } = await query('coach_settlements')
                 .update({ status: newStatus, confirmed_at: newStatus !== 'pending' ? new Date().toISOString() : null })
                 .eq('id', settlementId);
             if (error) throw error;
