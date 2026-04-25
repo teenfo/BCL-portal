@@ -42,9 +42,12 @@
 | Phase 2: Auth 시스템 | ✅ 완료 | Login, Signup, Reset, OAuth |
 | Phase 3: 키오스크 | ✅ 완료 | QR 스캔, DB 연동 |
 | Phase 3: 알림 시스템 | ✅ 완료 | PWA Push, 자동 규칙 |
-| Coach 앱 | ✅ 완료 | 5/5 화면 |
-| Class 포털 | ✅ 완료 | 4/4 화면, DB 연동 |
+| Coach 앱 | ✅ 완료 | 5/5 화면, 코칭노트/출석체크/정산 |
+| Class 포털 | ✅ 완료 | 4/4 화면, DB 연동, 2.5D Race |
 | User App 품질 개선 | ✅ 완료 | 필터, Settings 영속화 |
+| Known Issues 정비 | ✅ 완료 | as any 제거, member_id 혼용 해결 (v0.5.0) |
+| 코치 기능 고도화 | ✅ 완료 | 7 Phase 완료 (v0.6.0) |
+| Race 시스템 전체 구현 | ✅ 완료 | BLE+시뮬레이터+2.5D+결과적재 (v0.7.0) |
 
 
 ---
@@ -63,11 +66,11 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 20: 출시 전 정비 — Phase 5 완료**
+- **Current Focus**: **Priority 20: 출시 전 정비 — Release Readiness Stabilization (개발 대기)**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 성공
+- **Build Status**: ✅ `npm run build` 성공 (2026-04-25)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 20 Phase 5 완료 — Admin 대시보드 고객지원 위젯 TODO 제거, support_tickets 실제 쿼리 연결 (4건: pending/today/urgent/recent)
+- **Last Action**: Priority 17/18/19 완료 확인 + 버전 동기화 (0.4.0 → 0.7.0) + 블루프린트 갱신 — v0.7.0
 
 ---
 
@@ -286,7 +289,7 @@
     - [x] 버전 갱신 + blueprint/sitemap 동기화
 
 
-#### 🟠 Priority 18: 코치 기능 고도화 (개발 진행 중)
+#### ✅ Priority 18: 코치 기능 고도화 (완료)
   > **기획서**: `.docs/archive/planning/coach-feature-enhancement.md`
   > **문제**: Coach App 5화면 완성도 ~55%, Admin 성과/정산 Mock 데이터, coaching_notes DB 미존재, User App 코치 프로필 불완전
   > **방안**: coaching_notes + coach_settlements 테이블 + RPC 6개 → Coach App 전체 고도화 → Admin 실 데이터 교체 → User 코치 목록 개선
@@ -331,7 +334,7 @@
   - [x] Phase 7: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
     - [x] project-blueprint.md 갱신
 
-#### 🟠 Priority 19: Race 시스템 — 전체 구현 (개발 진행 중)
+#### ✅ Priority 19: Race 시스템 — 전체 구현 (완료)
   > **기획서**: `.docs/archive/planning/race-system.md`
   > **문제**: Race 시스템의 전체 파이프라인 미구현. PM5 BLE 데이터 수집/레코딩 없음, 2.5D 렌더링 미개발, 팀전/배정/결과 저장 로직 없음.
   > **방안**: DB 확장(6테이블) → Python BLE+JSONL 레코딩 → 프론트엔드 기기 등록/배정 UI → Realtime 훅 → 시뮬레이터 → 2.5D 렌더링(CSS 3D+Canvas) → 결과 적재
