@@ -86,25 +86,95 @@ npm run agent -- --role=dev --task="npm run build 실행하여 빌드 상태 확
 
 > 🚨 **Priority의 모든 Phase를 순차적으로 개발한다. 각 Phase마다 적절한 역할의 에이전트를 호출한다.**
 
-#### DB Phase (💎 Senior)
-```bash
-npm run agent -- --role=senior --task="[Priority XX] DB Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 테이블 생성, RLS 정책 구현, database-reference.md 갱신해줘"
-```
-- `db-migration` 스킬 활용, RLS 정책 구현, `database-reference.md` 갱신.
+---
 
-#### UI Phase (🎨 UI Dev)
+#### 3-A. DB Phase (💎 Senior Dev) — DB 변경이 있는 경우 필수
+
+> ⚠️ DB Phase는 반드시 `db-migration` 스킬의 전체 절차를 따른다.
+> 스킬 위치: `.agent/skills/db-migration/SKILL.md`
+
+```bash
+npm run agent -- --role=senior --task="
+[Priority XX] DB Phase:
+기획서 .docs/planning/[기획서].md의 DB 변경 사항을 분석하고
+.agent/skills/db-migration/SKILL.md 절차를 따라 실행해줘.
+마이그레이션 SQL 작성 → apply_migration 적용 → 보안 어드바이저 확인 → database-reference.md 갱신까지 완료해줘.
+"
+```
+
+**Agent가 수행해야 할 DB Phase 세부 절차:**
+
+**① 현황 분석**
+- 기획서에서 필요한 테이블/컬럼/RPC 목록 추출
+- `database-reference.md` 및 `list_tables`로 현재 DB 상태 확인
+- 이미 존재하는 항목 vs 신규 생성 항목 분류
+
+**② 마이그레이션 문서 작성** (`.docs/database/migrations/`에 작업 지시서 생성)
+```
+.docs/database/migrations/
+└── YYYYMMDD_priority{N}_phase{M}_{description}.md
+```
+문서에 포함할 내용:
+- 생성/수정할 테이블·컬럼 목록
+- RLS 정책 설계 (역할별 접근 범위)
+- 인덱스 전략
+- 완성된 마이그레이션 SQL 전문
+- apply_migration 호출 정보 (`migration_name`)
+
+**③ SQL 검토 체크리스트** (적용 전 자체 검토)
+- [ ] 모든 새 테이블에 `ENABLE ROW LEVEL SECURITY` 선언
+- [ ] `id UUID PRIMARY KEY DEFAULT gen_random_uuid()` 포함
+- [ ] `created_at`, `updated_at` TIMESTAMPTZ 포함
+- [ ] 외래 키 `ON DELETE` 정책 명확 (CASCADE / SET NULL / RESTRICT)
+- [ ] 필요 컬럼에 인덱스 선언 (`CREATE INDEX IF NOT EXISTS`)
+- [ ] RPC 함수에 `SET search_path = public` 선언
+- [ ] RPC 함수에 `REVOKE ALL FROM PUBLIC` + `GRANT TO authenticated` 선언
+- [ ] 데이터 삭제/DROP 포함 시 사용자 확인 완료
+
+**④ 마이그레이션 적용**
+```javascript
+mcp_supabase-mcp-server_apply_migration({
+  project_id: "{PROJECT_ID}",
+  name: "{migration_name}",  // snake_case, 의미있는 이름
+  query: "{SQL}"
+})
+```
+> ⚠️ DDL 변경은 반드시 `apply_migration` 사용. `execute_sql`은 조회/DML 전용.
+
+**⑤ 적용 검증**
+```javascript
+// 1. 마이그레이션 이력 확인
+mcp_supabase-mcp-server_list_migrations({ project_id: "{PROJECT_ID}" })
+
+// 2. 보안 어드바이저 확인 (RLS 누락 감지)
+mcp_supabase-mcp-server_get_advisors({ project_id: "{PROJECT_ID}", type: "security" })
+
+// 3. 테이블/컬럼 존재 확인 (execute_sql로 검증)
+// SELECT column_name FROM information_schema.columns WHERE table_name = '...'
+```
+
+**⑥ 문서 갱신** (DB Phase 완료 전 필수)
+- `database-reference.md`: 새 테이블·컬럼·RPC 항목 반영
+- 작성한 마이그레이션 문서(`.docs/database/migrations/*.md`) 최종 확인
+
+---
+
+#### 3-B. UI Phase (🎨 UI Dev)
+
+> ⚠️ DB Phase가 선행된 경우, UI Phase는 DB 적용 완료 후 진행한다.
+
 ```bash
 npm run agent -- --role=ui-dev --task="[Priority XX] UI Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 화면 구현해줘. ui-gen 가이드와 글로벌 CSS 클래스를 준수해줘"
 ```
 - `/design-screen` 워크플로우(Stitch) 선행, `ui-gen` 가이드 준수, 글로벌 CSS 클래스 사용.
 
-#### API/Logic Phase (💻 Dev)
+#### 3-C. API/Logic Phase (💻 Dev)
 ```bash
 npm run agent -- --role=dev --task="[Priority XX] API Phase 개발: 기획서 .docs/planning/[기획서].md를 참고하여 API 연동, 비즈니스 로직 구현해줘. Zod 검증, TypeScript strict 타입 준수해줘"
 ```
 - Zod 검증, Supabase 쿼리 최적화, TypeScript strict 타입 준수.
 
-#### Navigation (🎨 UI Dev)
+#### 3-D. Navigation (🎨 UI Dev)
 ```bash
 npm run agent -- --role=ui-dev --task="[Priority XX] Navigation 연결: layout.tsx에 새 화면 링크 추가하고 사이드바/모바일 탭바 연동해줘"
 ```
@@ -195,6 +265,14 @@ npm run agent -- --role=dev --task="빌드 검증, 문서 동기화, 버전 갱�
 - [ ] 최종 아키텍처 및 보안 정책 승인
 - [ ] 컨텍스트 갱신 및 커밋 승인
 
+### 💎 Senior Dev 관점 (DB Phase 있는 경우)
+- [ ] 마이그레이션 문서 `.docs/database/migrations/YYYYMMDD_*.md` 작성 완료
+- [ ] `apply_migration` 적용 성공 확인 (`list_migrations`)
+- [ ] 보안 어드바이저 신규 경고 없음 (`get_advisors`)
+- [ ] `database-reference.md` 갱신 완료
+- [ ] 모든 새 테이블 RLS 활성화 확인
+- [ ] RPC 함수 `search_path` 설정 확인
+
 ### 💻 Developer 관점
 - [ ] `npm run build` 에러 없음
 - [ ] Sitemap, Blueprint, History 문서 동기화 완료
@@ -208,6 +286,9 @@ npm run agent -- --role=dev --task="빌드 검증, 문서 동기화, 버전 갱�
 
 ## 🔗 관련 문서
 - `/plan-to-blueprint` — 기획 완료 후 블루프린트 등록 (선행)
+- `.agent/skills/db-migration/SKILL.md` — **DB 마이그레이션 전체 절차** (3-A 단계 필수 참조)
 - `.agent/skills/commit-bot/SKILL.md` — 커밋 자동화
 - `.agent/skills/ui-gen/SKILL.md` — UI 표준 가이드
 - `.agent/scripts/bcl-cli.mjs` — 멀티에이전트 CLI 래퍼
+- `.docs/database-reference.md` — DB 스키마 빠른 참조
+- `.docs/database/migrations/` — 마이그레이션 작업 지시서 보관 위치
