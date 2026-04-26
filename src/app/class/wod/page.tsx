@@ -1,27 +1,47 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { createClient } from '@/lib/supabase/client';
-import { query, rpc } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
+import type { ClassDisplayWod, WodFormatType } from '@/types/p1a';
 
-interface WodItem {
-    id: string;
-    title: string;
-    description: string;
-    wod_type: string;
-    time_cap_minutes: number | null;
-    rounds: number | null;
-    movements: string[] | null;
-    session_date: string;
-}
+const FORMAT_LABEL: Record<WodFormatType, string> = {
+    for_time: 'FOR TIME',
+    amrap: 'AMRAP',
+    emom: 'EMOM',
+    tabata: 'TABATA',
+    chipper: 'CHIPPER',
+    strength: 'STRENGTH',
+    custom: 'CUSTOM',
+};
 
 export default function ClassWodPage() {
-    const [wod, setWod] = useState<WodItem | null>(null);
+    const [wod, setWod] = useState<ClassDisplayWod | null>(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        loadTodayWod();
+    const loadTodayWod = useCallback(async () => {
+        const today = new Date().toISOString().split('T')[0];
+        try {
+            const { data } = await rpc('fn_get_class_display_wod', {
+                p_session_id: null,
+                p_session_date: today,
+                p_facility_id: null,
+            });
+            if (data?.success && data.data) setWod(data.data as ClassDisplayWod);
+            else setWod(null);
+        } catch (error) {
+            if (process.env.NODE_ENV === 'development') console.error('WOD load error:', error);
+            setWod(null);
+        }
+        setLoading(false);
     }, []);
+
+    useEffect(() => { void loadTodayWod(); }, [loadTodayWod]);
+
+    // Refresh every 60s so newly published WOD appears without manual reload
+    useEffect(() => {
+        const t = setInterval(() => { void loadTodayWod(); }, 60000);
+        return () => clearInterval(t);
+    }, [loadTodayWod]);
 
     // Clock via rAF + ref
     const clockRef = useRef<HTMLParagraphElement>(null);
@@ -47,32 +67,7 @@ export default function ClassWodPage() {
         return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
     }, [tickClock]);
 
-    async function loadTodayWod() {
-        const today = new Date().toISOString().split('T')[0];
-
-        try {
-            const { data } = await query('wods')
-                
-                .select('*')
-                .eq('session_date', today)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
-
-            if (data) setWod(data);
-        } catch (error) {
-            console.error('WOD load error:', error);
-        }
-        setLoading(false);
-    }
-
-    const wodTypeLabel: Record<string, string> = {
-        'for_time': 'FOR TIME',
-        'amrap': 'AMRAP',
-        'emom': 'EMOM',
-        'tabata': 'TABATA',
-        'chipper': 'CHIPPER',
-    };
+    const formatLabel = wod?.format_type ? (FORMAT_LABEL[wod.format_type] ?? wod.format_type.toUpperCase()) : null;
 
     return (
         <main style={{
@@ -131,28 +126,28 @@ export default function ClassWodPage() {
             </header>
 
             {/* WOD Content */}
-            {
-                loading ? (
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ width: 60, height: 60, border: '3px solid rgba(255,107,0,0.3)', borderTopColor: '#FF6B00', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                    </div>
-                ) : !wod ? (
-                    <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '5rem', marginBottom: '1rem', opacity: 0.15 }}>🏋️</div>
-                        <p style={{
-                            fontSize: '1.5rem', fontWeight: 900, textTransform: 'uppercase',
-                            letterSpacing: '0.2em', color: 'rgba(255,255,255,0.15)',
-                        }}>
-                            No WOD Today
-                        </p>
-                        <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.1)', marginTop: '0.5rem' }}>
-                            오늘의 WOD가 아직 등록되지 않았습니다
-                        </p>
-                    </div>
-                ) : (
-                    <div style={{ width: '100%', maxWidth: '1400px' }}>
-                        {/* WOD Type Badge */}
-                        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'center' }}>
+            {loading ? (
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ width: 60, height: 60, border: '3px solid rgba(255,107,0,0.3)', borderTopColor: '#FF6B00', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                </div>
+            ) : !wod ? (
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '5rem', marginBottom: '1rem', opacity: 0.15 }}>🏋️</div>
+                    <p style={{
+                        fontSize: '1.5rem', fontWeight: 900, textTransform: 'uppercase',
+                        letterSpacing: '0.2em', color: 'rgba(255,255,255,0.15)',
+                    }}>
+                        No WOD Today
+                    </p>
+                    <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.1)', marginTop: '0.5rem' }}>
+                        오늘의 WOD가 아직 게시되지 않았습니다
+                    </p>
+                </div>
+            ) : (
+                <div style={{ width: '100%', maxWidth: '1400px' }}>
+                    {/* Badges */}
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        {formatLabel && (
                             <span style={{
                                 padding: '0.5rem 1.5rem',
                                 background: '#FF6B00',
@@ -161,81 +156,104 @@ export default function ClassWodPage() {
                                 letterSpacing: '0.15em',
                                 textTransform: 'uppercase',
                             }}>
-                                {wodTypeLabel[wod.wod_type] || wod.wod_type?.toUpperCase() || 'WOD'}
+                                {formatLabel}
                             </span>
-                            {wod.time_cap_minutes && (
-                                <span style={{
-                                    padding: '0.5rem 1.5rem',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '0.75rem',
-                                    fontWeight: 900, fontSize: '1.25rem',
-                                    letterSpacing: '0.1em',
-                                }}>
-                                    ⏱ {wod.time_cap_minutes} MIN CAP
-                                </span>
-                            )}
-                            {wod.rounds && (
-                                <span style={{
-                                    padding: '0.5rem 1.5rem',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '0.75rem',
-                                    fontWeight: 900, fontSize: '1.25rem',
-                                    letterSpacing: '0.1em',
-                                }}>
-                                    🔁 {wod.rounds} ROUNDS
-                                </span>
-                            )}
-                        </div>
+                        )}
+                        {wod.time_cap_minutes && (
+                            <span style={{
+                                padding: '0.5rem 1.5rem',
+                                background: 'rgba(255,255,255,0.05)',
+                                border: '1px solid rgba(255,255,255,0.1)',
+                                borderRadius: '0.75rem',
+                                fontWeight: 900, fontSize: '1.25rem',
+                                letterSpacing: '0.1em',
+                            }}>
+                                ⏱ {wod.time_cap_minutes} MIN CAP
+                            </span>
+                        )}
+                    </div>
 
-                        {/* Movements */}
-                        {wod.movements && wod.movements.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {wod.movements.map((movement, idx) => (
-                                    <div key={idx} style={{
-                                        display: 'flex', alignItems: 'center', gap: '1.5rem',
-                                        padding: '1.5rem 2rem',
-                                        background: idx === 0 ? 'rgba(255,107,0,0.08)' : 'rgba(255,255,255,0.03)',
-                                        border: `1px solid ${idx === 0 ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.05)'}`,
-                                        borderRadius: '1rem',
-                                        transition: 'all 0.3s ease',
+                    {/* Movement lines */}
+                    {wod.movements && wod.movements.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {wod.movements.map((m, idx) => (
+                                <div key={`${m.sort_order}-${idx}`} style={{
+                                    display: 'flex', alignItems: 'center', gap: '1.5rem',
+                                    padding: '1.5rem 2rem',
+                                    background: idx === 0 ? 'rgba(255,107,0,0.08)' : 'rgba(255,255,255,0.03)',
+                                    border: `1px solid ${idx === 0 ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                                    borderRadius: '1rem',
+                                    transition: 'all 0.3s ease',
+                                }}>
+                                    <span style={{
+                                        fontSize: '2rem', fontWeight: 900,
+                                        color: idx === 0 ? '#FF6B00' : 'rgba(255,255,255,0.2)',
+                                        minWidth: '3rem', textAlign: 'center',
                                     }}>
-                                        <span style={{
-                                            fontSize: '2rem', fontWeight: 900,
-                                            color: idx === 0 ? '#FF6B00' : 'rgba(255,255,255,0.2)',
-                                            minWidth: '3rem', textAlign: 'center',
-                                        }}>
-                                            {idx + 1}
-                                        </span>
-                                        <span style={{
+                                        {idx + 1}
+                                    </span>
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{
                                             fontSize: 'clamp(1.5rem, 3vw, 2.5rem)',
                                             fontWeight: 800,
                                             letterSpacing: '-0.01em',
                                             textTransform: 'uppercase',
                                         }}>
-                                            {movement}
-                                        </span>
+                                            {m.name || m.custom_label || '—'}
+                                        </div>
+                                        {(m.target_value || m.distance_meters || m.load_male_rx || m.load_female_rx) && (
+                                            <div style={{
+                                                fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)',
+                                                color: 'rgba(255,255,255,0.5)',
+                                                fontWeight: 600, letterSpacing: '0.05em',
+                                                textTransform: 'uppercase', marginTop: '0.25rem',
+                                                display: 'flex', flexWrap: 'wrap', gap: '1rem',
+                                            }}>
+                                                {m.target_value !== null && m.target_value !== undefined && (
+                                                    <span>{m.target_value} {m.target_unit ?? ''}</span>
+                                                )}
+                                                {m.distance_meters && <span>{m.distance_meters}m</span>}
+                                                {m.load_male_rx && <span>♂ {m.load_male_rx}</span>}
+                                                {m.load_female_rx && <span>♀ {m.load_female_rx}</span>}
+                                            </div>
+                                        )}
                                     </div>
-                                ))}
-                            </div>
-                        ) : wod.description ? (
-                            <div style={{
-                                padding: '2rem',
-                                background: 'rgba(255,255,255,0.03)',
-                                border: '1px solid rgba(255,255,255,0.05)',
-                                borderRadius: '1rem',
-                                fontSize: 'clamp(1.25rem, 2.5vw, 2rem)',
-                                fontWeight: 700,
-                                lineHeight: 1.8,
-                                whiteSpace: 'pre-wrap',
-                            }}>
-                                {wod.description}
-                            </div>
-                        ) : null}
-                    </div>
-                )
-            }
+                                </div>
+                            ))}
+                        </div>
+                    ) : wod.description ? (
+                        <div style={{
+                            padding: '2rem',
+                            background: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            borderRadius: '1rem',
+                            fontSize: 'clamp(1.25rem, 2.5vw, 2rem)',
+                            fontWeight: 700,
+                            lineHeight: 1.8,
+                            whiteSpace: 'pre-wrap',
+                        }}>
+                            {wod.description}
+                        </div>
+                    ) : null}
+
+                    {wod.class_display_notes && (
+                        <div style={{
+                            marginTop: '1.5rem',
+                            padding: '1rem 1.5rem',
+                            background: 'rgba(34,197,94,0.06)',
+                            border: '1px solid rgba(34,197,94,0.2)',
+                            borderRadius: '0.75rem',
+                            fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)',
+                            color: '#22C55E',
+                            fontWeight: 600,
+                            whiteSpace: 'pre-wrap',
+                            lineHeight: 1.6,
+                        }}>
+                            📺 {wod.class_display_notes}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Footer */}
             <div style={{

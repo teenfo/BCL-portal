@@ -144,8 +144,9 @@
 
 ### RLS 원칙
 - ✅ **모든 테이블 RLS 활성화 필수**
-- ✅ 클라이언트는 `anon key`만 사용
+- ✅ 클라이언트는 `anon key`만 사용 (anon 읽기는 차단됨 — 2026-04-26 보안 패치)
 - ✅ Service Role Key는 서버 사이드에서만 사용
+- ✅ `members`, `coaches`, `wods` 테이블은 `authenticated` 역할만 읽기 가능 (anon 노출 차단 완료)
 
 ### 역할 기반 접근 제어
 - **Admin**: 모든 데이터 접근 가능
@@ -160,34 +161,38 @@
 
 ## 3. 마이그레이션 관리
 
-### 마이그레이션 파일
+### 마이그레이션 파일 (SSOT)
+
+> ⚠️ 배포 기준은 `supabase/migrations/*.sql` 파일만 사용합니다.
+
 ```
 supabase/migrations/
-├── 20260125105614_initial_schema_setup.sql
-├── 20260125153612_initial_schema_v0.6.sql
-├── 20260207020501_fix_auth_users_email_change_null.sql
-├── 20260208xxxxxx_*.sql (Auth/Members 개선 7개)
-├── 20260217102xxx_*.sql (Widget/의정 시스템 5개)
-├── 20260217104530_notification_system_schema.sql
-├── 20260217105553_notification_automation_cron.sql
-├── 20260217111257_add_lockers_table.sql
-├── 20260217203600_enhance_session_feedback.sql      🆕
-├── 20260217203700_create_race_system.sql             🆕
-├── 20260217203800_create_admin_rbac.sql              🆕
-├── 20260217203900_create_notification_logs.sql       🆕
-├── 20260217204000_create_membership_history.sql      🆕
-├── 20260217204100_enhance_existing_tables_columns.sql 🆕
-├── 20260217204200_create_supplementary_tables.sql    🆕
-└── 20260217204300_fix_rls_security_issues.sql        🆕
-├── 20260218100000_coach_account_linking.sql (Coach Account Architecture)
-├── 20260218230000_payment_system_phase1.sql (Payment Phase 1 Infrastructure)
-├── 20260218230100_payment_rpc_helpers.sql (Payment RPC Helpers)
-├── 20260218231500_create_system_config_table.sql (System Config Table) 🆕
-├── 20260219165300_user_app_enhancement_phase1.sql (User App Enhancement Phase 1) 🆕
-├── 20260221000000_coach_feature_enhancement.sql (Coach Feature Enhancement) 🆕
-├── 20260221084721_race_system_enhancement.sql (Race System Enhancement) 🆕
-└── 20260425120000_coach_p0_session_ops.sql (Coach App P0 Session Ops) 🆕
+├── 20260209000000_enhance_insights.sql
+├── 20260217104530_notification_system_schema.sql (알림/WOD/push 기반 테이블 복구) 🔧
+├── 20260217203600_enhance_session_feedback.sql
+├── 20260217203700_create_race_system.sql
+├── 20260217203800_create_admin_rbac.sql
+├── 20260217203900_create_notification_logs.sql
+├── 20260217204000_create_membership_history.sql
+├── 20260217204100_enhance_existing_tables_columns.sql
+├── 20260217204200_create_supplementary_tables.sql
+├── 20260217204300_fix_rls_security_issues.sql
+├── 20260217204400_create_banners_table.sql
+├── 20260217204500_create_dashboard_rpc_functions.sql
+├── 20260217204600_phase3_rls_security_hardening.sql
+├── 20260218100000_coach_account_linking.sql
+├── 20260218110000_notification_side_effects.sql
+├── 20260218230000_payment_system_phase1.sql
+├── 20260218230100_payment_rpc_helpers.sql
+├── 20260219165300_user_app_enhancement_phase1.sql
+├── 20260221000000_coach_feature_enhancement.sql
+├── 20260221084721_race_system_enhancement.sql
+├── 20260425120000_coach_p0_session_ops.sql (Priority 22 Coach P0)
+├── 20260426120000_p1a_class_standardization.sql (Priority 23 P1-A WOD 표준화)
+└── 20260426130000_fix_anon_rls_exposure.sql (보안 패치: anon 노출 차단) 🔒
 ```
+
+> 🔧 = 감사 지적 복구 마이그레이션 | 🔒 = 보안 패치
 
 ### 실행 방법
 ```bash
@@ -231,14 +236,10 @@ INSERT INTO sessions (...) VALUES (...);
 INSERT INTO notices (...) VALUES (...);
 ```
 
-### 시딩 스크립트
-```bash
-# 개발 환경 시딩
-npm run db:seed
+### 시딩
 
-# 테스트 환경 시딩
-npm run db:seed:test
-```
+> ⚠️ 자동 시딩 스크립트는 현재 미구현입니다.
+> 시딩은 Supabase Dashboard SQL Editor에서 수동으로 수행합니다.
 
 ---
 
@@ -387,11 +388,17 @@ Logs → Postgres Logs
 
 ---
 
-**문서 버전**: 2.2.0  
+**문서 버전**: 2.3.0  
 **최종 업데이트**: 2026년 4월 26일  
-**이전 버전**: 2.1.0
+**이전 버전**: 2.2.0
 
 ### 변경 이력
+- **2.3.0** (2026-04-26): DB 배포 준비도 감사 결과 반영
+  - 🔧 누락 테이블 복구 마이그레이션 추가: `wods`, `notification_rules`, `notification_preferences`, `push_subscriptions`
+  - 🔒 anon key RLS 노출 차단: `members`, `coaches`, `wods` (authenticated only)
+  - 📋 마이그레이션 목록을 실제 파일셋 기준으로 정정 (23개)
+  - 📋 미구현 시딩 스크립트 참조 제거
+  - 📋 P1-A 마이그레이션 반영 (Priority 23)
 - **2.2.0** (2026-04-26): DB 감사 기반 누락 항목 전체 적용
   - 테이블 추가: `coaching_notes`, `coach_settlements`, `badge_definitions`, `badge_awards`
   - 컬럼 추가: `members(preferences,birthday,emergency_contact,avatar_url)`, `sessions(status,facility_id,wod_description)`, `bookings(booking_type)`, `coaches(base_salary,session_allowance)`

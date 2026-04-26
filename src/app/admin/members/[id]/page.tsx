@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import AdminModal from '@/components/layout/AdminModal';
+import MemberContextPanel from '@/components/members/MemberContextPanel';
 import { IconUser, IconBarChart, IconClipboard, IconCreditCard, IconNotes, IconEdit, IconLock } from '@/components/icons/AdminIcons';
 import { useToast } from '@/components/ui/Toast';
 
@@ -645,6 +646,9 @@ export default function MemberDetailPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Member Context (Priority 23 P1-A: 활성 플래그 + 출석 + 멤버십 + 코칭 노트) */}
+            <MemberContextPanel memberId={memberId} />
 
             {/* Tabs */}
             <div className="flex gap-2 mb-8">

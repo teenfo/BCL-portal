@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from 'react';
 
-import { rpc, query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 import AttendanceOutcomeChip from './AttendanceOutcomeChip';
+import SessionWodPanel from './wod/SessionWodPanel';
+import SessionRunbookPanel from './runbook/SessionRunbookPanel';
 import type {
     AttendanceOutcome,
     SessionBoardData,
@@ -28,9 +30,6 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
 
     const [busy, setBusy] = useState<string | null>(null);
     const [bulkBusy, setBulkBusy] = useState(false);
-    const [isEditingWod, setIsEditingWod] = useState(false);
-    const [wodText, setWodText] = useState(session.wod_description ?? '');
-    const [savingWod, setSavingWod] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const confirmedAttendees = useMemo(
@@ -112,25 +111,6 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
             setError('일괄 처리 중 오류가 발생했습니다.');
         }
         setBulkBusy(false);
-    };
-
-    const handleSaveWod = async () => {
-        setSavingWod(true);
-        try {
-            const { error: updateError } = await query('sessions')
-                .update({ wod_description: wodText })
-                .eq('id', session.id);
-            if (updateError) {
-                setError('WOD 저장에 실패했습니다.');
-            } else {
-                setIsEditingWod(false);
-                await onRefresh();
-            }
-        } catch (e) {
-            if (process.env.NODE_ENV === 'development') console.error(e);
-            setError('WOD 저장 중 오류가 발생했습니다.');
-        }
-        setSavingWod(false);
     };
 
     const renderAttendeeRow = (attendee: SessionBoardAttendee) => {
@@ -332,56 +312,19 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                     </button>
                 </div>
 
-                {/* WOD */}
-                <section style={{ marginBottom: '1.25rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                        <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--app-text-primary)' }}>
-                            WOD (Work Out of the Day)
-                        </h4>
-                        {!isEditingWod && (
-                            <button onClick={() => setIsEditingWod(true)} style={{
-                                background: 'none', border: 'none', color: 'var(--app-accent)',
-                                fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer',
-                            }}>수정</button>
-                        )}
-                    </div>
-                    {isEditingWod ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <textarea
-                                value={wodText}
-                                onChange={e => setWodText(e.target.value)}
-                                style={{
-                                    width: '100%', minHeight: 110, padding: '0.75rem',
-                                    borderRadius: 12, background: 'var(--app-surface)',
-                                    border: '1px solid var(--app-border)', color: 'var(--app-text-primary)',
-                                    fontSize: '0.875rem', resize: 'vertical', outline: 'none',
-                                }}
-                            />
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                <button onClick={() => { setWodText(session.wod_description ?? ''); setIsEditingWod(false); }}
-                                    style={{ padding: '0.5rem 0.875rem', borderRadius: 8, border: 'none', background: 'var(--app-surface)', color: 'var(--app-text-primary)', cursor: 'pointer' }}>
-                                    취소
-                                </button>
-                                <button onClick={handleSaveWod} disabled={savingWod}
-                                    style={{ padding: '0.5rem 0.875rem', borderRadius: 8, border: 'none', background: 'var(--app-accent)', color: '#fff', fontWeight: 600, cursor: savingWod ? 'default' : 'pointer', opacity: savingWod ? 0.7 : 1 }}>
-                                    {savingWod ? '저장 중...' : '저장'}
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div style={{
-                            background: 'var(--app-surface)', padding: '0.875rem', borderRadius: 12,
-                            border: '1px solid var(--app-border)',
-                        }}>
-                            <p style={{
-                                whiteSpace: 'pre-wrap', color: 'var(--app-text-secondary)',
-                                fontSize: '0.875rem', margin: 0, lineHeight: 1.5,
-                            }}>
-                                {session.wod_description || '등록된 WOD가 없습니다.'}
-                            </p>
-                        </div>
-                    )}
-                </section>
+                {/* WOD (Priority 23 P1-A — structured editor backed by session_wods) */}
+                <SessionWodPanel
+                    sessionId={session.id}
+                    facilityId={session.facility_id}
+                    sessionDate={session.session_date}
+                    fallbackDescription={session.wod_description}
+                />
+
+                {/* Runbook (Priority 23 P1-A — Warm-up / Movement Prep / Scaling / Cue / Safety / Finish) */}
+                <SessionRunbookPanel
+                    sessionId={session.id}
+                    facilityId={session.facility_id}
+                />
 
                 {/* Confirmed attendees */}
                 <section style={{ marginBottom: '1.25rem' }}>

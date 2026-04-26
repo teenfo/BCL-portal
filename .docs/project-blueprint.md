@@ -49,6 +49,7 @@
 | 코치 기능 고도화 | ✅ 완료 | 7 Phase 완료 (v0.6.0) |
 | Race 시스템 전체 구현 | ✅ 완료 | BLE+시뮬레이터+2.5D+결과적재 (v0.7.0) |
 | Priority 22: 코치앱 P0 운영 안정화 | ✅ 코드 완료 | 마이그레이션+RPC 6종+상태 게이트+세션 운영 보드 + 빌드 통과 (수용 시나리오 검증 예정) |
+| Priority 23: 코치앱 P1-A 수업 표준화 + 회원 컨텍스트 | ✅ 코드 완료 | DB 마이그레이션(7테이블+14 RPC)+세션 WOD/Runbook 패널+Admin WOD Templates+/class/wod 표준 소스 전환+회원 컨텍스트 패널+오늘의 경고 위젯 + 빌드 통과 |
 
 
 ---
@@ -67,12 +68,16 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 22: 코치앱 P0 운영 안정화 — Phase 1~5 완료, typecheck/lint/build 통과**
+- **Current Focus**: **DB 배포 준비도 감사 조치 완료 — 보안 패치 즉시 적용, 누락 테이블 복구, 문서 정정**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run typecheck` / `npm run lint` (0 errors) / `npm run build` 모두 통과
+- **Build Status**: ✅ `npx tsc --noEmit` / `npm run typecheck` 통과
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: Priority 22 Phase 1~5 구현 완료 — DB 마이그레이션(`20260425120000_coach_p0_session_ops.sql`) + 6종 RPC + `CoachStateGate`/`CoachStateScreen`/`AttendanceOutcomeChip`/`SessionOperationsBoard` + Schedule/Dashboard/Members/Profile 정합성 정리 + 사이트맵 갱신 + 빌드 검증
-- **Planning Note**: Priority 22 P0 실행 스펙은 `.docs/archive/planning/coach-app-p0-execution-20260425.md` 기준. **다음 단계**: Supabase migration 적용 + 운영 수용 시나리오(권한/세션 운영/출결/회귀) 수동 검증.
+- **Last Action**: DB 배포 준비도 감사 2건(`audit-database-readiness-20260426.md`, `audit-database-remote-comparison-20260426.md`) 기반 조치 완료
+  - 🔒 **보안 패치 즉시 적용**: `members`, `coaches`, `wods` anon RLS 차단 (`20260426130000_fix_anon_rls_exposure.sql`)
+  - 🔧 **누락 테이블 복구**: `wods`, `notification_rules`, `notification_preferences`, `push_subscriptions` 마이그레이션 생성 (`20260217104530_notification_system_schema.sql`)
+  - 📋 **문서 정정**: `database-reference.md` v2.3.0 — 마이그레이션 목록 23개 정정, 미구현 시딩 참조 제거
+  - 🔄 **타입 재생성**: `src/types/supabase.ts` 갱신 완료
+- **Planning Note**: P1-A 마이그레이션(`20260426120000_p1a_class_standardization.sql`)은 SQL 준비 완료 / 원격 미배포 상태. 프론트엔드 Ready 시 적용 예정.
 
 ---
 
@@ -493,30 +498,31 @@
     - [x] blueprint/Active Context 갱신
     - [ ] 권한/세션 운영/출결/회귀 테스트 체크리스트 검증 (typecheck → lint → build → 수용 시나리오)
 
-#### 🟠 Priority 23: 코치앱 P1-A 수업 표준화 및 회원 컨텍스트 (개발 대기)
-  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
+#### 🟢 Priority 23: 코치앱 P1-A 수업 표준화 및 회원 컨텍스트 (구현 완료, 빌드 검증 통과)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md` §9 · **Apply 가이드**: `.docs/database/migrations/20260426_priority23_p1a_apply.md`
   > **문제**: P0 이후에도 코치가 수업 전 준비를 시스템으로 표준화할 수 없고, Trial/부상/만기 예정 등 회원 맥락이 구조화되어 있지 않으며, WOD가 `sessions.wod_description`와 `/class/wod`의 분리된 소스로 관리되어 Admin/Coach/Class Display 사이에 공통 자산으로 공유되지 않음.
   > **방안**: 클래스 런시트 템플릿 + 세션 런시트 + 공통 WOD 라이브러리/세션 WOD 스냅샷 + 회원 컨텍스트 플래그를 도입하여 수업 품질과 현장 판단을 시스템화.
   > **의존성**: Priority 22 완료 후 착수 권장
 
-  - [ ] Phase 1: DB 스키마 및 권한 설계 → 💎 **Senior Dev (권장: Opus)**
-    - [ ] `class_runbook_templates`, `session_runbooks`, `movement_library`, `wod_templates`, `wod_template_movements`, `session_wods`, `member_alert_flags` 테이블 설계 및 RLS 적용
-    - [ ] `.docs/planning/wod_exercise_list.md`를 `movement_library` + benchmark seed로 변환하는 import 전략 수립
-    - [ ] 템플릿/런시트/WOD/회원 플래그 CRUD용 RPC 설계
-  - [ ] Phase 2: Schedule 런시트 편집 도입 → 🎨 **UI Developer (권장: Gemini)**
-    - [ ] 세션 운영 보드 내 `warm-up`, `movement prep`, `scaling`, `cue`, `safety`, `finish note` 편집 UI
-    - [ ] Admin/Coach 공통 WOD Builder: 포맷, time cap, rounds, movement line, RX/scale, coach/class note 편집 UX
-    - [ ] 최근 사용 템플릿 불러오기 및 세션별 오버라이드 UX
-  - [ ] Phase 3: Members 및 Session Board 컨텍스트 강화 + Class WOD 소스 통합 → 💻 **Developer (권장: Sonnet)**
-    - [ ] Admin에서 만든 공유 WOD 템플릿을 Coach 세션 보드에서 선택/복제/게시 가능하도록 연결
-    - [ ] `/class/wod`를 `session_wods` 또는 동등 게시 소스로 전환
-    - [ ] 기존 `sessions.wod_description` 백필/호환 계층 정리
-    - [ ] Trial, injury, renewal_due, returning_after_absence 등 플래그 표시
-    - [ ] `Members` 화면 상세 프로필에 활성 플래그/최근 코칭 노트/출석 패턴 반영
-    - [ ] Dashboard에 오늘 경고 요약(Trial/만기예정/주의회원) 반영
-  - [ ] Phase 4: 문서 및 테스트 → 🏛️ **Architect (권장: Pro High)**
-    - [ ] `.docs/sitemap/coach-app.md` P1-A 반영
-    - [ ] 템플릿 적용, 세션 오버라이드, WOD 공유/게시, 플래그 노출 권한 테스트
+  - [x] Phase 1: DB 스키마 및 권한 설계 → 💎 **Senior Dev (Opus)**
+    - [x] `class_runbook_templates`, `session_runbooks`, `movement_library`, `wod_templates`, `wod_template_movements`, `session_wods`, `member_alert_flags` 테이블 설계 및 RLS 적용 (`supabase/migrations/20260426120000_p1a_class_standardization.sql`)
+    - [x] `.docs/planning/wod_exercise_list.md`를 `movement_library` + benchmark seed로 변환 (35 movements + 10 benchmark WODs)
+    - [x] 템플릿/런시트/WOD/회원 플래그 CRUD용 RPC 14종 설계 (`fn_list/get/upsert/publish_wod_template`, `fn_search_wod_movements`, `fn_get/upsert/publish_session_wod`, `fn_get_class_display_wod`, `fn_list_runbook_templates`, `fn_upsert_runbook_template`, `fn_get/upsert_session_runbook`, `fn_get_member_context_panel`, `fn_upsert_member_alert_flag`)
+  - [x] Phase 2: Schedule 런시트 편집 도입 → 🎨 **UI Developer**
+    - [x] 세션 운영 보드 내 `warm-up`, `movement prep`, `scaling`, `cue`, `safety`, `finish note` 편집 UI (`SessionRunbookPanel.tsx`, 6 tabs + 템플릿 오버라이드)
+    - [x] Admin/Coach 공통 WOD Builder: 포맷, time cap, rounds, movement line, RX/scale, coach/class note 편집 UX (`SessionWodPanel.tsx` + `/admin/operations/wod-templates`)
+    - [x] 최근 사용 템플릿 불러오기 및 세션별 오버라이드 UX (benchmark/facility/shared 스코프)
+  - [x] Phase 3: Members 및 Session Board 컨텍스트 강화 + Class WOD 소스 통합 → 💻 **Developer**
+    - [x] Admin에서 만든 공유 WOD 템플릿을 Coach 세션 보드에서 선택/복제/게시 가능하도록 연결
+    - [x] `/class/wod`를 `fn_get_class_display_wod` 표준 소스로 전환 (60s 자동 갱신)
+    - [x] 기존 `sessions.wod_description` 백필/호환 계층 정리 (DEPRECATED 주석, fallback only)
+    - [x] Trial, injury, renewal_due, returning_after_absence 등 플래그 표시 (`MemberContextPanel.tsx`)
+    - [x] `Members` 화면 상세 프로필에 활성 플래그/최근 코칭 노트/출석 패턴 반영
+    - [x] Dashboard에 오늘 경고 요약(Trial/만기예정/주의회원) 반영 (`TodayAlertSummary.tsx`)
+  - [x] Phase 4: 문서 및 테스트 → 🏛️ **Architect**
+    - [x] `.docs/sitemap/coach-app.md` P1-A 반영
+    - [x] `npx tsc --noEmit` / `npm run lint` (0 errors) / `npm run build` 통과
+    - [ ] 템플릿 적용, 세션 오버라이드, WOD 공유/게시, 플래그 노출 권한 수동 수용 테스트 (마이그레이션 적용 후)
 
 #### 🟡 Priority 24: 코치앱 P1-B KPI/정산/스크린 모드 (개발 대기)
   > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`

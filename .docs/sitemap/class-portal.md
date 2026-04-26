@@ -9,10 +9,13 @@
 
 ## 1. 🖥️ 주요 화면 구조
 
-### 1) WOD Board (`/class/wod`) ✅ 구현 완료
+### 1) WOD Board (`/class/wod`) ✅ 구현 완료 (Priority 23 P1-A 표준 소스 전환)
 - **구현 파일**: `src/app/class/wod/page.tsx`
-- **실시간 게시판**: 오늘 진행되는 WOD(Workout of the Day) 정보를 대형 텍스트로 노출.
-- **운동 구성**: 라운드수, 동작 목록, 시간 제한(Time Cap) 등을 시각화.
+- **데이터 소스**: `fn_get_class_display_wod(p_session_id, p_session_date, p_facility_id)` — `session_wods` published 우선, 동일 시설/날짜의 가장 가까운 published 세션 WOD를 반환.
+- **실시간 게시판**: 오늘 진행되는 WOD(Workout of the Day) 정보를 대형 텍스트로 노출. 60초 주기 자동 갱신으로 새 published WOD가 즉시 반영됨.
+- **운동 구성**: format 배지(FOR TIME/AMRAP/EMOM/TABATA/CHIPPER/STRENGTH/CUSTOM), time cap 배지, movement line(name + target_value/unit + distance + ♂/♀ RX 부가정보) 시각화.
+- **Class Display Note**: `class_display_notes`가 있으면 녹색 콜아웃으로 별도 노출 (전광판 전용 안내문).
+- **레거시 호환**: 기존 `wods` 테이블/`sessions.wod_description`는 DEPRECATED 주석만 부착하고 운영용 fallback 데이터로만 보존.
 
 ### 2) Leaderboard (`/class/leaderboard`) ✅ 구현 완료 (DB 연동)
 - **구현 파일**: `src/app/class/leaderboard/page.tsx`

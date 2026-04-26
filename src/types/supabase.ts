@@ -181,6 +181,84 @@ export type Database = {
         }
         Relationships: []
       }
+      badge_awards: {
+        Row: {
+          awarded_at: string
+          badge_id: string
+          id: string
+          member_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          badge_id: string
+          id?: string
+          member_id: string
+        }
+        Update: {
+          awarded_at?: string
+          badge_id?: string
+          id?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badge_awards_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badge_definitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "badge_awards_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      badge_definitions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          display_name: string
+          icon: string
+          id: string
+          is_active: boolean
+          metric_type: string
+          name: string
+          threshold_value: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_name: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          metric_type: string
+          name: string
+          threshold_value?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          display_name?: string
+          icon?: string
+          id?: string
+          is_active?: boolean
+          metric_type?: string
+          name?: string
+          threshold_value?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       banners: {
         Row: {
           created_at: string | null
@@ -231,6 +309,7 @@ export type Database = {
           attendance_marked_at: string | null
           attendance_marked_by: string | null
           attendance_outcome: string
+          booking_type: string
           cancel_reason: string | null
           created_at: string | null
           id: string
@@ -244,6 +323,7 @@ export type Database = {
           attendance_marked_at?: string | null
           attendance_marked_by?: string | null
           attendance_outcome?: string
+          booking_type?: string
           cancel_reason?: string | null
           created_at?: string | null
           id?: string
@@ -257,6 +337,7 @@ export type Database = {
           attendance_marked_at?: string | null
           attendance_marked_by?: string | null
           attendance_outcome?: string
+          booking_type?: string
           cancel_reason?: string | null
           created_at?: string | null
           id?: string
@@ -353,8 +434,131 @@ export type Database = {
           },
         ]
       }
+      class_runbook_templates: {
+        Row: {
+          class_type: string | null
+          coach_cues: string | null
+          created_at: string
+          created_by: string | null
+          default_wod_template_id: string | null
+          facility_id: string
+          finish_notes: string | null
+          id: string
+          is_default: boolean
+          movement_prep: string | null
+          name: string
+          safety_notes: string | null
+          scaling_options: string | null
+          updated_at: string
+          updated_by: string | null
+          warmup: string | null
+        }
+        Insert: {
+          class_type?: string | null
+          coach_cues?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_wod_template_id?: string | null
+          facility_id: string
+          finish_notes?: string | null
+          id?: string
+          is_default?: boolean
+          movement_prep?: string | null
+          name: string
+          safety_notes?: string | null
+          scaling_options?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warmup?: string | null
+        }
+        Update: {
+          class_type?: string | null
+          coach_cues?: string | null
+          created_at?: string
+          created_by?: string | null
+          default_wod_template_id?: string | null
+          facility_id?: string
+          finish_notes?: string | null
+          id?: string
+          is_default?: boolean
+          movement_prep?: string | null
+          name?: string
+          safety_notes?: string | null
+          scaling_options?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warmup?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "class_runbook_templates_default_wod_template_id_fkey"
+            columns: ["default_wod_template_id"]
+            isOneToOne: false
+            referencedRelation: "wod_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "class_runbook_templates_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      coach_settlements: {
+        Row: {
+          base_salary: number
+          coach_id: string
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          session_allowance: number
+          session_count: number
+          status: string
+          total_amount: number
+          year_month: string
+        }
+        Insert: {
+          base_salary?: number
+          coach_id: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          session_allowance?: number
+          session_count?: number
+          status?: string
+          total_amount?: number
+          year_month: string
+        }
+        Update: {
+          base_salary?: number
+          coach_id?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          session_allowance?: number
+          session_count?: number
+          status?: string
+          total_amount?: number
+          year_month?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_settlements_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coaches: {
         Row: {
+          base_salary: number | null
           bio: string | null
           created_at: string | null
           email: string
@@ -365,12 +569,14 @@ export type Database = {
           name: string
           phone: string | null
           profile_image_url: string | null
+          session_allowance: number | null
           specialties: string[] | null
           specialty: string | null
           status: string | null
           user_id: string | null
         }
         Insert: {
+          base_salary?: number | null
           bio?: string | null
           created_at?: string | null
           email: string
@@ -381,12 +587,14 @@ export type Database = {
           name: string
           phone?: string | null
           profile_image_url?: string | null
+          session_allowance?: number | null
           specialties?: string[] | null
           specialty?: string | null
           status?: string | null
           user_id?: string | null
         }
         Update: {
+          base_salary?: number | null
           bio?: string | null
           created_at?: string | null
           email?: string
@@ -397,12 +605,58 @@ export type Database = {
           name?: string
           phone?: string | null
           profile_image_url?: string | null
+          session_allowance?: number | null
           specialties?: string[] | null
           specialty?: string | null
           status?: string | null
           user_id?: string | null
         }
         Relationships: []
+      }
+      coaching_notes: {
+        Row: {
+          coach_id: string
+          content: string
+          created_at: string
+          id: string
+          member_id: string
+          note_type: string
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          content: string
+          created_at?: string
+          id?: string
+          member_id: string
+          note_type?: string
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          member_id?: string
+          note_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coaching_notes_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "coaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coaching_notes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       facilities: {
         Row: {
@@ -604,6 +858,59 @@ export type Database = {
           },
         ]
       }
+      member_alert_flags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          ends_at: string | null
+          flag_type: string
+          id: string
+          member_id: string
+          note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          flag_type: string
+          id?: string
+          member_id: string
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          ends_at?: string | null
+          flag_type?: string
+          id?: string
+          member_id?: string
+          note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_alert_flags_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_notes: {
         Row: {
           author_id: string | null
@@ -641,12 +948,15 @@ export type Database = {
       }
       members: {
         Row: {
+          avatar_url: string | null
           birthdate: string | null
+          birthday: string | null
           blacklist_reason: string | null
           counseling_notes: string | null
           created_at: string | null
           credits: number | null
           email: string
+          emergency_contact: string | null
           gender: string | null
           id: string
           is_blacklisted: boolean | null
@@ -658,17 +968,21 @@ export type Database = {
           name: string
           phone: string | null
           plan: string | null
+          preferences: Json | null
           profile_image: string | null
           status: string | null
           user_id: string | null
         }
         Insert: {
+          avatar_url?: string | null
           birthdate?: string | null
+          birthday?: string | null
           blacklist_reason?: string | null
           counseling_notes?: string | null
           created_at?: string | null
           credits?: number | null
           email: string
+          emergency_contact?: string | null
           gender?: string | null
           id?: string
           is_blacklisted?: boolean | null
@@ -680,17 +994,21 @@ export type Database = {
           name: string
           phone?: string | null
           plan?: string | null
+          preferences?: Json | null
           profile_image?: string | null
           status?: string | null
           user_id?: string | null
         }
         Update: {
+          avatar_url?: string | null
           birthdate?: string | null
+          birthday?: string | null
           blacklist_reason?: string | null
           counseling_notes?: string | null
           created_at?: string | null
           credits?: number | null
           email?: string
+          emergency_contact?: string | null
           gender?: string | null
           id?: string
           is_blacklisted?: boolean | null
@@ -702,6 +1020,7 @@ export type Database = {
           name?: string
           phone?: string | null
           plan?: string | null
+          preferences?: Json | null
           profile_image?: string | null
           status?: string | null
           user_id?: string | null
@@ -909,6 +1228,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      movement_library: {
+        Row: {
+          category: string
+          coaching_points: string | null
+          created_at: string
+          difficulty_level: number
+          equipment: string[] | null
+          id: string
+          is_active: boolean
+          name_en: string
+          name_ko: string
+          primary_muscles: string[] | null
+          slug: string
+          source_tag: string | null
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          coaching_points?: string | null
+          created_at?: string
+          difficulty_level?: number
+          equipment?: string[] | null
+          id?: string
+          is_active?: boolean
+          name_en: string
+          name_ko: string
+          primary_muscles?: string[] | null
+          slug: string
+          source_tag?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          coaching_points?: string | null
+          created_at?: string
+          difficulty_level?: number
+          equipment?: string[] | null
+          id?: string
+          is_active?: boolean
+          name_en?: string
+          name_ko?: string
+          primary_muscles?: string[] | null
+          slug?: string
+          source_tag?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       notices: {
         Row: {
@@ -1996,6 +2363,154 @@ export type Database = {
           },
         ]
       }
+      session_runbooks: {
+        Row: {
+          created_at: string
+          cue_override: string | null
+          finish_note_override: string | null
+          id: string
+          movement_prep_override: string | null
+          published_at: string | null
+          safety_override: string | null
+          scaling_override: string | null
+          session_id: string
+          session_wod_id: string | null
+          template_id: string | null
+          updated_at: string
+          updated_by: string | null
+          warmup_override: string | null
+        }
+        Insert: {
+          created_at?: string
+          cue_override?: string | null
+          finish_note_override?: string | null
+          id?: string
+          movement_prep_override?: string | null
+          published_at?: string | null
+          safety_override?: string | null
+          scaling_override?: string | null
+          session_id: string
+          session_wod_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warmup_override?: string | null
+        }
+        Update: {
+          created_at?: string
+          cue_override?: string | null
+          finish_note_override?: string | null
+          id?: string
+          movement_prep_override?: string | null
+          published_at?: string | null
+          safety_override?: string | null
+          scaling_override?: string | null
+          session_id?: string
+          session_wod_id?: string | null
+          template_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          warmup_override?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_runbooks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_runbooks_session_wod_id_fkey"
+            columns: ["session_wod_id"]
+            isOneToOne: false
+            referencedRelation: "session_wods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_runbooks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "class_runbook_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_wods: {
+        Row: {
+          class_display_notes: string | null
+          coach_notes: string | null
+          created_at: string
+          description_override: string | null
+          edited_by: string | null
+          format_override: string | null
+          id: string
+          movements_snapshot: Json
+          publish_state: string
+          published_at: string | null
+          published_by: string | null
+          session_id: string
+          source_version: number
+          template_id: string | null
+          time_cap_override: number | null
+          title_override: string | null
+          updated_at: string
+        }
+        Insert: {
+          class_display_notes?: string | null
+          coach_notes?: string | null
+          created_at?: string
+          description_override?: string | null
+          edited_by?: string | null
+          format_override?: string | null
+          id?: string
+          movements_snapshot?: Json
+          publish_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          session_id: string
+          source_version?: number
+          template_id?: string | null
+          time_cap_override?: number | null
+          title_override?: string | null
+          updated_at?: string
+        }
+        Update: {
+          class_display_notes?: string | null
+          coach_notes?: string | null
+          created_at?: string
+          description_override?: string | null
+          edited_by?: string | null
+          format_override?: string | null
+          id?: string
+          movements_snapshot?: Json
+          publish_state?: string
+          published_at?: string | null
+          published_by?: string | null
+          session_id?: string
+          source_version?: number
+          template_id?: string | null
+          time_cap_override?: number | null
+          title_override?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_wods_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: true
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_wods_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "wod_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           capacity: number | null
@@ -2003,11 +2518,14 @@ export type Database = {
           created_at: string | null
           end_time: string
           enrolled: number | null
+          facility_id: string | null
           id: string
           intensity: string | null
           session_date: string | null
           start_time: string
+          status: string
           title: string
+          wod_description: string | null
         }
         Insert: {
           capacity?: number | null
@@ -2015,11 +2533,14 @@ export type Database = {
           created_at?: string | null
           end_time: string
           enrolled?: number | null
+          facility_id?: string | null
           id?: string
           intensity?: string | null
           session_date?: string | null
           start_time: string
+          status?: string
           title: string
+          wod_description?: string | null
         }
         Update: {
           capacity?: number | null
@@ -2027,13 +2548,24 @@ export type Database = {
           created_at?: string | null
           end_time?: string
           enrolled?: number | null
+          facility_id?: string | null
           id?: string
           intensity?: string | null
           session_date?: string | null
           start_time?: string
+          status?: string
           title?: string
+          wod_description?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sessions_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       support_tickets: {
         Row: {
@@ -2331,6 +2863,140 @@ export type Database = {
         }
         Relationships: []
       }
+      wod_template_movements: {
+        Row: {
+          created_at: string
+          custom_label: string | null
+          distance_meters: number | null
+          duration_seconds: number | null
+          id: string
+          load_female_rx: string | null
+          load_male_rx: string | null
+          movement_id: string | null
+          rx_notes: string | null
+          scaling_notes: string | null
+          sort_order: number
+          target_unit: string | null
+          target_value: number | null
+          wod_template_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_label?: string | null
+          distance_meters?: number | null
+          duration_seconds?: number | null
+          id?: string
+          load_female_rx?: string | null
+          load_male_rx?: string | null
+          movement_id?: string | null
+          rx_notes?: string | null
+          scaling_notes?: string | null
+          sort_order?: number
+          target_unit?: string | null
+          target_value?: number | null
+          wod_template_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_label?: string | null
+          distance_meters?: number | null
+          duration_seconds?: number | null
+          id?: string
+          load_female_rx?: string | null
+          load_male_rx?: string | null
+          movement_id?: string | null
+          rx_notes?: string | null
+          scaling_notes?: string | null
+          sort_order?: number
+          target_unit?: string | null
+          target_value?: number | null
+          wod_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wod_template_movements_movement_id_fkey"
+            columns: ["movement_id"]
+            isOneToOne: false
+            referencedRelation: "movement_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wod_template_movements_wod_template_id_fkey"
+            columns: ["wod_template_id"]
+            isOneToOne: false
+            referencedRelation: "wod_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wod_templates: {
+        Row: {
+          coach_notes: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          facility_id: string | null
+          format_type: string | null
+          id: string
+          is_benchmark: boolean
+          is_shared: boolean
+          public_notes: string | null
+          published_at: string | null
+          rounds: number | null
+          template_kind: string
+          time_cap_minutes: number | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          coach_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          facility_id?: string | null
+          format_type?: string | null
+          id?: string
+          is_benchmark?: boolean
+          is_shared?: boolean
+          public_notes?: string | null
+          published_at?: string | null
+          rounds?: number | null
+          template_kind?: string
+          time_cap_minutes?: number | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          coach_notes?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          facility_id?: string | null
+          format_type?: string | null
+          id?: string
+          is_benchmark?: boolean
+          is_shared?: boolean
+          public_notes?: string | null
+          published_at?: string | null
+          rounds?: number | null
+          template_kind?: string
+          time_cap_minutes?: number | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wod_templates_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wods: {
         Row: {
           cooldown: Json | null
@@ -2452,14 +3118,51 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _p1a_assert_coach_can_edit_session: {
+        Args: { p_session_id: string }
+        Returns: string
+      }
+      _p1a_assert_coach_or_admin: { Args: never; Returns: string }
       demote_from_coach: {
         Args: { admin_user_id: string; target_user_id: string }
         Returns: undefined
+      }
+      fn_book_with_credit: {
+        Args: { p_session_id: string; p_user_id: string }
+        Returns: Json
       }
       fn_bulk_mark_session_attendance: {
         Args: { p_payload: Json; p_session_id: string }
         Returns: Json
       }
+      fn_calculate_badge_progress: { Args: never; Returns: Json }
+      fn_calculate_monthly_settlement: {
+        Args: { p_admin_user_id: string; p_year_month: string }
+        Returns: Json
+      }
+      fn_cancel_booking_with_credit: {
+        Args: { p_booking_id: string; p_user_id: string }
+        Returns: Json
+      }
+      fn_coach_mark_attendance: {
+        Args: {
+          p_coach_user_id: string
+          p_member_id: string
+          p_session_id: string
+        }
+        Returns: Json
+      }
+      fn_evaluate_badges: { Args: never; Returns: Json }
+      fn_get_class_display_wod: {
+        Args: {
+          p_facility_id?: string
+          p_session_date?: string
+          p_session_id?: string
+        }
+        Returns: Json
+      }
+      fn_get_coach_dashboard: { Args: { p_user_id: string }; Returns: Json }
+      fn_get_coach_performance_stats: { Args: never; Returns: Json }
       fn_get_coach_schedule: {
         Args: { p_from: string; p_to: string }
         Returns: Json
@@ -2468,14 +3171,65 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: Json
       }
+      fn_get_member_context_panel: {
+        Args: { p_member_id: string }
+        Returns: Json
+      }
+      fn_get_my_badges: { Args: never; Returns: Json }
       fn_get_my_coach_context: { Args: never; Returns: Json }
       fn_get_my_coach_dashboard: { Args: never; Returns: Json }
+      fn_get_session_attendees: {
+        Args: { p_session_id: string }
+        Returns: Json
+      }
+      fn_get_session_runbook: { Args: { p_session_id: string }; Returns: Json }
+      fn_get_session_wod: { Args: { p_session_id: string }; Returns: Json }
+      fn_list_member_alert_flags: {
+        Args: { p_member_id: string }
+        Returns: Json
+      }
+      fn_list_runbook_templates: {
+        Args: { p_class_type?: string; p_facility_id?: string }
+        Returns: Json
+      }
+      fn_list_wod_templates: {
+        Args: {
+          p_facility_id?: string
+          p_scope?: string
+          p_template_kind?: string
+        }
+        Returns: Json
+      }
       fn_mark_session_attendance: {
         Args: { p_action: string; p_member_id: string; p_session_id: string }
         Returns: Json
       }
+      fn_publish_session_wod: { Args: { p_session_id: string }; Returns: Json }
+      fn_search_wod_movements: {
+        Args: {
+          p_category?: string
+          p_equipment?: string
+          p_limit?: number
+          p_query?: string
+        }
+        Returns: Json
+      }
       fn_send_class_reminders: { Args: never; Returns: undefined }
       fn_send_membership_expiry_reminders: { Args: never; Returns: undefined }
+      fn_upsert_member_alert_flag: {
+        Args: { p_member_id: string; p_payload: Json }
+        Returns: Json
+      }
+      fn_upsert_runbook_template: { Args: { p_payload: Json }; Returns: Json }
+      fn_upsert_session_runbook: {
+        Args: { p_payload: Json; p_session_id: string }
+        Returns: Json
+      }
+      fn_upsert_session_wod: {
+        Args: { p_payload: Json; p_session_id: string }
+        Returns: Json
+      }
+      fn_upsert_wod_template: { Args: { p_payload: Json }; Returns: Json }
       get_dashboard_kpis: { Args: never; Returns: Json }
       get_decrypted_pg_settings: {
         Args: { p_encryption_key: string; p_facility_id: string }

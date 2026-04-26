@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import TodayAlertSummary from '@/components/coach/dashboard/TodayAlertSummary';
 
 interface TodaySession {
     id: string;
@@ -154,6 +155,9 @@ export default function CoachDashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* Today's Member Alert Summary */}
+            <TodayAlertSummary />
 
             {/* Current Session */}
             {currentSession && (

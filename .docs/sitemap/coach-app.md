@@ -14,26 +14,30 @@
 - **BottomNav**: `src/components/layout/CoachBottomNav.tsx`
 - **State Gateway**: `src/components/coach/CoachStateGate.tsx` — `fn_get_my_coach_context()`로 인증 → 연결 → 배정 상태를 판단해 운영 화면 진입을 제어합니다. `/coach/profile`만 미배정/휴직 코치도 접근 가능합니다.
 
-### 1) Home (`/coach/dashboard`) ✅ 구현 완료 (P0 운영 안정화 완료)
-- **구현 파일**: `src/app/coach/dashboard/page.tsx`
-- **데이터 소스**: `fn_get_my_coach_dashboard()` (auth.uid() 기반 SECURITY DEFINER RPC).
+### 1) Home (`/coach/dashboard`) ✅ 구현 완료 (P0 운영 안정화 + P1-A 회원 경고 위젯 완료)
+- **구현 파일**: `src/app/coach/dashboard/page.tsx` + `src/components/coach/dashboard/TodayAlertSummary.tsx`
+- **데이터 소스**: `fn_get_my_coach_dashboard()` (auth.uid() 기반 SECURITY DEFINER RPC) + `member_alert_flags` 직접 쿼리(active 플래그 집계).
 - **오늘의 수업**: 당일 배정된 수업 목록과 미체크인/대기열 인원 카운트 표시.
 - **운영 위험 요약 카드**: 60분 내 시작 / 시작 후 미체크인 / 대기열 합계를 즉시 노출.
+- **오늘의 회원 경고 위젯 (P1-A)**: 활성 `member_alert_flags`를 type별로 집계 — 체험/VIP 주의/만기 예정/복귀/부상. Critical 심각도가 있으면 빨간 테두리로 강조, 클릭 시 회원 목록으로 이동.
 - **다음 세션 CTA**: 진행 중 세션이 없을 때 가장 가까운 세션의 운영 보드로 바로 이동.
 - **코치 공지**: 센터 관리자가 전송한 코치 전용 긴급 지시 사항 확인.
 
-### 2) Schedule (`/coach/schedule`) ✅ 구현 완료 (P0 운영 안정화 완료)
-- **구현 파일**: `src/app/coach/schedule/page.tsx`
+### 2) Schedule (`/coach/schedule`) ✅ 구현 완료 (P0 운영 안정화 + P1-A 수업 표준화 완료)
+- **구현 파일**: `src/app/coach/schedule/page.tsx`, `src/components/coach/SessionOperationsBoard.tsx` + P1-A 패널: `src/components/coach/wod/SessionWodPanel.tsx`, `src/components/coach/runbook/SessionRunbookPanel.tsx`
 - **데이터 소스**: 목록 `fn_get_coach_schedule(p_from, p_to)`, 상세 `fn_get_coach_session_board(p_session_id)`.
 - **내 전체 일정**: 일간/주간 뷰 전환 가능. 세션 카드에 race 연동 배지, 체크인/예약/대기/노쇼/지각취소 카운트 노출.
-- **세션 운영 보드** (`SessionOperationsBoard.tsx`): 시작 임박 알림, 7개 출결 통계 그리드, 일괄 출석/노쇼 액션, WOD 편집, 회원별 `checked_in / no_show / late_cancel / coach_excused` 처리, 대기열 보기.
+- **세션 운영 보드** (`SessionOperationsBoard.tsx`): 시작 임박 알림, 7개 출결 통계 그리드, 일괄 출석/노쇼 액션, 회원별 `checked_in / no_show / late_cancel / coach_excused` 처리, 대기열 보기.
+- **세션 WOD 패널 (P1-A)**: `SessionWodPanel.tsx` — `fn_get_session_wod` 로드, benchmark/facility/shared 스코프 템플릿 선택, `fn_search_wod_movements`로 동작 검색, 포맷/time cap/movement line(custom_label fallback) 편집, Save Draft → `fn_upsert_session_wod` / Publish → `fn_publish_session_wod`. `fn_get_class_display_wod`로 전광판 미리보기.
+- **세션 런시트 패널 (P1-A)**: `SessionRunbookPanel.tsx` — 6개 탭(warmup/movement_prep/scaling/cue/safety/finish_note), 시설별 템플릿 기본값 표시 + "오버라이드로 복사" 버튼, 탭별 override + dirty 추적. 저장은 `fn_upsert_session_runbook`.
 - **출결 처리**: `fn_mark_session_attendance` (단건) + `fn_bulk_mark_session_attendance` (일괄, 부분 성공 응답).
 
-### 3) Members (`/coach/members`) ✅ 구현 완료 (P0 운영 안정화 완료)
-- **구현 파일**: `src/app/coach/members/page.tsx`
+### 3) Members (`/coach/members`) ✅ 구현 완료 (P0 운영 안정화 + P1-A 회원 컨텍스트 완료)
+- **구현 파일**: `src/app/coach/members/page.tsx` + Admin 회원 상세에 통합된 `src/components/members/MemberContextPanel.tsx`
 - **기본 스코프**: '담당 회원'(내 세션을 예약한 회원). '시설 전체'는 코칭 노트/출결 보조 목적으로만 사용.
 - **회원 검색**: 이름/이메일 검색 + 활성/비활성 필터.
 - **코칭 노트**: 회원의 부상 이력, 운동 특이사항 등을 기록하고 공유 (multi-note + type 필터).
+- **회원 컨텍스트 패널 (P1-A)**: `fn_get_member_context_panel`로 활성 alert flags(체험/부상/만기 예정/복귀/VIP 주의), 멤버십 만기 D-day 배지(<7d 빨강/<30d 노랑), 출석 통계(총/30일/마지막), 최근 코칭 노트 3건을 묶어서 노출. `fn_upsert_member_alert_flag`로 플래그 추가/해소. (Admin `/admin/members/[id]`에 우선 통합; Coach Members 상세 통합은 후속 단계)
 - **히스토리**: 특정 회원의 출석 통계(총/이달/출석률) 분석.
 
 ### 4) Race (`/coach/race`) ✅ 구현 완료
@@ -79,6 +83,17 @@
 - `fn_get_coach_session_board(p_session_id)` — 세션 운영 보드(헤더/공동코치/출석자/요약).
 - `fn_mark_session_attendance(p_session_id, p_member_id, p_action)` — 단일 출결 처리.
 - `fn_bulk_mark_session_attendance(p_session_id, p_payload)` — 다건 일괄 처리(부분 성공 응답).
+
+### Priority 23 P1-A RPC 인터페이스 (수업 표준화 + 회원 컨텍스트)
+공통 envelope `{ success, status, data, error }`. 권한은 `_p1a_assert_coach_or_admin` / `_p1a_assert_coach_can_edit_session` 헬퍼로 통일. 마이그레이션: `supabase/migrations/20260426120000_p1a_class_standardization.sql`. 타입: `src/types/p1a.ts`.
+- **WOD 라이브러리/템플릿** — `fn_search_wod_movements`, `fn_list_wod_templates(p_scope, p_facility_id)`, `fn_get_wod_template`, `fn_upsert_wod_template`, `fn_publish_wod_template`.
+- **세션 WOD** — `fn_get_session_wod`, `fn_upsert_session_wod`, `fn_publish_session_wod`, `fn_get_class_display_wod(p_session_id, p_session_date, p_facility_id)` ← `/class/wod` 표준 소스.
+- **런시트** — `fn_list_runbook_templates(p_facility_id)`, `fn_upsert_runbook_template`, `fn_get_session_runbook`, `fn_upsert_session_runbook`.
+- **회원 컨텍스트** — `fn_get_member_context_panel(p_member_id)` (active flags + membership 만기 + 출석 + 최근 노트 통합), `fn_upsert_member_alert_flag`(추가/해소).
+
+### Priority 23 P1-A 신규/변경 화면
+- **Admin Operations → WOD Templates** (`/admin/operations/wod-templates`) — 신규. benchmark/facility/shared 스코프별 WOD 템플릿 CRUD, movement search + custom add, draft/publish 워크플로우.
+- **Class WOD Board** (`/class/wod`) — `fn_get_class_display_wod` 표준 소스로 전환. movement line + 부가 정보(target/distance/♂♀ RX) 렌더링, 60s 자동 갱신, `class_display_notes` 노출. 레거시 `wods` 테이블/`sessions.wod_description`은 DEPRECATED 주석만 부착하고 호환 fallback으로 유지.
 
 ### 출결 상태 기계 (`bookings.attendance_outcome`)
 `pending` → 코치 액션으로 `checked_in / no_show / late_cancel / coach_excused` 또는 키오스크 자율 출석으로 `checked_in / walk_in`. 코치 액션 시 `attendance_marked_by`, `attendance_marked_at` 기록.
