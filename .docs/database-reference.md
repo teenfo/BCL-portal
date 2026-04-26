@@ -24,7 +24,7 @@
 |--------|------|-----------|
 | `facilities` | 지점 정보 | name, address, operating_hours, latitude, longitude, photos(TEXT[]) |
 | `members` | 회원 프로필 | user_id, name, email, status, phone, birthday, emergency_contact, avatar_url, preferences(JSONB) |
-| `coaches` | 코치 정보 | user_id, name, specialties, linked_at, linked_by |
+| `coaches` | 코치 정보 | user_id, name, specialties, linked_at, linked_by, base_salary, session_allowance |
 | `coaching_notes` | 회원별 코칭 노트 이력 🆕 | coach_id, member_id, note_type, content |
 
 #### 멤버십 관리 (Membership)
@@ -36,9 +36,9 @@
 #### 수업 및 예약 (Sessions & Bookings)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
-| `sessions` | 수업 일정 | title, session_date, start_time, capacity, wod_description |
+| `sessions` | 수업 일정 | title, session_date, start_time, capacity, status, facility_id, wod_description |
 | `session_coaches` | 수업-코치 매핑 | session_id, coach_id, assignment_role |
-| `bookings` | 예약 내역 | session_id, member_id, status, attendance_outcome |
+| `bookings` | 예약 내역 | session_id, member_id, status, attendance_outcome, booking_type |
 | `checkins` | 체크인 로그 | member_id, session_id, checkin_time, checkin_method |
 
 #### 결제 및 금융 (Finance)
@@ -77,6 +77,12 @@
 | `race_recordings` | 원시 레코딩 정보 | event_id, device_serial, file_path, file_size_bytes |
 | `race_teams` | 팀전 정보 (임시/지속) | event_id, team_name, team_color, total_distance_m |
 
+#### 배지 시스템 (Badge System) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `badge_definitions` | 배지 정의 마스터 | name, display_name, icon, category, metric_type, threshold_value, is_active |
+| `badge_awards` | 회원별 배지 획득 이력 | member_id, badge_id, awarded_at |
+
 #### RBAC (역할 기반 접근 제어) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
@@ -114,6 +120,11 @@
 | `fn_bulk_mark_session_attendance` | RPC Function | `bookings` | 일괄 출결 처리 (부분 성공 반환 지원) 🆕 |
 | `fn_get_coach_performance_stats`| RPC Function | `session_coaches`, `session_feedback` | Admin 화면용 코치별 성과/수업통계/평점 집계 🆕 |
 | `fn_calculate_monthly_settlement`| RPC Function | `coach_settlements` | Admin의 월간 코치 정산 내역 생성 및 갱신 🆕 |
+| `fn_get_session_attendees` | RPC Function | `bookings`, `checkins` | 수업 참석자 + 체크인 상태 조회 (레거시 호환) 🆕 |
+| `fn_coach_mark_attendance` | RPC Function | `checkins` | 코치 수동 출석 처리 (레거시 호환, fn_mark_session_attendance 대체 예정) 🆕 |
+| `fn_get_my_badges` | RPC Function | `badge_awards`, `badge_definitions` | 현재 로그인 회원의 보유 배지 목록 조회 🆕 |
+| `fn_calculate_badge_progress` | RPC Function | `checkins`, `race_records` | 배지 달성 진행률 계산 🆕 |
+| `fn_evaluate_badges` | RPC Function | `badge_awards`, `badge_definitions` | 배지 달성 판정 및 신규 지급 🆕 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
@@ -376,6 +387,12 @@ Logs → Postgres Logs
 
 ---
 
-**문서 버전**: 2.1.0  
-**최종 업데이트**: 2026년 4월 25일  
-**이전 버전**: 2.0.0
+**문서 버전**: 2.2.0  
+**최종 업데이트**: 2026년 4월 26일  
+**이전 버전**: 2.1.0
+
+### 변경 이력
+- **2.2.0** (2026-04-26): DB 감사 기반 누락 항목 전체 적용
+  - 테이블 추가: `coaching_notes`, `coach_settlements`, `badge_definitions`, `badge_awards`
+  - 컬럼 추가: `members(preferences,birthday,emergency_contact,avatar_url)`, `sessions(status,facility_id,wod_description)`, `bookings(booking_type)`, `coaches(base_salary,session_allowance)`
+  - RPC 추가: `fn_book_with_credit`, `fn_cancel_booking_with_credit`, `fn_get_coach_dashboard`, `fn_get_session_attendees`, `fn_coach_mark_attendance`, `fn_get_coach_performance_stats`, `fn_calculate_monthly_settlement`, `fn_get_my_badges`, `fn_calculate_badge_progress`, `fn_evaluate_badges`
