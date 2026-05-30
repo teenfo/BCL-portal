@@ -104,6 +104,26 @@ BCL Portal은 Supabase Auth를 사용하여 모든 사용자 인증을 처리합
 - 클라이언트는 항상 `anon key` 사용
 - 정책 상세: [.docs/database/rls-policies/](../database/rls-policies/)
 
+#### 📌 P0 RLS 점검 결과 (2026-05-30, `20260530220000_p0_rls_hardening.sql`)
+모든 admin/coach mutation 의 RLS 를 전수 점검했다. 결과 요약:
+
+**적용된 하드닝 (2건)**
+- `session_rotation_states` **쓰기**를 "배정 코치(`session_coaches`) 또는 관리자"로 제한.
+  이전에는 임의 코치가 타인 세션의 로테이션 상태를 변경할 수 있었다. (P1-A `session_wods` 패턴 차용)
+- `wod_templates` / `wod_template_movements` / `class_runbook_templates` 의 **DELETE 를 관리자 전용**으로 제한.
+  코치의 SELECT/INSERT/UPDATE(WOD 저작)는 유지. 이전에는 코치가 모든 시설의 공유 벤치마크를 삭제 가능했다.
+
+**의도된 설계로 확인되어 유지 (수정 금지)**
+- `session_rotation_states` 의 **anon SELECT(`USING (true)`)** 는 버그가 아니다.
+  `/class` 는 미인증 공용 경로이며, `class/rotation-hud` 가 로그인 없이 이 테이블을 직접 read + realtime 구독한다(체육관 TV HUD). RLS 는 realtime 에도 적용되므로 `TO authenticated` 로 바꾸면 HUD 가 동작 불능이 된다. → **SELECT 정책 변경 금지.**
+
+**보류 (다중 시설 전환 시 재검토)**
+- `race_live_state` / `race_recordings` / `race_teams` 의 coach 광범위 쓰기.
+  앱(`coach/race/control`)이 이벤트를 facility/배정 필터 없이 전역 운영하고 `coaches.facility_id` 매핑이 부재하여, 스코핑 시 라이브 레이스가 깨진다. 단일 시설 배포에선 위협도 낮음. 다중 시설 도입 시 coach→facility 매핑 신설과 함께 진행.
+
+**오탐으로 확인 (조치 불필요)**
+- "admin_roles/admin_user_roles 권한상승", "pg_settings 결제키 브라우저 노출", "WITH CHECK 누락 = 쓰기 우회" 지적은 Postgres RLS 의미론상 안전하다. 역할 기반 대칭 정책에서 `WITH CHECK` 생략 시 `USING` 식이 INSERT/UPDATE 검증으로 자동 대체되며, 쓰기는 모두 `role='admin'`(또는 `is_admin()`)으로 막혀 있다. pg_settings 는 member-read 정책이 아예 없어 결제 시크릿을 멤버가 읽을 수 없다.
+
 ### ✅ Service Role Key 격리
 - Service Role Key는 다음 두 곳에서만 사용:
   1. Race Python 서버 (`race/main.py` — Coach PC 내부 Docker)
