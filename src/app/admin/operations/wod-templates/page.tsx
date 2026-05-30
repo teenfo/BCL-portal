@@ -726,20 +726,26 @@ export default function AdminWodTemplatesPage() {
                                 </div>
 
                                 {/* 삭제 2단계 UI */}
-                                <div className="flex gap-1 flex-shrink-0">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                     {form.id && (
                                         deleteConfirmId === form.id ? (
                                             <>
                                                 <button
                                                     onClick={() => setDeleteConfirmId(null)}
-                                                    className="px-2 py-1 rounded-lg text-[10px] font-bold text-white/50 hover:bg-white/5 transition-all"
+                                                    className="px-2 py-1 rounded-lg text-[10px] font-bold transition-all"
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        color: 'rgba(255,255,255,0.45)',
+                                                        cursor: 'pointer',
+                                                    }}
                                                 >
                                                     취소
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(form.id!)}
-                                                    className="px-3 py-1 rounded-lg text-[10px] font-black text-white transition-all active:scale-95"
-                                                    style={{ background: 'rgba(239,68,68,0.85)' }}
+                                                    className="px-3 py-1.5 rounded-lg text-[10px] font-black text-white transition-all active:scale-95"
+                                                    style={{ background: 'rgba(239,68,68,0.8)', border: 'none', cursor: 'pointer' }}
                                                 >
                                                     확인 삭제
                                                 </button>
@@ -747,18 +753,65 @@ export default function AdminWodTemplatesPage() {
                                         ) : (
                                             <button
                                                 onClick={() => setDeleteConfirmId(form.id!)}
-                                                className="p-1.5 rounded-lg hover:bg-red-500/10 text-red-400/60 hover:text-red-400 transition-all active:scale-95"
                                                 title="템플릿 삭제"
+                                                className="transition-all active:scale-95"
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    width: '28px',
+                                                    height: '28px',
+                                                    borderRadius: '8px',
+                                                    background: 'rgba(239,68,68,0.06)',
+                                                    border: '1px solid rgba(239,68,68,0.15)',
+                                                    color: 'rgba(248,113,113,0.6)',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.15s',
+                                                }}
+                                                onMouseEnter={e => {
+                                                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.12)';
+                                                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.3)';
+                                                    (e.currentTarget as HTMLButtonElement).style.color = '#f87171';
+                                                }}
+                                                onMouseLeave={e => {
+                                                    (e.currentTarget as HTMLButtonElement).style.background = 'rgba(239,68,68,0.06)';
+                                                    (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(239,68,68,0.15)';
+                                                    (e.currentTarget as HTMLButtonElement).style.color = 'rgba(248,113,113,0.6)';
+                                                }}
                                             >
-                                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                                                <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>delete</span>
                                             </button>
                                         )
                                     )}
                                     <button
                                         onClick={() => { setShowPanel(false); setDeleteConfirmId(null); }}
-                                        className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white/70 transition-all active:scale-95"
+                                        title="패널 닫기"
+                                        className="transition-all active:scale-95"
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: '28px',
+                                            height: '28px',
+                                            borderRadius: '8px',
+                                            background: 'rgba(255,255,255,0.04)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            color: 'rgba(255,255,255,0.35)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s',
+                                        }}
+                                        onMouseEnter={e => {
+                                            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.08)';
+                                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.15)';
+                                            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.7)';
+                                        }}
+                                        onMouseLeave={e => {
+                                            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.04)';
+                                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
+                                            (e.currentTarget as HTMLButtonElement).style.color = 'rgba(255,255,255,0.35)';
+                                        }}
                                     >
-                                        <span className="material-symbols-outlined text-[18px]">close</span>
+                                        <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>close</span>
                                     </button>
                                 </div>
                             </div>
