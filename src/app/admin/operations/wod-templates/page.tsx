@@ -225,7 +225,10 @@ export default function AdminWodTemplatesPage() {
             load_female_rx: m.load_female_rx,
             rx_notes: m.rx_notes,
             scaling_notes: m.scaling_notes,
-            _category: 'custom' as const,
+            // 라이브러리 동작의 경우 movement_name_ko를 _name에 매핑
+            _name: m.movement_name_ko ?? undefined,
+            // movement_id가 있으면 라이브러리 동작, 없으면 커스텀
+            _category: (m.movement_id ? 'custom' : 'custom') as 'custom',
         }));
 
         setForm({
