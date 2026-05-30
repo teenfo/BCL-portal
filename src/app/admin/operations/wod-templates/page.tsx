@@ -1046,11 +1046,13 @@ export default function AdminWodTemplatesPage() {
                                                                 disabled={!!l.movement_id}
                                                                 onChange={e => updateLine(l._key, { custom_label: e.target.value })}
                                                                 placeholder="동작명을 직접 입력하세요"
-                                                                className="w-full px-3 py-1.5 rounded-lg text-xs text-white font-bold focus:outline-none transition-all"
+                                                                className="w-full px-2.5 py-1.5 rounded-lg text-xs font-bold focus:outline-none transition-all"
                                                                 style={{
-                                                                    background: l.movement_id ? 'rgba(0,0,0,0.35)' : '#161619',
-                                                                    border: `1px solid ${l.movement_id ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.1)'}`,
+                                                                    background: '#161619',
+                                                                    border: '1px solid rgba(255,255,255,0.08)',
                                                                     color: l.movement_id ? 'rgba(255,255,255,0.4)' : '#fff',
+                                                                    WebkitTextFillColor: l.movement_id ? 'rgba(255,255,255,0.4)' : '#fff',
+                                                                    opacity: 1,
                                                                     cursor: l.movement_id ? 'not-allowed' : 'text',
                                                                 }}
                                                             />
@@ -1061,8 +1063,8 @@ export default function AdminWodTemplatesPage() {
                                                                 <div className="flex flex-col gap-1">
                                                                     <span className="text-[8px] font-black text-white/35 uppercase tracking-wider">Target</span>
                                                                     <div
-                                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg wod-glass-input-group"
-                                                                        style={{ background: '#161619' }}
+                                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                                                                        style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)' }}
                                                                     >
                                                                         <input
                                                                             value={l.target_value ?? ''}
@@ -1089,8 +1091,8 @@ export default function AdminWodTemplatesPage() {
                                                                 <div className="flex flex-col gap-1">
                                                                     <span className="text-[8px] font-black text-white/35 uppercase tracking-wider">Rx Load</span>
                                                                     <div
-                                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg wod-glass-input-group"
-                                                                        style={{ background: '#161619' }}
+                                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
+                                                                        style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)' }}
                                                                     >
                                                                         <span className="text-[9px] font-black text-blue-400 select-none">♂</span>
                                                                         <input
@@ -1123,8 +1125,8 @@ export default function AdminWodTemplatesPage() {
                                                                             value={l.rx_notes ?? ''}
                                                                             onChange={e => updateLine(l._key, { rx_notes: e.target.value || null })}
                                                                             placeholder="예: Unbroken으로 수행 가능한 무게"
-                                                                            className="w-full px-2 py-1.5 rounded-lg text-xs bg-[#161619] border border-white/10 text-white focus:outline-none transition-all font-medium"
-                                                                            style={{ fontSize: '11px' }}
+                                                                            className="w-full px-2.5 py-1.5 rounded-lg text-xs text-white focus:outline-none transition-all font-bold"
+                                                                            style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px' }}
                                                                         />
                                                                     </div>
                                                                     <div className="flex flex-col gap-1">
@@ -1133,8 +1135,8 @@ export default function AdminWodTemplatesPage() {
                                                                             value={l.scaling_notes ?? ''}
                                                                             onChange={e => updateLine(l._key, { scaling_notes: e.target.value || null })}
                                                                             placeholder="초보자용 대체 가이드"
-                                                                            className="w-full px-2 py-1.5 rounded-lg text-xs bg-[#161619] border border-white/10 text-white focus:outline-none transition-all"
-                                                                            style={{ fontSize: '11px' }}
+                                                                            className="w-full px-2.5 py-1.5 rounded-lg text-xs text-white focus:outline-none transition-all font-bold"
+                                                                            style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px' }}
                                                                         />
                                                                     </div>
                                                                 </div>
