@@ -546,7 +546,14 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                                                     onChange={e => handleUpdateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
                                                     placeholder={l.movement_id ? '운동명' : '운동 이름'}
                                                     disabled={!!l.movement_id}
-                                                    style={miniInput}
+                                                    style={{
+                                                        ...miniInput,
+                                                        background: 'rgba(255,255,255,0.04)',
+                                                        color: l.movement_id ? 'var(--app-text-muted)' : 'var(--app-text-primary)',
+                                                        opacity: 1,
+                                                        WebkitTextFillColor: l.movement_id ? 'var(--app-text-muted)' : 'var(--app-text-primary)',
+                                                        cursor: l.movement_id ? 'not-allowed' : 'text',
+                                                    }}
                                                 />
                                                 <input
                                                     value={l.target_value ?? ''}
