@@ -552,6 +552,14 @@ export default function AdminWodTemplatesPage() {
                             </label>
                         </div>
                         <label className="text-[11px] text-white/60 col-span-2">
+                            Public Notes (회원 공개)
+                            <textarea value={form.public_notes} onChange={e => updateForm({ public_notes: e.target.value })} rows={2} className="w-full mt-1 px-2 py-1.5 rounded text-sm bg-white/5 border border-white/10 text-white resize-y" />
+                        </label>
+                        <label className="text-[11px] text-white/60 col-span-2">
+                            Coach Notes (코치 전용)
+                            <textarea value={form.coach_notes} onChange={e => updateForm({ coach_notes: e.target.value })} rows={2} className="w-full mt-1 px-2 py-1.5 rounded text-sm bg-white/5 border border-white/10 text-white resize-y" />
+                        </label>
+                        <label className="text-[11px] text-white/60 col-span-2">
                             설명
                             <textarea value={form.description} onChange={e => updateForm({ description: e.target.value })} rows={2} className="w-full mt-1 px-2 py-1.5 rounded text-sm bg-white/5 border border-white/10 text-white resize-y" />
                         </label>
@@ -749,15 +757,6 @@ export default function AdminWodTemplatesPage() {
                         )}
                     </div>
 
-                    {/* Notes */}
-                    <label className="text-[11px] text-white/60">
-                        Public Notes (회원 공개)
-                        <textarea value={form.public_notes} onChange={e => updateForm({ public_notes: e.target.value })} rows={2} className="w-full mt-1 px-2 py-1.5 rounded text-sm bg-white/5 border border-white/10 text-white resize-y" />
-                    </label>
-                    <label className="text-[11px] text-white/60">
-                        Coach Notes (코치 전용)
-                        <textarea value={form.coach_notes} onChange={e => updateForm({ coach_notes: e.target.value })} rows={2} className="w-full mt-1 px-2 py-1.5 rounded text-sm bg-white/5 border border-white/10 text-white resize-y" />
-                    </label>
                 </div>
             </AdminModal>
         </div>
