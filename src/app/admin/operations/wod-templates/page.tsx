@@ -1070,14 +1070,15 @@ export default function AdminWodTemplatesPage() {
                                                                             value={l.target_value ?? ''}
                                                                             onChange={e => updateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })}
                                                                             placeholder="값"
-                                                                            className="w-full bg-transparent text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            className="w-full text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            style={{ background: 'transparent' }}
                                                                         />
                                                                         <div className="w-px h-3 bg-white/10 flex-shrink-0" />
                                                                         <select
                                                                             value={l.target_unit ?? 'reps'}
                                                                             onChange={e => updateLine(l._key, { target_unit: e.target.value })}
-                                                                            className="bg-transparent text-[10px] text-white/55 py-0 pl-1 border-none outline-none font-bold cursor-pointer"
-                                                                            style={{ colorScheme: 'dark' }}
+                                                                            className="text-[10px] text-white/55 py-0 pl-1 border-none outline-none font-bold cursor-pointer"
+                                                                            style={{ background: 'transparent', colorScheme: 'dark' }}
                                                                         >
                                                                             <option value="reps" style={{ backgroundColor: '#161619' }}>reps</option>
                                                                             <option value="meters" style={{ backgroundColor: '#161619' }}>m</option>
@@ -1099,7 +1100,8 @@ export default function AdminWodTemplatesPage() {
                                                                             value={l.load_male_rx ?? ''}
                                                                             onChange={e => updateLine(l._key, { load_male_rx: e.target.value || null })}
                                                                             placeholder="남"
-                                                                            className="w-full bg-transparent text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            className="w-full text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            style={{ background: 'transparent' }}
                                                                         />
                                                                         <div className="w-px h-3 bg-white/10 flex-shrink-0" />
                                                                         <span className="text-[9px] font-black text-pink-400 select-none">♀</span>
@@ -1107,7 +1109,8 @@ export default function AdminWodTemplatesPage() {
                                                                             value={l.load_female_rx ?? ''}
                                                                             onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })}
                                                                             placeholder="여"
-                                                                            className="w-full bg-transparent text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            className="w-full text-xs text-white text-center p-0 border-none outline-none font-bold"
+                                                                            style={{ background: 'transparent' }}
                                                                         />
                                                                     </div>
                                                                 </div>
