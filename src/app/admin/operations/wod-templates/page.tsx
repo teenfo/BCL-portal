@@ -376,7 +376,7 @@ export default function AdminWodTemplatesPage() {
                 title="WOD Templates"
                 subtitle="shared & benchmark"
                 actions={
-                    <button onClick={openCreate} className="px-4 py-2 rounded-lg font-bold text-sm" style={{ background: 'var(--primary)', color: '#000' }}>
+                    <button onClick={openCreate} className="admin-action-btn">
                         + 새 템플릿
                     </button>
                 }
@@ -384,13 +384,13 @@ export default function AdminWodTemplatesPage() {
 
             <div className="p-6">
                 {/* Scope filter */}
-                <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <div className="flex items-center gap-2 mb-6 flex-wrap">
                     {(['benchmark', 'facility', 'shared'] as const).map(s => (
-                        <button key={s} onClick={() => setScope(s)} className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{
-                            background: scope === s ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-                            color: scope === s ? '#000' : 'rgba(255,255,255,0.7)',
-                            border: '1px solid ' + (scope === s ? 'transparent' : 'rgba(255,255,255,0.1)'),
-                        }}>
+                        <button
+                            key={s}
+                            onClick={() => setScope(s)}
+                            className={`admin-filter-btn ${scope === s ? 'active' : ''}`}
+                        >
                             {s === 'benchmark' ? 'Benchmark (글로벌)' : s === 'facility' ? 'Facility' : 'Shared'}
                         </button>
                     ))}
@@ -434,10 +434,26 @@ export default function AdminWodTemplatesPage() {
                                     </div>
                                 )}
                                 <div className="flex gap-2 mt-3">
-                                    <button onClick={() => openEdit(t)} className="text-xs font-bold px-3 py-1.5 rounded bg-white/[0.06] border border-white/5 text-white hover:border-white/20 transition-all">
+                                    <button
+                                        onClick={() => openEdit(t)}
+                                        className="text-xs font-bold px-3 py-1.5 rounded transition-all"
+                                        style={{
+                                            background: 'rgba(255, 255, 255, 0.05)',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            color: 'rgba(255, 255, 255, 0.8)'
+                                        }}
+                                    >
                                         편집
                                     </button>
-                                    <button onClick={() => handleDelete(t.id)} className="text-xs font-bold px-3 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
+                                    <button
+                                        onClick={() => handleDelete(t.id)}
+                                        className="text-xs font-bold px-3 py-1.5 rounded transition-all"
+                                        style={{
+                                            background: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                            color: '#f87171'
+                                        }}
+                                    >
                                         삭제
                                     </button>
                                 </div>
@@ -454,13 +470,39 @@ export default function AdminWodTemplatesPage() {
                 size="lg"
                 footer={
                     <div className="flex justify-end gap-2">
-                        <button onClick={() => setShowModal(false)} className="px-4 py-2 rounded-lg text-sm" style={{ background: 'rgba(255,255,255,0.05)', color: '#fff' }}>
+                        <button
+                            onClick={() => setShowModal(false)}
+                            className="px-4 py-2 rounded-lg text-sm transition-all"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid rgba(255, 255, 255, 0.08)',
+                                color: 'rgba(255, 255, 255, 0.8)'
+                            }}
+                        >
                             취소
                         </button>
-                        <button onClick={() => handleSave(false)} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-bold" style={{ background: 'rgba(255,255,255,0.08)', color: '#fff' }}>
+                        <button
+                            onClick={() => handleSave(false)}
+                            disabled={saving}
+                            className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                            style={{
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                border: '1px solid rgba(255, 255, 255, 0.12)',
+                                color: '#ffffff'
+                            }}
+                        >
                             {saving ? '저장 중...' : '초안 저장'}
                         </button>
-                        <button onClick={() => handleSave(true)} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-bold" style={{ background: 'var(--primary)', color: '#000' }}>
+                        <button
+                            onClick={() => handleSave(true)}
+                            disabled={saving}
+                            className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                            style={{
+                                background: 'var(--primary)',
+                                color: '#000',
+                                boxShadow: '0 0 15px rgba(255, 107, 0, 0.25)'
+                            }}
+                        >
                             {saving ? '게시 중...' : '게시'}
                         </button>
                     </div>
@@ -671,7 +713,16 @@ export default function AdminWodTemplatesPage() {
                                     </option>
                                 ))}
                             </select>
-                            <button onClick={handleSearchMovements} disabled={searching} className="px-3 py-1 rounded text-xs font-bold" style={{ background: 'var(--primary)', color: '#000' }}>
+                            <button
+                                onClick={handleSearchMovements}
+                                disabled={searching}
+                                className="px-3 py-1 rounded text-xs font-bold transition-all"
+                                style={{
+                                    background: 'var(--primary)',
+                                    color: '#000',
+                                    boxShadow: '0 0 10px rgba(255, 107, 0, 0.2)'
+                                }}
+                            >
                                 {searching ? '...' : '검색'}
                             </button>
                         </div>
