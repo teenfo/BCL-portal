@@ -548,7 +548,7 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                                                     disabled={!!l.movement_id}
                                                     style={{
                                                         ...miniInput,
-                                                        background: 'rgba(255,255,255,0.04)',
+                                                        background: 'var(--app-surface)',
                                                         color: l.movement_id ? 'var(--app-text-muted)' : 'var(--app-text-primary)',
                                                         opacity: 1,
                                                         WebkitTextFillColor: l.movement_id ? 'var(--app-text-muted)' : 'var(--app-text-primary)',
@@ -693,7 +693,7 @@ const inputStyle: React.CSSProperties = {
 
 const miniInput: React.CSSProperties = {
     padding: '0.25rem 0.375rem', borderRadius: 6,
-    background: 'rgba(255,255,255,0.04)', border: '1px solid var(--app-border)',
+    background: 'var(--app-surface)', border: '1px solid var(--app-border)',
     color: 'var(--app-text-primary)', fontSize: '0.6875rem', outline: 'none',
 };
 
