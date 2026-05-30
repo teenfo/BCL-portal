@@ -36,8 +36,6 @@ export function createClient() {
             autoRefreshToken: true,
             // OAuth/Magic Link 콜백 처리
             detectSessionInUrl: true,
-            // 환경별 고유 storage key (dev/prod 세션 충돌 방지)
-            storageKey: `bcl-portal-${env}-session`,
         },
     });
 }

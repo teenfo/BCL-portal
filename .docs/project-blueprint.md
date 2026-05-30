@@ -68,16 +68,14 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **DB 배포 준비도 감사 조치 완료 — 보안 패치 즉시 적용, 누락 테이블 복구, 문서 정정**
+- **Current Focus**: **수업 스케줄 관리 다중 코치 배정 및 UI 고도화 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npx tsc --noEmit` / `npm run typecheck` 통과
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: DB 배포 준비도 감사 2건(`audit-database-readiness-20260426.md`, `audit-database-remote-comparison-20260426.md`) 기반 조치 완료
-  - 🔒 **보안 패치 즉시 적용**: `members`, `coaches`, `wods` anon RLS 차단 (`20260426130000_fix_anon_rls_exposure.sql`)
-  - 🔧 **누락 테이블 복구**: `wods`, `notification_rules`, `notification_preferences`, `push_subscriptions` 마이그레이션 생성 (`20260217104530_notification_system_schema.sql`)
-  - 📋 **문서 정정**: `database-reference.md` v2.3.0 — 마이그레이션 목록 23개 정정, 미구현 시딩 참조 제거
-  - 🔄 **타입 재생성**: `src/types/supabase.ts` 갱신 완료
-- **Planning Note**: P1-A 마이그레이션(`20260426120000_p1a_class_standardization.sql`)은 SQL 준비 완료 / 원격 미배포 상태. 프론트엔드 Ready 시 적용 예정.
+- **Last Action**: 수업 스케줄링 관리 모달 내 단일 코치 입력 텍스트박스를 다중 선택 칩스 UI로 전면 고도화하고, 중복 시간 배정 방지 로직(Conflict Checking)을 다중 코치로 확대하여 안전한 DB 적재(session_coaches) 연동을 완수했습니다.
+  - 🔒 **다중 코치 지원**: `session_coaches` 맵핑 데이터를 `lead` 및 `assistant` 역할 및 정렬 순서를 부여해 안전하게 트랜잭션 적재하도록 로직 고도화 완료.
+  - 🎨 **칩스 UI**: 글래스모피즘 기반의 프리미엄 토글 칩스 그리드를 도입하여, 복수의 코치를 단 한 번의 탭으로 쉽게 다중 배정할 수 있게 조치 완료.
+  - 🔄 **동시성 검증**: 한 명의 코치가 동시에 다른 스케줄에 배정되지 않도록, 다중 검증 Conflict Check 로직 추가 완료.
 
 ---
 

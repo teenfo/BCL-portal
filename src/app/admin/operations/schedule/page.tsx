@@ -12,6 +12,7 @@ interface Session {
     title: string;
     coach_name: string;
     coach_id: string;
+    coach_ids?: string[];
     start_time: string;
     end_time: string;
     capacity: number;
@@ -24,6 +25,7 @@ interface Session {
 interface SessionForm {
     title: string;
     coach_id: string;
+    coach_ids: string[];
     session_date: string;
     start_time: string;
     end_time: string;
@@ -59,6 +61,7 @@ function formatWeekLabel(weekStart: Date): string {
 
 export default function SchedulePage() {
     const [sessions, setSessions] = useState<Session[]>([]);
+    const [coachesList, setCoachesList] = useState<{ id: string; name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
@@ -90,6 +93,7 @@ export default function SchedulePage() {
     const emptyForm: SessionForm = {
         title: '',
         coach_id: '',
+        coach_ids: [],
         session_date: currentDate.toISOString().split('T')[0],
         start_time: '09:00',
         end_time: '10:00',
@@ -107,49 +111,89 @@ export default function SchedulePage() {
         rangeEnd.setDate(rangeEnd.getDate() + 7);
 
         try {
-            // Fetch sessions with coach name via join
-            const { data, error } = await query('sessions')
-                
-                .select('*, coaches(full_name)')
+            // 1. Fetch sessions
+            const { data: sessionData, error: sessionError } = await query('sessions')
+                .select('*')
                 .gte('start_time', rangeStart.toISOString())
                 .lte('start_time', rangeEnd.toISOString())
                 .order('start_time', { ascending: true });
 
-            if (error) {
-                console.error('Failed to load sessions:', error);
+            if (sessionError) {
+                console.error('Failed to load sessions:', sessionError);
                 setSessions([]);
-            } else if (!data || data.length === 0) {
+                setLoading(false);
+                return;
+            }
+
+            if (!sessionData || sessionData.length === 0) {
                 setSessions([]);
-            } else {
-                // Count bookings per session
-                const sessionIds = data.map((s: any) => s.id);
-                const { data: bookings } = await query('bookings')
-                    
-                    .select('session_id')
-                    .in('session_id', sessionIds)
-                    .eq('status', 'confirmed');
+                setLoading(false);
+                return;
+            }
 
-                const bookingCounts: Record<string, number> = {};
-                if (bookings) {
-                    bookings.forEach((b: any) => {
-                        bookingCounts[b.session_id] = (bookingCounts[b.session_id] || 0) + 1;
-                    });
-                }
+            const sessionIds = sessionData.map((s: any) => s.id);
 
-                setSessions(data.map((s: any) => ({
+            // 2. Fetch bookings, session_coaches, and coaches in parallel
+            const [bookingsRes, sessionCoachesRes, coachesRes] = await Promise.all([
+                query('bookings').select('session_id').in('session_id', sessionIds).eq('status', 'confirmed'),
+                query('session_coaches').select('session_id, coach_id').in('session_id', sessionIds),
+                query('coaches').select('id, name')
+            ]);
+
+            // Count bookings
+            const bookingCounts: Record<string, number> = {};
+            if (bookingsRes.data) {
+                bookingsRes.data.forEach((b: any) => {
+                    bookingCounts[b.session_id] = (bookingCounts[b.session_id] || 0) + 1;
+                });
+            }
+
+            // Map coach IDs to coach names and populate coachesList
+            const coachMap: Record<string, { id: string; name: string }> = {};
+            if (coachesRes.data) {
+                setCoachesList(coachesRes.data);
+                coachesRes.data.forEach((c: any) => {
+                    coachMap[c.id] = { id: c.id, name: c.name };
+                });
+            }
+
+            // Map session IDs to array of coach IDs and names (Multiple Coaches)
+            const sessionCoachMap: Record<string, { id: string; name: string }[]> = {};
+            if (sessionCoachesRes.data) {
+                sessionCoachesRes.data.forEach((sc: any) => {
+                    if (coachMap[sc.coach_id]) {
+                        if (!sessionCoachMap[sc.session_id]) {
+                            sessionCoachMap[sc.session_id] = [];
+                        }
+                        sessionCoachMap[sc.session_id].push(coachMap[sc.coach_id]);
+                    }
+                });
+            }
+
+            // DB 'Low'/'Medium'/'High' -> UI 'beginner'/'intermediate'/'advanced'
+            const intensityMapFromDB: Record<string, string> = {
+                'Low': 'beginner',
+                'Medium': 'intermediate',
+                'High': 'advanced'
+            };
+
+            setSessions(sessionData.map((s: any) => {
+                const sessionCoaches = sessionCoachMap[s.id] || [];
+                return {
                     id: s.id,
                     title: s.title || '',
-                    coach_name: s.coaches?.full_name || '미배정',
-                    coach_id: s.coach_id || '',
+                    coach_name: sessionCoaches.map(c => c.name).join(', ') || '미배정',
+                    coach_id: sessionCoaches[0]?.id || '',
+                    coach_ids: sessionCoaches.map(c => c.id),
                     start_time: s.start_time,
                     end_time: s.end_time,
                     capacity: s.capacity || 15,
                     current_bookings: bookingCounts[s.id] || 0,
-                    intensity_level: s.intensity_level || 'intermediate',
+                    intensity_level: intensityMapFromDB[s.intensity] || 'intermediate',
                     status: s.status || 'scheduled',
                     wod_description: s.wod_description || '',
-                })));
-            }
+                };
+            }));
         } catch (err) {
             console.error('Failed to load sessions:', err);
             setSessions([]);
@@ -200,20 +244,27 @@ export default function SchedulePage() {
     }
 
     // Check coach conflict
-    function checkCoachConflict(coachId: string, date: string, startTime: string, endTime: string, excludeId?: string): string | null {
-        if (!coachId) return null;
-        const conflicting = sessions.find((s) => {
-            if (excludeId && s.id === excludeId) return false;
-            if (s.coach_id !== coachId) return false;
-            const sd = new Date(s.start_time);
-            const sessionDate = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`;
-            if (sessionDate !== date) return false;
-            const sStart = `${String(sd.getHours()).padStart(2, '0')}:${String(sd.getMinutes()).padStart(2, '0')}`;
-            const sEnd = new Date(s.end_time);
-            const sEndStr = `${String(sEnd.getHours()).padStart(2, '0')}:${String(sEnd.getMinutes()).padStart(2, '0')}`;
-            return startTime < sEndStr && endTime > sStart;
-        });
-        if (conflicting) return `해당 코치는 이미 ${new Date(conflicting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}에 "${conflicting.title}" 수업이 배정되어 있습니다.`;
+    function checkCoachConflict(coachIds: string[], date: string, startTime: string, endTime: string, excludeId?: string): string | null {
+        if (!coachIds || coachIds.length === 0) return null;
+        for (const coachId of coachIds) {
+            const conflicting = sessions.find((s) => {
+                if (excludeId && s.id === excludeId) return false;
+                const assignedCoachIds = s.coach_ids || (s.coach_id ? [s.coach_id] : []);
+                if (!assignedCoachIds.includes(coachId)) return false;
+                const sd = new Date(s.start_time);
+                const sessionDate = `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`;
+                if (sessionDate !== date) return false;
+                const sStart = `${String(sd.getHours()).padStart(2, '0')}:${String(sd.getMinutes()).padStart(2, '0')}`;
+                const sEnd = new Date(s.end_time);
+                const sEndStr = `${String(sEnd.getHours()).padStart(2, '0')}:${String(sEnd.getMinutes()).padStart(2, '0')}`;
+                return startTime < sEndStr && endTime > sStart;
+            });
+            if (conflicting) {
+                const coach = coachesList.find(c => c.id === coachId);
+                const coachName = coach ? coach.name : '해당 코치';
+                return `${coachName} 코치는 이미 ${new Date(conflicting.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}에 "${conflicting.title}" 수업이 배정되어 있습니다.`;
+            }
+        }
         return null;
     }
 
@@ -225,6 +276,7 @@ export default function SchedulePage() {
             session_date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
             start_time: hour !== undefined ? `${String(hour).padStart(2, '0')}:00` : '09:00',
             end_time: hour !== undefined ? `${String(hour + 1).padStart(2, '0')}:00` : '10:00',
+            coach_ids: []
         });
         setCoachConflict(null);
         setShowModal(true);
@@ -237,6 +289,7 @@ export default function SchedulePage() {
         setForm({
             title: session.title,
             coach_id: session.coach_id,
+            coach_ids: session.coach_ids || (session.coach_id ? [session.coach_id] : []),
             session_date: `${sd.getFullYear()}-${String(sd.getMonth() + 1).padStart(2, '0')}-${String(sd.getDate()).padStart(2, '0')}`,
             start_time: `${String(sd.getHours()).padStart(2, '0')}:${String(sd.getMinutes()).padStart(2, '0')}`,
             end_time: `${String(ed.getHours()).padStart(2, '0')}:${String(ed.getMinutes()).padStart(2, '0')}`,
@@ -250,13 +303,22 @@ export default function SchedulePage() {
 
     async function saveSession() {
         // Check coach conflict
-        const conflict = checkCoachConflict(form.coach_id, form.session_date, form.start_time, form.end_time, editingSession?.id);
-        if (conflict) {
-            setCoachConflict(conflict);
-            return;
+        if (form.coach_ids && form.coach_ids.length > 0) {
+            const conflict = checkCoachConflict(form.coach_ids, form.session_date, form.start_time, form.end_time, editingSession?.id);
+            if (conflict) {
+                setCoachConflict(conflict);
+                return;
+            }
         }
         const startDt = new Date(`${form.session_date}T${form.start_time}:00`);
         const endDt = new Date(`${form.session_date}T${form.end_time}:00`);
+
+        // UI 'beginner'/'intermediate'/'advanced' -> DB 'Low'/'Medium'/'High'
+        const intensityMapToDB: Record<string, string> = {
+            'beginner': 'Low',
+            'intermediate': 'Medium',
+            'advanced': 'High'
+        };
 
         const payload = {
             title: form.title,
@@ -264,15 +326,49 @@ export default function SchedulePage() {
             start_time: startDt.toISOString(),
             end_time: endDt.toISOString(),
             capacity: form.capacity,
-            intensity_level: form.intensity_level,
+            intensity: intensityMapToDB[form.intensity_level] || 'Medium',
             wod_description: form.wod_description || null,
             status: 'scheduled',
         };
 
-        if (editingSession) {
-            await query('sessions').update(payload).eq('id', editingSession.id);
-        } else {
-            await query('sessions').insert(payload);
+        try {
+            if (editingSession) {
+                // 1. Update session
+                await query('sessions').update(payload).eq('id', editingSession.id);
+
+                // 2. Re-assign coach mappings (Multiple Coaches)
+                await query('session_coaches').delete().eq('session_id', editingSession.id);
+                if (form.coach_ids && form.coach_ids.length > 0) {
+                    const inserts = form.coach_ids.map((cId, idx) => ({
+                        session_id: editingSession.id,
+                        coach_id: cId,
+                        assignment_role: idx === 0 ? 'lead' : 'assistant',
+                        display_order: idx + 1
+                    }));
+                    await query('session_coaches').insert(inserts);
+                }
+            } else {
+                // 1. Create new session
+                const { data, error } = await query('sessions').insert(payload).select('id').single();
+
+                if (error) {
+                    console.error('Failed to create session:', error);
+                    return;
+                }
+
+                // 2. Create coach mappings (Multiple Coaches)
+                if (data?.id && form.coach_ids && form.coach_ids.length > 0) {
+                    const inserts = form.coach_ids.map((cId, idx) => ({
+                        session_id: data.id,
+                        coach_id: cId,
+                        assignment_role: idx === 0 ? 'lead' : 'assistant',
+                        display_order: idx + 1
+                    }));
+                    await query('session_coaches').insert(inserts);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to save session:', err);
         }
 
         setShowModal(false);
@@ -350,7 +446,8 @@ export default function SchedulePage() {
         const newDate = `${newStart.getFullYear()}-${String(newStart.getMonth() + 1).padStart(2, '0')}-${String(newStart.getDate()).padStart(2, '0')}`;
         const newStartTime = `${String(newStart.getHours()).padStart(2, '0')}:${String(newStart.getMinutes()).padStart(2, '0')}`;
         const newEndTime = `${String(newEnd.getHours()).padStart(2, '0')}:${String(newEnd.getMinutes()).padStart(2, '0')}`;
-        const conflict = checkCoachConflict(session.coach_id, newDate, newStartTime, newEndTime, session.id);
+        const coachIds = session.coach_ids || (session.coach_id ? [session.coach_id] : []);
+        const conflict = checkCoachConflict(coachIds, newDate, newStartTime, newEndTime, session.id);
         if (conflict) {
             handleDragEnd();
             return;
@@ -593,7 +690,7 @@ export default function SchedulePage() {
                         />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-5">
                         <div>
                             <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">날짜</label>
                             <input
@@ -604,17 +701,42 @@ export default function SchedulePage() {
                             />
                         </div>
                         <div>
-                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">코치 ID</label>
-                            <input
-                                value={form.coach_id}
-                                onChange={(e) => {
-                                    const newId = e.target.value;
-                                    setForm({ ...form, coach_id: newId });
-                                    setCoachConflict(checkCoachConflict(newId, form.session_date, form.start_time, form.end_time, editingSession?.id));
-                                }}
-                                placeholder="예: c1"
-                                className="bcl-input"
-                            />
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-3">담당 코치 선택 (다중 선택 가능)</label>
+                            <div className="flex flex-wrap gap-2 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.04]">
+                                {coachesList.map((coach) => {
+                                    const isSelected = form.coach_ids.includes(coach.id);
+                                    return (
+                                        <button
+                                            key={coach.id}
+                                            type="button"
+                                            onClick={() => {
+                                                const updatedIds = isSelected
+                                                    ? form.coach_ids.filter(id => id !== coach.id)
+                                                    : [...form.coach_ids, coach.id];
+                                                
+                                                setForm({ 
+                                                    ...form, 
+                                                    coach_ids: updatedIds,
+                                                    coach_id: updatedIds[0] || '' // Fallback for backward compatibility
+                                                });
+
+                                                setCoachConflict(checkCoachConflict(updatedIds, form.session_date, form.start_time, form.end_time, editingSession?.id));
+                                            }}
+                                            className={`px-4 py-2.5 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                                                isSelected 
+                                                    ? 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)] shadow-[0_0_15px_rgba(255,107,0,0.15)]' 
+                                                    : 'bg-white/[0.02] border-white/5 text-white/60 hover:border-white/20'
+                                            }`}
+                                        >
+                                            <span>{coach.name}</span>
+                                            {isSelected && <span className="text-[10px]">✓</span>}
+                                        </button>
+                                    );
+                                })}
+                                {coachesList.length === 0 && (
+                                    <p className="text-[10px] text-white/30 py-2">등록된 코치가 없습니다.</p>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -633,7 +755,7 @@ export default function SchedulePage() {
                                 value={form.start_time}
                                 onChange={(e) => {
                                     setForm({ ...form, start_time: e.target.value });
-                                    setCoachConflict(checkCoachConflict(form.coach_id, form.session_date, e.target.value, form.end_time, editingSession?.id));
+                                    setCoachConflict(checkCoachConflict(form.coach_ids, form.session_date, e.target.value, form.end_time, editingSession?.id));
                                 }}
                                 className="admin-search-input w-full"
                             />
@@ -645,7 +767,7 @@ export default function SchedulePage() {
                                 value={form.end_time}
                                 onChange={(e) => {
                                     setForm({ ...form, end_time: e.target.value });
-                                    setCoachConflict(checkCoachConflict(form.coach_id, form.session_date, form.start_time, e.target.value, editingSession?.id));
+                                    setCoachConflict(checkCoachConflict(form.coach_ids, form.session_date, form.start_time, e.target.value, editingSession?.id));
                                 }}
                                 className="admin-search-input w-full"
                             />
