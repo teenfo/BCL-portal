@@ -573,6 +573,39 @@
 
 ---
 
+#### 🟠 Priority 26: 운동 라이브러리 관리 화면 (개발 대기)
+  > **기획서**: `.docs/archive/planning/movement-library-admin.md`
+  > **문제**: WOD 템플릿 에디터에서 운동 라이브러리 검색 연결 기능은 구현됐으나, 라이브러리 자체를 추가·수정·삭제하는 관리 화면이 없어 UI 없이 DB를 직접 수정해야 함.
+  > **방안**: `movement_categories` 테이블 신규 생성 + `movement_library`에 미디어 컬럼 추가 → Admin/Coach 공용 CRUD 화면 (마스터-디테일) → 카테고리 인라인 관리·미디어 업로드 UX 완성.
+
+  - [ ] Phase 1: DB 마이그레이션 → 💎 **Senior Dev (권장: Opus)**
+    - [ ] `movement_categories` 테이블 생성 (slug, name_ko, name_en, color, sort_order, is_active)
+    - [ ] 기존 8개 카테고리 데이터 이관 INSERT
+    - [ ] `movement_library`에 `thumbnail_url`, `video_url` 컬럼 추가
+    - [ ] RLS 정책: `coach` + `admin` role 전체 CRUD 허용
+    - [ ] `fn_list_movement_library` RPC 생성 (필터·검색·WOD 사용 수 포함)
+  - [ ] Phase 2: 핵심 CRUD UI → 🎨 **UI Developer (권장: Gemini Pro)**
+    - [ ] 라우팅: `/admin/operations/movement-library` 페이지 생성
+    - [ ] AdminSidebar에 `Movement Library` 메뉴 추가 (WOD Templates 바로 아래)
+    - [ ] `useAdminPermissions` + `AdminPermissionGuard`에 경로 등록
+    - [ ] 목록 테이블: 썸네일/동작명(KO+EN)/카테고리 뱃지/난이도/WOD 사용 수/상태
+    - [ ] 상단 컨트롤: 카테고리 필터 탭 + 상태 필터 + 검색 + `+ 운동 추가` 버튼
+    - [ ] 편집 패널 (480px): 기본 정보/미디어/상세 정보/메타 섹션
+    - [ ] 저장 / 비활성화 / 삭제(2단계 확인) 액션 버튼
+  - [ ] Phase 3: UX 완성 → 💻 **Developer (권장: Sonnet)**
+    - [ ] Slug 자동 생성 (영어명 → kebab-case) + 중복 검증 인라인 에러
+    - [ ] 난이도 별 클릭 인터랙션 (★ 1~5)
+    - [ ] 기구(equipment) 다중 체크박스 UI
+    - [ ] 미디어 파일 업로드 (Supabase Storage 연동, 썸네일 미리보기)
+    - [ ] 삭제 경고: WOD 사용 수 > 0인 경우 경고 + 비활성화 유도
+    - [ ] 카테고리 인라인 추가 모달
+  - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
+    - [ ] `.docs/sitemap/admin/03-operations.md` Section 9 추가
+    - [ ] blueprint 반영 및 Active Context 갱신
+
+---
+
+
 ### Known Issues (Active)
 - ✅ ~~**Check-in QR 비표준 렌더링** (RESOLVED): `qrcode.react` QRCodeSVG로 교체 완료. ISO/IEC 18004 규격 QR 코드 생성, 키오스크 스캐너 인식 가능.~~
 - ✅ ~~**@supabase/supabase-js 타입 복잡도** (RESOLVED): `src/lib/supabase/query.ts` 헬퍼로 `as any` 캡슐화 완료. 58개 파일에서 `query()` / `rpc()` 헬퍼로 전환 완료. 신규 코드는 반드시 `query()` 헬퍼 사용.~~
