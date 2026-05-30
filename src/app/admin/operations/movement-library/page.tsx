@@ -711,6 +711,7 @@ export default function AdminMovementLibraryPage() {
                                                     type="button"
                                                     onClick={() => setShowCatModal(true)}
                                                     className="text-[9px] text-white/30 hover:text-white/60 mt-1 transition-colors"
+                                                    style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
                                                 >
                                                     + 카테고리 추가
                                                 </button>
