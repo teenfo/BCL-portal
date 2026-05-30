@@ -107,6 +107,11 @@ SCAN_TIMEOUT = 10.0
 # Connection timeout (seconds)
 CONNECT_TIMEOUT = 15.0
 
+# Auto-reconnect on unexpected BLE drop (sleep/range/interference)
+RECONNECT_MAX_ATTEMPTS = 6      # give up after this many tries
+RECONNECT_BASE_DELAY = 2.0      # first retry delay (seconds)
+RECONNECT_MAX_DELAY = 20.0      # exponential backoff cap (seconds)
+
 # Notification callback interval target (seconds)
 NOTIFY_INTERVAL = 0.3
 

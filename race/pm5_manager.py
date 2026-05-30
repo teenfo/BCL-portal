@@ -25,6 +25,9 @@ from pm5_spec import (
     MAX_CONNECTIONS_PER_ADAPTER,
     SCAN_TIMEOUT,
     CONNECT_TIMEOUT,
+    RECONNECT_MAX_ATTEMPTS,
+    RECONNECT_BASE_DELAY,
+    RECONNECT_MAX_DELAY,
 )
 from pm5_parsers import DeviceAccumulator, CHAR_PARSERS
 
@@ -42,6 +45,7 @@ class PM5Connection:
     accumulator: DeviceAccumulator = field(default_factory=DeviceAccumulator)
     connected: bool = False
     adapter: Optional[str] = None  # Adapter identifier (e.g., "hci0")
+    intentional_disconnect: bool = False  # True = closed by us (skip auto-reconnect)
 
 
 class PM5Manager:
@@ -64,6 +68,7 @@ class PM5Manager:
         self._adapters = adapters or [None]  # None = default adapter
         self._scan_results: Dict[str, BLEDevice] = {}  # address → device
         self._lock = asyncio.Lock()
+        self._reconnecting: set = set()  # serials with an in-flight reconnect loop
 
     @property
     def connections(self) -> Dict[str, PM5Connection]:
@@ -139,9 +144,14 @@ class PM5Manager:
         Returns:
             True if connection successful
         """
-        if serial in self._connections and self._connections[serial].connected:
+        prior = self._connections.get(serial)
+        if prior and prior.connected:
             logger.info(f"Already connected to {serial}")
             return True
+
+        # Distribute across dongles when multiple adapters are configured.
+        if adapter is None:
+            adapter = self._select_adapter()
 
         device = self._scan_results.get(address)
         if not device:
@@ -155,7 +165,10 @@ class PM5Manager:
             mac_address=address,
             adapter=adapter,
         )
-        conn.accumulator = DeviceAccumulator(serial=serial)
+        # Preserve the prior accumulator on reconnect so in-race distance and the
+        # race-start base offset survive a dropped/restored BLE link. A brand-new
+        # connection starts with a fresh accumulator.
+        conn.accumulator = prior.accumulator if prior else DeviceAccumulator(serial=serial)
 
         try:
             client_kwargs = {}
@@ -202,6 +215,8 @@ class PM5Manager:
         if not conn or not conn.client:
             return False
 
+        # Mark as intentional so the disconnected_callback does not auto-reconnect.
+        conn.intentional_disconnect = True
         try:
             if conn.client.is_connected:
                 await conn.client.disconnect()
@@ -247,11 +262,58 @@ class PM5Manager:
                 logger.error(f"Callback error for {serial}: {e}")
 
     def _on_disconnect(self, serial: str) -> None:
-        """Handle unexpected BLE disconnection."""
+        """Handle BLE disconnection. Schedules auto-reconnect for unexpected drops
+        (sleep / out-of-range / interference) so a mid-race link loss recovers on
+        its own instead of leaving a dead lane until the coach intervenes."""
         conn = self._connections.get(serial)
-        if conn:
-            conn.connected = False
-            logger.warning(f"⚠️ PM5 {serial} disconnected unexpectedly (sleep/offline)")
+        if not conn:
+            return
+        conn.connected = False
+
+        if conn.intentional_disconnect:
+            logger.info(f"PM5 {serial} disconnected (intentional)")
+            return
+
+        logger.warning(f"⚠️ PM5 {serial} disconnected unexpectedly — scheduling auto-reconnect")
+        try:
+            asyncio.get_event_loop().create_task(self._reconnect(serial))
+        except RuntimeError as e:
+            logger.error(f"Cannot schedule reconnect for {serial}: {e}")
+
+    async def _reconnect(self, serial: str) -> None:
+        """Reconnect a dropped device with exponential backoff. The preserved
+        accumulator (see connect()) keeps in-race distance continuous."""
+        # Guard against overlapping reconnect loops if the link flaps repeatedly.
+        if serial in self._reconnecting:
+            return
+        self._reconnecting.add(serial)
+        try:
+            conn = self._connections.get(serial)
+            if not conn:
+                return
+            address, adapter = conn.mac_address, conn.adapter
+            delay = RECONNECT_BASE_DELAY
+
+            for attempt in range(1, RECONNECT_MAX_ATTEMPTS + 1):
+                cur = self._connections.get(serial)
+                # Stop if the device recovered, was closed intentionally, or removed.
+                if not cur or cur.connected or cur.intentional_disconnect:
+                    return
+
+                await asyncio.sleep(delay)
+                logger.info(f"🔁 Reconnect attempt {attempt}/{RECONNECT_MAX_ATTEMPTS} for PM5 {serial}")
+                try:
+                    if await self.connect(address, serial, adapter):
+                        logger.info(f"✅ Reconnected PM5 {serial}")
+                        return
+                except Exception as e:
+                    logger.warning(f"Reconnect attempt {attempt} for {serial} failed: {e}")
+
+                delay = min(delay * 2, RECONNECT_MAX_DELAY)
+
+            logger.error(f"❌ Auto-reconnect gave up for PM5 {serial} after {RECONNECT_MAX_ATTEMPTS} attempts")
+        finally:
+            self._reconnecting.discard(serial)
 
     # ─────────────────────────────────────────
     # Status & Helpers

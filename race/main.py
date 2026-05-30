@@ -89,6 +89,56 @@ race_session = RaceSession()
 # Data broadcast buffer (latest data per device for WebSocket clients)
 _broadcast_buffer: Dict[str, dict] = {}
 
+# Cached Realtime channel for the active event. A channel must be connected and
+# SUBSCRIBED before send_broadcast actually transmits — creating a throwaway
+# channel per tick (the previous behaviour) silently dropped every broadcast,
+# leaving class displays dependent on the HTTP polling fallback alone.
+_race_channel = None
+_race_channel_event_id: Optional[str] = None
+
+
+async def _get_race_channel():
+    """Return a connected + subscribed Realtime channel for the current event,
+    (re)creating it when the event changes. Returns None on failure so callers
+    fall back to the polling path instead of raising."""
+    global _race_channel, _race_channel_event_id
+
+    if not supabase or not race_session.event_id:
+        return None
+    if _race_channel is not None and _race_channel_event_id == race_session.event_id:
+        return _race_channel
+
+    await _teardown_race_channel()
+    try:
+        # connect() is idempotent in practice but may raise if already open.
+        try:
+            await supabase.realtime.connect()
+        except Exception:
+            pass
+        channel = supabase.realtime.channel(f"race:{race_session.event_id}")
+        await channel.subscribe()
+        _race_channel = channel
+        _race_channel_event_id = race_session.event_id
+        logger.info(f"📡 Realtime channel subscribed: race:{race_session.event_id}")
+        return _race_channel
+    except Exception as e:
+        logger.warning(f"Realtime channel setup failed (falling back to polling): {e}")
+        _race_channel = None
+        _race_channel_event_id = None
+        return None
+
+
+async def _teardown_race_channel() -> None:
+    """Unsubscribe the cached Realtime channel (best-effort)."""
+    global _race_channel, _race_channel_event_id
+    if _race_channel is not None:
+        try:
+            await _race_channel.unsubscribe()
+        except Exception:
+            pass
+    _race_channel = None
+    _race_channel_event_id = None
+
 # ─────────────────────────────────────────────
 # Data Callback
 # ─────────────────────────────────────────────
@@ -177,25 +227,29 @@ async def snapshot_loop():
 
 
 async def broadcast_loop():
-    """Broadcast erg_update events via Supabase Realtime (0.3s interval)."""
+    """Broadcast erg_update events via Supabase Realtime (0.3s interval).
+
+    Runs from LOBBY onward so warm-up / connection state is visible on the class
+    display before the gun, not only once RACING begins.
+    """
     while True:
         try:
             await asyncio.sleep(0.3)
 
             if not supabase or not race_session.event_id:
                 continue
-            if race_session.status != RaceStatus.RACING:
+            if race_session.status not in (RaceStatus.LOBBY, RaceStatus.COUNTDOWN, RaceStatus.RACING):
                 continue
 
-            for serial, snapshot in _broadcast_buffer.items():
+            channel = await _get_race_channel()
+            if channel is None:
+                continue  # polling fallback covers clients while Realtime is down
+
+            for serial, snapshot in list(_broadcast_buffer.items()):
                 try:
-                    channel = supabase.realtime.channel(f"race:{race_session.event_id}")
-                    await channel.send_broadcast(
-                        "erg_update",
-                        snapshot,
-                    )
+                    await channel.send_broadcast("erg_update", snapshot)
                 except Exception as e:
-                    # Broadcast failures are non-critical
+                    # Broadcast failures are non-critical (polling fallback covers it)
                     logger.debug(f"Broadcast error for {serial}: {e}")
 
         except asyncio.CancelledError:
@@ -356,9 +410,12 @@ async def race_setup(req: RaceSetupRequest):
     # Reset all accumulators
     pm5_manager.reset_all()
 
-    # Start snapshot loop
+    # Start snapshot + broadcast loops (broadcast runs from LOBBY so the class
+    # display shows connection/warm-up state before the gun)
     if race_session.snapshot_task is None or race_session.snapshot_task.done():
         race_session.snapshot_task = asyncio.create_task(snapshot_loop())
+    if race_session.broadcast_task is None or race_session.broadcast_task.done():
+        race_session.broadcast_task = asyncio.create_task(broadcast_loop())
 
     # Update race_events lobby_status in Supabase
     if supabase:
@@ -402,7 +459,7 @@ async def race_control(req: RaceControlRequest):
         pm5_manager.mark_all_race_start()
         race_session.status = RaceStatus.RACING
 
-        # Start broadcast loop
+        # Ensure broadcast loop is running (normally started at setup)
         if race_session.broadcast_task is None or race_session.broadcast_task.done():
             race_session.broadcast_task = asyncio.create_task(broadcast_loop())
 
@@ -414,11 +471,12 @@ async def race_control(req: RaceControlRequest):
         # Broadcast race_start event
         if supabase and race_session.event_id:
             try:
-                channel = supabase.realtime.channel(f"race:{race_session.event_id}")
-                await channel.send_broadcast("race_start", {
-                    "event_id": race_session.event_id,
-                    "started_at": int(time.time() * 1000),
-                })
+                channel = await _get_race_channel()
+                if channel is not None:
+                    await channel.send_broadcast("race_start", {
+                        "event_id": race_session.event_id,
+                        "started_at": int(time.time() * 1000),
+                    })
             except Exception as e:
                 logger.error(f"Failed to broadcast race_start: {e}")
 
@@ -465,11 +523,12 @@ async def race_control(req: RaceControlRequest):
 
             # Broadcast race_finish event
             try:
-                channel = supabase.realtime.channel(f"race:{race_session.event_id}")
-                await channel.send_broadcast("race_finish", {
-                    "event_id": race_session.event_id,
-                    "finished_at": int(time.time() * 1000),
-                })
+                channel = await _get_race_channel()
+                if channel is not None:
+                    await channel.send_broadcast("race_finish", {
+                        "event_id": race_session.event_id,
+                        "finished_at": int(time.time() * 1000),
+                    })
             except Exception as e:
                 logger.error(f"Failed to broadcast race_finish: {e}")
 
@@ -505,6 +564,7 @@ async def race_control(req: RaceControlRequest):
                 {"lobby_status": RaceStatus.SETUP}
             ).eq("id", race_session.event_id).execute()
 
+        await _teardown_race_channel()
         _broadcast_buffer.clear()
         pm5_manager.reset_all()
         race_session.reset()
@@ -564,6 +624,68 @@ async def recording_summary(event_id: str):
             summaries[serial] = Recorder.extract_summary(entry.path)
 
     return {"event_id": event_id, "summaries": summaries}
+
+
+def _is_personal_record(member_id: Optional[str], event_id: str, candidate_distance) -> bool:
+    """Return True when candidate_distance beats the member's best previous result
+    among *comparable* races (same distance + event_type). The first comparable
+    race for a member counts as a PR. Any failure returns False (never blocks the
+    result insert)."""
+    if not supabase or not member_id or not candidate_distance:
+        return False
+    try:
+        ev = supabase.table("race_events").select(
+            "distance_meters,event_type"
+        ).eq("id", event_id).limit(1).execute()
+        if not ev.data:
+            return False
+        dist_m = ev.data[0].get("distance_meters")
+        etype = ev.data[0].get("event_type")
+
+        # Comparable past events (same distance + type), excluding the current one.
+        q = supabase.table("race_events").select("id").neq("id", event_id)
+        if dist_m is not None:
+            q = q.eq("distance_meters", dist_m)
+        if etype is not None:
+            q = q.eq("event_type", etype)
+        past_ids = [r["id"] for r in (q.execute().data or [])]
+        if not past_ids:
+            return True  # member's first comparable race
+
+        prev = supabase.table("race_records").select("result_distance").eq(
+            "member_id", member_id
+        ).in_("event_id", past_ids).order(
+            "result_distance", desc=True
+        ).limit(1).execute()
+        if not prev.data or prev.data[0].get("result_distance") is None:
+            return True
+        return float(candidate_distance) > float(prev.data[0]["result_distance"])
+    except Exception as e:
+        logger.warning(f"PR check failed (member={member_id}): {e}")
+        return False
+
+
+def _update_team_totals(event_id: str) -> None:
+    """Aggregate per-team total distance from race_records into
+    race_teams.total_distance_m so the column is a real DB source of truth
+    (previously only ever computed client-side)."""
+    if not supabase:
+        return
+    try:
+        recs = supabase.table("race_records").select(
+            "team_id,result_distance"
+        ).eq("event_id", event_id).execute()
+        totals: Dict[str, float] = {}
+        for r in recs.data or []:
+            tid = r.get("team_id")
+            if tid:
+                totals[tid] = totals.get(tid, 0.0) + float(r.get("result_distance") or 0)
+        for tid, total in totals.items():
+            supabase.table("race_teams").update(
+                {"total_distance_m": round(total, 2)}
+            ).eq("id", tid).execute()
+    except Exception as e:
+        logger.error(f"Failed to update team totals for {event_id}: {e}")
 
 
 def _load_race_results(event_id: str) -> dict:
@@ -630,11 +752,13 @@ def _load_race_results(event_id: str) -> dict:
         except Exception:
             pass
 
+        result_distance = summary.get("total_distance", 0)
+        member_id = lane_info.get("member_id")
         record = {
             "event_id": event_id,
-            "member_id": lane_info.get("member_id"),
+            "member_id": member_id,
             "device_serial": serial,
-            "result_distance": summary.get("total_distance", 0),
+            "result_distance": result_distance,
             "avg_watts": summary.get("avg_power", 0),
             "calories_burned": summary.get("total_calories", 0),
             "max_watts": summary.get("max_watts", 0),
@@ -644,6 +768,7 @@ def _load_race_results(event_id: str) -> dict:
             "recording_id": recording_id,
             "team_id": lane_info.get("team_id"),
             "lane_number": lane_info.get("lane"),
+            "is_pr": _is_personal_record(member_id, event_id, result_distance),
         }
 
         try:
@@ -664,6 +789,9 @@ def _load_race_results(event_id: str) -> dict:
                 ).eq("id", row["id"]).execute()
     except Exception as e:
         logger.error(f"Failed to update finish ranks: {e}")
+
+    # Aggregate team totals into race_teams.total_distance_m (DB source of truth)
+    _update_team_totals(event_id)
 
     return {
         "event_id": event_id,
