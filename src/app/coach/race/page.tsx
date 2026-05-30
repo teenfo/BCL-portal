@@ -1,9 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
-import { query, rpc } from '@/lib/supabase/query';
-import { useAuth } from '@/contexts/AuthContext';
+import { query } from '@/lib/supabase/query';
+import { useToast } from '@/components/ui/Toast';
+
+// race_events.event_type 종목 (스키마 CHECK: rowing/bike/skierg/run/other)
+const EVENT_TYPES: { value: string; label: string }[] = [
+    { value: 'rowing', label: '🚣 로잉' },
+    { value: 'bike', label: '🚴 바이크' },
+    { value: 'skierg', label: '⛷️ 스키어그' },
+    { value: 'run', label: '🏃 런' },
+];
+const DISTANCES = [500, 1000, 2000, 5000];
+const EVENT_TYPE_LABEL: Record<string, string> = Object.fromEntries(EVENT_TYPES.map(t => [t.value, t.label]));
+
+// Postgres INTERVAL("HH:MM:SS.f") → 초. 방어적으로 숫자/널도 처리.
+function intervalToSeconds(v: string | number | null): number | null {
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number') return v;
+    const parts = v.split(':').map(Number);
+    if (parts.some(isNaN)) return null;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts[0];
+}
 
 interface RaceEvent {
     id: string;
@@ -19,7 +41,7 @@ interface RaceRecord {
     id: string;
     event_id: string;
     member_id: string;
-    result_time: number | null;
+    result_time: string | null;
     result_distance: number | null;
     is_pr: boolean;
     members?: { name: string };
@@ -31,7 +53,8 @@ interface MemberOption {
 }
 
 export default function CoachRacePage() {
-    const { user } = useAuth();
+    const router = useRouter();
+    const { success, error: toastError } = useToast();
     const [events, setEvents] = useState<RaceEvent[]>([]);
     const [records, setRecords] = useState<RaceRecord[]>([]);
     const [selectedEvent, setSelectedEvent] = useState<RaceEvent | null>(null);
@@ -39,7 +62,7 @@ export default function CoachRacePage() {
 
     // Create event
     const [showCreateForm, setShowCreateForm] = useState(false);
-    const [newEvent, setNewEvent] = useState({ name: '', event_date: '', event_type: '2000m', distance_meters: 2000 });
+    const [newEvent, setNewEvent] = useState({ name: '', event_date: '', event_type: 'rowing', distance_meters: 2000 });
     const [creating, setCreating] = useState(false);
 
     // Add record
@@ -99,7 +122,7 @@ export default function CoachRacePage() {
 
     async function handleCreateEvent() {
         if (!newEvent.name.trim() || !newEvent.event_date) {
-            alert('이벤트명과 날짜를 입력해주세요.');
+            toastError('이벤트명과 날짜를 입력해주세요.');
             return;
         }
         setCreating(true);
@@ -109,18 +132,19 @@ export default function CoachRacePage() {
                 event_date: newEvent.event_date,
                 event_type: newEvent.event_type,
                 distance_meters: newEvent.distance_meters,
-                status: 'upcoming',
+                status: 'scheduled',
             }).select().single();
 
             if (error) throw error;
             if (data) {
                 setEvents(prev => [data, ...prev]);
                 setShowCreateForm(false);
-                setNewEvent({ name: '', event_date: '', event_type: '2000m', distance_meters: 2000 });
+                setNewEvent({ name: '', event_date: '', event_type: 'rowing', distance_meters: 2000 });
+                success('레이스 이벤트를 생성했습니다.');
             }
         } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error(e);
-            alert('이벤트 생성에 실패했습니다.');
+            toastError('이벤트 생성에 실패했습니다.');
         }
         setCreating(false);
     }
@@ -138,13 +162,39 @@ export default function CoachRacePage() {
             }
         } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error(e);
-            alert('상태 변경에 실패했습니다.');
+            toastError('상태 변경에 실패했습니다.');
+        }
+    }
+
+    /** 동일 거리·종목의 과거 기록 중 최단 시간을 깬 경우 PR(개인기록). 첫 기록도 PR. */
+    async function computeIsPr(memberId: string, distance: number, eventType: string, newSeconds: number): Promise<boolean> {
+        try {
+            const { data: comparableEvents } = await query('race_events')
+                .select('id')
+                .eq('distance_meters', distance)
+                .eq('event_type', eventType)
+                .neq('id', selectedEvent?.id || '');
+            const ids = (comparableEvents || []).map((e: { id: string }) => e.id);
+            if (ids.length === 0) return true; // 첫 비교가능 레이스
+
+            const { data: prior } = await query('race_records')
+                .select('result_time')
+                .eq('member_id', memberId)
+                .in('event_id', ids)
+                .not('result_time', 'is', null);
+            const best = (prior || [])
+                .map((r: { result_time: string | null }) => intervalToSeconds(r.result_time))
+                .filter((s): s is number => s !== null);
+            if (best.length === 0) return true;
+            return newSeconds < Math.min(...best);
+        } catch {
+            return false; // 실패 시 PR 미표기 (기록 저장은 진행)
         }
     }
 
     async function handleAddRecord() {
         if (!recordForm.member_id || !selectedEvent) {
-            alert('회원을 선택해주세요.');
+            toastError('회원을 선택해주세요.');
             return;
         }
         const totalSeconds = (parseInt(recordForm.minutes) || 0) * 60
@@ -152,38 +202,46 @@ export default function CoachRacePage() {
             + (parseInt(recordForm.tenths) || 0) / 10;
 
         if (totalSeconds <= 0) {
-            alert('기록 시간을 입력해주세요.');
+            toastError('기록 시간을 입력해주세요.');
             return;
         }
 
         setAddingRecord(true);
         try {
+            const isPr = await computeIsPr(
+                recordForm.member_id, selectedEvent.distance_meters, selectedEvent.event_type, totalSeconds
+            );
             const { data, error } = await query('race_records').insert({
                 event_id: selectedEvent.id,
                 member_id: recordForm.member_id,
-                result_time: totalSeconds,
+                // result_time 은 INTERVAL 컬럼 — Postgres interval 리터럴(초)로 저장
+                result_time: `${totalSeconds} seconds`,
                 result_distance: selectedEvent.distance_meters,
-                is_pr: false,
+                is_pr: isPr,
             }).select('*, members!race_records_member_id_fkey(name)').single();
 
             if (error) throw error;
             if (data) {
-                setRecords(prev => [...prev, data as unknown as RaceRecord].sort((a, b) => (a.result_time || 999) - (b.result_time || 999)));
+                setRecords(prev => [...prev, data as unknown as RaceRecord].sort(
+                    (a, b) => (intervalToSeconds(a.result_time) ?? 1e9) - (intervalToSeconds(b.result_time) ?? 1e9)
+                ));
                 setRecordForm({ member_id: '', minutes: '', seconds: '', tenths: '' });
                 setShowRecordForm(false);
+                success(isPr ? '🏆 개인 기록(PR)으로 저장했습니다!' : '기록을 저장했습니다.');
             }
         } catch (e: any) {
             if (process.env.NODE_ENV === 'development') console.error(e);
             if (e.code === '23505') {
-                alert('이미 해당 회원의 기록이 있습니다.');
+                toastError('이미 해당 회원의 기록이 있습니다.');
             } else {
-                alert('기록 추가에 실패했습니다.');
+                toastError('기록 추가에 실패했습니다.');
             }
         }
         setAddingRecord(false);
     }
 
-    function formatTime(seconds: number | null) {
+    function formatTime(value: string | number | null) {
+        const seconds = intervalToSeconds(value);
         if (!seconds) return '-';
         const m = Math.floor(seconds / 60);
         const s = Math.floor(seconds % 60);
@@ -191,20 +249,22 @@ export default function CoachRacePage() {
         return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
     }
 
+    // race_events.status (스키마 CHECK: scheduled/in_progress/completed/cancelled)
     const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-        upcoming: { label: '예정', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-        active: { label: '진행중', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
+        scheduled: { label: '예정', color: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
+        in_progress: { label: '진행중', color: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
         completed: { label: '완료', color: 'var(--app-text-muted)', bg: 'var(--app-bg)' },
+        cancelled: { label: '취소', color: '#EF4444', bg: 'rgba(239,68,68,0.1)' },
     };
 
     const nextStatus: Record<string, string> = {
-        upcoming: 'active',
-        active: 'completed',
+        scheduled: 'in_progress',
+        in_progress: 'completed',
     };
 
     const nextStatusLabel: Record<string, string> = {
-        upcoming: '시작',
-        active: '종료',
+        scheduled: '시작',
+        in_progress: '종료',
     };
 
     if (loading) {
@@ -230,15 +290,51 @@ export default function CoachRacePage() {
                     </p>
                 </div>
                 {!selectedEvent && !showCreateForm && (
-                    <button onClick={() => setShowCreateForm(true)} style={{
-                        padding: '0.625rem 1rem', borderRadius: 'var(--app-radius-md)',
-                        background: 'var(--app-accent)', color: '#fff', border: 'none',
-                        fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer',
-                    }}>
-                        + 새 이벤트
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button onClick={() => router.push('/coach/race/control')} style={{
+                            padding: '0.625rem 1rem', borderRadius: 'var(--app-radius-md)',
+                            background: 'var(--app-surface)', color: 'var(--app-text-primary)',
+                            border: '1px solid var(--app-border)',
+                            fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                        }}>
+                            🏁 라이브 레이스
+                        </button>
+                        <button onClick={() => setShowCreateForm(true)} style={{
+                            padding: '0.625rem 1rem', borderRadius: 'var(--app-radius-md)',
+                            background: 'var(--app-accent)', color: '#fff', border: 'none',
+                            fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                        }}>
+                            + 새 이벤트
+                        </button>
+                    </div>
                 )}
             </div>
+
+            {/* 라이브 BLE 레이스 안내 배너 */}
+            {!selectedEvent && !showCreateForm && (
+                <button
+                    onClick={() => router.push('/coach/race/control')}
+                    className="app-glass-card"
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%',
+                        padding: '1rem', marginBottom: '1rem', cursor: 'pointer', textAlign: 'left',
+                        border: '1px solid var(--app-accent-bg)', background: 'var(--app-accent-bg)',
+                    }}
+                >
+                    <span style={{ fontSize: '1.5rem' }}>📡</span>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--app-text-primary)' }}>
+                            ERG 실시간 대결 (BLE)
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--app-text-secondary)', marginTop: 2 }}>
+                            PM5 장비를 연결해 실시간 레이스를 진행합니다
+                        </div>
+                    </div>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--app-accent)" strokeWidth="2">
+                        <polyline points="9,18 15,12 9,6" />
+                    </svg>
+                </button>
+            )}
 
             {/* Create Event Form */}
             {showCreateForm && !selectedEvent && (
@@ -258,16 +354,21 @@ export default function CoachRacePage() {
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <select
                                 value={newEvent.event_type}
-                                onChange={e => {
-                                    const dist = parseInt(e.target.value) || 2000;
-                                    setNewEvent({ ...newEvent, event_type: e.target.value + 'm', distance_meters: dist });
-                                }}
+                                onChange={e => setNewEvent({ ...newEvent, event_type: e.target.value })}
                                 style={{ flex: 1, padding: '0.625rem', borderRadius: 8, background: 'var(--app-surface)', border: '1px solid var(--app-border)', color: 'var(--app-text-primary)', fontSize: '0.875rem' }}
                             >
-                                <option value="500">500m</option>
-                                <option value="1000">1000m</option>
-                                <option value="2000">2000m</option>
-                                <option value="5000">5000m</option>
+                                {EVENT_TYPES.map(t => (
+                                    <option key={t.value} value={t.value}>{t.label}</option>
+                                ))}
+                            </select>
+                            <select
+                                value={newEvent.distance_meters}
+                                onChange={e => setNewEvent({ ...newEvent, distance_meters: parseInt(e.target.value) || 2000 })}
+                                style={{ flex: 1, padding: '0.625rem', borderRadius: 8, background: 'var(--app-surface)', border: '1px solid var(--app-border)', color: 'var(--app-text-primary)', fontSize: '0.875rem' }}
+                            >
+                                {DISTANCES.map(d => (
+                                    <option key={d} value={d}>{d}m</option>
+                                ))}
                             </select>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
@@ -315,7 +416,7 @@ export default function CoachRacePage() {
                                             </div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
                                                 <span>{new Date(event.event_date).toLocaleDateString('ko-KR')}</span>
-                                                <span>{event.event_type}</span>
+                                                <span>{EVENT_TYPE_LABEL[event.event_type] || event.event_type}</span>
                                                 <span>{event.distance_meters}m</span>
                                             </div>
                                         </div>
@@ -326,8 +427,8 @@ export default function CoachRacePage() {
                                                     onClick={(e) => { e.stopPropagation(); handleStatusChange(event, nextStatus[event.status]); }}
                                                     style={{
                                                         padding: '0.375rem 0.75rem', borderRadius: 8, border: 'none',
-                                                        background: event.status === 'upcoming' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                                                        color: event.status === 'upcoming' ? '#22C55E' : '#EF4444',
+                                                        background: event.status === 'scheduled' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                                                        color: event.status === 'scheduled' ? '#22C55E' : '#EF4444',
                                                         fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer',
                                                     }}
                                                 >
@@ -369,8 +470,8 @@ export default function CoachRacePage() {
                                     onClick={() => handleStatusChange(selectedEvent, nextStatus[selectedEvent.status])}
                                     style={{
                                         padding: '0.375rem 0.75rem', borderRadius: 8, border: 'none',
-                                        background: selectedEvent.status === 'upcoming' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
-                                        color: selectedEvent.status === 'upcoming' ? '#22C55E' : '#EF4444',
+                                        background: selectedEvent.status === 'scheduled' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                                        color: selectedEvent.status === 'scheduled' ? '#22C55E' : '#EF4444',
                                         fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer',
                                     }}
                                 >
@@ -380,7 +481,7 @@ export default function CoachRacePage() {
                         </div>
                         <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
                             <span>{new Date(selectedEvent.event_date).toLocaleDateString('ko-KR')}</span>
-                            <span>{selectedEvent.event_type}</span>
+                            <span>{EVENT_TYPE_LABEL[selectedEvent.event_type] || selectedEvent.event_type}</span>
                             <span>{selectedEvent.distance_meters}m</span>
                             <span style={{
                                 padding: '0.125rem 0.375rem', borderRadius: 4,

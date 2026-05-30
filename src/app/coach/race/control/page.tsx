@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { query } from '@/lib/supabase/query';
 
@@ -65,6 +66,7 @@ const RACE_SERVER_URL = process.env.NEXT_PUBLIC_RACE_SERVER_URL || 'http://local
 
 // ─── Component ───────────────────────────────────
 export default function CoachRaceControlPage() {
+    const router = useRouter();
     // Setup state
     const [devices, setDevices] = useState<PM5Device[]>([]);
     const [members, setMembers] = useState<MemberOption[]>([]);
@@ -94,7 +96,6 @@ export default function CoachRaceControlPage() {
     const [elapsedTime, setElapsedTime] = useState(0);
 
     // Refs
-    const wsRef = useRef<WebSocket | null>(null);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -106,13 +107,14 @@ export default function CoachRaceControlPage() {
     useEffect(() => {
         loadInitialData();
         return () => {
-            if (wsRef.current) wsRef.current.close();
             if (timerRef.current) clearInterval(timerRef.current);
             if (pollRef.current) clearInterval(pollRef.current);
         };
     }, []);
 
     async function loadInitialData() {
+        let eventList: RaceEvent[] = [];
+        let memberList: MemberOption[] = [];
         try {
             const [devicesRes, membersRes, eventsRes] = await Promise.all([
                 // pm5_devices.status enum: online | offline | maintenance
@@ -122,13 +124,49 @@ export default function CoachRaceControlPage() {
             ]);
 
             if (devicesRes.data) setDevices(devicesRes.data);
-            if (membersRes.data) setMembers(membersRes.data);
-            if (eventsRes.data) setEvents(eventsRes.data as unknown as RaceEvent[]);
+            if (membersRes.data) { memberList = membersRes.data; setMembers(membersRes.data); }
+            if (eventsRes.data) { eventList = eventsRes.data as unknown as RaceEvent[]; setEvents(eventList); }
         } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error('Load error:', e);
             setError('데이터 로딩 실패');
         }
+        // Recover an in-progress race from the race server so a page refresh
+        // during a live race doesn't drop the coach back to the setup screen.
+        await recoverActiveRace(eventList, memberList);
         setLoading(false);
+    }
+
+    async function recoverActiveRace(eventList: RaceEvent[], memberList: MemberOption[]) {
+        try {
+            const status = await raceAPI('/api/race/status');
+            const srvStatus: RaceStatus | undefined = status?.status;
+            if (!status?.event_id || !srvStatus || srvStatus === 'setup' || srvStatus === 'finished') return;
+
+            const ev = eventList.find(e => e.id === status.event_id);
+            if (ev) setSelectedEvent(ev);
+
+            // Rebuild lane assignments from the server's authoritative state.
+            const assignments: Record<string, any> = status.lane_assignments || {};
+            const restoredLanes: LaneAssignment[] = Object.entries(assignments).map(([serial, info]: [string, any]) => ({
+                lane: info.lane ?? 0,
+                device_serial: serial,
+                device_id: info.device_id ?? '',
+                member_id: info.member_id ?? null,
+                member_name: memberList.find(m => m.id === info.member_id)?.name ?? null,
+                team_id: info.team_id ?? null,
+            })).sort((a, b) => a.lane - b.lane);
+            if (restoredLanes.length) setLanes(restoredLanes);
+
+            setRaceStatus(srvStatus);
+            if (status.live_data) setLiveData(status.live_data);
+            startPolling();
+            if (srvStatus === 'racing') {
+                // elapsed time is best-effort from now (server does not expose start time)
+                timerRef.current = setInterval(() => setElapsedTime(prev => prev + 1), 1000);
+            }
+        } catch {
+            // race server unreachable — stay on setup screen silently
+        }
     }
 
     async function loadTeams(eventId: string) {
@@ -381,6 +419,21 @@ export default function CoachRaceControlPage() {
 
     return (
         <div className="app-page" style={{ paddingBottom: '100px' }}>
+            {/* Back to race hub */}
+            <button
+                onClick={() => router.push('/coach/race')}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none',
+                    cursor: 'pointer', color: 'var(--app-accent)', fontWeight: 600, fontSize: '0.875rem',
+                    marginBottom: '0.75rem', padding: 0,
+                }}
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M19 12H5" /><polyline points="12,19 5,12 12,5" />
+                </svg>
+                Race 관리로
+            </button>
+
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
@@ -393,6 +446,24 @@ export default function CoachRaceControlPage() {
                 </div>
                 <StatusBadge status={raceStatus} />
             </div>
+
+            {/* 관전 화면 핸드오프 (레이스룸이 열린 뒤) */}
+            {raceStatus !== 'setup' && selectedEvent && (
+                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+                    <button
+                        onClick={() => window.open(`/class/race/view?event=${selectedEvent.id}`, '_blank')}
+                        style={{ ...btnSecondary, flex: 1 }}
+                    >
+                        🖥️ 관전 화면 (트랙)
+                    </button>
+                    <button
+                        onClick={() => window.open(`/class/race/run?event=${selectedEvent.id}`, '_blank')}
+                        style={{ ...btnSecondary, flex: 1 }}
+                    >
+                        📊 관전 화면 (그리드)
+                    </button>
+                </div>
+            )}
 
             {/* Error Message */}
             {error && (
