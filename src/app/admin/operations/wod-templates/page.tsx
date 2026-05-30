@@ -736,23 +736,53 @@ export default function AdminWodTemplatesPage() {
                         </div>
                         {movementResults.length > 0 && (
                             <div
-                                className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl border"
+                                className="flex flex-col gap-1 max-h-48 overflow-y-auto p-1.5 rounded-xl border"
                                 style={{
                                     scrollbarWidth: 'thin',
                                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
                                     borderColor: 'rgba(255, 255, 255, 0.05)'
                                 }}
                             >
-                                {movementResults.map(m => (
-                                    <button
-                                        key={m.id}
-                                        type="button"
-                                        onClick={() => addMovementLine(m)}
-                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg wod-search-result-chip"
-                                    >
-                                        + {m.name_ko}
-                                    </button>
-                                ))}
+                                {movementResults.map(m => {
+                                    const style = getCategoryStyle(m.category);
+                                    return (
+                                        <button
+                                            key={m.id}
+                                            type="button"
+                                            onClick={() => addMovementLine(m)}
+                                            className="w-full flex items-center justify-between text-left px-3 py-2 rounded-lg text-xs font-bold transition-all duration-150"
+                                            style={{
+                                                background: 'rgba(255, 255, 255, 0.02)',
+                                                border: '1px solid rgba(255, 255, 255, 0.04)',
+                                                color: '#ffffff'
+                                            }}
+                                            onMouseEnter={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 107, 0, 0.06)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 107, 0, 0.25)';
+                                            }}
+                                            onMouseLeave={e => {
+                                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.02)';
+                                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+                                            }}
+                                        >
+                                            <div className="flex items-center gap-2.5">
+                                                <span
+                                                    className="text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest"
+                                                    style={{
+                                                        color: style.textColor,
+                                                        backgroundColor: style.textBg
+                                                    }}
+                                                >
+                                                    {style.label}
+                                                </span>
+                                                <span>{m.name_ko}</span>
+                                            </div>
+                                            <span className="text-[10px] text-white/30 font-medium lowercase tracking-tight">
+                                                {m.slug}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
