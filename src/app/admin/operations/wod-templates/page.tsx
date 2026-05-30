@@ -227,8 +227,8 @@ export default function AdminWodTemplatesPage() {
             scaling_notes: m.scaling_notes,
             // 라이브러리 동작의 경우 movement_name_ko를 _name에 매핑
             _name: m.movement_name_ko ?? undefined,
-            // movement_id가 있으면 라이브러리 동작, 없으면 커스텀
-            _category: (m.movement_id ? 'custom' : 'custom') as 'custom',
+            // movement_id가 있으면 라이브러리 카테고리, 없으면 커스텀
+            _category: (m.movement_category ?? 'custom') as MovementCategory | 'custom',
         }));
 
         setForm({

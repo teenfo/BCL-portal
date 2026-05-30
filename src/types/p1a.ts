@@ -120,6 +120,8 @@ export interface WodTemplateMovementRow {
     movement_name_ko: string | null;
     /** movement_library.name_en — fn_list_wod_templates에서 JOIN하여 반환 */
     movement_name_en: string | null;
+    /** movement_library.category — fn_list_wod_templates에서 JOIN하여 반환 */
+    movement_category: string | null;
     custom_label: string | null;
     target_value: number | null;
     target_unit: string | null;
