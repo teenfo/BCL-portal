@@ -593,12 +593,12 @@ export default function AdminWodTemplatesPage() {
                                                 </div>
 
                                                 {/* 우측 조작용 가로 한 줄 패널 */}
-                                                <div className="flex items-center gap-1 bg-black/20 p-0.5 rounded-lg border border-white/5 flex-shrink-0">
+                                                <div className="wod-panel-action-group flex-shrink-0">
                                                     <button
                                                         type="button"
                                                         onClick={() => moveLine(l._key, -1)}
                                                         disabled={idx === 0}
-                                                        className="w-6 h-6 rounded bg-transparent disabled:opacity-20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                                                        className="wod-panel-btn"
                                                         title="위로 이동"
                                                     >
                                                         <span className="material-symbols-outlined text-[15px] font-bold">keyboard_arrow_up</span>
@@ -607,16 +607,16 @@ export default function AdminWodTemplatesPage() {
                                                         type="button"
                                                         onClick={() => moveLine(l._key, 1)}
                                                         disabled={idx === form.movements.length - 1}
-                                                        className="w-6 h-6 rounded bg-transparent disabled:opacity-20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                                                        className="wod-panel-btn"
                                                         title="아래로 이동"
                                                     >
                                                         <span className="material-symbols-outlined text-[15px] font-bold">keyboard_arrow_down</span>
                                                     </button>
-                                                    <div className="w-px h-3.5 bg-white/10 mx-0.5" />
+                                                    <div className="wod-panel-divider" />
                                                     <button
                                                         type="button"
                                                         onClick={() => removeLine(l._key)}
-                                                        className="w-6 h-6 rounded bg-transparent hover:bg-red-500/10 flex items-center justify-center text-red-400/80 hover:text-red-400 transition-all"
+                                                        className="wod-panel-btn danger"
                                                         title="삭제"
                                                     >
                                                         <span className="material-symbols-outlined text-[15px] font-bold">delete</span>
