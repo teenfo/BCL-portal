@@ -529,13 +529,14 @@ export default function AdminWodTemplatesPage() {
                                     return (
                                         <div
                                             key={l._key}
-                                            className="grid grid-cols-[1fr_auto] gap-4 items-center rounded-xl p-3 border transition-all"
+                                            className="flex flex-col gap-2.5 rounded-xl p-3 border transition-all"
                                             style={{
                                                 borderColor: style.border,
                                                 backgroundColor: style.bg
                                             }}
                                         >
-                                            <div className="flex flex-col gap-2">
+                                            {/* 상단 라인: 카테고리, 순서, 그리고 우측 조작 버튼 */}
+                                            <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span
                                                         className="text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest"
@@ -548,55 +549,93 @@ export default function AdminWodTemplatesPage() {
                                                     </span>
                                                     <span className="text-[10px] font-bold text-white/35">#{idx + 1}</span>
                                                 </div>
-                                                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-1">
-                                                    <input
-                                                        value={movement ? movement.name_ko : (l.custom_label || '')}
-                                                        disabled={!!l.movement_id}
-                                                        onChange={e => updateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
-                                                        placeholder="이름"
-                                                        className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white disabled:opacity-70 font-bold"
-                                                    />
-                                                    <input value={l.target_value ?? ''} onChange={e => updateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })} placeholder="값" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
-                                                    <select value={l.target_unit ?? 'reps'} onChange={e => updateLine(l._key, { target_unit: e.target.value })} className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center">
-                                                        <option value="reps">reps</option>
-                                                        <option value="meters">m</option>
-                                                        <option value="seconds">초</option>
-                                                        <option value="calories">cal</option>
-                                                    </select>
-                                                    <input value={l.load_male_rx ?? ''} onChange={e => updateLine(l._key, { load_male_rx: e.target.value || null })} placeholder="♂RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
-                                                    <input value={l.load_female_rx ?? ''} onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
+
+                                                {/* 우측 조작용 가로 한 줄 패널 */}
+                                                <div className="flex items-center gap-1 bg-black/20 p-0.5 rounded-lg border border-white/5 flex-shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveLine(l._key, -1)}
+                                                        disabled={idx === 0}
+                                                        className="w-6 h-6 rounded bg-transparent disabled:opacity-20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                                                        title="위로 이동"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[15px] font-bold">keyboard_arrow_up</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => moveLine(l._key, 1)}
+                                                        disabled={idx === form.movements.length - 1}
+                                                        className="w-6 h-6 rounded bg-transparent disabled:opacity-20 flex items-center justify-center text-white/60 hover:bg-white/10 hover:text-white transition-all"
+                                                        title="아래로 이동"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[15px] font-bold">keyboard_arrow_down</span>
+                                                    </button>
+                                                    <div className="w-px h-3.5 bg-white/10 mx-0.5" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeLine(l._key)}
+                                                        className="w-6 h-6 rounded bg-transparent hover:bg-red-500/10 flex items-center justify-center text-red-400/80 hover:text-red-400 transition-all"
+                                                        title="삭제"
+                                                    >
+                                                        <span className="material-symbols-outlined text-[15px] font-bold">delete</span>
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            {/* 우측 조작용 가로 한 줄 패널 */}
-                                            <div className="flex items-center gap-1.5 bg-black/20 p-1 rounded-lg border border-white/5 flex-shrink-0">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveLine(l._key, -1)}
-                                                    disabled={idx === 0}
-                                                    className="w-7 h-7 rounded-md bg-white/5 disabled:opacity-20 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
-                                                    title="위로 이동"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px] font-bold">keyboard_arrow_up</span>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => moveLine(l._key, 1)}
-                                                    disabled={idx === form.movements.length - 1}
-                                                    className="w-7 h-7 rounded-md bg-white/5 disabled:opacity-20 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
-                                                    title="아래로 이동"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px] font-bold">keyboard_arrow_down</span>
-                                                </button>
-                                                <div className="w-px h-4 bg-white/10 mx-0.5" />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeLine(l._key)}
-                                                    className="w-7 h-7 rounded-md bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center text-red-400 hover:text-red-300 transition-all border border-red-500/10"
-                                                    title="삭제"
-                                                >
-                                                    <span className="material-symbols-outlined text-[16px] font-bold">delete</span>
-                                                </button>
+                                            {/* 하단 입력 폼 3열 압축 구조 */}
+                                            <div className="grid grid-cols-[2fr_1.2fr_1.2fr] gap-2">
+                                                {/* 1열: 이름 */}
+                                                <input
+                                                    value={movement ? movement.name_ko : (l.custom_label || '')}
+                                                    disabled={!!l.movement_id}
+                                                    onChange={e => updateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
+                                                    placeholder="이름"
+                                                    className="w-full px-2 py-1.5 rounded text-[11px] bg-white/5 border border-white/10 text-white disabled:opacity-70 font-bold"
+                                                />
+
+                                                {/* 2열: 횟수와 단위 일체형 */}
+                                                <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded border border-white/10">
+                                                    <input
+                                                        value={l.target_value ?? ''}
+                                                        onChange={e => updateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })}
+                                                        placeholder="값/횟수"
+                                                        className="w-full bg-transparent text-[11px] text-white text-center p-0 focus:ring-0"
+                                                        style={{ border: 'none', outline: 'none', background: 'transparent' }}
+                                                    />
+                                                    <div className="w-px h-3.5 bg-white/10 flex-shrink-0" />
+                                                    <select
+                                                        value={l.target_unit ?? 'reps'}
+                                                        onChange={e => updateLine(l._key, { target_unit: e.target.value })}
+                                                        className="bg-transparent text-[10px] text-white/60 pr-4 pl-0 py-0 focus:ring-0 cursor-pointer"
+                                                        style={{ border: 'none', outline: 'none', background: 'transparent', colorScheme: 'dark' }}
+                                                    >
+                                                        <option value="reps" style={{ backgroundColor: '#161619', color: '#ffffff' }}>reps</option>
+                                                        <option value="meters" style={{ backgroundColor: '#161619', color: '#ffffff' }}>m</option>
+                                                        <option value="seconds" style={{ backgroundColor: '#161619', color: '#ffffff' }}>초</option>
+                                                        <option value="calories" style={{ backgroundColor: '#161619', color: '#ffffff' }}>cal</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* 3열: 남/여 RX 일체형 */}
+                                                <div className="flex items-center gap-1 bg-white/5 px-2 py-1 rounded border border-white/10">
+                                                    <span className="text-[9px] font-black text-blue-400/70 select-none ml-1">♂</span>
+                                                    <input
+                                                        value={l.load_male_rx ?? ''}
+                                                        onChange={e => updateLine(l._key, { load_male_rx: e.target.value || null })}
+                                                        placeholder="RX"
+                                                        className="w-full bg-transparent text-[11px] text-white text-center p-0 focus:ring-0"
+                                                        style={{ border: 'none', outline: 'none', background: 'transparent' }}
+                                                    />
+                                                    <div className="w-px h-3.5 bg-white/10 flex-shrink-0" />
+                                                    <span className="text-[9px] font-black text-pink-400/70 select-none">♀</span>
+                                                    <input
+                                                        value={l.load_female_rx ?? ''}
+                                                        onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })}
+                                                        placeholder="RX"
+                                                        className="w-full bg-transparent text-[11px] text-white text-center p-0 focus:ring-0"
+                                                        style={{ border: 'none', outline: 'none', background: 'transparent' }}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     );
