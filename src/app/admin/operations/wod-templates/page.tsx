@@ -1064,7 +1064,7 @@ export default function AdminWodTemplatesPage() {
                                                                     <span className="text-[8px] font-black text-white/35 uppercase tracking-wider">Target</span>
                                                                     <div
                                                                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
-                                                                        style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)' }}
+                                                                        style={{ background: '#161619' }}
                                                                     >
                                                                         <input
                                                                             value={l.target_value ?? ''}
@@ -1093,7 +1093,7 @@ export default function AdminWodTemplatesPage() {
                                                                     <span className="text-[8px] font-black text-white/35 uppercase tracking-wider">Rx Load</span>
                                                                     <div
                                                                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg"
-                                                                        style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)' }}
+                                                                        style={{ background: '#161619' }}
                                                                     >
                                                                         <span className="text-[9px] font-black text-blue-400 select-none">♂</span>
                                                                         <input
