@@ -68,13 +68,14 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **수업 스케줄 관리 다중 코치 배정 및 WOD 템플릿/커스텀 입력 고도화 완료**
+- **Current Focus**: **수업 스케줄 다중 코치/WOD 연동 및 WOD Templates 관리 메뉴 통합 완수**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npx tsc --noEmit` / `npm run typecheck` 통과
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 수업 스케줄링 관리 모달에 다중 코치 배정 칩스 UI 및 WOD 템플릿(벤치마크 10종)/커스텀 입력 및 타임캡 커스터마이징 기능까지 통합 연동하여 전면 고도화를 완수했습니다.
+- **Last Action**: 수업 스케줄링 다중 코치 배정 칩스 UI 및 WOD 템플릿/커스텀 시간 연계 기능을 완수하고, Admin OPERATIONS 메뉴 하위에 WOD Templates 관리 화면(CRUD + 운동 라이브러리 검색 + 삭제 차단/해제)을 성공적으로 통합 결합하였습니다.
   - 🔒 **다중 코치 지원**: `session_coaches` 맵핑 데이터를 `lead` 및 `assistant` 역할 및 정렬 순서를 부여해 안전하게 트랜잭션 적재하도록 로직 고도화 완료.
-  - 🎨 **칩스 UI**: 글래스모피즘 기반의 프리미엄 토글 칩스 그리드를 도입하여, 복수의 코치를 단 한 번의 탭으로 쉽게 다중 배정할 수 있게 조치 완료.
+  - 🎨 **메뉴 통합 & UI**: AdminSidebar에 WOD Templates 전용 SVG 아이콘(`IconWod`) 및 메뉴 링크를 등록하고, PermissionGuard 및 useAdminPermissions에 완벽히 연계하여 역할 기반 접근 보안 결합 완료.
+  - 🗑️ **WOD 템플릿 CRUD 고도화**: WOD Templates 관리 화면 내에 글래스모피즘 기반의 **삭제(Delete)** 기능(`handleDelete`)을 추가 연동하여 완전한 생성, 조회, 수정, 삭제 사이클 지원.
   - 🔄 **동시성 검증**: 한 명의 코치가 동시에 다른 스케줄에 배정되지 않도록, 다중 검증 Conflict Check 로직 추가 완료.
   - 🏋️ **지능형 WOD 연동**: DB의 35종 운동 라이브러리 및 10종의 벤치마크 WOD 템플릿을 풀다운으로 연계하고, 선택 시 자동 입력 및 개별 오버라이드 기능 탑재. 직접 커스텀 입력(Custom WOD) 및 타임캡(분 단위) 설정 지원. DB `session_wods` 테이블 연동 및 기존 `sessions.wod_description` 백필 완벽 조치.
 

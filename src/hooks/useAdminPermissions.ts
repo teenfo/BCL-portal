@@ -35,6 +35,7 @@ const MENU_PERMISSION_MAP: Record<string, { group: string; action: string }> = {
     '/admin/transactions': { group: 'finance', action: 'view' },
     // OPERATIONS
     '/admin/operations/schedule': { group: 'operations', action: 'view' },
+    '/admin/operations/wod-templates': { group: 'operations', action: 'view' },
     '/admin/operations/coaches': { group: 'operations', action: 'view' },
     '/admin/operations/reservations': { group: 'operations', action: 'view' },
     '/admin/operations/race': { group: 'operations', action: 'view' },

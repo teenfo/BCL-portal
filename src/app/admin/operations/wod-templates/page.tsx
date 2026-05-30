@@ -279,6 +279,21 @@ export default function AdminWodTemplatesPage() {
         setSaving(false);
     };
 
+    const handleDelete = async (id: string) => {
+        if (!confirm('정말로 이 WOD 템플릿을 삭제하시겠습니까?')) return;
+        try {
+            const { error } = await query('wod_templates').delete().eq('id', id);
+            if (error) {
+                toastError('삭제 실패: ' + error.message);
+            } else {
+                success('WOD 템플릿을 삭제했습니다.');
+                await loadTemplates();
+            }
+        } catch (e: any) {
+            toastError(e?.message || '삭제 중 오류가 발생했습니다.');
+        }
+    };
+
     return (
         <div>
             <AdminPageHeader
@@ -344,8 +359,11 @@ export default function AdminWodTemplatesPage() {
                                     </div>
                                 )}
                                 <div className="flex gap-2 mt-3">
-                                    <button onClick={() => openEdit(t)} className="text-xs font-bold px-3 py-1.5 rounded" style={{ background: 'rgba(255,255,255,0.06)', color: '#fff' }}>
+                                    <button onClick={() => openEdit(t)} className="text-xs font-bold px-3 py-1.5 rounded bg-white/[0.06] border border-white/5 text-white hover:border-white/20 transition-all">
                                         편집
+                                    </button>
+                                    <button onClick={() => handleDelete(t.id)} className="text-xs font-bold px-3 py-1.5 rounded bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
+                                        삭제
                                     </button>
                                 </div>
                             </div>
