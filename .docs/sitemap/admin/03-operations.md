@@ -94,7 +94,33 @@
     - `facilities` JOIN으로 지점명 표시
     - CRUD 모두 DB 연동 완료
 
-### 7. 운영진 권한 관리 (RBAC) (`/admin/operations/roles`)
+### 7. WOD Templates 관리 (`/admin/operations/wod-templates`) 🆕
+- **스코프 필터**: Benchmark(글로벌) / Facility(지점별) / Shared(공유) 3종 스코프로 템플릿 분류 조회
+- **템플릿 카드 목록**:
+  - 제목, WOD 종류(Kind), 포맷 규격(Format), Time Cap, Rounds 표시
+  - 카테고리별 color-coded 운동 칩셋 (최대 3개 + 나머지 수 표시)
+  - BENCHMARK / SHARED 뱃지
+  - 선택된 카드 오렌지 하이라이트 (마스터-디테일 패턴)
+- **편집 패널 (480px 고정 우측)**:
+  - 생성(Create) / 수정(Edit) 모드 자동 전환
+  - **기본 정보**: 제목, WOD 종류, 포맷 규격, Time Cap, Rounds, 배정 시설
+  - **공유 설정**: 타 지점 공유 허용 토글 (`is_shared`), 공식 벤치마크 WOD 토글 (`is_benchmark`)
+  - **노트**: Public Notes(회원 공개), Coach Notes(코치 전용), WOD 상세 설명
+  - **Movement Lines**: 운동 동작 라인 편집 (동작명, Target 값·단위, Rx Load ♂♀, RX/Scaling 노트 슬라이드 패널)
+    - 라이브러리 연결 동작 또는 커스텀 텍스트 입력 지원
+    - 순서 이동(위/아래) 및 삭제 액션 버튼
+    - `station_circuit` 포맷 시 "Station N", 그 외 "Movement N" 라벨 자동 전환
+  - **운동 라이브러리 검색기**: 검색어 + 카테고리 필터 → 클릭 시 Movement Line으로 추가
+  - **저장/게시**: 임시 저장(draft) / WOD 게시(publish) 2단계 액션
+  - **삭제**: 2단계 확인 인라인 UI (confirm 클릭 → 빨간 확인 버튼 활성화)
+- **DB 연동**:
+  - `fn_list_wod_templates(p_scope, p_facility_id)` — 목록 조회
+  - `fn_upsert_wod_template(p_payload)` — 생성/수정
+  - `fn_search_wod_movements(p_query, p_category)` — 라이브러리 검색
+  - `wod_templates` 직접 삭제 (RLS 보호)
+- **관련 테이블**: `wod_templates`, `wod_template_movements`, `movement_library`
+
+### 8. 운영진 권한 관리 (RBAC) (`/admin/operations/roles`)
 - **역할 정의**: 최고 관리자(Admin), 지점장(Manager), 데스크 스탭(Staff) 등 등급 설정.
 - **접근 통제**: 역할에 따른 메뉴 노출 여부 및 쓰기/읽기 권한 차등 부여.
 
