@@ -68,14 +68,15 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **수업 스케줄 관리 다중 코치 배정 및 UI 고도화 완료**
+- **Current Focus**: **수업 스케줄 관리 다중 코치 배정 및 WOD 템플릿/커스텀 입력 고도화 완료**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
 - **Build Status**: ✅ `npx tsc --noEmit` / `npm run typecheck` 통과
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 수업 스케줄링 관리 모달 내 단일 코치 입력 텍스트박스를 다중 선택 칩스 UI로 전면 고도화하고, 중복 시간 배정 방지 로직(Conflict Checking)을 다중 코치로 확대하여 안전한 DB 적재(session_coaches) 연동을 완수했습니다.
+- **Last Action**: 수업 스케줄링 관리 모달에 다중 코치 배정 칩스 UI 및 WOD 템플릿(벤치마크 10종)/커스텀 입력 및 타임캡 커스터마이징 기능까지 통합 연동하여 전면 고도화를 완수했습니다.
   - 🔒 **다중 코치 지원**: `session_coaches` 맵핑 데이터를 `lead` 및 `assistant` 역할 및 정렬 순서를 부여해 안전하게 트랜잭션 적재하도록 로직 고도화 완료.
   - 🎨 **칩스 UI**: 글래스모피즘 기반의 프리미엄 토글 칩스 그리드를 도입하여, 복수의 코치를 단 한 번의 탭으로 쉽게 다중 배정할 수 있게 조치 완료.
   - 🔄 **동시성 검증**: 한 명의 코치가 동시에 다른 스케줄에 배정되지 않도록, 다중 검증 Conflict Check 로직 추가 완료.
+  - 🏋️ **지능형 WOD 연동**: DB의 35종 운동 라이브러리 및 10종의 벤치마크 WOD 템플릿을 풀다운으로 연계하고, 선택 시 자동 입력 및 개별 오버라이드 기능 탑재. 직접 커스텀 입력(Custom WOD) 및 타임캡(분 단위) 설정 지원. DB `session_wods` 테이블 연동 및 기존 `sessions.wod_description` 백필 완벽 조치.
 
 ---
 

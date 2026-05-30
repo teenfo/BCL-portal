@@ -20,6 +20,11 @@ interface Session {
     intensity_level: string;
     status: string;
     wod_description?: string;
+    wod_template_id?: string;
+    wod_time_cap?: number;
+    wod_title?: string;
+    wod_format?: string;
+    wod_description_override?: string;
 }
 
 interface SessionForm {
@@ -32,6 +37,11 @@ interface SessionForm {
     capacity: number;
     intensity_level: string;
     wod_description: string;
+    wod_template_id: string;
+    wod_time_cap: number;
+    wod_title: string;
+    wod_format: string;
+    wod_description_override: string;
 }
 
 const HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 06:00 ~ 20:00
@@ -62,6 +72,7 @@ function formatWeekLabel(weekStart: Date): string {
 export default function SchedulePage() {
     const [sessions, setSessions] = useState<Session[]>([]);
     const [coachesList, setCoachesList] = useState<{ id: string; name: string }[]>([]);
+    const [wodTemplatesList, setWodTemplatesList] = useState<{ id: string; title: string; format_type: string; time_cap_minutes: number; description: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'week' | 'day'>('week');
@@ -100,6 +111,11 @@ export default function SchedulePage() {
         capacity: 15,
         intensity_level: 'intermediate',
         wod_description: '',
+        wod_template_id: '',
+        wod_time_cap: 0,
+        wod_title: '',
+        wod_format: '',
+        wod_description_override: '',
     };
     const [form, setForm] = useState<SessionForm>(emptyForm);
 
@@ -133,11 +149,13 @@ export default function SchedulePage() {
 
             const sessionIds = sessionData.map((s: any) => s.id);
 
-            // 2. Fetch bookings, session_coaches, and coaches in parallel
-            const [bookingsRes, sessionCoachesRes, coachesRes] = await Promise.all([
+            // 2. Fetch bookings, session_coaches, coaches, session_wods, and wod_templates in parallel
+            const [bookingsRes, sessionCoachesRes, coachesRes, sessionWodsRes, wodTemplatesRes] = await Promise.all([
                 query('bookings').select('session_id').in('session_id', sessionIds).eq('status', 'confirmed'),
                 query('session_coaches').select('session_id, coach_id').in('session_id', sessionIds),
-                query('coaches').select('id, name')
+                query('coaches').select('id, name'),
+                query('session_wods').select('session_id, template_id, title_override, format_override, time_cap_override, description_override').in('session_id', sessionIds),
+                query('wod_templates').select('id, title, format_type, time_cap_minutes, description')
             ]);
 
             // Count bookings
@@ -154,6 +172,19 @@ export default function SchedulePage() {
                 setCoachesList(coachesRes.data);
                 coachesRes.data.forEach((c: any) => {
                     coachMap[c.id] = { id: c.id, name: c.name };
+                });
+            }
+
+            // Populate WOD templates
+            if (wodTemplatesRes.data) {
+                setWodTemplatesList(wodTemplatesRes.data);
+            }
+
+            // Map session IDs to WOD info
+            const sessionWodMap: Record<string, any> = {};
+            if (sessionWodsRes.data) {
+                sessionWodsRes.data.forEach((sw: any) => {
+                    sessionWodMap[sw.session_id] = sw;
                 });
             }
 
@@ -179,6 +210,7 @@ export default function SchedulePage() {
 
             setSessions(sessionData.map((s: any) => {
                 const sessionCoaches = sessionCoachMap[s.id] || [];
+                const sessionWod = sessionWodMap[s.id];
                 return {
                     id: s.id,
                     title: s.title || '',
@@ -192,6 +224,11 @@ export default function SchedulePage() {
                     intensity_level: intensityMapFromDB[s.intensity] || 'intermediate',
                     status: s.status || 'scheduled',
                     wod_description: s.wod_description || '',
+                    wod_template_id: sessionWod?.template_id || '',
+                    wod_time_cap: sessionWod?.time_cap_override || 0,
+                    wod_title: sessionWod?.title_override || '',
+                    wod_format: sessionWod?.format_override || '',
+                    wod_description_override: sessionWod?.description_override || '',
                 };
             }));
         } catch (err) {
@@ -296,6 +333,11 @@ export default function SchedulePage() {
             capacity: session.capacity,
             intensity_level: session.intensity_level,
             wod_description: session.wod_description || '',
+            wod_template_id: session.wod_template_id || '',
+            wod_time_cap: session.wod_time_cap || 0,
+            wod_title: session.wod_title || '',
+            wod_format: session.wod_format || '',
+            wod_description_override: session.wod_description_override || '',
         });
         setCoachConflict(null);
         setShowModal(true);
@@ -320,6 +362,15 @@ export default function SchedulePage() {
             'advanced': 'High'
         };
 
+        // Determine the description to store in sessions.wod_description for backward compatibility
+        let finalWodDescription = form.wod_description_override || '';
+        if (form.wod_template_id && form.wod_template_id !== 'custom') {
+            const selectedTpl = wodTemplatesList.find(t => t.id === form.wod_template_id);
+            if (selectedTpl) {
+                finalWodDescription = form.wod_description_override || selectedTpl.description;
+            }
+        }
+
         const payload = {
             title: form.title,
             session_date: form.session_date,
@@ -327,11 +378,13 @@ export default function SchedulePage() {
             end_time: endDt.toISOString(),
             capacity: form.capacity,
             intensity: intensityMapToDB[form.intensity_level] || 'Medium',
-            wod_description: form.wod_description || null,
+            wod_description: finalWodDescription || null,
             status: 'scheduled',
         };
 
         try {
+            let sessionId = editingSession?.id;
+
             if (editingSession) {
                 // 1. Update session
                 await query('sessions').update(payload).eq('id', editingSession.id);
@@ -356,15 +409,36 @@ export default function SchedulePage() {
                     return;
                 }
 
+                sessionId = data?.id;
+
                 // 2. Create coach mappings (Multiple Coaches)
-                if (data?.id && form.coach_ids && form.coach_ids.length > 0) {
+                if (sessionId && form.coach_ids && form.coach_ids.length > 0) {
                     const inserts = form.coach_ids.map((cId, idx) => ({
-                        session_id: data.id,
+                        session_id: sessionId,
                         coach_id: cId,
                         assignment_role: idx === 0 ? 'lead' : 'assistant',
                         display_order: idx + 1
                     }));
                     await query('session_coaches').insert(inserts);
+                }
+            }
+
+            // 3. Upsert session_wods mapping
+            if (sessionId) {
+                if (form.wod_template_id) {
+                    const sessionWodPayload = {
+                        session_id: sessionId,
+                        template_id: form.wod_template_id === 'custom' ? null : form.wod_template_id,
+                        title_override: form.wod_title || null,
+                        format_override: form.wod_format || null,
+                        time_cap_override: form.wod_time_cap > 0 ? form.wod_time_cap : null,
+                        description_override: form.wod_description_override || null,
+                        publish_state: 'published'
+                    };
+                    await query('session_wods').upsert(sessionWodPayload, { onConflict: 'session_id' });
+                } else {
+                    // Clean up if no WOD is configured
+                    await query('session_wods').delete().eq('session_id', sessionId);
                 }
             }
         } catch (err) {
@@ -800,15 +874,128 @@ export default function SchedulePage() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">WOD 설명 (선택)</label>
-                        <textarea
-                            value={form.wod_description}
-                            onChange={(e) => setForm({ ...form, wod_description: e.target.value })}
-                            rows={3}
-                            placeholder="오늘의 운동 설명"
-                            className="bcl-input resize-none"
-                        />
+                    {/* WOD Section */}
+                    <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/[0.04] space-y-4">
+                        <div className="flex items-center justify-between border-b border-white/[0.04] pb-3 mb-2">
+                            <span className="text-xs font-black uppercase tracking-widest text-[var(--primary)]">WOD (오늘의 운동) 설정</span>
+                            <span className="text-[9px] font-bold text-white/35 uppercase">Workout of the Day</span>
+                        </div>
+
+                        <div>
+                            <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">WOD 템플릿 선택</label>
+                            <select
+                                value={form.wod_template_id}
+                                onChange={(e) => {
+                                    const tplId = e.target.value;
+                                    if (tplId === 'custom') {
+                                        setForm({
+                                            ...form,
+                                            wod_template_id: 'custom',
+                                            wod_title: 'Custom WOD',
+                                            wod_format: 'for_time',
+                                            wod_time_cap: 15,
+                                            wod_description_override: ''
+                                        });
+                                    } else if (tplId === '') {
+                                        setForm({
+                                            ...form,
+                                            wod_template_id: '',
+                                            wod_title: '',
+                                            wod_format: '',
+                                            wod_time_cap: 0,
+                                            wod_description_override: ''
+                                        });
+                                    } else {
+                                        const selected = wodTemplatesList.find(t => t.id === tplId);
+                                        if (selected) {
+                                            setForm({
+                                                ...form,
+                                                wod_template_id: tplId,
+                                                wod_title: selected.title,
+                                                wod_format: selected.format_type || 'for_time',
+                                                wod_time_cap: selected.time_cap_minutes || 0,
+                                                wod_description_override: selected.description || ''
+                                            });
+                                        }
+                                    }
+                                }}
+                                className="bcl-input w-full"
+                            >
+                                <option value="">[ 선택 안 함 ]</option>
+                                <option value="custom">✍️ [ 직접 입력 / Custom WOD ]</option>
+                                <optgroup label="🏆 벤치마크 WOD 템플릿">
+                                    {wodTemplatesList.map(t => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.title} ({t.format_type === 'for_time' ? 'For Time' : t.format_type === 'amrap' ? 'AMRAP' : t.format_type || 'Custom'})
+                                        </option>
+                                    ))}
+                                </optgroup>
+                            </select>
+                        </div>
+
+                        {form.wod_template_id && (
+                            <div className="space-y-4 pt-2 animate-fade-in">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">WOD 제목</label>
+                                        <input
+                                            value={form.wod_title}
+                                            onChange={(e) => setForm({ ...form, wod_title: e.target.value })}
+                                            placeholder="예: Fran, Helen 등"
+                                            className="bcl-input"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">측정 방식 (Format)</label>
+                                        <select
+                                            value={form.wod_format}
+                                            onChange={(e) => setForm({ ...form, wod_format: e.target.value })}
+                                            className="bcl-input"
+                                        >
+                                            <option value="for_time">For Time (시간 측정)</option>
+                                            <option value="amrap">AMRAP (최대 라운드)</option>
+                                            <option value="emom">EMOM (매 분마다)</option>
+                                            <option value="tabata">Tabata (타바타)</option>
+                                            <option value="interval">Interval (인터벌)</option>
+                                            <option value="strength">Strength (최대 근력)</option>
+                                            <option value="custom">Custom (기타)</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">타임 캡 (Time Cap - 분)</label>
+                                        <input
+                                            type="number"
+                                            value={form.wod_time_cap}
+                                            onChange={(e) => setForm({ ...form, wod_time_cap: parseInt(e.target.value) || 0 })}
+                                            min={0}
+                                            max={120}
+                                            placeholder="0 = 제한 없음"
+                                            className="bcl-input"
+                                        />
+                                    </div>
+                                    <div className="flex items-end">
+                                        <span className="text-[10px] text-white/30 font-bold mb-3 uppercase tracking-tighter">
+                                            {form.wod_time_cap > 0 ? `⏱️ ${form.wod_time_cap}분 시간 제한 설정됨` : '⏱️ 시간 제한 없음'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2">WOD 동작 구성 및 설명</label>
+                                    <textarea
+                                        value={form.wod_description_override}
+                                        onChange={(e) => setForm({ ...form, wod_description_override: e.target.value })}
+                                        rows={4}
+                                        placeholder="동작의 구성과 중량을 기재해 주세요.&#10;예:&#10;Thruster (95/65 lbs)&#10;Pull-ups&#10;21-15-9 Reps for Time"
+                                        className="bcl-input resize-none"
+                                        style={{ scrollbarWidth: 'thin' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
