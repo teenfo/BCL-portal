@@ -87,8 +87,30 @@ export interface MovementLibraryRow {
     coaching_points: string | null;
     source_tag: string | null;
     is_active: boolean;
+    thumbnail_url: string | null;  // Priority 26
+    video_url: string | null;      // Priority 26
     created_at: string;
     updated_at: string;
+}
+
+/** Priority 26: movement_categories 테이블 */
+export interface MovementCategoryRow {
+    id: string;
+    slug: string;
+    name_ko: string;
+    name_en: string;
+    color: string | null;
+    sort_order: number;
+    is_active: boolean;
+    created_at: string;
+}
+
+/** Priority 26: fn_list_movement_library RPC 반환 타입 */
+export interface MovementLibraryAdminRow extends MovementLibraryRow {
+    wod_usage_count: number;
+    category_name_ko: string | null;
+    category_name_en: string | null;
+    category_color: string | null;
 }
 
 export interface WodTemplateRow {
@@ -374,6 +396,11 @@ export interface P1aRpcMap {
     fn_search_wod_movements: {
         args: { p_query?: string | null; p_category?: MovementCategory | null; p_equipment?: string | null; p_limit?: number };
         returns: RpcEnvelope<MovementLibraryRow[]>;
+    };
+    /** Priority 26: 운동 라이브러리 관리 목록 (WOD 사용 수 포함) */
+    fn_list_movement_library: {
+        args: { p_query?: string | null; p_category?: string | null; p_is_active?: boolean | null; p_limit?: number; p_offset?: number };
+        returns: RpcEnvelope<MovementLibraryAdminRow[]>;
     };
     fn_list_wod_templates: {
         args: { p_scope?: WodTemplateScope; p_facility_id?: string | null; p_template_kind?: WodTemplateKind | null };

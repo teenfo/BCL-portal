@@ -136,6 +136,20 @@ const IconWod = () => (
     </svg>
 );
 
+const IconDumbbell = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6 5v14" />
+        <path d="M18 5v14" />
+        <path d="M4 8h2" />
+        <path d="M4 16h2" />
+        <path d="M18 8h2" />
+        <path d="M18 16h2" />
+        <path d="M6 12h12" />
+        <rect x="2" y="7" width="2" height="10" rx="1" />
+        <rect x="20" y="7" width="2" height="10" rx="1" />
+    </svg>
+);
+
 const IconBranch = () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
@@ -294,6 +308,7 @@ const menuGroups: MenuGroup[] = [
         items: [
             { name: 'Schedule', href: '/admin/operations/schedule', icon: <IconSchedule /> },
             { name: 'WOD Templates', href: '/admin/operations/wod-templates', icon: <IconWod /> },
+            { name: 'Movement Library', href: '/admin/operations/movement-library', icon: <IconDumbbell /> },
             { name: 'Coaches', href: '/admin/operations/coaches', icon: <IconCoaches /> },
             { name: 'Reservations', href: '/admin/operations/reservations', icon: <IconReservations /> },
             { name: 'Race', href: '/admin/operations/race', icon: <IconRace /> },

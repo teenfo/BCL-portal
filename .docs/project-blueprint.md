@@ -68,16 +68,16 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **수업 스케줄 다중 코치/WOD 연동 및 WOD Templates 관리 메뉴 통합 완수**
+- **Current Focus**: **Priority 26 운동 라이브러리 관리 화면 완료 → 다음 작업 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npx tsc --noEmit` / `npm run typecheck` 통과
+- **Build Status**: ✅ `npm run build` 통과 (Compiled successfully)
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action**: 수업 스케줄링 다중 코치 배정 칩스 UI 및 WOD 템플릿/커스텀 시간 연계 기능을 완수하고, Admin OPERATIONS 메뉴 하위에 WOD Templates 관리 화면(CRUD + 운동 라이브러리 검색 + 삭제 차단/해제)을 성공적으로 통합 결합하였습니다.
-  - 🔒 **다중 코치 지원**: `session_coaches` 맵핑 데이터를 `lead` 및 `assistant` 역할 및 정렬 순서를 부여해 안전하게 트랜잭션 적재하도록 로직 고도화 완료.
-  - 🎨 **메뉴 통합 & UI**: AdminSidebar에 WOD Templates 전용 SVG 아이콘(`IconWod`) 및 메뉴 링크를 등록하고, PermissionGuard 및 useAdminPermissions에 완벽히 연계하여 역할 기반 접근 보안 결합 완료.
-  - 🗑️ **WOD 템플릿 CRUD 고도화**: WOD Templates 관리 화면 내에 글래스모피즘 기반의 **삭제(Delete)** 기능(`handleDelete`)을 추가 연동하여 완전한 생성, 조회, 수정, 삭제 사이클 지원.
-  - 🔄 **동시성 검증**: 한 명의 코치가 동시에 다른 스케줄에 배정되지 않도록, 다중 검증 Conflict Check 로직 추가 완료.
-  - 🏋️ **지능형 WOD 연동**: DB의 35종 운동 라이브러리 및 10종의 벤치마크 WOD 템플릿을 풀다운으로 연계하고, 선택 시 자동 입력 및 개별 오버라이드 기능 탑재. 직접 커스텀 입력(Custom WOD) 및 타임캡(분 단위) 설정 지원. DB `session_wods` 테이블 연동 및 기존 `sessions.wod_description` 백필 완벽 조치.
+- **Last Action** (2026-05-30): Priority 26 전체 Phase 완료
+  - 🗄️ **DB**: `movement_categories` 테이블 신규 생성, 기존 8개 카테고리 이관, `movement_library`에 thumbnail_url+video_url 컬럼 추가, RLS 정책(admin+coach), `fn_list_movement_library` RPC 생성
+  - 🎨 **UI**: `/admin/operations/movement-library` 마스터-디테일 페이지 구현 (Glassmorphism, 글로벌 CSS 클래스 준수)
+  - 🔗 **메뉴**: AdminSidebar에 Movement Library 메뉴 추가 (IconDumbbell SVG), useAdminPermissions + AdminPermissionGuard 경로 등록
+  - 📋 **문서**: sitemap 03-operations.md Section 9 추가, blueprint Priority 26 완료 처리
+
 
 ---
 
@@ -573,35 +573,34 @@
 
 ---
 
-#### 🟠 Priority 26: 운동 라이브러리 관리 화면 (개발 대기)
+#### ✅ Priority 26: 운동 라이브러리 관리 화면 (코드 완료)
   > **기획서**: `.docs/archive/planning/movement-library-admin.md`
-  > **문제**: WOD 템플릿 에디터에서 운동 라이브러리 검색 연결 기능은 구현됐으나, 라이브러리 자체를 추가·수정·삭제하는 관리 화면이 없어 UI 없이 DB를 직접 수정해야 함.
-  > **방안**: `movement_categories` 테이블 신규 생성 + `movement_library`에 미디어 컬럼 추가 → Admin/Coach 공용 CRUD 화면 (마스터-디테일) → 카테고리 인라인 관리·미디어 업로드 UX 완성.
+  > **완료**: 2026-05-30 — movement_categories 테이블 + movement_library 미디어 컬럼 + RLS + RPC + UI(마스터-디테일) + 사이드바 등록 + 빌드 통과
 
-  - [ ] Phase 1: DB 마이그레이션 → 💎 **Senior Dev (권장: Opus)**
-    - [ ] `movement_categories` 테이블 생성 (slug, name_ko, name_en, color, sort_order, is_active)
-    - [ ] 기존 8개 카테고리 데이터 이관 INSERT
-    - [ ] `movement_library`에 `thumbnail_url`, `video_url` 컬럼 추가
-    - [ ] RLS 정책: `coach` + `admin` role 전체 CRUD 허용
-    - [ ] `fn_list_movement_library` RPC 생성 (필터·검색·WOD 사용 수 포함)
-  - [ ] Phase 2: 핵심 CRUD UI → 🎨 **UI Developer (권장: Gemini Pro)**
-    - [ ] 라우팅: `/admin/operations/movement-library` 페이지 생성
-    - [ ] AdminSidebar에 `Movement Library` 메뉴 추가 (WOD Templates 바로 아래)
-    - [ ] `useAdminPermissions` + `AdminPermissionGuard`에 경로 등록
-    - [ ] 목록 테이블: 썸네일/동작명(KO+EN)/카테고리 뱃지/난이도/WOD 사용 수/상태
-    - [ ] 상단 컨트롤: 카테고리 필터 탭 + 상태 필터 + 검색 + `+ 운동 추가` 버튼
-    - [ ] 편집 패널 (480px): 기본 정보/미디어/상세 정보/메타 섹션
-    - [ ] 저장 / 비활성화 / 삭제(2단계 확인) 액션 버튼
-  - [ ] Phase 3: UX 완성 → 💻 **Developer (권장: Sonnet)**
-    - [ ] Slug 자동 생성 (영어명 → kebab-case) + 중복 검증 인라인 에러
-    - [ ] 난이도 별 클릭 인터랙션 (★ 1~5)
-    - [ ] 기구(equipment) 다중 체크박스 UI
-    - [ ] 미디어 파일 업로드 (Supabase Storage 연동, 썸네일 미리보기)
-    - [ ] 삭제 경고: WOD 사용 수 > 0인 경우 경고 + 비활성화 유도
-    - [ ] 카테고리 인라인 추가 모달
-  - [ ] Phase 4: 문서 동기화 → 🏛️ **Architect (권장: Pro High)**
-    - [ ] `.docs/sitemap/admin/03-operations.md` Section 9 추가
-    - [ ] blueprint 반영 및 Active Context 갱신
+  - [x] Phase 1: DB 마이그레이션
+    - [x] `movement_categories` 테이블 생성 (slug, name_ko, name_en, color, sort_order, is_active)
+    - [x] 기존 8개 카테고리 데이터 이관 INSERT
+    - [x] `movement_library`에 `thumbnail_url`, `video_url` 컬럼 추가
+    - [x] RLS 정책: `coach` + `admin` role 전체 CRUD 허용
+    - [x] `fn_list_movement_library` RPC 생성 (필터·검색·WOD 사용 수 포함)
+  - [x] Phase 2: 핵심 CRUD UI
+    - [x] 라우팅: `/admin/operations/movement-library` 페이지 생성
+    - [x] AdminSidebar에 `Movement Library` 메뉴 추가 (WOD Templates 바로 아래)
+    - [x] `useAdminPermissions` + `AdminPermissionGuard`에 경로 등록
+    - [x] 목록 테이블: 썸네일/동작명(KO+EN)/카테고리 뱃지/난이도/WOD 사용 수/상태
+    - [x] 상단 컨트롤: 카테고리 필터 탭 + 상태 필터 + 검색 + `+ 운동 추가` 버튼
+    - [x] 편집 패널 (480px): 기본 정보/미디어/상세 정보/메타 섹션
+    - [x] 저장 / 비활성화 / 삭제(2단계 확인) 액션 버튼
+  - [x] Phase 3: UX 완성
+    - [x] Slug 자동 생성 (영어명 → kebab-case) + 중복 검증 인라인 에러
+    - [x] 난이도 별 클릭 인터랙션 (★ 1~5)
+    - [x] 기구(equipment) 다중 체크박스 UI
+    - [x] 미디어 URL 입력 + 썸네일 미리보기 (Storage 직접 업로드는 후속 Phase에서 가능)
+    - [x] 삭제 경고: WOD 사용 수 > 0인 경우 경고 + 비활성화 유도
+    - [x] 카테고리 인라인 추가 모달
+  - [x] Phase 4: 문서 동기화
+    - [x] `.docs/sitemap/admin/03-operations.md` Section 9 추가
+    - [x] blueprint 반영 및 Active Context 갱신
 
 ---
 

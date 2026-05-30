@@ -124,3 +124,33 @@
 - **역할 정의**: 최고 관리자(Admin), 지점장(Manager), 데스크 스탭(Staff) 등 등급 설정.
 - **접근 통제**: 역할에 따른 메뉴 노출 여부 및 쓰기/읽기 권한 차등 부여.
 
+### 9. 운동 라이브러리 관리 (`/admin/operations/movement-library`) 🆕 P26
+- **접근 권한**: `admin` + `coach` 모두 수정 가능
+- **Stitch Screen ID**: `10474725662829453547` (sessionId)
+- **KPI 요약**: 전체 운동 수 / 활성 수 / 비활성 수
+- **카테고리 탭 필터**: 전체 + 카테고리 DB(`movement_categories`)에서 동적 렌더링
+- **상태 필터**: 전체 / 활성 / 비활성
+- **검색**: 동작명(KO/EN) 또는 slug 300ms debounce 검색
+- **운동 목록 테이블**:
+  - 썸네일 (이미지 또는 카테고리 약어 폴백)
+  - 한국어명 / 영어명 / 카테고리 badge (color-coded) / 난이도 별점 / WOD 사용 수 / 활성 상태 dot
+  - 비활성 행 opacity-50
+  - 선택 행 오렌지 왼쪽 border
+- **편집 패널 (480px 고정 우측)**:
+  - ① 기본 정보: name_ko, name_en, slug (자동 생성 + 중복 검증), 카테고리, source_tag, 난이도(★1-5), 활성 토글
+  - ② 미디어: thumbnail_url + 미리보기, video_url + 영상 열기 링크
+  - ③ 상세 정보: equipment 다중 체크박스 (11개), primary_muscles 태그, coaching_points 텍스트에어리어
+  - ④ 메타 (읽기 전용): WOD 사용 현황
+- **삭제**:
+  - WOD 사용 수 > 0 시 경고 배너 표시
+  - 2단계 확인 (삭제 아이콘 → 취소/확인 삭제)
+  - 삭제 대신 비활성화 권장
+- **카테고리 인라인 추가**: 패널 내 "+ 카테고리 추가" 버튼 → 모달로 즉시 카테고리 생성
+- **DB 연동**:
+  - `fn_list_movement_library(p_query, p_category, p_is_active)` — 목록 조회
+  - `movement_library` 직접 INSERT/UPDATE/DELETE (RLS 보호: admin+coach)
+  - `movement_categories` 조회 + 카테고리 추가 (RLS 보호)
+- **관련 테이블**: `movement_library`, `movement_categories`, `wod_template_movements`
+
+
+

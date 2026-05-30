@@ -71,6 +71,7 @@ function getMenuPath(pathname: string | null): string | null {
         '/admin/transactions',
         '/admin/operations/schedule',
         '/admin/operations/wod-templates',
+        '/admin/operations/movement-library',
         '/admin/operations/coaches',
         '/admin/operations/reservations',
         '/admin/operations/race',
