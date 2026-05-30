@@ -2647,3 +2647,18 @@ body::before {
 .blur-\[120px\] {
   filter: blur(120px);
 }
+
+/* ── BCL Premium WOD Template Form Improvements ── */
+.wod-search-result-chip {
+  background-color: #161619 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+.wod-search-result-chip:hover {
+  background-color: rgba(255, 107, 0, 0.08) !important;
+  border-color: rgba(255, 107, 0, 0.4) !important;
+  color: var(--primary) !important;
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.1) !important;
+}

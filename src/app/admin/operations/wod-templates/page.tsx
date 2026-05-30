@@ -98,6 +98,74 @@ const newLine = (idx: number): MovementLine => ({
     scaling_notes: null,
 });
 
+const getCategoryStyle = (category: string) => {
+    const config: Record<string, { border: string; bg: string; textBg: string; textColor: string; label: string }> = {
+        weightlifting: {
+            border: 'rgba(239, 68, 68, 0.25)',
+            bg: 'rgba(239, 68, 68, 0.03)',
+            textColor: '#f87171',
+            textBg: 'rgba(239, 68, 68, 0.12)',
+            label: '바벨',
+        },
+        gymnastics: {
+            border: 'rgba(34, 197, 94, 0.25)',
+            bg: 'rgba(34, 197, 94, 0.03)',
+            textColor: '#4ade80',
+            textBg: 'rgba(34, 197, 94, 0.12)',
+            label: '체조',
+        },
+        monostructural: {
+            border: 'rgba(6, 182, 212, 0.25)',
+            bg: 'rgba(6, 182, 212, 0.03)',
+            textColor: '#22d3ee',
+            textBg: 'rgba(6, 182, 212, 0.12)',
+            label: '카디오',
+        },
+        dumbbell: {
+            border: 'rgba(168, 85, 247, 0.25)',
+            bg: 'rgba(168, 85, 247, 0.03)',
+            textColor: '#c084fc',
+            textBg: 'rgba(168, 85, 247, 0.12)',
+            label: '덤벨',
+        },
+        kettlebell: {
+            border: 'rgba(236, 72, 153, 0.25)',
+            bg: 'rgba(236, 72, 153, 0.03)',
+            textColor: '#f472b6',
+            textBg: 'rgba(236, 72, 153, 0.12)',
+            label: '케틀벨',
+        },
+        medball: {
+            border: 'rgba(245, 158, 11, 0.25)',
+            bg: 'rgba(245, 158, 11, 0.03)',
+            textColor: '#fbbf24',
+            textBg: 'rgba(245, 158, 11, 0.12)',
+            label: '메드볼',
+        },
+        other_equipment: {
+            border: 'rgba(20, 184, 166, 0.25)',
+            bg: 'rgba(20, 184, 166, 0.03)',
+            textColor: '#2dd4bf',
+            textBg: 'rgba(20, 184, 166, 0.12)',
+            label: '기타기구',
+        },
+        accessory: {
+            border: 'rgba(99, 102, 241, 0.25)',
+            bg: 'rgba(99, 102, 241, 0.03)',
+            textColor: '#818cf8',
+            textBg: 'rgba(99, 102, 241, 0.12)',
+            label: '보조',
+        },
+    };
+    return config[category] || {
+        border: 'rgba(255, 255, 255, 0.1)',
+        bg: 'rgba(255, 255, 255, 0.04)',
+        textColor: 'rgba(255, 255, 255, 0.6)',
+        textBg: 'rgba(255, 255, 255, 0.06)',
+        label: '직접 입력',
+    };
+};
+
 interface FacilityRow { id: string; name: string }
 
 export default function AdminWodTemplatesPage() {
@@ -109,6 +177,7 @@ export default function AdminWodTemplatesPage() {
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState<FormState>(emptyForm());
     const [saving, setSaving] = useState(false);
+    const [movementsLibrary, setMovementsLibrary] = useState<MovementLibraryRow[]>([]);
 
     const [movementSearch, setMovementSearch] = useState('');
     const [movementCategory, setMovementCategory] = useState<'' | MovementCategory>('');
@@ -120,6 +189,11 @@ export default function AdminWodTemplatesPage() {
     const loadFacilities = useCallback(async () => {
         const { data } = await query('facilities').select('id, name').order('name');
         if (data) setFacilities(data as FacilityRow[]);
+    }, []);
+
+    const loadMovementsLibrary = useCallback(async () => {
+        const { data } = await query('movement_library').select('*');
+        if (data) setMovementsLibrary(data as MovementLibraryRow[]);
     }, []);
 
     const loadTemplates = useCallback(async () => {
@@ -140,6 +214,7 @@ export default function AdminWodTemplatesPage() {
 
     useEffect(() => { void loadFacilities(); }, [loadFacilities]);
     useEffect(() => { void loadTemplates(); }, [loadTemplates]);
+    useEffect(() => { void loadMovementsLibrary(); }, [loadMovementsLibrary]);
 
     const openCreate = () => {
         setForm(emptyForm());
@@ -446,34 +521,60 @@ export default function AdminWodTemplatesPage() {
                         {form.movements.length === 0 ? (
                             <p className="text-xs text-white/40">아래 검색 또는 직접 추가로 시작하세요.</p>
                         ) : (
-                            <div className="flex flex-col gap-2">
-                                {form.movements.map((l, idx) => (
-                                    <div key={l._key} className="grid grid-cols-[24px_1fr_auto] gap-2 items-center bg-white/5 rounded p-1.5">
-                                        <div className="flex flex-col gap-0.5">
-                                            <button onClick={() => moveLine(l._key, -1)} disabled={idx === 0} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30">↑</button>
-                                            <button onClick={() => moveLine(l._key, 1)} disabled={idx === form.movements.length - 1} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30">↓</button>
+                            <div className="flex flex-col gap-3">
+                                {form.movements.map((l, idx) => {
+                                    const movement = movementsLibrary.find(mov => mov.id === l.movement_id);
+                                    const category = movement ? movement.category : 'custom';
+                                    const style = getCategoryStyle(category);
+                                    return (
+                                        <div
+                                            key={l._key}
+                                            className="grid grid-cols-[24px_1fr_auto] gap-3 items-center rounded-xl p-3 border transition-all"
+                                            style={{
+                                                borderColor: style.border,
+                                                backgroundColor: style.bg
+                                            }}
+                                        >
+                                            <div className="flex flex-col gap-0.5">
+                                                <button onClick={() => moveLine(l._key, -1)} disabled={idx === 0} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30 flex items-center justify-center font-bold">↑</button>
+                                                <button onClick={() => moveLine(l._key, 1)} disabled={idx === form.movements.length - 1} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30 flex items-center justify-center font-bold">↓</button>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span
+                                                        className="text-[8px] font-black uppercase px-2 py-0.5 rounded tracking-widest"
+                                                        style={{
+                                                            color: style.textColor,
+                                                            backgroundColor: style.textBg
+                                                        }}
+                                                    >
+                                                        {style.label}
+                                                    </span>
+                                                    <span className="text-[10px] font-bold text-white/35">#{idx + 1}</span>
+                                                </div>
+                                                <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-1">
+                                                    <input
+                                                        value={movement ? movement.name_ko : (l.custom_label || '')}
+                                                        disabled={!!l.movement_id}
+                                                        onChange={e => updateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
+                                                        placeholder="이름"
+                                                        className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white disabled:opacity-70 font-bold"
+                                                    />
+                                                    <input value={l.target_value ?? ''} onChange={e => updateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })} placeholder="값" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
+                                                    <select value={l.target_unit ?? 'reps'} onChange={e => updateLine(l._key, { target_unit: e.target.value })} className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center">
+                                                        <option value="reps">reps</option>
+                                                        <option value="meters">m</option>
+                                                        <option value="seconds">초</option>
+                                                        <option value="calories">cal</option>
+                                                    </select>
+                                                    <input value={l.load_male_rx ?? ''} onChange={e => updateLine(l._key, { load_male_rx: e.target.value || null })} placeholder="♂RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
+                                                    <input value={l.load_female_rx ?? ''} onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
+                                                </div>
+                                            </div>
+                                            <button onClick={() => removeLine(l._key)} className="text-red-400 text-sm w-6 h-6 rounded bg-white/5 hover:bg-red-500/20 flex items-center justify-center">×</button>
                                         </div>
-                                        <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] gap-1">
-                                            <input
-                                                value={l._name || l.custom_label || ''}
-                                                disabled={!!l.movement_id}
-                                                onChange={e => updateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
-                                                placeholder="이름"
-                                                className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white disabled:opacity-70"
-                                            />
-                                            <input value={l.target_value ?? ''} onChange={e => updateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })} placeholder="값" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white" />
-                                            <select value={l.target_unit ?? 'reps'} onChange={e => updateLine(l._key, { target_unit: e.target.value })} className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white">
-                                                <option value="reps">reps</option>
-                                                <option value="meters">m</option>
-                                                <option value="seconds">초</option>
-                                                <option value="calories">cal</option>
-                                            </select>
-                                            <input value={l.load_male_rx ?? ''} onChange={e => updateLine(l._key, { load_male_rx: e.target.value || null })} placeholder="♂RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white" />
-                                            <input value={l.load_female_rx ?? ''} onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white" />
-                                        </div>
-                                        <button onClick={() => removeLine(l._key)} className="text-red-400 text-sm w-6 h-6 rounded bg-white/5 hover:bg-red-500/20">×</button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         )}
                         <button onClick={addCustomLine} className="mt-2 text-[11px] font-bold text-[var(--primary)]">+ 직접 추가</button>
@@ -484,17 +585,47 @@ export default function AdminWodTemplatesPage() {
                         <div className="text-[11px] text-white/60 mb-2 font-bold">운동 검색</div>
                         <div className="grid grid-cols-[2fr_1fr_auto] gap-2 mb-2">
                             <input value={movementSearch} onChange={e => setMovementSearch(e.target.value)} placeholder="이름/슬러그" className="px-2 py-1 rounded text-xs bg-white/5 border border-white/10 text-white" />
-                            <select value={movementCategory} onChange={e => setMovementCategory(e.target.value as MovementCategory | '')} className="px-2 py-1 rounded text-xs bg-white/5 border border-white/10 text-white">
-                                {CATEGORY_OPTIONS.map(o => (<option key={o.value || 'all'} value={o.value}>{o.label}</option>))}
+                            <select
+                                value={movementCategory}
+                                onChange={e => setMovementCategory(e.target.value as MovementCategory | '')}
+                                className="px-2 py-1 rounded text-xs border"
+                                style={{
+                                    colorScheme: 'dark',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                                    color: '#ffffff'
+                                }}
+                            >
+                                {CATEGORY_OPTIONS.map(o => (
+                                    <option
+                                        key={o.value || 'all'}
+                                        value={o.value}
+                                        style={{ backgroundColor: '#161619', color: '#ffffff' }}
+                                    >
+                                        {o.label}
+                                    </option>
+                                ))}
                             </select>
                             <button onClick={handleSearchMovements} disabled={searching} className="px-3 py-1 rounded text-xs font-bold" style={{ background: 'var(--primary)', color: '#000' }}>
                                 {searching ? '...' : '검색'}
                             </button>
                         </div>
                         {movementResults.length > 0 && (
-                            <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto">
+                            <div
+                                className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 rounded-xl border"
+                                style={{
+                                    scrollbarWidth: 'thin',
+                                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                    borderColor: 'rgba(255, 255, 255, 0.05)'
+                                }}
+                            >
                                 {movementResults.map(m => (
-                                    <button key={m.id} onClick={() => addMovementLine(m)} className="text-[11px] px-2 py-1 rounded border border-white/10 text-white/80 hover:bg-white/5">
+                                    <button
+                                        key={m.id}
+                                        type="button"
+                                        onClick={() => addMovementLine(m)}
+                                        className="text-[10px] font-bold px-2.5 py-1 rounded-lg wod-search-result-chip"
+                                    >
                                         + {m.name_ko}
                                     </button>
                                 ))}
