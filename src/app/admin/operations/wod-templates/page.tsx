@@ -529,16 +529,12 @@ export default function AdminWodTemplatesPage() {
                                     return (
                                         <div
                                             key={l._key}
-                                            className="grid grid-cols-[24px_1fr_auto] gap-3 items-center rounded-xl p-3 border transition-all"
+                                            className="grid grid-cols-[1fr_auto] gap-4 items-center rounded-xl p-3 border transition-all"
                                             style={{
                                                 borderColor: style.border,
                                                 backgroundColor: style.bg
                                             }}
                                         >
-                                            <div className="flex flex-col gap-0.5">
-                                                <button onClick={() => moveLine(l._key, -1)} disabled={idx === 0} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30 flex items-center justify-center font-bold">↑</button>
-                                                <button onClick={() => moveLine(l._key, 1)} disabled={idx === form.movements.length - 1} className="text-[10px] w-5 h-4 rounded bg-white/10 disabled:opacity-30 flex items-center justify-center font-bold">↓</button>
-                                            </div>
                                             <div className="flex flex-col gap-2">
                                                 <div className="flex items-center gap-2">
                                                     <span
@@ -571,7 +567,37 @@ export default function AdminWodTemplatesPage() {
                                                     <input value={l.load_female_rx ?? ''} onChange={e => updateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀RX" className="px-1.5 py-1 rounded text-[11px] bg-white/5 border border-white/10 text-white text-center" />
                                                 </div>
                                             </div>
-                                            <button onClick={() => removeLine(l._key)} className="text-red-400 text-sm w-6 h-6 rounded bg-white/5 hover:bg-red-500/20 flex items-center justify-center">×</button>
+
+                                            {/* 우측 조작용 가로 한 줄 패널 */}
+                                            <div className="flex items-center gap-1.5 bg-black/20 p-1 rounded-lg border border-white/5 flex-shrink-0">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveLine(l._key, -1)}
+                                                    disabled={idx === 0}
+                                                    className="w-7 h-7 rounded-md bg-white/5 disabled:opacity-20 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                                                    title="위로 이동"
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px] font-bold">keyboard_arrow_up</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => moveLine(l._key, 1)}
+                                                    disabled={idx === form.movements.length - 1}
+                                                    className="w-7 h-7 rounded-md bg-white/5 disabled:opacity-20 flex items-center justify-center text-white/70 hover:bg-white/10 hover:text-white transition-all"
+                                                    title="아래로 이동"
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px] font-bold">keyboard_arrow_down</span>
+                                                </button>
+                                                <div className="w-px h-4 bg-white/10 mx-0.5" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeLine(l._key)}
+                                                    className="w-7 h-7 rounded-md bg-red-500/10 hover:bg-red-500/20 flex items-center justify-center text-red-400 hover:text-red-300 transition-all border border-red-500/10"
+                                                    title="삭제"
+                                                >
+                                                    <span className="material-symbols-outlined text-[16px] font-bold">delete</span>
+                                                </button>
+                                            </div>
                                         </div>
                                     );
                                 })}
