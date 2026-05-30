@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { rpc } from '@/lib/supabase/query';
 
 interface SessionData {
     id: string;
@@ -32,6 +33,38 @@ export default function SessionDetailModal({
     onBook,
     isBooked = false,
 }: SessionDetailModalProps) {
+    const [wodDetail, setWodDetail] = useState<{
+        title: string | null;
+        format_override: string | null;
+        time_cap_override: number | null;
+        movements: any[];
+    } | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !session?.id) {
+            setWodDetail(null);
+            return;
+        }
+
+        async function fetchWod() {
+            try {
+                const { data } = await rpc('fn_get_session_wod', { p_session_id: session.id });
+                if (data?.success && data.data) {
+                    const d = data.data;
+                    setWodDetail({
+                        title: d.title_override,
+                        format_override: d.format_override,
+                        time_cap_override: d.time_cap_override,
+                        movements: d.movements_snapshot || [],
+                    });
+                }
+            } catch {
+                // 에러 무시
+            }
+        }
+        void fetchWod();
+    }, [isOpen, session?.id]);
+
     if (!isOpen || !session) return null;
 
     const isFull = session.capacity != null && session.enrolled != null && session.enrolled >= session.capacity;
@@ -148,8 +181,107 @@ export default function SessionDetailModal({
                         />
                     </div>
 
-                    {/* WOD Description */}
-                    {session.wod_description && (
+                    {/* WOD Area (Hybrid Rendering) */}
+                    {wodDetail && wodDetail.format_override === 'station_circuit' ? (
+                        <div style={{
+                            background: 'rgba(255,107,0,0.03)',
+                            border: '1px solid rgba(255,107,0,0.2)',
+                            borderRadius: 'var(--app-radius-md, 12px)',
+                            padding: '1rem',
+                            marginBottom: '1.25rem',
+                        }}>
+                            <div style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: '0.625rem',
+                            }}>
+                                <span style={{
+                                    fontSize: '0.6875rem',
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.08em',
+                                    color: 'var(--primary, #FF6B00)',
+                                }}>
+                                    🔄 순환 서킷 로테이션 WOD
+                                </span>
+                                <span style={{
+                                    fontSize: '0.6875rem',
+                                    fontWeight: 600,
+                                    color: 'var(--app-text-secondary)',
+                                }}>
+                                    동작당 {wodDetail.time_cap_override ?? 300}초 · {wodDetail.movements.length} Stations
+                                </span>
+                            </div>
+                            
+                            {/* Horizontal scrolling matrix cards */}
+                            <div style={{
+                                display: 'flex',
+                                gap: '0.625rem',
+                                overflowX: 'auto',
+                                paddingBottom: '0.5rem',
+                                scrollbarWidth: 'thin',
+                            }}>
+                                {wodDetail.movements.map((m, idx) => (
+                                    <div 
+                                        key={idx}
+                                        style={{
+                                            flex: '0 0 160px',
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid rgba(255,255,255,0.06)',
+                                            borderRadius: '8px',
+                                            padding: '0.625rem',
+                                        }}
+                                    >
+                                        <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--primary, #FF6B00)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                            Station {idx + 1}
+                                        </div>
+                                        <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: 'var(--app-text-primary)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {m.name || m.custom_label || '—'}
+                                        </div>
+                                        
+                                        {(m.target_value || m.load_male_rx || m.load_female_rx) && (
+                                            <div style={{ fontSize: '9px', color: 'var(--app-text-secondary)', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                {m.target_value && <span>🎯 {m.target_value} {m.target_unit ?? ''}</span>}
+                                                {(m.load_male_rx || m.load_female_rx) && (
+                                                    <span>🏋️ ♂{m.load_male_rx || '-'} · ♀{m.load_female_rx || '-'}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : wodDetail && wodDetail.movements.length > 0 ? (
+                        <div style={{
+                            background: 'var(--app-accent-light, rgba(210,105,30,0.08))',
+                            border: '1px solid rgba(210,105,30,0.15)',
+                            borderRadius: 'var(--app-radius-md)',
+                            padding: '1rem',
+                            marginBottom: '1.25rem',
+                        }}>
+                            <div style={{
+                                fontSize: '0.6875rem',
+                                fontWeight: 700,
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.08em',
+                                color: 'var(--app-accent)',
+                                marginBottom: '0.5rem',
+                            }}>
+                                WOD {wodDetail.title ? `· ${wodDetail.title}` : ''}
+                            </div>
+                            <ol style={{ margin: 0, paddingLeft: '1.125rem', fontSize: '0.8125rem', color: 'var(--app-text-primary)', lineHeight: 1.6 }}>
+                                {wodDetail.movements.map((m, idx) => (
+                                    <li key={idx}>
+                                        <strong>{m.name || m.custom_label || '—'}</strong>
+                                        {m.target_value && ` — ${m.target_value} ${m.target_unit ?? ''}`}
+                                        {m.load_male_rx ? ` · ♂ ${m.load_male_rx}` : ''}
+                                        {m.load_female_rx ? ` · ♀ ${m.load_female_rx}` : ''}
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+                    ) : session.wod_description ? (
                         <div style={{
                             background: 'var(--app-accent-light, rgba(210,105,30,0.08))',
                             border: '1px solid rgba(210,105,30,0.15)',
@@ -175,6 +307,22 @@ export default function SessionDetailModal({
                             }}>
                                 {session.wod_description}
                             </div>
+                        </div>
+                    ) : (
+                        <div style={{
+                            background: 'rgba(255,255,255,0.02)',
+                            border: '1px dashed rgba(255,255,255,0.08)',
+                            borderRadius: 'var(--app-radius-md)',
+                            padding: '0.875rem 1rem',
+                            marginBottom: '1.25rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.625rem',
+                        }}>
+                            <span style={{ fontSize: '1.125rem', opacity: 0.4 }}>🏋️</span>
+                            <p style={{ fontSize: '0.8125rem', color: 'var(--app-text-muted)', margin: 0 }}>
+                                오늘의 WOD는 수업 당일 코치가 공개합니다.
+                            </p>
                         </div>
                     )}
 

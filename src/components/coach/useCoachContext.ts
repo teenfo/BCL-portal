@@ -19,11 +19,16 @@ interface UseCoachContextResult {
 }
 
 export function useCoachContext(): UseCoachContextResult {
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [context, setContext] = useState<CoachContext | null>(null);
     const [loading, setLoading] = useState(true);
 
     const refresh = useCallback(async () => {
+        if (authLoading) {
+            // AuthContext가 아직 초기 세션을 로드 중이면 loading 상태를 유지하며 대기
+            setLoading(true);
+            return;
+        }
         if (!user) {
             setContext(EMPTY_CONTEXT);
             setLoading(false);
@@ -51,7 +56,7 @@ export function useCoachContext(): UseCoachContextResult {
             setContext(EMPTY_CONTEXT);
         }
         setLoading(false);
-    }, [user]);
+    }, [user, authLoading]);
 
     useEffect(() => {
         refresh();

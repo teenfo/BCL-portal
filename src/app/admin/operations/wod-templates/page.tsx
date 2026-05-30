@@ -649,20 +649,24 @@ export default function AdminWodTemplatesPage() {
                                                 >
                                                     {/* 동작 이름 미리보기 칩 */}
                                                     <div className="flex flex-wrap gap-1 flex-1 min-w-0">
-                                                        {t.movements.slice(0, 3).map((m, i) => (
-                                                            <span
-                                                                key={i}
-                                                                className="text-[8px] font-bold px-1.5 py-0.5 rounded truncate max-w-[70px]"
-                                                                style={{
-                                                                    background: 'rgba(255,255,255,0.05)',
-                                                                    color: 'rgba(255,255,255,0.5)',
-                                                                    border: '1px solid rgba(255,255,255,0.07)',
-                                                                }}
-                                                                title={m.custom_label || undefined}
-                                                            >
-                                                                {m.custom_label ? m.custom_label : '·'}
-                                                            </span>
-                                                        ))}
+                                                        {t.movements.slice(0, 3).map((m, i) => {
+                                                            const label = m.movement_name_ko || m.custom_label;
+                                                            if (!label) return null;
+                                                            return (
+                                                                <span
+                                                                    key={i}
+                                                                    className="text-[8px] font-bold px-1.5 py-0.5 rounded truncate max-w-[70px]"
+                                                                    style={{
+                                                                        background: 'rgba(255,255,255,0.05)',
+                                                                        color: 'rgba(255,255,255,0.5)',
+                                                                        border: '1px solid rgba(255,255,255,0.07)',
+                                                                    }}
+                                                                    title={label}
+                                                                >
+                                                                    {label}
+                                                                </span>
+                                                            );
+                                                        })}
                                                         {t.movements.length > 3 && (
                                                             <span className="text-[8px] font-black text-white/25 self-center">
                                                                 +{t.movements.length - 3}

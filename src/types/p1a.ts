@@ -55,7 +55,8 @@ export type WodFormatType =
     | 'tabata'
     | 'chipper'
     | 'strength'
-    | 'custom';
+    | 'custom'
+    | 'station_circuit';
 
 export type SessionWodPublishState = 'draft' | 'published' | 'archived';
 
@@ -115,6 +116,10 @@ export interface WodTemplateMovementRow {
     wod_template_id: string;
     sort_order: number;
     movement_id: string | null;
+    /** movement_library.name_ko — fn_list_wod_templates에서 JOIN하여 반환 */
+    movement_name_ko: string | null;
+    /** movement_library.name_en — fn_list_wod_templates에서 JOIN하여 반환 */
+    movement_name_en: string | null;
     custom_label: string | null;
     target_value: number | null;
     target_unit: string | null;

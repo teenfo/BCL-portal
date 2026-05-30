@@ -12,6 +12,7 @@ const FORMAT_LABEL: Record<WodFormatType, string> = {
     chipper: 'CHIPPER',
     strength: 'STRENGTH',
     custom: 'CUSTOM',
+    station_circuit: 'STATION CIRCUIT',
 };
 
 export default function ClassWodPage() {
@@ -180,14 +181,14 @@ export default function ClassWodPage() {
                                 <div key={`${m.sort_order}-${idx}`} style={{
                                     display: 'flex', alignItems: 'center', gap: '1.5rem',
                                     padding: '1.5rem 2rem',
-                                    background: idx === 0 ? 'rgba(255,107,0,0.08)' : 'rgba(255,255,255,0.03)',
-                                    border: `1px solid ${idx === 0 ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.05)'}`,
+                                    background: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
                                     borderRadius: '1rem',
                                     transition: 'all 0.3s ease',
                                 }}>
                                     <span style={{
                                         fontSize: '2rem', fontWeight: 900,
-                                        color: idx === 0 ? '#FF6B00' : 'rgba(255,255,255,0.2)',
+                                        color: 'rgba(255,255,255,0.2)',
                                         minWidth: '3rem', textAlign: 'center',
                                     }}>
                                         {idx + 1}
@@ -199,9 +200,10 @@ export default function ClassWodPage() {
                                             letterSpacing: '-0.01em',
                                             textTransform: 'uppercase',
                                         }}>
+                                            {/* WodMovementSnapshot.name = 게시 시점 라이브러리 이름 스냅샷, custom_label = 자유 텍스트 */}
                                             {m.name || m.custom_label || '—'}
                                         </div>
-                                        {(m.target_value || m.distance_meters || m.load_male_rx || m.load_female_rx) && (
+                                        {(m.target_value !== null && m.target_value !== undefined || m.distance_meters || m.load_male_rx || m.load_female_rx) && (
                                             <div style={{
                                                 fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)',
                                                 color: 'rgba(255,255,255,0.5)',

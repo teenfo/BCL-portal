@@ -30,6 +30,7 @@ const FORMAT_OPTIONS: Array<{ value: WodFormatType; label: string }> = [
     { value: 'chipper', label: 'Chipper' },
     { value: 'strength', label: 'Strength' },
     { value: 'custom', label: 'Custom' },
+    { value: 'station_circuit', label: 'Station Circuit' },
 ];
 
 const CATEGORY_OPTIONS: Array<{ value: '' | MovementCategory; label: string }> = [
@@ -394,7 +395,7 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                             {(formatOverride || timeCapOverride) && (
                                 <div style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', marginBottom: 8, display: 'flex', gap: 8 }}>
                                     {formatOverride && <span>{FORMAT_OPTIONS.find(f => f.value === formatOverride)?.label}</span>}
-                                    {timeCapOverride && <span>· Time Cap {timeCapOverride}분</span>}
+                                    {timeCapOverride && <span>· {formatOverride === 'station_circuit' ? `동작당 ${timeCapOverride}초` : `Time Cap ${timeCapOverride}분`}</span>}
                                 </div>
                             )}
                             {descriptionOverride && (
@@ -403,17 +404,57 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                                 </p>
                             )}
                             {lines.length > 0 && (
-                                <ol style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--app-text-secondary)', fontSize: '0.8125rem', lineHeight: 1.7 }}>
-                                    {lines.map((l) => (
-                                        <li key={l._key}>
-                                            <strong>{l._name || l.custom_label || '(이름 미정)'}</strong>
-                                            {l.target_value !== null && l.target_value !== undefined && ` — ${l.target_value} ${l.target_unit ?? ''}`}
-                                            {l.distance_meters ? ` · ${l.distance_meters}m` : ''}
-                                            {l.load_male_rx ? ` · ♂ ${l.load_male_rx}` : ''}
-                                            {l.load_female_rx ? ` · ♀ ${l.load_female_rx}` : ''}
-                                        </li>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {lines.map((l, idx) => (
+                                        <div key={l._key} style={{
+                                            padding: '0.5rem 0.625rem',
+                                            borderRadius: 8,
+                                            background: 'rgba(255,255,255,0.02)',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                                <span style={{ fontSize: '0.6875rem', fontWeight: 800, color: 'var(--app-accent)', minWidth: 18 }}>
+                                                    {idx + 1}.
+                                                </span>
+                                                <strong style={{ fontSize: '0.875rem', color: 'var(--app-text-primary)' }}>
+                                                    {l._name || l.custom_label || '(이름 미정)'}
+                                                </strong>
+                                                {l.target_value !== null && l.target_value !== undefined && (
+                                                    <span style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
+                                                        {l.target_value} {l.target_unit ?? ''}
+                                                    </span>
+                                                )}
+                                                {l.distance_meters && (
+                                                    <span style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
+                                                        {l.distance_meters}m
+                                                    </span>
+                                                )}
+                                                {l.duration_seconds && (
+                                                    <span style={{ fontSize: '0.8125rem', color: 'var(--app-text-secondary)' }}>
+                                                        {l.duration_seconds}초
+                                                    </span>
+                                                )}
+                                                {(l.load_male_rx || l.load_female_rx) && (
+                                                    <span style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', marginLeft: 4 }}>
+                                                        {l.load_male_rx && `♂${l.load_male_rx}`}
+                                                        {l.load_male_rx && l.load_female_rx && ' · '}
+                                                        {l.load_female_rx && `♀${l.load_female_rx}`}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {l.rx_notes && (
+                                                <div style={{ fontSize: '0.6875rem', color: 'var(--app-accent)', marginTop: 2, paddingLeft: 22, fontStyle: 'italic' }}>
+                                                    📌 {l.rx_notes}
+                                                </div>
+                                            )}
+                                            {l.scaling_notes && (
+                                                <div style={{ fontSize: '0.6875rem', color: '#A78BFA', marginTop: 2, paddingLeft: 22 }}>
+                                                    ↕ 스케일링: {l.scaling_notes}
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
-                                </ol>
+                                </div>
                             )}
                             {coachNotes && (
                                 <div style={{ marginTop: 8, padding: '0.5rem 0.625rem', borderRadius: 8, background: 'rgba(255,255,255,0.04)', fontSize: '0.75rem', color: 'var(--app-text-muted)' }}>
@@ -475,7 +516,7 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                             <option value="">포맷 선택</option>
                             {FORMAT_OPTIONS.map(f => (<option key={f.value} value={f.value}>{f.label}</option>))}
                         </select>
-                        <input value={timeCapOverride} onChange={e => setTimeCapOverride(e.target.value.replace(/\D/g, ''))} placeholder="Time Cap (분)" style={inputStyle} />
+                        <input value={timeCapOverride} onChange={e => setTimeCapOverride(e.target.value.replace(/\D/g, ''))} placeholder={formatOverride === 'station_circuit' ? '스테이션당 초 (예: 300)' : 'Time Cap (분)'} style={inputStyle} />
                     </div>
 
                     <textarea value={descriptionOverride} onChange={e => setDescriptionOverride(e.target.value)} placeholder="WOD 설명 (자유 텍스트, 보조용)" rows={3} style={{ ...inputStyle, minHeight: 70, resize: 'vertical' }} />
@@ -488,37 +529,75 @@ export default function SessionWodPanel({ sessionId, facilityId, sessionDate, fa
                         {lines.length === 0 ? (
                             <p style={{ fontSize: '0.75rem', color: 'var(--app-text-muted)', margin: 0 }}>아래 검색 또는 직접 추가로 시작하세요.</p>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {lines.map((l, idx) => (
-                                    <div key={l._key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: 8, display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 6, alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div key={l._key} style={{ background: 'rgba(255,255,255,0.03)', borderRadius: 8, padding: '8px 8px 6px', display: 'grid', gridTemplateColumns: '24px 1fr auto', gap: 6, alignItems: 'start' }}>
+                                        {/* 순서 버튼 */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 2 }}>
                                             <button onClick={() => handleMoveLine(l._key, -1)} disabled={idx === 0} style={iconBtnStyle}>↑</button>
                                             <button onClick={() => handleMoveLine(l._key, 1)} disabled={idx === lines.length - 1} style={iconBtnStyle}>↓</button>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr', gap: 4 }}>
-                                            <input
-                                                value={l._name || l.custom_label || ''}
-                                                onChange={e => handleUpdateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
-                                                placeholder={l.movement_id ? '운동' : '운동 이름'}
-                                                disabled={!!l.movement_id}
-                                                style={miniInput}
-                                            />
-                                            <input
-                                                value={l.target_value ?? ''}
-                                                onChange={e => handleUpdateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })}
-                                                placeholder="값"
-                                                style={miniInput}
-                                            />
-                                            <select value={l.target_unit ?? 'reps'} onChange={e => handleUpdateLine(l._key, { target_unit: e.target.value })} style={miniInput}>
-                                                <option value="reps">reps</option>
-                                                <option value="meters">m</option>
-                                                <option value="seconds">초</option>
-                                                <option value="calories">cal</option>
-                                            </select>
-                                            <input value={l.load_male_rx ?? ''} onChange={e => handleUpdateLine(l._key, { load_male_rx: e.target.value || null })} placeholder="♂RX" style={miniInput} />
-                                            <input value={l.load_female_rx ?? ''} onChange={e => handleUpdateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀RX" style={miniInput} />
+                                        {/* 필드 그룹 */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            {/* Row 1: 이름 + 값 + 단위 + 거리 + 시간 */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '2fr 0.8fr 0.8fr 0.8fr 0.8fr', gap: 4 }}>
+                                                <input
+                                                    value={l._name || l.custom_label || ''}
+                                                    onChange={e => handleUpdateLine(l._key, l.movement_id ? { _name: e.target.value } : { custom_label: e.target.value })}
+                                                    placeholder={l.movement_id ? '운동명' : '운동 이름'}
+                                                    disabled={!!l.movement_id}
+                                                    style={miniInput}
+                                                />
+                                                <input
+                                                    value={l.target_value ?? ''}
+                                                    onChange={e => handleUpdateLine(l._key, { target_value: e.target.value ? Number(e.target.value) : null })}
+                                                    placeholder="횟수"
+                                                    type="number"
+                                                    style={miniInput}
+                                                />
+                                                <select value={l.target_unit ?? 'reps'} onChange={e => handleUpdateLine(l._key, { target_unit: e.target.value })} style={miniInput}>
+                                                    <option value="reps">reps</option>
+                                                    <option value="meters">m</option>
+                                                    <option value="seconds">초</option>
+                                                    <option value="calories">cal</option>
+                                                </select>
+                                                <input
+                                                    value={l.distance_meters ?? ''}
+                                                    onChange={e => handleUpdateLine(l._key, { distance_meters: e.target.value ? Number(e.target.value) : null })}
+                                                    placeholder="거리(m)"
+                                                    type="number"
+                                                    style={miniInput}
+                                                />
+                                                <input
+                                                    value={l.duration_seconds ?? ''}
+                                                    onChange={e => handleUpdateLine(l._key, { duration_seconds: e.target.value ? Number(e.target.value) : null })}
+                                                    placeholder="시간(초)"
+                                                    type="number"
+                                                    style={miniInput}
+                                                />
+                                            </div>
+                                            {/* Row 2: RX 중량 */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                                                <input value={l.load_male_rx ?? ''} onChange={e => handleUpdateLine(l._key, { load_male_rx: e.target.value || null })} placeholder="♂ RX (예: 95lb)" style={miniInput} />
+                                                <input value={l.load_female_rx ?? ''} onChange={e => handleUpdateLine(l._key, { load_female_rx: e.target.value || null })} placeholder="♀ RX (예: 65lb)" style={miniInput} />
+                                            </div>
+                                            {/* Row 3: rx_notes + scaling_notes */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                                                <input
+                                                    value={l.rx_notes ?? ''}
+                                                    onChange={e => handleUpdateLine(l._key, { rx_notes: e.target.value || null })}
+                                                    placeholder="📌 RX 노트 (예: 바벨 완전 신전)"
+                                                    style={{ ...miniInput, fontSize: '0.625rem' }}
+                                                />
+                                                <input
+                                                    value={l.scaling_notes ?? ''}
+                                                    onChange={e => handleUpdateLine(l._key, { scaling_notes: e.target.value || null })}
+                                                    placeholder="↕ 스케일링 (예: 빈봉, Ring Row)"
+                                                    style={{ ...miniInput, fontSize: '0.625rem' }}
+                                                />
+                                            </div>
                                         </div>
-                                        <button onClick={() => handleRemoveLine(l._key)} style={{ ...iconBtnStyle, color: '#EF4444' }}>×</button>
+                                        <button onClick={() => handleRemoveLine(l._key)} style={{ ...iconBtnStyle, color: '#EF4444', marginTop: 2 }}>×</button>
                                     </div>
                                 ))}
                             </div>

@@ -12,6 +12,7 @@ const FORMAT_LABEL: Record<WodFormatType, string> = {
     chipper: 'CHIPPER',
     strength: 'STRENGTH',
     custom: 'CUSTOM',
+    station_circuit: 'STATION CIRCUIT',
 };
 
 interface LiveSession {
@@ -318,13 +319,13 @@ export default function ClassScreenPage() {
                                         <div key={`${m.sort_order}-${idx}`} style={{
                                             display: 'flex', alignItems: 'center', gap: '1.25rem',
                                             padding: '1.25rem 1.75rem',
-                                            background: idx === 0 ? 'rgba(255,107,0,0.07)' : 'rgba(255,255,255,0.025)',
-                                            border: `1px solid ${idx === 0 ? 'rgba(255,107,0,0.2)' : 'rgba(255,255,255,0.04)'}`,
+                                            background: 'rgba(255,255,255,0.025)',
+                                            border: '1px solid rgba(255,255,255,0.04)',
                                             borderRadius: '0.875rem',
                                         }}>
                                             <span style={{
                                                 fontSize: '1.5rem', fontWeight: 900,
-                                                color: idx === 0 ? '#FF6B00' : 'rgba(255,255,255,0.15)',
+                                                color: 'rgba(255,255,255,0.15)',
                                                 minWidth: '2.5rem', textAlign: 'center',
                                             }}>
                                                 {idx + 1}
@@ -334,6 +335,7 @@ export default function ClassScreenPage() {
                                                     fontSize: 'clamp(1.25rem, 2.5vw, 2rem)',
                                                     fontWeight: 800, textTransform: 'uppercase', letterSpacing: '-0.01em',
                                                 }}>
+                                                    {/* WodMovementSnapshot.name = 게시 시점 라이브러리 이름 스냅샷 */}
                                                     {m.name || m.custom_label || '—'}
                                                 </div>
                                                 {(m.target_value !== null && m.target_value !== undefined) || m.distance_meters || m.load_male_rx || m.load_female_rx ? (

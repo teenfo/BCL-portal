@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { rpc } from '@/lib/supabase/query';
 import AttendanceOutcomeChip from './AttendanceOutcomeChip';
 import SessionWodPanel from './wod/SessionWodPanel';
+import CoachLiveWodView from './wod/CoachLiveWodView';
 import SessionRunbookPanel from './runbook/SessionRunbookPanel';
 import type {
     AttendanceOutcome,
@@ -312,12 +313,21 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                     </button>
                 </div>
 
-                {/* WOD (Priority 23 P1-A — structured editor backed by session_wods) */}
+                {/* WOD (코치 편집/확인) */}
                 <SessionWodPanel
                     sessionId={session.id}
                     facilityId={session.facility_id}
                     sessionDate={session.session_date}
                     fallbackDescription={session.wod_description}
+                />
+
+                {/* 라이브 WOD (수업 진행 중 참조용 — 큰 글씨, 스케일링 항상 노출) */}
+                <CoachLiveWodView
+                    sessionId={session.id}
+                    facilityId={session.facility_id}
+                    sessionDate={session.session_date}
+                    checkedInCount={summary.checked_in}
+                    totalConfirmed={summary.confirmed}
                 />
 
                 {/* Runbook (Priority 23 P1-A — Warm-up / Movement Prep / Scaling / Cue / Safety / Finish) */}

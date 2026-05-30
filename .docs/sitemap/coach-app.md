@@ -32,6 +32,16 @@
 - **세션 런시트 패널 (P1-A)**: `SessionRunbookPanel.tsx` — 6개 탭(warmup/movement_prep/scaling/cue/safety/finish_note), 시설별 템플릿 기본값 표시 + "오버라이드로 복사" 버튼, 탭별 override + dirty 추적. 저장은 `fn_upsert_session_runbook`.
 - **출결 처리**: `fn_mark_session_attendance` (단건) + `fn_bulk_mark_session_attendance` (일괄, 부분 성공 응답).
 
+#### 2-1) Circuit Console (`/coach/schedule/rotation`) 🆕
+- **구현 파일**: `src/app/coach/schedule/rotation/page.tsx`
+- **Device Type**: Mobile/Tablet (코칭 패드용 세로/가로 대응)
+- **목적**: 코치용 서킷 로테이션 제어기 — 실시간 팀 편성 및 전광판 원격 제어 HUD 리모컨.
+- **주요 기능**:
+  - 당일 체크인된 회원 목록을 기반으로 4인 1조 6개 팀 원터치 자동/수동 빌딩.
+  - HTML5 Drag and Drop API를 통한 드래그 팀-스테이션(1~6번) 직관적 배정.
+  - 리모컨 제어 패널: `START`, `PAUSE`, `RESET` 버튼 및 강제 `ROTATE`(스테이션 순환) 제어.
+  - 상태 데이터 실시간 직렬화 및 Supabase Broadcast 채널 전파.
+
 ### 3) Members (`/coach/members`) ✅ 구현 완료 (P0 운영 안정화 + P1-A 회원 컨텍스트 완료)
 - **구현 파일**: `src/app/coach/members/page.tsx` + Admin 회원 상세에 통합된 `src/components/members/MemberContextPanel.tsx`
 - **기본 스코프**: '담당 회원'(내 세션을 예약한 회원). '시설 전체'는 코칭 노트/출결 보조 목적으로만 사용.
