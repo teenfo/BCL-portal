@@ -1049,7 +1049,7 @@ export default function AdminWodTemplatesPage() {
                                                                 className="w-full px-2.5 py-1.5 rounded-lg text-xs font-bold focus:outline-none transition-all"
                                                                 style={{
                                                                     background: '#161619',
-                                                                    border: '1px solid rgba(255,255,255,0.08)',
+                                                                    border: 'none',
                                                                     color: l.movement_id ? 'rgba(255,255,255,0.4)' : '#fff',
                                                                     WebkitTextFillColor: l.movement_id ? 'rgba(255,255,255,0.4)' : '#fff',
                                                                     opacity: 1,
@@ -1129,7 +1129,7 @@ export default function AdminWodTemplatesPage() {
                                                                             onChange={e => updateLine(l._key, { rx_notes: e.target.value || null })}
                                                                             placeholder="예: Unbroken으로 수행 가능한 무게"
                                                                             className="w-full px-2.5 py-1.5 rounded-lg text-xs text-white focus:outline-none transition-all font-bold"
-                                                                            style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px' }}
+                                                                            style={{ background: '#161619', border: 'none', fontSize: '11px' }}
                                                                         />
                                                                     </div>
                                                                     <div className="flex flex-col gap-1">
@@ -1139,7 +1139,7 @@ export default function AdminWodTemplatesPage() {
                                                                             onChange={e => updateLine(l._key, { scaling_notes: e.target.value || null })}
                                                                             placeholder="초보자용 대체 가이드"
                                                                             className="w-full px-2.5 py-1.5 rounded-lg text-xs text-white focus:outline-none transition-all font-bold"
-                                                                            style={{ background: '#161619', border: '1px solid rgba(255,255,255,0.08)', fontSize: '11px' }}
+                                                                            style={{ background: '#161619', border: 'none', fontSize: '11px' }}
                                                                         />
                                                                     </div>
                                                                 </div>
