@@ -6,6 +6,7 @@ import { query, rpc } from '@/lib/supabase/query';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import TodayAlertSummary from '@/components/coach/dashboard/TodayAlertSummary';
+import CoachKPISnapshot from '@/components/coach/dashboard/CoachKPISnapshot';
 
 interface TodaySession {
     id: string;
@@ -155,6 +156,9 @@ export default function CoachDashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* Monthly KPI Snapshot */}
+            <CoachKPISnapshot mode="compact" />
 
             {/* Today's Member Alert Summary */}
             <TodayAlertSummary />

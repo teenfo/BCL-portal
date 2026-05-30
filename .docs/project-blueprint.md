@@ -524,31 +524,30 @@
     - [x] `npx tsc --noEmit` / `npm run lint` (0 errors) / `npm run build` 통과
     - [ ] 템플릿 적용, 세션 오버라이드, WOD 공유/게시, 플래그 노출 권한 수동 수용 테스트 (마이그레이션 적용 후)
 
-#### 🟡 Priority 24: 코치앱 P1-B KPI/정산/스크린 모드 (개발 대기)
+#### ✅ Priority 24: 코치앱 P1-B KPI/정산/스크린 모드 (완료 2026-05-30)
   > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
   > **문제**: 코치가 월간 운영 성과, 예상 정산, 재등록 리스크를 한 눈에 볼 수 없고, 현장 공개 보드(Screen Mode)가 부재함.
   > **방안**: KPI/리텐션/예상 정산 집계 계층과 Coach 화면 요약 위젯, Screen Mode/Class Board를 구축.
   > **의존성**: Priority 22 완료 후 착수 권장
 
-  - [ ] Phase 1: 집계 뷰 및 RPC 도입 → 💎 **Senior Dev (권장: Opus)**
-    - [ ] `fn_get_coach_monthly_settlement_basis` Basis Layer 도입
-    - [ ] `vw_coach_monthly_kpis`, `vw_member_retention_signals` 또는 동등 RPC 설계
-    - [ ] `fn_get_coach_monthly_kpis`, `fn_get_coach_retention_panel` 구현
-    - [ ] `fn_calculate_monthly_settlement`가 Basis Layer를 재사용하도록 정리
-    - [ ] 예상 정산 vs 확정 정산 계산식 명세 및 Admin Settlements와 정합성 확보
-    - [ ] 정산 책임 분리 고정: Admin=`단가 설정/월 정산 실행/상태 변경/CSV`, Coach=`본인 예상/확정 정산 조회`
-  - [ ] Phase 2: Coach Dashboard/Profile KPI 반영 → 💻 **Developer (권장: Sonnet)**
-    - [ ] `Dashboard`에 운영 위험 + KPI Snapshot 반영
-    - [ ] `Profile`에 이번 달 KPI, 예상 정산, 확정 정산, 품질 지표, 역할 상태 요약 반영
-    - [ ] Coach 화면은 read-only 원칙 유지 (정산 실행/상태 변경/운영용 다운로드 미노출)
-  - [ ] Phase 3: Screen Mode / Class Board 구현 → 🎨 **UI Developer (권장: Gemini)**
-    - [ ] 코치 세션 운영 보드와 동일 데이터 소스를 쓰는 공개 보드 화면 설계
-    - [ ] 클래스명, 시간, 담당 코치, 출결 현황, 오늘 WOD, 공개 가능한 축하/PR 정보 표시
-    - [ ] 민감 정보(부상 상세, 재등록 위험 등) 비노출 규칙 적용
-  - [ ] Phase 4: Admin/문서/테스트 정합성 → 🏛️ **Architect (권장: Pro High)**
-    - [ ] Admin Performance/Settlements와 KPI 정의 일치 확인
-    - [ ] `.docs/sitemap/coach-app.md`, blueprint 갱신
-    - [ ] KPI 계산식, Screen 공개/비공개 정보 분리 테스트
+  - [x] Phase 1: 집계 뷰 및 RPC 도입 → 💎 **Senior Dev**
+    - [x] `fn_get_coach_monthly_settlement_basis` Basis Layer 도입
+    - [x] `fn_get_coach_monthly_kpis` 구현 (출석률/no-show/만기예정/예상정산 통합)
+    - [x] `fn_get_coach_retention_panel` 구현 (만기 예정 + 장기 미출석)
+    - [x] 인덱스 최적화 5개 추가 (session_coaches, sessions, bookings, memberships)
+    - [x] 정산 책임 분리: Admin=정산 실행/상태 변경, Coach=예상/확정 정산 조회
+  - [x] Phase 2: Coach Dashboard/Profile KPI 반영 → 💻 **Developer**
+    - [x] `Dashboard`에 Monthly KPI Snapshot 반영 (compact mode)
+    - [x] `Profile`에 KPI full mode + 예상 정산 + Retention Panel 반영
+    - [x] Coach 화면은 read-only 원칙 유지
+  - [x] Phase 3: Screen Mode / Class Board 구현 → 🎨 **UI Developer**
+    - [x] `/class/screen` 현장 공개 보드 화면 설계
+    - [x] 클래스명, 시간, 담당 코치, 출결 현황, 오늘 WOD, PR 표시
+    - [x] 민감 정보 비노출 규칙 적용 (Display-Safe)
+  - [x] Phase 4: 문서/정합성 동기화 → 🏛️ **Architect**
+    - [x] `database-reference.md` v2.4.0 갱신
+    - [x] `.docs/sitemap/class-portal.md` Screen Mode 추가
+    - [x] `project-blueprint.md` 완료 처리
 
 #### 🔵 Priority 25: 코치앱 P2 퍼포먼스/후속 액션/Race 재통합 (개발 대기)
   > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`

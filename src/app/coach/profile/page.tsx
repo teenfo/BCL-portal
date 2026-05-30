@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useCoachRuntimeContext } from '@/components/coach/CoachStateGate';
 import type { CoachContextStatus } from '@/components/coach/types';
+import CoachKPISnapshot from '@/components/coach/dashboard/CoachKPISnapshot';
+import CoachRetentionPanel from '@/components/coach/dashboard/CoachRetentionPanel';
 
 interface CoachInfo {
     id: string;
@@ -379,6 +381,16 @@ export default function CoachProfilePage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Monthly KPI + Estimated Settlement (active coaches only) */}
+            {(!coachContext || coachContext.status === 'linked_active') && (
+                <CoachKPISnapshot mode="full" />
+            )}
+
+            {/* Retention Risk Panel (active coaches only) */}
+            {(!coachContext || coachContext.status === 'linked_active') && (
+                <CoachRetentionPanel />
             )}
 
             {/* Bio */}

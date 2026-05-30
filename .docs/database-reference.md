@@ -125,6 +125,9 @@
 | `fn_get_my_badges` | RPC Function | `badge_awards`, `badge_definitions` | 현재 로그인 회원의 보유 배지 목록 조회 🆕 |
 | `fn_calculate_badge_progress` | RPC Function | `checkins`, `race_records` | 배지 달성 진행률 계산 🆕 |
 | `fn_evaluate_badges` | RPC Function | `badge_awards`, `badge_definitions` | 배지 달성 판정 및 신규 지급 🆕 |
+| `fn_get_coach_monthly_settlement_basis` | RPC Function | `coaches`, `session_coaches`, `sessions`, `coach_settlements` | 코치 월간 정산 기초 계층 집계 (예상 정산 원천) — Coach/Admin 🆕 |
+| `fn_get_coach_monthly_kpis` | RPC Function | `sessions`, `bookings`, `checkins`, `memberships` | 코치 자신의 월간 KPI 통합 조회 (출석률/no-show/만기예정/예상정산) 🆕 |
+| `fn_get_coach_retention_panel` | RPC Function | `bookings`, `sessions`, `memberships`, `checkins` | 코치 담당 회원 만기 예정 + 장기 미출석 리텐션 위험 패널 🆕 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
@@ -189,7 +192,8 @@ supabase/migrations/
 ├── 20260221084721_race_system_enhancement.sql
 ├── 20260425120000_coach_p0_session_ops.sql (Priority 22 Coach P0)
 ├── 20260426120000_p1a_class_standardization.sql (Priority 23 P1-A WOD 표준화)
-└── 20260426130000_fix_anon_rls_exposure.sql (보안 패치: anon 노출 차단) 🔒
+├── 20260426130000_fix_anon_rls_exposure.sql (보안 패치: anon 노출 차단) 🔒
+└── 20260530_priority24_p1b_kpi_settlement_basis.sql (Priority 24 P1-B KPI/정산 Basis Layer) 🆕
 ```
 
 > 🔧 = 감사 지적 복구 마이그레이션 | 🔒 = 보안 패치
@@ -388,11 +392,15 @@ Logs → Postgres Logs
 
 ---
 
-**문서 버전**: 2.3.0  
-**최종 업데이트**: 2026년 4월 26일  
-**이전 버전**: 2.2.0
+**문서 버전**: 2.4.0  
+**최종 업데이트**: 2026년 5월 30일  
+**이전 버전**: 2.3.0
 
 ### 변경 이력
+- **2.4.0** (2026-05-30): Priority 24 P1-B KPI/정산 Basis Layer 반영
+  - RPC 추가: `fn_get_coach_monthly_settlement_basis`, `fn_get_coach_monthly_kpis`, `fn_get_coach_retention_panel`
+  - 마이그레이션 추가: `priority24_p1b_kpi_settlement_basis`
+  - 인덱스 추가: `idx_session_coaches_coach_id`, `idx_sessions_session_date_status`, `idx_bookings_attendance_outcome`, `idx_bookings_waitlist_promoted`, `idx_memberships_end_date`
 - **2.3.0** (2026-04-26): DB 배포 준비도 감사 결과 반영
   - 🔧 누락 테이블 복구 마이그레이션 추가: `wods`, `notification_rules`, `notification_preferences`, `push_subscriptions`
   - 🔒 anon key RLS 노출 차단: `members`, `coaches`, `wods` (authenticated only)

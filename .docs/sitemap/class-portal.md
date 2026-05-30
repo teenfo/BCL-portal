@@ -55,6 +55,18 @@
 - **다각도 컴피티션**: 거리/Max Watts/SPM/HR 탭 전환으로 다각도 스코어링.
 - **PR 배지**: Personal Record 판정 시 🏆 PR 뱃지 표시.
 
+
+### 8) Screen Mode (`/class/screen`) 🆕 구현 완료 (Priority 24 P1-B)
+- **구현 파일**: `src/app/class/screen/page.tsx`
+- **Device Type**: Desktop (TV/대형 모니터)
+- **목적**: 현장 공개 보드 — 수업 정보, 출결 현황, WOD, 최근 PR만 노출. 민감 정보 비노출.
+- **보안 원칙 (Display-Safe)**:
+  - ✅ 공개 허용: 수업명, 시간, 코치명, 출결 현황(숫자), WOD, 최근 레이스 PR
+  - ❌ 비노출 필수: 부상 정보, 재등록 위험, 내부 노트, 정산 정보, 회원 상세 정보
+- **레이아웃**: Header(로고/현재수업/시계) + Main(WOD ← → Live Panel) + Footer.
+- **Live Panel**: 진행 중인 수업이 있을 때만 우측에 표시. 출결 Progress Bar, 코치명, PR 자동 슬라이드.
+- **자동 갱신**: 60초 주기 데이터 갱신, RAF 기반 실시간 시계.
+
 ---
 
 ## 2. 🛠️ 기술 아키텍처 및 UI 원칙
