@@ -50,6 +50,9 @@
 | Race 시스템 전체 구현 | ✅ 완료 | BLE+시뮬레이터+2.5D+결과적재 (v0.7.0) |
 | Priority 22: 코치앱 P0 운영 안정화 | ✅ 코드 완료 | 마이그레이션+RPC 6종+상태 게이트+세션 운영 보드 + 빌드 통과 (수용 시나리오 검증 예정) |
 | Priority 23: 코치앱 P1-A 수업 표준화 + 회원 컨텍스트 | ✅ 코드 완료 | DB 마이그레이션(7테이블+14 RPC)+세션 WOD/Runbook 패널+Admin WOD Templates+/class/wod 표준 소스 전환+회원 컨텍스트 패널+오늘의 경고 위젯 + 빌드 통과 |
+| Priority 24: 코치앱 P1-B KPI/정산/스크린 모드 | ✅ 완료 | KPI/리텐션/정산 Basis RPC + Dashboard/Profile KPI + /class/screen |
+| Priority 26: 운동 라이브러리 관리 | ✅ 완료 | movement_categories + 미디어 컬럼 + RPC + 마스터-디테일 UI (마이그레이션 백필 완료) |
+| Priority 25: 코치앱 P2 퍼포먼스/후속조치/Race 재통합 | ✅ 코드 완료 | 3테이블+RPC 7종+follow-up 워크플로우+Race 허브(Live/History/Devices)+세션 보드 Race 진입+퍼포먼스 프로필 + 빌드 통과 (수용 시나리오 수동 검증 예정) |
 
 
 ---
@@ -68,15 +71,17 @@
 ## 5. 현재 작업 컨텍스트 (Active Context)
 > **Agent Note**: 작업 세션 종료 시, 다음 작업자를 위해 현재 상태를 이곳에 기록하십시오.
 
-- **Current Focus**: **Priority 26 운동 라이브러리 관리 화면 완료 → 다음 작업 대기**
+- **Current Focus**: **Priority 25 코치앱 P2 코드 완료 → 수용 시나리오 수동 검증 대기**
 - **Project Path**: `/Users/kimchoho/dev/workspace/BCL-portal`
-- **Build Status**: ✅ `npm run build` 통과 (Compiled successfully)
+- **Build Status**: ✅ `npm run build` 통과 (Compiled successfully) · `npx tsc --noEmit` 0 errors · `eslint src` 0 errors
 - **Dev Server**: ✅ `npm run dev` 정상 구동 (http://localhost:3000)
-- **Last Action** (2026-05-30): Priority 26 전체 Phase 완료
-  - 🗄️ **DB**: `movement_categories` 테이블 신규 생성, 기존 8개 카테고리 이관, `movement_library`에 thumbnail_url+video_url 컬럼 추가, RLS 정책(admin+coach), `fn_list_movement_library` RPC 생성
-  - 🎨 **UI**: `/admin/operations/movement-library` 마스터-디테일 페이지 구현 (Glassmorphism, 글로벌 CSS 클래스 준수)
-  - 🔗 **메뉴**: AdminSidebar에 Movement Library 메뉴 추가 (IconDumbbell SVG), useAdminPermissions + AdminPermissionGuard 경로 등록
-  - 📋 **문서**: sitemap 03-operations.md Section 9 추가, blueprint Priority 26 완료 처리
+- **Last Action** (2026-07-05): 정비(마이그레이션 백필+lint) + Priority 25 전체 Phase 코드 완료
+  - 🔧 **정비**: 원격에만 적용돼 있던 2026-05-30 마이그레이션 4건(P24 basis, P26, p0_rls_hardening, race_perf_indexes)을 `supabase/migrations/`로 백필 (statements 원문 복구). lint error(rotation-hud react-hooks/refs 2건) 수정 → 0 errors.
+  - 🗄️ **DB (P25 Phase 1)**: `benchmark_definitions`/`member_benchmark_results`/`coach_followups` + RLS + RPC 7종 (`20260705100000_p2_performance_followup.sql`) — 원격 적용 완료.
+  - 📝 **Follow-up (Phase 2)**: Dashboard 미완료 위젯, Members 타임라인, 세션 보드 생성 액션.
+  - 🏁 **Race 재통합 (Phase 3)**: `/coach/race` Live/History/Devices 허브, 세션 보드 "Race 수업 시작" → `fn_prepare_race_session` → Control Room `?event_id=` 딥링크. 구 이벤트 생성의 CHECK 제약 위반 잠재 버그 수정.
+  - 📊 **퍼포먼스 (Phase 4)**: `MemberPerformanceProfile` (벤치마크 베스트+Race 이력+PR), 코치 벤치마크 기록 입력.
+  - 📋 **문서**: coach-app sitemap P2 반영, database-reference 테이블/RPC/마이그레이션 목록 갱신.
 
 
 ---
@@ -549,27 +554,29 @@
     - [x] `.docs/sitemap/class-portal.md` Screen Mode 추가
     - [x] `project-blueprint.md` 완료 처리
 
-#### 🔵 Priority 25: 코치앱 P2 퍼포먼스/후속 액션/Race 재통합 (개발 대기)
-  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md`
+#### 🟢 Priority 25: 코치앱 P2 퍼포먼스/후속 액션/Race 재통합 (코드 완료 2026-07-05, 수용 검증 대기)
+  > **기획서**: `.docs/archive/planning/coach-app-master-plan-20260425.md` §11
   > **문제**: Race가 코치 운영 흐름과 분리돼 있고, 일반 수업용 퍼포먼스 기록(PR/Benchmark)과 수업 후 후속 관리 체계가 없음.
   > **방안**: 퍼포먼스 시스템 일반화 + 후속 조치 태스크 + Race 운영 허브 재통합으로 코치앱을 운영 OS 수준으로 확장.
-  > **의존성**: Priority 22 완료 후 착수 권장
+  > **마이그레이션**: `supabase/migrations/20260705100000_p2_performance_followup.sql` (원격 적용 완료) · 타입: `src/types/p2.ts`
 
-  - [ ] Phase 1: 퍼포먼스 스키마 및 RPC → 💎 **Senior Dev (권장: Opus)**
-    - [ ] `benchmark_definitions`, `member_benchmark_results`, `coach_followups` 테이블 설계 및 RLS 적용
-    - [ ] Benchmark/PR 기록, follow-up 생성/완료, 회원 케어 프로필 RPC 구현
-  - [ ] Phase 2: 후속 액션 워크플로우 구현 → 💻 **Developer (권장: Sonnet)**
-    - [ ] 수업 후 `injury`, `renewal`, `trial`, `absence`, `motivation` 기반 follow-up 생성
-    - [ ] Dashboard/Member 상세에 미완료 후속 조치 노출
-    - [ ] 완료/해제 상태 전환 및 due date 관리
-  - [ ] Phase 3: Race IA 및 세션 연동 재통합 → 🎨 **UI Developer (권장: Gemini)**
-    - [ ] `/coach/race`를 `Live / History / Devices` 허브 구조로 재정의
-    - [ ] 세션 운영 보드에서 `Race 수업 시작` 진입 경로 연결
-    - [ ] `session_id` 기준 Race 이벤트 생성/재개 UX 정리
-  - [ ] Phase 4: 퍼포먼스 데이터 연결 및 검증 → 🏛️ **Architect / Developer**
-    - [ ] Race 결과를 회원 퍼포먼스 이력과 연결
-    - [ ] 일반 클래스 Benchmark/PR과 Race 기록 조회 정합성 검증
-    - [ ] `.docs/sitemap/coach-app.md`, blueprint, 관련 운영 문서 갱신
+  - [x] Phase 1: 퍼포먼스 스키마 및 RPC → 💎 **Senior Dev** ✅
+    - [x] `benchmark_definitions`, `member_benchmark_results`, `coach_followups` 테이블 설계 및 RLS 적용
+    - [x] RPC 7종: `fn_list_benchmark_definitions`, `fn_record_member_benchmark_result`(PR 자동 판정), `fn_get_member_performance_profile`, `fn_create_followup`, `fn_complete_followup`, `fn_get_my_followups`, `fn_prepare_race_session`
+    - [x] 기본 벤치마크 6종 시드 (Row 500/1000/2000m, Back Squat/Deadlift 1RM, Max Pull-ups)
+  - [x] Phase 2: 후속 액션 워크플로우 구현 → 💻 **Developer** ✅
+    - [x] `injury`, `trial_conversion`, `renewal`, `absence`, `motivation` 기반 follow-up 생성 (`FollowupCreateModal`)
+    - [x] Dashboard 미완료 후속 조치 위젯(`FollowupSummary`) + Members 상세 타임라인(`MemberFollowupTimeline`) + 세션 보드 생성 액션
+    - [x] 완료/해제/재오픈 상태 전환 및 due date 관리 (기한 초과 강조, priority > due_date 정렬)
+  - [x] Phase 3: Race IA 및 세션 연동 재통합 → 🎨 **UI Developer** ✅
+    - [x] `/coach/race`를 `Live / History / Devices` 허브 구조로 재정의
+    - [x] 세션 운영 보드에서 `Race 수업 시작` 진입 경로 연결 (`fn_prepare_race_session` → `/coach/race/control?event_id=` 딥링크)
+    - [x] `session_id` 기준 Race 이벤트 생성/재개 UX 정리 (미종료 이벤트 자동 재개)
+  - [x] Phase 4: 퍼포먼스 데이터 연결 및 검증 → 🏛️ **Architect / Developer** ✅
+    - [x] Race 결과를 회원 퍼포먼스 이력과 연결 (`MemberPerformanceProfile` — 벤치마크 베스트 + Race 이력 + PR 카운트 통합)
+    - [x] 일반 클래스 Benchmark/PR과 Race 기록 조회 정합성 (`fn_get_member_performance_profile` 단일 소스)
+    - [x] `.docs/sitemap/coach-app.md`, blueprint, `database-reference.md` 갱신
+    - [ ] 수용 시나리오 수동 검증 (기획서 §11.8: Benchmark 생성/기록/조회, Race→퍼포먼스 연결, follow-up 상태 전환, due date 정렬, 세션 없는 Race 접근 정책)
 
 ---
 
