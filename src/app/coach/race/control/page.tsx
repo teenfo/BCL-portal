@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 import { query } from '@/lib/supabase/query';
 
@@ -65,6 +66,10 @@ const RACE_SERVER_URL = process.env.NEXT_PUBLIC_RACE_SERVER_URL || 'http://local
 
 // ─── Component ───────────────────────────────────
 export default function CoachRaceControlPage() {
+    // 세션 운영 보드 "Race 수업 시작" 딥링크 (P25): ?event_id= 로 진입 시 해당 이벤트 자동 선택
+    const searchParams = useSearchParams();
+    const focusEventId = searchParams?.get('event_id');
+
     // Setup state
     const [devices, setDevices] = useState<PM5Device[]>([]);
     const [members, setMembers] = useState<MemberOption[]>([]);
@@ -124,6 +129,23 @@ export default function CoachRaceControlPage() {
             if (devicesRes.data) setDevices(devicesRes.data);
             if (membersRes.data) setMembers(membersRes.data);
             if (eventsRes.data) setEvents(eventsRes.data as unknown as RaceEvent[]);
+
+            // ?event_id= 딥링크: 목록에 없으면 단건 조회 후 자동 선택
+            if (focusEventId) {
+                let target = (eventsRes.data as unknown as RaceEvent[] | null)?.find(ev => ev.id === focusEventId) || null;
+                if (!target) {
+                    const { data: single } = await query('race_events').select('*').eq('id', focusEventId).single();
+                    if (single) {
+                        target = single as unknown as RaceEvent;
+                        setEvents(prev => [target as RaceEvent, ...prev.filter(ev => ev.id !== focusEventId)]);
+                    }
+                }
+                if (target && target.status !== 'completed') {
+                    setSelectedEvent(target);
+                    if (target.target_distance_m) setTargetDistance(target.target_distance_m);
+                    if (target.race_format === 'team') setRaceFormat('team');
+                }
+            }
         } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error('Load error:', e);
             setError('데이터 로딩 실패');

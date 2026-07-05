@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { rpc } from '@/lib/supabase/query';
 import AttendanceOutcomeChip from './AttendanceOutcomeChip';
 import SessionWodPanel from './wod/SessionWodPanel';
 import CoachLiveWodView from './wod/CoachLiveWodView';
 import SessionRunbookPanel from './runbook/SessionRunbookPanel';
+import FollowupCreateModal from './followups/FollowupCreateModal';
 import type {
     AttendanceOutcome,
     SessionBoardData,
@@ -28,10 +30,13 @@ const ATTENDANCE_ACTIONS: Array<{ value: AttendanceOutcome; label: string; emoji
 
 export default function SessionOperationsBoard({ board, onClose, onRefresh }: SessionOperationsBoardProps) {
     const { session, coaches, attendees, summary } = board;
+    const router = useRouter();
 
     const [busy, setBusy] = useState<string | null>(null);
     const [bulkBusy, setBulkBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [raceBusy, setRaceBusy] = useState(false);
+    const [showFollowupModal, setShowFollowupModal] = useState(false);
 
     const confirmedAttendees = useMemo(
         () => attendees.filter(a => a.booking_status === 'confirmed'),
@@ -74,6 +79,26 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
             setError('오류가 발생했습니다.');
         }
         setBusy(null);
+    };
+
+    const handleStartRace = async () => {
+        setRaceBusy(true);
+        setError(null);
+        try {
+            const { data, error: rpcError } = await rpc('fn_prepare_race_session', {
+                p_session_id: session.id,
+            });
+            if (rpcError || !data?.success) {
+                setError(data?.error || rpcError?.message || 'Race 이벤트 준비에 실패했습니다.');
+            } else {
+                router.push(`/coach/race/control?event_id=${data.data.event_id}`);
+                return;
+            }
+        } catch (e) {
+            if (process.env.NODE_ENV === 'development') console.error(e);
+            setError('오류가 발생했습니다.');
+        }
+        setRaceBusy(false);
     };
 
     const handleBulk = async (action: AttendanceOutcome, scope: 'all_pending' | 'unchecked_after_start') => {
@@ -311,6 +336,33 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                     >
                         🚫 시작 이후 미도착자 노쇼 처리
                     </button>
+                    <button
+                        onClick={handleStartRace}
+                        disabled={raceBusy}
+                        style={{
+                            padding: '0.5rem 0.75rem', borderRadius: 8,
+                            border: '1px solid rgba(255,106,0,0.4)',
+                            background: 'rgba(255,106,0,0.08)', color: '#FF6A00',
+                            fontWeight: 600, fontSize: '0.8125rem', cursor: raceBusy ? 'default' : 'pointer',
+                            opacity: raceBusy ? 0.6 : 1,
+                        }}
+                    >
+                        {raceBusy ? '🏁 준비 중...' : session.race_linked ? '🏁 Race 재개' : '🏁 Race 수업 시작'}
+                    </button>
+                    <button
+                        onClick={() => setShowFollowupModal(true)}
+                        disabled={attendees.length === 0}
+                        style={{
+                            padding: '0.5rem 0.75rem', borderRadius: 8,
+                            border: '1px solid rgba(34,197,94,0.4)',
+                            background: 'rgba(34,197,94,0.08)', color: '#22C55E',
+                            fontWeight: 600, fontSize: '0.8125rem',
+                            cursor: attendees.length === 0 ? 'default' : 'pointer',
+                            opacity: attendees.length === 0 ? 0.5 : 1,
+                        }}
+                    >
+                        📝 후속 조치 생성
+                    </button>
                 </div>
 
                 {/* WOD (코치 편집/확인) */}
@@ -378,6 +430,15 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                     </section>
                 )}
             </div>
+
+            {showFollowupModal && (
+                <FollowupCreateModal
+                    members={attendees.map(a => ({ member_id: a.member_id, member_name: a.member_name }))}
+                    sessionId={session.id}
+                    onClose={() => setShowFollowupModal(false)}
+                    onCreated={onRefresh}
+                />
+            )}
         </div>
     );
 }

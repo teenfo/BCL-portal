@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 import { query } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
+import MemberFollowupTimeline from '@/components/coach/followups/MemberFollowupTimeline';
+import MemberPerformanceProfile from '@/components/members/MemberPerformanceProfile';
 
 interface MemberItem {
     id: string;
@@ -507,6 +509,12 @@ export default function CoachMembersPage() {
                                             </>
                                         )}
                                     </div>
+
+                                    {/* Follow-up Timeline (P25) */}
+                                    <MemberFollowupTimeline memberId={member.id} memberName={member.name} />
+
+                                    {/* Performance Profile (P25) */}
+                                    <MemberPerformanceProfile memberId={member.id} allowRecord />
                                 </div>
                             )}
                         </div>

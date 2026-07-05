@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import TodayAlertSummary from '@/components/coach/dashboard/TodayAlertSummary';
 import CoachKPISnapshot from '@/components/coach/dashboard/CoachKPISnapshot';
+import FollowupSummary from '@/components/coach/dashboard/FollowupSummary';
 
 interface TodaySession {
     id: string;
@@ -162,6 +163,9 @@ export default function CoachDashboardPage() {
 
             {/* Today's Member Alert Summary */}
             <TodayAlertSummary />
+
+            {/* Open Follow-ups (P25) */}
+            <FollowupSummary />
 
             {/* Current Session */}
             {currentSession && (
