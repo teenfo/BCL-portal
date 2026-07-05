@@ -43,7 +43,6 @@ function ClassRotationHudContent() {
     const searchParams = useSearchParams();
     const router = useRouter();
     const sessionId = searchParams.get('session_id');
-    const supabase = useRef(createClient()).current;
 
     // UI States
     const [loading, setLoading] = useState(true);
@@ -156,7 +155,8 @@ function ClassRotationHudContent() {
     useEffect(() => {
         if (!sessionId) return;
 
-        // DB 실시간 Replication 수신 채널 구축
+        // DB 실시간 Replication 수신 채널 구축 (createClient는 싱글턴 반환)
+        const supabase = createClient();
         const channel = supabase.channel(`hud-sync:${sessionId}`)
             .on(
                 'postgres_changes',
@@ -200,7 +200,7 @@ function ClassRotationHudContent() {
         return () => {
             void supabase.removeChannel(channel);
         };
-    }, [sessionId, currentRound, playBeep, supabase]);
+    }, [sessionId, currentRound, playBeep]);
 
     // 0.01초 단위의 초정밀 실시간 카운트다운 타이머 루프
     useEffect(() => {
