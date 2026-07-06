@@ -107,6 +107,9 @@ export default function CoachRaceControlPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // 딥링크 적용 이력 — 같은 event_id는 1회만 자동 선택 (이후 수동 선택 존중)
+    const appliedDeepLinkRef = useRef<string | null>(null);
+
     // ─── Data Loading ────────────────────────────
     useEffect(() => {
         loadInitialData();
@@ -116,6 +119,34 @@ export default function CoachRaceControlPage() {
             if (pollRef.current) clearInterval(pollRef.current);
         };
     }, []);
+
+    // ?event_id= 딥링크 — 초기 로드 후 및 클라이언트 네비게이션으로 파라미터 변경 시 자동 선택
+    useEffect(() => {
+        if (!focusEventId || loading) return;
+        if (appliedDeepLinkRef.current === focusEventId) return;
+        appliedDeepLinkRef.current = focusEventId;
+        let cancelled = false;
+        (async () => {
+            let target = events.find(ev => ev.id === focusEventId) || null;
+            if (!target) {
+                const { data: single } = await query('race_events').select('*').eq('id', focusEventId).single();
+                if (cancelled) return;
+                if (single) {
+                    target = single as unknown as RaceEvent;
+                    setEvents(prev => [target as RaceEvent, ...prev.filter(ev => ev.id !== focusEventId)]);
+                }
+            }
+            if (target && target.status !== 'completed') {
+                setSelectedEvent(target);
+                if (target.target_distance_m) setTargetDistance(target.target_distance_m);
+                if (target.race_format === 'team') setRaceFormat('team');
+            } else if (!target) {
+                setError('요청한 레이스 이벤트를 찾을 수 없습니다.');
+            }
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [focusEventId, loading]);
 
     async function loadInitialData() {
         try {
@@ -129,23 +160,6 @@ export default function CoachRaceControlPage() {
             if (devicesRes.data) setDevices(devicesRes.data);
             if (membersRes.data) setMembers(membersRes.data);
             if (eventsRes.data) setEvents(eventsRes.data as unknown as RaceEvent[]);
-
-            // ?event_id= 딥링크: 목록에 없으면 단건 조회 후 자동 선택
-            if (focusEventId) {
-                let target = (eventsRes.data as unknown as RaceEvent[] | null)?.find(ev => ev.id === focusEventId) || null;
-                if (!target) {
-                    const { data: single } = await query('race_events').select('*').eq('id', focusEventId).single();
-                    if (single) {
-                        target = single as unknown as RaceEvent;
-                        setEvents(prev => [target as RaceEvent, ...prev.filter(ev => ev.id !== focusEventId)]);
-                    }
-                }
-                if (target && target.status !== 'completed') {
-                    setSelectedEvent(target);
-                    if (target.target_distance_m) setTargetDistance(target.target_distance_m);
-                    if (target.race_format === 'team') setRaceFormat('team');
-                }
-            }
         } catch (e) {
             if (process.env.NODE_ENV === 'development') console.error('Load error:', e);
             setError('데이터 로딩 실패');

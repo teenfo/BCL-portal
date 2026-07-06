@@ -23,11 +23,23 @@ interface RaceRecord {
     id: string;
     event_id: string;
     member_id: string;
-    result_time: number | null;
+    // INTERVAL 컬럼 — PostgREST가 "HH:MM:SS(.f)" 문자열로 반환 (insert 시에는 초 숫자 허용)
+    result_time: number | string | null;
     result_distance: number | null;
     is_pr: boolean;
     finish_rank: number | null;
     members?: { name: string };
+}
+
+/** INTERVAL 문자열("HH:MM:SS.f") 또는 초 숫자를 초 단위 숫자로 변환 */
+function parseResultSeconds(value: number | string | null): number | null {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+    const parts = value.split(':').map(Number);
+    if (parts.some(Number.isNaN)) return null;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return parts.length === 1 ? parts[0] : null;
 }
 
 interface PM5Device {
@@ -177,7 +189,8 @@ export default function CoachRaceHubPage() {
 
             if (error) throw error;
             if (data) {
-                setRecords(prev => [...prev, data as unknown as RaceRecord].sort((a, b) => (a.result_time || 999) - (b.result_time || 999)));
+                setRecords(prev => [...prev, data as unknown as RaceRecord]
+                    .sort((a, b) => (parseResultSeconds(a.result_time) ?? 999999) - (parseResultSeconds(b.result_time) ?? 999999)));
                 setRecordForm({ member_id: '', minutes: '', seconds: '', tenths: '' });
                 setShowRecordForm(false);
             }
@@ -192,12 +205,31 @@ export default function CoachRaceHubPage() {
         setAddingRecord(false);
     }
 
-    function formatTime(seconds: number | null) {
+    function formatTime(value: number | string | null) {
+        const seconds = parseResultSeconds(value);
         if (!seconds) return '-';
         const m = Math.floor(seconds / 60);
         const s = Math.floor(seconds % 60);
         const ms = Math.floor((seconds % 1) * 10);
         return `${m}:${s.toString().padStart(2, '0')}.${ms}`;
+    }
+
+    async function handleCompleteEvent(event: RaceEvent) {
+        if (!confirm(`"${event.name}" 이벤트를 종료 처리하시겠습니까?\n종료된 이벤트는 History 탭으로 이동합니다.`)) return;
+        try {
+            const { error } = await query('race_events')
+                .update({ status: 'completed', lobby_status: 'finished' })
+                .eq('id', event.id);
+            if (error) throw error;
+            setEvents(prev => prev.map(e => e.id === event.id
+                ? { ...e, status: 'completed', lobby_status: 'finished' } : e));
+            if (selectedEvent?.id === event.id) {
+                setSelectedEvent(prev => prev ? { ...prev, status: 'completed', lobby_status: 'finished' } : prev);
+            }
+        } catch (e) {
+            if (process.env.NODE_ENV === 'development') console.error(e);
+            alert('이벤트 종료 처리에 실패했습니다.');
+        }
     }
 
     const liveEvents = events.filter(e => e.status !== 'completed' && e.status !== 'cancelled');
@@ -254,13 +286,22 @@ export default function CoachRaceHubPage() {
                             {selectedEvent.name}
                         </h3>
                         {selectedEvent.status !== 'completed' && (
-                            <Link href={`/coach/race/control?event_id=${selectedEvent.id}`} style={{
-                                padding: '0.375rem 0.75rem', borderRadius: 8, textDecoration: 'none',
-                                background: 'var(--app-accent)', color: '#fff',
-                                fontWeight: 700, fontSize: '0.75rem',
-                            }}>
-                                🎛 Control Room
-                            </Link>
+                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                                <Link href={`/coach/race/control?event_id=${selectedEvent.id}`} style={{
+                                    padding: '0.375rem 0.75rem', borderRadius: 8, textDecoration: 'none',
+                                    background: 'var(--app-accent)', color: '#fff',
+                                    fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap',
+                                }}>
+                                    🎛 Control
+                                </Link>
+                                <button onClick={() => handleCompleteEvent(selectedEvent)} style={{
+                                    padding: '0.375rem 0.75rem', borderRadius: 8, border: '1px solid rgba(239,68,68,0.35)',
+                                    background: 'rgba(239,68,68,0.08)', color: '#EF4444',
+                                    fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap',
+                                }}>
+                                    종료
+                                </button>
+                            </div>
                         )}
                     </div>
                     <div style={{ display: 'flex', gap: '1rem', fontSize: '0.8125rem', color: 'var(--app-text-secondary)', flexWrap: 'wrap' }}>
@@ -390,18 +431,19 @@ export default function CoachRaceHubPage() {
             <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '1.25rem' }}>
                 {([
                     { key: 'live', label: `🔴 Live (${liveEvents.length})` },
-                    { key: 'history', label: `📚 History (${historyEvents.length})` },
-                    { key: 'devices', label: `📟 Devices (${onlineDevices.length}/${devices.length})` },
+                    { key: 'history', label: `📚 기록 (${historyEvents.length})` },
+                    { key: 'devices', label: `📟 장비 (${onlineDevices.length}/${devices.length})` },
                 ] as Array<{ key: HubTab; label: string }>).map(t => (
                     <button
                         key={t.key}
                         onClick={() => setTab(t.key)}
                         style={{
-                            flex: 1, padding: '0.625rem 0.5rem', borderRadius: 12,
+                            flex: 1, padding: '0.625rem 0.25rem', borderRadius: 12,
                             border: '1px solid ' + (tab === t.key ? 'var(--app-accent)' : 'var(--app-border)'),
                             background: tab === t.key ? 'var(--app-accent-bg)' : 'var(--app-surface)',
                             color: tab === t.key ? 'var(--app-accent)' : 'var(--app-text-secondary)',
                             fontWeight: 700, fontSize: '0.75rem', cursor: 'pointer',
+                            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                         }}
                     >
                         {t.label}
@@ -504,19 +546,28 @@ export default function CoachRaceHubPage() {
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.875rem', paddingTop: '0.875rem', borderTop: '1px solid var(--app-border)' }}>
                                             <Link href={`/coach/race/control?event_id=${event.id}`} style={{
-                                                flex: 1, textAlign: 'center', textDecoration: 'none',
+                                                flex: 1.2, textAlign: 'center', textDecoration: 'none',
                                                 padding: '0.5rem', borderRadius: 8,
                                                 background: 'var(--app-accent)', color: '#fff',
-                                                fontWeight: 700, fontSize: '0.8125rem',
+                                                fontWeight: 700, fontSize: '0.8125rem', whiteSpace: 'nowrap',
                                             }}>
-                                                🎛 Control Room
+                                                🎛 Control
                                             </Link>
                                             <button onClick={() => handleSelectEvent(event)} style={{
                                                 flex: 1, padding: '0.5rem', borderRadius: 8,
                                                 border: '1px solid var(--app-border)', background: 'transparent',
                                                 color: 'var(--app-text-secondary)', fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer',
+                                                whiteSpace: 'nowrap',
                                             }}>
-                                                기록 보기
+                                                기록
+                                            </button>
+                                            <button onClick={() => handleCompleteEvent(event)} style={{
+                                                flex: 1, padding: '0.5rem', borderRadius: 8,
+                                                border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)',
+                                                color: '#EF4444', fontWeight: 600, fontSize: '0.8125rem', cursor: 'pointer',
+                                                whiteSpace: 'nowrap',
+                                            }}>
+                                                종료
                                             </button>
                                         </div>
                                     </div>
