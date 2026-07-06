@@ -152,9 +152,9 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                 gap: '0.5rem',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
                         <div style={{
-                            width: 32, height: 32, borderRadius: '50%',
+                            width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
                             background: 'var(--app-accent-bg)',
                             color: 'var(--app-accent)',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -162,8 +162,8 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                         }}>
                             {attendee.member_name.charAt(0)}
                         </div>
-                        <div>
-                            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--app-text-primary)' }}>
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--app-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {attendee.member_name}
                             </div>
                             <div style={{ fontSize: '0.6875rem', color: 'var(--app-text-muted)', display: 'flex', gap: 6 }}>
@@ -266,7 +266,7 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                             <span style={{
                                 display: 'inline-block', marginTop: 6,
                                 padding: '0.125rem 0.5rem', borderRadius: 999,
-                                background: 'rgba(255,106,0,0.15)', color: '#FF6A00',
+                                background: 'var(--app-accent-badge)', color: 'var(--app-accent)',
                                 fontSize: '0.6875rem', fontWeight: 700,
                             }}>
                                 🏁 Race 연결 세션
@@ -310,8 +310,8 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                     </div>
                 )}
 
-                {/* Quick actions */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                {/* Quick actions — 375px에서도 2×2 정렬 유지 */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem', marginBottom: '1rem' }}>
                     <button
                         onClick={() => handleBulk('checked_in', 'all_pending')}
                         disabled={bulkBusy || summary.pending === 0}
@@ -319,10 +319,10 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                             padding: '0.5rem 0.75rem', borderRadius: 8,
                             border: 'none', background: 'var(--app-accent)', color: '#fff',
                             fontWeight: 600, fontSize: '0.8125rem', cursor: bulkBusy ? 'default' : 'pointer',
-                            opacity: summary.pending === 0 ? 0.5 : 1,
+                            opacity: summary.pending === 0 ? 0.5 : 1, whiteSpace: 'nowrap',
                         }}
                     >
-                        ✅ 미처리 일괄 체크인
+                        ✅ 일괄 체크인
                     </button>
                     <button
                         onClick={() => handleBulk('no_show', 'unchecked_after_start')}
@@ -332,19 +332,20 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                             border: '1px solid rgba(239,68,68,0.4)',
                             background: 'rgba(239,68,68,0.08)', color: '#EF4444',
                             fontWeight: 600, fontSize: '0.8125rem', cursor: bulkBusy ? 'default' : 'pointer',
+                            whiteSpace: 'nowrap',
                         }}
                     >
-                        🚫 시작 이후 미도착자 노쇼 처리
+                        🚫 미도착자 노쇼 처리
                     </button>
                     <button
                         onClick={handleStartRace}
                         disabled={raceBusy}
                         style={{
                             padding: '0.5rem 0.75rem', borderRadius: 8,
-                            border: '1px solid rgba(255,106,0,0.4)',
-                            background: 'rgba(255,106,0,0.08)', color: '#FF6A00',
+                            border: '1px solid var(--app-accent-border)',
+                            background: 'var(--app-accent-light)', color: 'var(--app-accent)',
                             fontWeight: 600, fontSize: '0.8125rem', cursor: raceBusy ? 'default' : 'pointer',
-                            opacity: raceBusy ? 0.6 : 1,
+                            opacity: raceBusy ? 0.6 : 1, whiteSpace: 'nowrap',
                         }}
                     >
                         {raceBusy ? '🏁 준비 중...' : session.race_linked ? '🏁 Race 재개' : '🏁 Race 수업 시작'}
@@ -358,7 +359,7 @@ export default function SessionOperationsBoard({ board, onClose, onRefresh }: Se
                             background: 'rgba(34,197,94,0.08)', color: '#22C55E',
                             fontWeight: 600, fontSize: '0.8125rem',
                             cursor: attendees.length === 0 ? 'default' : 'pointer',
-                            opacity: attendees.length === 0 ? 0.5 : 1,
+                            opacity: attendees.length === 0 ? 0.5 : 1, whiteSpace: 'nowrap',
                         }}
                     >
                         📝 후속 조치 생성

@@ -212,7 +212,9 @@ supabase/migrations/
 ├── 20260530200000_p26_phase1_movement_library_admin.sql (Priority 26 운동 라이브러리 관리)
 ├── 20260530220000_p0_rls_hardening.sql (보안 하드닝: 순환 상태 쓰기 제한 + 템플릿 DELETE admin 전용) 🔒
 ├── 20260530230000_race_perf_indexes.sql (Race realtime/결과적재 인덱스)
-└── 20260705100000_p2_performance_followup.sql (Priority 25 P2 퍼포먼스/후속조치/Race 재통합) 🆕
+├── 20260705100000_p2_performance_followup.sql (Priority 25 P2 퍼포먼스/후속조치/Race 재통합) 🆕
+├── 20260705150000_p26_movement_category_fk.sql (운동 카테고리 CHECK → movement_categories FK 전환) 🆕
+└── 20260705160000_p25_hardening.sql (Race coach 쓰기 정책 + P2 RPC 방어/동시성 강화) 🔒
 ```
 
 > 🔧 = 감사 지적 복구 마이그레이션 | 🔒 = 보안 패치

@@ -81,7 +81,7 @@ export default function FollowupCreateModal({ members, sessionId, onClose, onCre
             <div style={{
                 background: 'var(--app-bg)',
                 borderTopLeftRadius: 24, borderTopRightRadius: 24,
-                padding: '1.25rem 1.25rem 2rem', maxHeight: '85vh', overflowY: 'auto',
+                padding: '1.25rem 1.25rem 2rem', maxHeight: '92vh', overflowY: 'auto',
                 boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>

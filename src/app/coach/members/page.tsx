@@ -6,6 +6,7 @@ import { query } from '@/lib/supabase/query';
 import { useAuth } from '@/contexts/AuthContext';
 import MemberFollowupTimeline from '@/components/coach/followups/MemberFollowupTimeline';
 import MemberPerformanceProfile from '@/components/members/MemberPerformanceProfile';
+import MemberAlertFlagsPanel from '@/components/coach/MemberAlertFlagsPanel';
 
 interface MemberItem {
     id: string;
@@ -342,22 +343,23 @@ export default function CoachMembersPage() {
                                 }}>
                                     {member.name?.charAt(0) || '?'}
                                 </div>
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--app-text-primary)' }}>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0 }}>
+                                        <span style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--app-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {member.name}
                                         </span>
                                         {myMemberIds.includes(member.id) && (
-                                            <span style={{ fontSize: '0.5625rem', padding: '1px 4px', borderRadius: 4, background: 'var(--app-accent-bg)', color: 'var(--app-accent)', fontWeight: 700 }}>담당</span>
+                                            <span style={{ fontSize: '0.5625rem', padding: '1px 4px', borderRadius: 4, background: 'var(--app-accent-bg)', color: 'var(--app-accent)', fontWeight: 700, flexShrink: 0 }}>담당</span>
                                         )}
                                     </div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--app-text-secondary)', marginTop: 2 }}>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--app-text-secondary)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {member.email}
                                     </div>
                                 </div>
                                 <span style={{
                                     padding: '0.25rem 0.5rem',
                                     borderRadius: 'var(--app-radius-sm)',
+                                    flexShrink: 0,
                                     background: member.status === 'active' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
                                     color: member.status === 'active' ? '#22C55E' : '#EF4444',
                                     fontSize: '0.6875rem',
@@ -509,6 +511,9 @@ export default function CoachMembersPage() {
                                             </>
                                         )}
                                     </div>
+
+                                    {/* Context Flags (P1-A 후속 통합 — 체험/부상/만기/복귀/VIP + 멤버십 D-day) */}
+                                    <MemberAlertFlagsPanel memberId={member.id} />
 
                                     {/* Follow-up Timeline (P25) */}
                                     <MemberFollowupTimeline memberId={member.id} memberName={member.name} />

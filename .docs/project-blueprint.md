@@ -82,6 +82,12 @@
   - 🏁 **Race 재통합 (Phase 3)**: `/coach/race` Live/History/Devices 허브, 세션 보드 "Race 수업 시작" → `fn_prepare_race_session` → Control Room `?event_id=` 딥링크. 구 이벤트 생성의 CHECK 제약 위반 잠재 버그 수정.
   - 📊 **퍼포먼스 (Phase 4)**: `MemberPerformanceProfile` (벤치마크 베스트+Race 이력+PR), 코치 벤치마크 기록 입력.
   - 📋 **문서**: coach-app sitemap P2 반영, database-reference 테이블/RPC/마이그레이션 목록 갱신.
+- **2차 정비** (2026-07-05, 전수 리뷰 후속): 
+  - 🔒 **p25_hardening**: race_events/race_records coach 쓰기 정책(허브 이벤트 생성·종료가 RLS로 차단되던 H1 수정), 벤치마크 RPC 세션 배정 검증+advisory lock, fn_prepare_race_session 중복 생성 방지(부분 유니크 인덱스), fn_create_followup 입력 검증, 벤치마크 결과 DELETE admin 전용.
+  - 🔧 **p26_movement_category_fk**: 카테고리 하드코딩 CHECK → movement_categories FK 전환 (동적 카테고리 저장 불가 결함 수정).
+  - 🏁 **Race 허브 보강**: result_time INTERVAL 문자열 파싱(NaN 표시 수정), 이벤트 종료 액션 복원(Live→History 흐름), control 딥링크 파라미터 변경 반응.
+  - 🎨 **레이아웃 통일**: 미정의 토큰 `--app-accent-bg` 정의 + `--app-accent-border` 신설, 코치 앱 하드코딩 #FF6A00/rgba(255,106,0) 토큰 치환, 세션 보드 빠른 액션 2×2 그리드, 회원명 ellipsis, 바텀시트 92vh 통일, Race 허브 탭 nowrap.
+  - 👤 **MemberAlertFlagsPanel**: P1-A '후속 단계'로 남았던 코치 Members 상세 플래그 통합 완료 (라이트 테마 변형).
 
 
 ---

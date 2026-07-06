@@ -50,7 +50,7 @@
 - **기본 스코프**: '담당 회원'(내 세션을 예약한 회원). '시설 전체'는 코칭 노트/출결 보조 목적으로만 사용.
 - **회원 검색**: 이름/이메일 검색 + 활성/비활성 필터.
 - **코칭 노트**: 회원의 부상 이력, 운동 특이사항 등을 기록하고 공유 (multi-note + type 필터).
-- **회원 컨텍스트 패널 (P1-A)**: `fn_get_member_context_panel`로 활성 alert flags(체험/부상/만기 예정/복귀/VIP 주의), 멤버십 만기 D-day 배지(<7d 빨강/<30d 노랑), 출석 통계(총/30일/마지막), 최근 코칭 노트 3건을 묶어서 노출. `fn_upsert_member_alert_flag`로 플래그 추가/해소. (Admin `/admin/members/[id]`에 우선 통합; Coach Members 상세 통합은 후속 단계)
+- **회원 컨텍스트 패널 (P1-A)**: `fn_get_member_context_panel`로 활성 alert flags(체험/부상/만기 예정/복귀/VIP 주의), 멤버십 만기 D-day 배지(<7d 빨강/<30d 노랑), 출석 통계(총/30일/마지막), 최근 코칭 노트 3건을 묶어서 노출. `fn_upsert_member_alert_flag`로 플래그 추가/해소. Admin은 `MemberContextPanel`(다크 테마), Coach 상세는 라이트 테마 변형 `MemberAlertFlagsPanel`(플래그 CRUD + 멤버십 D-day)로 통합 완료.
 - **히스토리**: 특정 회원의 출석 통계(총/이달/출석률) 분석.
 - **후속 조치 타임라인 (P2)**: `MemberFollowupTimeline.tsx` — 회원별 follow-up 이력(진행 중/전체 필터), 생성/완료/해제/재오픈.
 - **퍼포먼스 프로필 (P2)**: `MemberPerformanceProfile.tsx` — `fn_get_member_performance_profile`로 벤치마크 베스트(time=MIN/그 외 MAX) + 최근 기록 + Race 이력 + PR 카운트 통합 표시. 코치는 상세에서 벤치마크 기록 즉시 입력(`fn_record_member_benchmark_result`, PR 자동 판정).
@@ -58,8 +58,8 @@
 ### 4) Race (`/coach/race`) ✅ 구현 완료 (P2 허브 재정의 완료)
 - **구현 파일**: `src/app/coach/race/page.tsx`
 - **허브 구조 (P2)**: `Live / History / Devices` 3탭 허브로 재정의.
-  - **Live**: 진행/예정 이벤트 카드 (lobby_status 배지, 세션 연동 표시) + Control Room 바로가기 + 세션 미연동 이벤트 수동 생성.
-  - **History**: 완료 이벤트 목록 → 기록 리더보드 조회 + 수동 기록 추가.
+  - **Live**: 진행/예정 이벤트 카드 (lobby_status 배지, 세션 연동 표시) + Control Room 바로가기 + 종료 처리(→History 이동) + 세션 미연동 이벤트 수동 생성.
+  - **History**: 완료 이벤트 목록 → 기록 리더보드 조회 + 수동 기록 추가 (INTERVAL 문자열 파싱 지원).
   - **Devices**: `pm5_devices` 상태 보드 (online/offline/maintenance, BLE 명칭·모드).
 - **표준 진입 경로**: 수업 연동 레이스는 Schedule → 세션 운영 보드 → "Race 수업 시작"(`fn_prepare_race_session`)이 표준. 허브의 수동 생성은 세션 미연동 이벤트 전용.
 - **상세 설계**: [Race 시스템 기획서](../archive/planning/race-system.md) 참조.

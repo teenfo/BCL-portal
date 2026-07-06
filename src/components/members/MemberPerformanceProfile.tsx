@@ -243,7 +243,7 @@ export default function MemberPerformanceProfile({ memberId, allowRecord }: Memb
                                     <div key={r.id} style={{
                                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                         padding: '0.5rem 0.75rem',
-                                        background: 'rgba(255,106,0,0.04)', border: '1px solid rgba(255,106,0,0.15)',
+                                        background: 'var(--app-accent-light)', border: '1px solid var(--app-accent-badge)',
                                         borderRadius: 'var(--app-radius-md)',
                                     }}>
                                         <div style={{ minWidth: 0 }}>
