@@ -44,6 +44,14 @@ body {
   position: relative;
 }
 
+/* 버튼 UA 기본 배경(buttonface=흰색) 리셋 — 배경 클래스 없는 버튼이
+   다크 테마에서 흰 패널로 렌더되던 문제 방지 (예: Roles 역할 카드) */
+button {
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
 /* Background Texture */
 body::before {
   content: "";

@@ -112,20 +112,43 @@ export function useAdminPermissions(): AdminPermissions {
             }
 
             // 여러 역할의 퍼미션을 병합 (Union)
+            // permissions는 배열형({g:['view']})과 RBAC 시드 불리언 맵형
+            // ({'*':{...}} / {g:{read:true}}) 두 형태가 공존하므로 양쪽 모두 처리.
+            const LEGACY_REVERSE: Record<string, string> = { read: 'view', write: 'edit', delete: 'delete' };
+            const FULL_PERMS: Record<string, string[]> = {
+                members: ['view', 'edit', 'delete'],
+                finance: ['view', 'refund', 'export'],
+                operations: ['view', 'edit', 'delete'],
+                crm: ['view', 'edit', 'send'],
+                system: ['settings', 'roles', 'audit'],
+            };
             const merged: Record<string, Set<string>> = {};
             const names: string[] = [];
+            const addPerm = (group: string, action: string) => {
+                if (!merged[group]) merged[group] = new Set();
+                merged[group].add(action);
+            };
 
             userRoles.forEach((ur: any) => {
                 const role = ur.admin_roles;
                 if (!role) return;
                 names.push(role.name);
-                const perms = role.permissions as Record<string, string[]> | null;
-                if (perms) {
-                    Object.entries(perms).forEach(([group, actions]) => {
-                        if (!merged[group]) merged[group] = new Set();
-                        actions.forEach(a => merged[group].add(a));
-                    });
+                const perms = role.permissions as Record<string, unknown> | null;
+                if (!perms) return;
+                // 와일드카드(super_admin 시드) → 전체 권한
+                if (perms['*'] && typeof perms['*'] === 'object') {
+                    Object.entries(FULL_PERMS).forEach(([g, actions]) => actions.forEach(a => addPerm(g, a)));
+                    return;
                 }
+                Object.entries(perms).forEach(([group, actions]) => {
+                    if (Array.isArray(actions)) {
+                        actions.forEach(a => addPerm(group, a));
+                    } else if (actions && typeof actions === 'object') {
+                        Object.entries(actions as Record<string, boolean>).forEach(([k, v]) => {
+                            if (v) addPerm(group, LEGACY_REVERSE[k] || k);
+                        });
+                    }
+                });
             });
 
             const finalPerms: Record<string, string[]> = {};
