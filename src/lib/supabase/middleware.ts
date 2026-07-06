@@ -39,6 +39,11 @@ export async function updateSession(request: NextRequest) {
     const { url, anonKey } = getSupabaseConfig();
 
     const supabase = createServerClient(url, anonKey, {
+        // ⚠️ 브라우저 클라이언트(client.ts)가 auth.storageKey='bcl-portal-auth'로
+        // 세션 쿠키를 저장하므로, 서버도 같은 쿠키명을 봐야 합니다.
+        // 이 설정이 없으면 기본 이름(sb-<ref>-auth-token)을 찾아 항상 비인증으로
+        // 판정 → 로그인 직후 /admin 등 보호 경로 진입이 로그인으로 되튕깁니다.
+        cookieOptions: { name: 'bcl-portal-auth' },
         cookies: {
             getAll() {
                 return request.cookies.getAll();

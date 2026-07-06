@@ -11,6 +11,8 @@ export async function createClient() {
         url,
         anonKey,
         {
+            // 브라우저 클라이언트의 auth.storageKey('bcl-portal-auth')와 쿠키명 일치 필수
+            cookieOptions: { name: 'bcl-portal-auth' },
             cookies: {
                 getAll() {
                     return cookieStore.getAll();
