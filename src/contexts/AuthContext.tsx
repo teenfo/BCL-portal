@@ -181,8 +181,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // onAuthStateChange는 구독 즉시 INITIAL_SESSION 이벤트를 발행합니다.
         // 이것이 초기 세션 상태를 받는 유일한 경로입니다.
+        //
+        // ⚠️ supabase-js는 이 콜백을 auth lock(navigator.locks)을 잡은 채로 호출합니다.
+        // 콜백 안에서 supabase 쿼리를 await하면 쿼리의 인증 헤더 해석(getSession)이
+        // 같은 락을 기다리며 교착되어, signInWithPassword 등 다른 auth 호출이
+        // 타임아웃(위 withTimeout 워크어라운드)까지 hang됩니다 — 로그인 후 리다이렉트
+        // 지연의 원인. 따라서 콜백은 동기로 상태만 반영하고, DB 조회는 setTimeout(0)으로
+        // 락 해제 후 실행합니다. (Supabase 공식 문서 권고 패턴)
+        const loadUserData = (uid: string, opts: { finishLoading: boolean }) => {
+            const requestId = ++profileRequestIdRef.current;
+            setTimeout(async () => {
+                const [p, mId] = await Promise.all([
+                    fetchProfile(supabase, uid),
+                    fetchMemberId(supabase, uid),
+                ]);
+                if (!mountedRef.current || requestId !== profileRequestIdRef.current) return;
+                setProfile(p);
+                setMemberId(mId);
+                if (opts.finishLoading && !initializedRef.current) {
+                    initializedRef.current = true;
+                    setLoading(false);
+                }
+            }, 0);
+        };
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, newSession) => {
+            (event, newSession) => {
                 if (!mountedRef.current) return;
 
                 // AbortError 등으로 인한 이벤트는 무시
@@ -196,22 +220,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (newSession?.user) {
                             setUser(newSession.user);
                             setSession(newSession);
-                            // 프로필 + memberId 비동기 로드 (loading은 아직 유지)
-                            const [p, mId] = await Promise.all([
-                                fetchProfile(supabase, newSession.user.id),
-                                fetchMemberId(supabase, newSession.user.id),
-                            ]);
-                            if (mountedRef.current) {
-                                setProfile(p);
-                                setMemberId(mId);
-                            }
+                            // 프로필 + memberId는 락 해제 후 로드 (loading은 로드 완료 시 해제)
+                            loadUserData(newSession.user.id, { finishLoading: true });
                         } else {
                             setUser(null);
                             setSession(null);
                             setProfile(null);
                             setMemberId(null);
-                        }
-                        if (mountedRef.current) {
                             initializedRef.current = true;
                             setLoading(false);
                         }
@@ -222,18 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (newSession?.user) {
                             setUser(newSession.user);
                             setSession(newSession);
-                            const [p, mId] = await Promise.all([
-                                fetchProfile(supabase, newSession.user.id),
-                                fetchMemberId(supabase, newSession.user.id),
-                            ]);
-                            if (mountedRef.current) {
-                                setProfile(p);
-                                setMemberId(mId);
-                                if (!initializedRef.current) {
-                                    initializedRef.current = true;
-                                    setLoading(false);
-                                }
-                            }
+                            loadUserData(newSession.user.id, { finishLoading: true });
                         }
                         break;
                     }
@@ -263,11 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (newSession?.user) {
                             setUser(newSession.user);
                             setSession(newSession);
-                            // 유저 정보가 바뀌었으므로 프로필도 다시 로드
-                            const p = await fetchProfile(supabase, newSession.user.id);
-                            if (mountedRef.current) {
-                                setProfile(p);
-                            }
+                            // 유저 정보가 바뀌었으므로 프로필도 다시 로드 (락 해제 후)
+                            loadUserData(newSession.user.id, { finishLoading: false });
                         }
                         break;
                     }
