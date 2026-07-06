@@ -649,6 +649,10 @@ body::before {
   font-size: 9px;
 }
 
+.max-h-\[200px\] {
+  max-height: 200px;
+}
+
 .text-\[10px\] {
   font-size: 10px;
 }

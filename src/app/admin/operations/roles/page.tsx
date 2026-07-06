@@ -164,10 +164,26 @@ export default function RolesPage() {
         setAssignSearch('');
 
         // Load users assigned to this role
-        const { data: assigned } = await query('admin_user_roles')
-            .select('id, user_id, role_id, profiles(full_name, email, avatar_url)')
+        // ⚠️ admin_user_roles.user_id는 auth.users FK만 있어 profiles(...) 임베드가
+        // PostgREST 관계 미인식으로 실패한다(배정 목록이 항상 비어 보이던 원인).
+        // → 2단계 조회 후 클라이언트에서 병합.
+        const { data: assigned, error: assignedErr } = await query('admin_user_roles')
+            .select('id, user_id, role_id')
             .eq('role_id', role.id);
-        setAssignedUsers((assigned || []) as unknown as AdminUser[]);
+        if (assignedErr) {
+            toastError(`배정 목록 조회 실패: ${assignedErr.message}`);
+        }
+        const assignedRows = (assigned || []) as Array<{ id: string; user_id: string; role_id: string }>;
+        let profileMap: Record<string, AdminUser['profiles']> = {};
+        if (assignedRows.length > 0) {
+            const { data: assignedProfiles } = await query('profiles')
+                .select('id, full_name, email, avatar_url')
+                .in('id', assignedRows.map(a => a.user_id));
+            profileMap = Object.fromEntries(
+                (assignedProfiles || []).map((p: any) => [p.id, { full_name: p.full_name, email: p.email, avatar_url: p.avatar_url }])
+            );
+        }
+        setAssignedUsers(assignedRows.map(a => ({ ...a, profiles: profileMap[a.user_id] })));
 
         // Load available profiles (email 컬럼 포함)
         const { data: profiles, error: profilesErr } = await query('profiles')
