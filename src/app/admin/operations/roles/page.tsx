@@ -53,6 +53,11 @@ export default function RolesPage() {
     });
     const { success, error: toastError } = useToast();
 
+    // 역할 정보 편집
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingRole, setEditingRole] = useState<Role | null>(null);
+    const [editForm, setEditForm] = useState({ display_name: '', description: '' });
+
     // T2-7: User assignment states
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [assignedUsers, setAssignedUsers] = useState<AdminUser[]>([]);
@@ -113,6 +118,35 @@ export default function RolesPage() {
         }
     }
 
+    // super_admin(와일드카드 '*' 권한)만 편집 잠금 — 최고 관리자 권한을 실수로
+    // 축소해 시스템이 잠기는 사고 방지. 나머지 시스템 역할(manager/staff/coach)은
+    // 권한/정보 편집 허용, 삭제만 금지(is_system_role).
+    function isWildcardRole(role: Role): boolean {
+        const w = (role.permissions as Record<string, unknown> | null)?.['*'];
+        return Boolean(w && typeof w === 'object');
+    }
+
+    async function saveRoleEdit() {
+        if (!editingRole || !editForm.display_name.trim()) return;
+        setSaving(true);
+        const { error } = await query('admin_roles').update({
+            display_name: editForm.display_name.trim(),
+            description: editForm.description.trim() || null,
+        }).eq('id', editingRole.id);
+        setSaving(false);
+        if (!error) {
+            setShowEditModal(false);
+            setEditingRole(null);
+            success('역할 정보가 수정되었습니다.');
+            loadRoles();
+            if (selectedRole?.id === editingRole.id) {
+                setSelectedRole({ ...selectedRole, display_name: editForm.display_name.trim(), description: editForm.description.trim() || null });
+            }
+        } else {
+            toastError(`수정 실패: ${error.message}`);
+        }
+    }
+
     async function deleteRole(roleId: string) {
         const role = roles.find(r => r.id === roleId);
         if (!role || role.is_system_role) return;
@@ -149,7 +183,8 @@ export default function RolesPage() {
 
     async function togglePermission(roleId: string, groupKey: string, perm: string) {
         const role = roles.find(r => r.id === roleId);
-        if (!role || role.is_system_role) return;
+        // super_admin(와일드카드)만 편집 잠금 — 일반 시스템 역할은 권한 조정 허용
+        if (!role || isWildcardRole(role)) return;
 
         const updated: Record<string, string[]> = {};
         Object.entries(role.permissions || {}).forEach(([g, v]) => {
@@ -342,6 +377,14 @@ export default function RolesPage() {
                                                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
                                                     <IconMembers size={12} /> 사용자 배정
                                                 </button>
+                                                <button onClick={() => {
+                                                    setEditingRole(role);
+                                                    setEditForm({ display_name: role.display_name, description: role.description || '' });
+                                                    setShowEditModal(true);
+                                                }}
+                                                    className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-white/[0.03] border border-white/10 text-white/60 hover:bg-white/[0.06] transition-all">
+                                                    편집
+                                                </button>
                                                 {!role.is_system_role && (
                                                     <button onClick={() => deleteRole(role.id)}
                                                         className="px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all">
@@ -369,7 +412,9 @@ export default function RolesPage() {
                                                 className="px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
                                                 사용자 관리 ({selectedRole.userCount || 0})
                                             </button>
-                                            {selectedRole.is_system_role && (
+                                            {isWildcardRole(selectedRole) ? (
+                                                <span className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">전체 권한 · 편집 잠금</span>
+                                            ) : selectedRole.is_system_role && (
                                                 <span className="px-3 py-1 rounded-lg text-[8px] font-black uppercase bg-yellow-500/10 border border-yellow-500/20 text-yellow-400">System Role</span>
                                             )}
                                         </div>
@@ -386,7 +431,7 @@ export default function RolesPage() {
                                                             <button
                                                                 key={perm}
                                                                 onClick={() => togglePermission(selectedRole.id, key, perm)}
-                                                                disabled={selectedRole.is_system_role}
+                                                                disabled={isWildcardRole(selectedRole)}
                                                                 className={`p-3 rounded-xl flex items-center gap-3 transition-all disabled:cursor-not-allowed border ${has ? 'bg-green-500/10 border-green-500/20' : 'bg-white/[0.01] border-white/[0.03]'}`}
                                                             >
                                                                 <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] ${has ? 'bg-green-500/10 text-green-400' : 'bg-white/[0.05] text-white/20'}`}>
@@ -441,6 +486,38 @@ export default function RolesPage() {
                     <div>
                         <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 block">설명</label>
                         <input value={addForm.description} onChange={e => setAddForm({ ...addForm, description: e.target.value })} placeholder="역할에 대한 설명" className="w-full admin-search-input" />
+                    </div>
+                </div>
+            </AdminModal>
+
+            {/* 역할 정보 편집 Modal */}
+            <AdminModal
+                isOpen={showEditModal}
+                onClose={() => { setShowEditModal(false); setEditingRole(null); }}
+                title={`역할 편집 — ${editingRole?.display_name || ''}`}
+                size="sm"
+                footer={
+                    <div className="flex gap-3 justify-end">
+                        <button onClick={() => { setShowEditModal(false); setEditingRole(null); }} className="px-5 py-2.5 rounded-xl text-xs font-bold text-white/50 bg-white/[0.03] border border-white/5">취소</button>
+                        <button onClick={saveRoleEdit} disabled={saving || !editForm.display_name.trim()} className="admin-action-btn disabled:opacity-50">
+                            {saving ? '저장 중...' : '저장'}
+                        </button>
+                    </div>
+                }
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 block">역할 코드명</label>
+                        <input value={editingRole?.name || ''} disabled className="w-full admin-search-input opacity-50" />
+                        <p className="text-[9px] text-white/30 mt-1">코드명은 권한 판별에 사용되어 변경할 수 없습니다.</p>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 block">표시 이름 *</label>
+                        <input value={editForm.display_name} onChange={e => setEditForm({ ...editForm, display_name: e.target.value })} className="w-full admin-search-input" />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-widest mb-2 block">설명</label>
+                        <input value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} className="w-full admin-search-input" />
                     </div>
                 </div>
             </AdminModal>
