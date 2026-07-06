@@ -129,11 +129,32 @@ export default function RolesPage() {
         }
     }
 
+    // DB permissions에는 두 형태가 공존한다:
+    //  1) UI 저장 형태(배열): { members: ['view','edit'] }
+    //  2) RBAC 시드 형태(불리언 맵): { '*': {read,write,delete}, members: {read:true, write:true} }
+    // 기존 hasPermission이 (2)에서 객체에 .includes를 호출해 TypeError로
+    // Manager/Staff/Coach 역할 클릭 시 화면 에러가 나던 원인. 양형 모두 지원한다.
+    const LEGACY_ACTION_MAP: Record<string, string> = { view: 'read', edit: 'write', delete: 'delete' };
+    const LEGACY_ACTION_REVERSE: Record<string, string> = { read: 'view', write: 'edit', delete: 'delete' };
+
+    function normalizeGroupPerms(groupPerms: unknown): string[] {
+        if (Array.isArray(groupPerms)) return groupPerms as string[];
+        if (groupPerms && typeof groupPerms === 'object') {
+            return Object.entries(groupPerms as Record<string, boolean>)
+                .filter(([, v]) => v)
+                .map(([k]) => LEGACY_ACTION_REVERSE[k] || k);
+        }
+        return [];
+    }
+
     async function togglePermission(roleId: string, groupKey: string, perm: string) {
         const role = roles.find(r => r.id === roleId);
         if (!role || role.is_system_role) return;
 
-        const updated = { ...role.permissions };
+        const updated: Record<string, string[]> = {};
+        Object.entries(role.permissions || {}).forEach(([g, v]) => {
+            updated[g] = normalizeGroupPerms(v);
+        });
         const groupPerms = updated[groupKey] || [];
         if (groupPerms.includes(perm)) {
             updated[groupKey] = groupPerms.filter(p => p !== perm);
@@ -151,9 +172,18 @@ export default function RolesPage() {
     }
 
     function hasPermission(role: Role, groupKey: string, perm: string): boolean {
-        const groupPerms = role.permissions?.[groupKey];
-        if (!groupPerms) return false;
-        return groupPerms.includes(perm);
+        const perms = role.permissions as Record<string, unknown> | null;
+        if (!perms) return false;
+        // 와일드카드(super_admin 시드): 전체 권한 보유로 표시
+        const wildcard = perms['*'];
+        if (wildcard && typeof wildcard === 'object') return true;
+        const groupPerms = perms[groupKey];
+        if (Array.isArray(groupPerms)) return (groupPerms as string[]).includes(perm);
+        if (groupPerms && typeof groupPerms === 'object') {
+            const map = groupPerms as Record<string, boolean>;
+            return Boolean(map[perm] || map[LEGACY_ACTION_MAP[perm] || '']);
+        }
+        return false;
     }
 
     // T2-7: Open user assignment modal
@@ -306,8 +336,8 @@ export default function RolesPage() {
                                                     <span className="text-[9px] font-bold text-[var(--primary)]">{role.userCount || 0}명</span>
                                                 </div>
                                             </button>
-                                            {/* Action buttons */}
-                                            <div className="flex gap-2 px-5 pb-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            {/* Action buttons — hover 시에만 노출되던 것을 항상 표시 (삭제/배정 발견성) */}
+                                            <div className="flex gap-2 px-5 pb-4">
                                                 <button onClick={() => openAssignModal(role)}
                                                     className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[8px] font-black uppercase bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500/20 transition-all">
                                                     <IconMembers size={12} /> 사용자 배정
