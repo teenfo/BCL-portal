@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import TodayAlertSummary from '@/components/coach/dashboard/TodayAlertSummary';
 import CoachKPISnapshot from '@/components/coach/dashboard/CoachKPISnapshot';
+import FollowupSummary from '@/components/coach/dashboard/FollowupSummary';
 
 interface TodaySession {
     id: string;
@@ -163,6 +164,9 @@ export default function CoachDashboardPage() {
             {/* Today's Member Alert Summary */}
             <TodayAlertSummary />
 
+            {/* Open Follow-ups (P25) */}
+            <FollowupSummary />
+
             {/* Current Session */}
             {currentSession && (
                 <div style={{ marginBottom: '1.5rem' }}>
@@ -206,7 +210,7 @@ export default function CoachDashboardPage() {
                         padding: '1rem 1.25rem',
                         marginBottom: '1.5rem',
                         border: '1px solid var(--app-accent)',
-                        background: 'linear-gradient(135deg, rgba(255,106,0,0.08) 0%, rgba(255,106,0,0.02) 100%)',
+                        background: 'var(--app-accent-light)',
                     }}>
                         <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--app-accent)', marginBottom: 4 }}>
                             다음 세션

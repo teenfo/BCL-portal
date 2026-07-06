@@ -89,8 +89,8 @@ export default function CoachKPISnapshot({ mode = 'compact', yearMonth }: CoachK
         style={{
           padding: '1rem 1.25rem',
           marginBottom: '1.5rem',
-          background: 'linear-gradient(135deg, rgba(255,106,0,0.06) 0%, rgba(255,106,0,0.02) 100%)',
-          border: '1px solid rgba(255,106,0,0.15)',
+          background: 'var(--app-accent-light)',
+          border: '1px solid var(--app-accent-badge)',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>

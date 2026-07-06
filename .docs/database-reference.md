@@ -94,6 +94,13 @@
 |--------|------|-----------|
 | `membership_history` | 변경 이력 | membership_id, action_type, old_values, new_values, changed_by |
 
+#### 퍼포먼스 / 후속 조치 (P2 — Priority 25) 🆕
+| 테이블 | 설명 | 주요 컬럼 |
+|--------|------|-----------|
+| `benchmark_definitions` | 벤치마크 종목 정의 (time은 낮을수록, 그 외 높을수록 좋은 기록) | facility_id, name, metric_type(time/reps/weight/distance/calories), unit, is_active |
+| `member_benchmark_results` | 회원 벤치마크 결과 + PR 판정 | member_id, benchmark_id, session_id, race_event_id, result_value, result_meta(JSONB), is_pr, recorded_by |
+| `coach_followups` | 코치 후속 조치 태스크 | member_id, session_id, coach_id, followup_type(injury/trial_conversion/renewal/absence/motivation), priority, status(open/completed/dismissed), due_date, note |
+
 #### 알림 시스템 (Notification)
 | 테이블 | 설명 | 주요 컬럼 |
 |--------|------|-----------|
@@ -128,6 +135,13 @@
 | `fn_get_coach_monthly_settlement_basis` | RPC Function | `coaches`, `session_coaches`, `sessions`, `coach_settlements` | 코치 월간 정산 기초 계층 집계 (예상 정산 원천) — Coach/Admin 🆕 |
 | `fn_get_coach_monthly_kpis` | RPC Function | `sessions`, `bookings`, `checkins`, `memberships` | 코치 자신의 월간 KPI 통합 조회 (출석률/no-show/만기예정/예상정산) 🆕 |
 | `fn_get_coach_retention_panel` | RPC Function | `bookings`, `sessions`, `memberships`, `checkins` | 코치 담당 회원 만기 예정 + 장기 미출석 리텐션 위험 패널 🆕 |
+| `fn_list_benchmark_definitions` | RPC Function | `benchmark_definitions` | 벤치마크 정의 목록 조회 (P25) 🆕 |
+| `fn_record_member_benchmark_result` | RPC Function | `member_benchmark_results` | 벤치마크 결과 기록 + PR 자동 판정 (coach/admin, P25) 🆕 |
+| `fn_get_member_performance_profile` | RPC Function | `member_benchmark_results`, `race_records` | 회원 퍼포먼스 프로필 (벤치마크 베스트 + Race 이력 통합, P25) 🆕 |
+| `fn_create_followup` | RPC Function | `coach_followups` | 후속 조치 생성 (코치 컨텍스트, JSONB payload, P25) 🆕 |
+| `fn_complete_followup` | RPC Function | `coach_followups` | 후속 조치 상태 전환 (completed/dismissed/open, P25) 🆕 |
+| `fn_get_my_followups` | RPC Function | `coach_followups`, `members` | 내 후속 조치 목록 (priority > due_date 순, is_overdue 포함, P25) 🆕 |
+| `fn_prepare_race_session` | RPC Function | `race_events`, `sessions`, `session_coaches` | 세션 운영 보드 → Race 진입: 세션 연동 이벤트 재개 또는 생성 (P25) 🆕 |
 
 #### 보조 시스템 (Supplementary) 🆕
 | 테이블 | 설명 | 주요 컬럼 |
@@ -193,7 +207,14 @@ supabase/migrations/
 ├── 20260425120000_coach_p0_session_ops.sql (Priority 22 Coach P0)
 ├── 20260426120000_p1a_class_standardization.sql (Priority 23 P1-A WOD 표준화)
 ├── 20260426130000_fix_anon_rls_exposure.sql (보안 패치: anon 노출 차단) 🔒
-└── 20260530_priority24_p1b_kpi_settlement_basis.sql (Priority 24 P1-B KPI/정산 Basis Layer) 🆕
+├── 20260530180000_priority24_p1b_kpi_settlement_basis.sql (Priority 24 P1-B KPI/정산 Basis Layer)
+├── 20260530193000_wod_station_circuit.sql (WOD 스테이션 서킷 + 세션 순환 상태)
+├── 20260530200000_p26_phase1_movement_library_admin.sql (Priority 26 운동 라이브러리 관리)
+├── 20260530220000_p0_rls_hardening.sql (보안 하드닝: 순환 상태 쓰기 제한 + 템플릿 DELETE admin 전용) 🔒
+├── 20260530230000_race_perf_indexes.sql (Race realtime/결과적재 인덱스)
+├── 20260705100000_p2_performance_followup.sql (Priority 25 P2 퍼포먼스/후속조치/Race 재통합) 🆕
+├── 20260705150000_p26_movement_category_fk.sql (운동 카테고리 CHECK → movement_categories FK 전환) 🆕
+└── 20260705160000_p25_hardening.sql (Race coach 쓰기 정책 + P2 RPC 방어/동시성 강화) 🔒
 ```
 
 > 🔧 = 감사 지적 복구 마이그레이션 | 🔒 = 보안 패치

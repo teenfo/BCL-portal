@@ -228,7 +228,7 @@ function SchedulePageContent() {
                                     {session.race_linked && (
                                         <span style={{
                                             padding: '0.125rem 0.5rem', borderRadius: 999,
-                                            background: 'rgba(255,106,0,0.15)', color: '#FF6A00',
+                                            background: 'var(--app-accent-badge)', color: 'var(--app-accent)',
                                             fontSize: '0.625rem', fontWeight: 700,
                                         }}>🏁 Race</span>
                                     )}
