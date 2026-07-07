@@ -845,12 +845,13 @@ action ∈ checked_in/no_show/late_cancel/coach_excused/walk_in. checked_in·wal
 | 26 | `fn_get_member_context_panel(p_member_id uuid)` 🔄 | staff — member+active_flags+recent_notes(member_notes 통합)+attendance+active_membership+**open_followups** (fn_list_member_alert_flags 흡수) |
 | 27 | `fn_upsert_member_alert_flag(p_member_id uuid, p_payload jsonb)` | staff — resolved=true 시 해제 |
 
-### 7.7 KPI/정산 (2)
+### 7.7 KPI/정산·환불 (3)
 
 | # | 시그니처 | 권한 |
 |---|---|---|
 | 28 | `fn_get_coach_monthly_report(p_year_month text=null, p_sections text[]=['basis','kpis','retention'])` 🔄 | coach 본인 — **P1-B 3종 통합** |
 | 29 | `fn_calculate_monthly_settlement(p_year_month text)` 🔄 | admin — 전 코치 스냅샷 upsert. cancelled 세션 제외(버그 수정), confirmed/paid 스냅샷 보호 |
+| 29b | `fn_calculate_refund(p_transaction_id uuid, p_membership_id uuid)` 🔄(G-8) | admin — 환불 예상액 서버 계산(🔒-3 클라이언트 금액 불신). 기간제=이용일수 비례/횟수제=사용 크레딧 비례, `min(위약금, 결제금액×10%)` 강제 캡(계약 §6b). 반환 `{refund_amount, penalty_amount, penalty_rate, used_amount, used_days, total_days, basis}` — 08 §1.6 산식의 단일 구현 |
 
 `fn_get_coach_monthly_report` 반환(섹션 선택형):
 ```json

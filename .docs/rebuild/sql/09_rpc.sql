@@ -34,7 +34,7 @@
 --   [F] 런시트 4종           : fn_list_runbook_templates / fn_upsert_runbook_template /
 --                              fn_get_session_runbook / fn_upsert_session_runbook
 --   [G] 회원 컨텍스트 2종    : fn_get_member_context_panel / fn_upsert_member_alert_flag
---   [H] KPI/정산 2종         : fn_get_coach_monthly_report / fn_calculate_monthly_settlement
+--   [H] KPI/정산·환불 3종    : fn_get_coach_monthly_report / fn_calculate_monthly_settlement / fn_calculate_refund
 --   [I] 퍼포먼스 6종         : fn_list_benchmark_definitions / fn_record_member_benchmark_result(🔄+rx)
 --                              / fn_get_member_performance_profile(🔄+WOD 타임라인) / fn_create_followup
 --                              / fn_complete_followup / fn_get_my_followups
@@ -1874,6 +1874,88 @@ END;
 $$;
 
 
+-- H.3 fn_calculate_refund(p_transaction_id, p_membership_id) — 환불 예상액 서버 계산 (Admin)
+--     【결제 안전 불변식 🔒-3】 환불 금액은 이 함수만이 산정한다 — 클라이언트 입력값 불신.
+--     G-8(계약 §6b): 환불금 = 결제금액 − 이용분 해당액 − min(위약금, 결제금액×10%).
+--     refund_policy.penalty_rate_cap 오버라이드가 있어도 0.10 초과분은 함수가 강제 캡.
+--     기간제 = 이용일수 비례 / 횟수제(end_date 없음) = 사용 크레딧 비례.
+CREATE OR REPLACE FUNCTION public.fn_calculate_refund(p_transaction_id UUID, p_membership_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_tx          RECORD;
+    v_ms          RECORD;
+    v_rate        NUMERIC;
+    v_total_days  INT;
+    v_used_days   INT;
+    v_used_amount NUMERIC;
+    v_penalty     NUMERIC;
+    v_refund      NUMERIC;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+
+    SELECT t.id, t.amount, t.status, t.membership_id
+      INTO v_tx
+      FROM public.transactions t
+     WHERE t.id = p_transaction_id;
+    IF v_tx.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'transaction_not_found');
+    END IF;
+    IF v_tx.status <> 'completed' THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'transaction_not_refundable');
+    END IF;
+    IF v_tx.membership_id IS NOT NULL AND v_tx.membership_id <> p_membership_id THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'membership_mismatch');
+    END IF;
+
+    SELECT m.id, m.start_date, m.end_date, m.remaining_credits,
+           COALESCE(mp.refund_policy, '{}'::jsonb) AS refund_policy,
+           mp.credit_count
+      INTO v_ms
+      FROM public.memberships m
+      LEFT JOIN public.membership_plans mp ON mp.id = m.plan_id
+     WHERE m.id = p_membership_id;
+    IF v_ms.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'membership_not_found');
+    END IF;
+
+    -- 위약금율: 정책 오버라이드 허용하되 10% 강제 캡 (chk_refund_penalty_cap과 이중 방어)
+    v_rate := LEAST(COALESCE((v_ms.refund_policy->>'penalty_rate_cap')::NUMERIC, 0.10), 0.10);
+
+    IF v_ms.end_date IS NOT NULL THEN
+        -- 기간제: 이용일수 비례 (시작 전 해지 = 이용분 0)
+        v_total_days  := GREATEST(v_ms.end_date - v_ms.start_date + 1, 1);
+        v_used_days   := LEAST(GREATEST(CURRENT_DATE - v_ms.start_date + 1, 0), v_total_days);
+        v_used_amount := round(v_tx.amount * v_used_days / v_total_days);
+    ELSE
+        -- 횟수제: 사용 크레딧 비례
+        v_total_days  := COALESCE(v_ms.credit_count, 0);
+        v_used_days   := GREATEST(COALESCE(v_ms.credit_count, 0) - COALESCE(v_ms.remaining_credits, 0), 0);
+        v_used_amount := CASE WHEN COALESCE(v_ms.credit_count, 0) > 0
+                              THEN round(v_tx.amount * v_used_days / v_ms.credit_count)
+                              ELSE 0 END;
+    END IF;
+
+    v_penalty := LEAST(round(v_tx.amount * v_rate), v_tx.amount);
+    v_refund  := GREATEST(v_tx.amount - v_used_amount - v_penalty, 0);
+
+    RETURN jsonb_build_object('success', true, 'data', jsonb_build_object(
+        'refund_amount',      v_refund,
+        'penalty_amount',     v_penalty,
+        'penalty_rate',       v_rate,
+        'used_amount',        v_used_amount,
+        'used_days',          v_used_days,          -- 횟수제는 사용 크레딧 수
+        'total_days',         v_total_days,         -- 횟수제는 총 크레딧 수
+        'basis',              CASE WHEN v_ms.end_date IS NOT NULL THEN 'period' ELSE 'credit' END,
+        'transaction_amount', v_tx.amount
+    ), 'error', NULL);
+END;
+$$;
+
+
 -- ============================================================================
 -- [I] 퍼포먼스 (P2/P25 하드닝판 승계)
 -- ============================================================================
@@ -3040,6 +3122,7 @@ BEGIN
         ('public.fn_upsert_member_alert_flag(uuid,jsonb)'),
         ('public.fn_get_coach_monthly_report(text,text[])'),
         ('public.fn_calculate_monthly_settlement(text)'),
+        ('public.fn_calculate_refund(uuid,uuid)'),
         ('public.fn_list_benchmark_definitions(boolean)'),
         ('public.fn_record_member_benchmark_result(uuid,uuid,numeric,uuid,uuid,jsonb,text)'),
         ('public.fn_get_member_performance_profile(uuid)'),

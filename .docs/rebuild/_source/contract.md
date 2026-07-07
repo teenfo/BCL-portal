@@ -34,7 +34,7 @@
 WOD: `fn_search_wod_movements`, `fn_list_movement_library`, `fn_list_wod_templates`, `fn_get_wod_template`, `fn_upsert_wod_template`, `fn_publish_wod_template`, `fn_get_session_wod`, `fn_upsert_session_wod`, `fn_publish_session_wod`, `fn_get_class_display_wod`
 런시트: `fn_list_runbook_templates`, `fn_upsert_runbook_template`, `fn_get_session_runbook`, `fn_upsert_session_runbook`
 회원 컨텍스트: `fn_get_member_context_panel`, `fn_upsert_member_alert_flag`
-KPI/정산: `fn_get_coach_monthly_report(p_year_month, p_sections text[])`🔄(basis+kpis+retention 통합), `fn_calculate_monthly_settlement`(Admin)
+KPI/정산: `fn_get_coach_monthly_report(p_year_month, p_sections text[])`🔄(basis+kpis+retention 통합), `fn_calculate_monthly_settlement`(Admin), `fn_calculate_refund(p_transaction_id, p_membership_id)`(Admin — 환불 서버 계산, 10% 캡 내장 §6b)
 퍼포먼스: `fn_list_benchmark_definitions`, `fn_record_member_benchmark_result`🔄(+rx_status), `fn_get_member_performance_profile`🔄(+일일 WOD 기록 타임라인 포함), `fn_create_followup`, `fn_complete_followup`, `fn_get_my_followups`
 일일 WOD 기록⏳(G-1~G-3): `fn_record_session_wod_result`(본인 기록, rx_status 포함), `fn_get_session_wod_whiteboard(p_session_id)`(전원 결과 — Rx+→Rx→Scaled 계층 정렬), `fn_get_my_wod_prep(p_session_id)`(예정 WOD + 동일 벤치마크·동작의 본인 과거 베스트 조인)
 배지⏳: `fn_get_my_badges`, `fn_evaluate_badges`(트리거 경유)
