@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-websockets
-supabase
-python-dotenv
-bleak
-pydantic
