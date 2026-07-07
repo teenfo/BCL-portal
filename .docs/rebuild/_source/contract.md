@@ -38,6 +38,7 @@ KPI/정산: `fn_get_coach_monthly_report(p_year_month, p_sections text[])`🔄(b
 퍼포먼스: `fn_list_benchmark_definitions`, `fn_record_member_benchmark_result`, `fn_get_member_performance_profile`, `fn_create_followup`, `fn_complete_followup`, `fn_get_my_followups`
 배지⏳: `fn_get_my_badges`, `fn_evaluate_badges`(트리거 경유)
 Race: `fn_prepare_race_session(p_session_id, p_race_format)`🔄(모드 파라미터)
+키오스크: `fn_kiosk_checkin(p_payload)`⏳(QR 검증→예약 감지→checkins+outcome 원자 처리 — 06 문서 제안 등재)
 Admin 대시보드: `fn_get_dashboard_kpis`, `fn_get_revenue_stats`, `fn_get_coach_performance_stats`
 ※ 폐지: fn_get_coach_dashboard/fn_get_session_attendees/fn_coach_mark_attendance/fn_bulk_mark_session_attendance(→fn_mark_attendance)/fn_get_coach_monthly_settlement_basis·kpis·retention_panel(→monthly_report)
 
