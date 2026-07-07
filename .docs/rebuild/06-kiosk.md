@@ -23,7 +23,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 성격 | 무인 셀프 체크인 키오스크. 회원 앱(03 §3.3)이 발급한 **동적 QR을 카메라로 판독** → 서버 검증 → 결과 표시 |
+| 성격 | 무인 셀프 체크인 키오스크. 회원 앱(03 §3.3)이 발급한 **동적 QR을 카메라로 판독** → 서버 검증 → 결과 표시. ⏳ 드롭인·체험 게스트 경로 포함(§4.6, G-7) |
 | 화면 | 3화면 유지: **idle → scan → success**(as-is 구조 승계 — 단순함이 미덕인 단말) |
 | 계정 | 지점 공용 계정(facility 스코프) 로그인 상시 유지 — 세션 만료 시 idle에 재로그인 안내 오버레이(무한 스피너 금지) |
 | 단말 등록 | `kiosk_devices` 등록 단말만 체크인 처리 허용(device_id 로컬 보관), Admin이 `/admin` 설정(infrastructure 승계 화면)에서 원격 제어 |
@@ -39,6 +39,7 @@
 | QR 디코딩 | **수동 입력 폴백만 실동작(자동 인식 mock)** | **자동 디코딩 정식 요구로 승격**: BarcodeDetector → jsQR 폴백 (§5) | 🧪 → ⏳ 정식 설계 |
 | 체크인 기록 | `checkins` INSERT (문서상 check_ins 표기 혼재) | `checkins` 단일 표준 + 원자적 RPC 처리(§4.4) | ✅→🔄 |
 | 예약 감지 | ±30분 분기(구현) | 프로토콜 완결 명세로 고정(§4.2~4.3) | ✅ |
+| 멤버십 검증 | 활성 멤버십 없음 → NO_MEMBERSHIP 일괄 거부(드롭인 체크인 자체 불가) | **plan_kind 인식형 분기**(standard/drop_in/trial — §4.2⑤) + 게스트 흐름(§4.6) | 🔄/⏳ (G-7, 16 문서) |
 | Heartbeat | 30s(`kiosk_devices.last_heartbeat`) | 유지 + 원격 명령 Realtime 수신(§6) | ✅/🔄 |
 | 오프라인 | 없음(네트워크 단절 = 기능 정지) | 로컬 큐 폴백 신설(§7) | ⏳ |
 
@@ -69,7 +70,7 @@
 | 항목 | 내용 |
 |---|---|
 | 목적 | 체크인 결과를 회원이 지나가며 1초에 인지 |
-| 핵심 기능 | ① 회원명 + 인사 ② **분기 결과 표기**: 수업 체크인(수업명·시작 시간·코치) vs 시설 체크인(자유 이용) ③ 잔여 크레딧 / 멤버십 D-Day(만료 ≤7일 경고 색) ④ 중복 체크인이었다면 "이미 체크인되었습니다"(기존 시각 표기) ⑤ **5초 후 idle 자동 복귀** |
+| 핵심 기능 | ① 회원명 + 인사 ② **분기 결과 표기**: 수업 체크인(수업명·시작 시간·코치) vs 시설 체크인(자유 이용) ③ 잔여 크레딧 / 멤버십 D-Day(만료 ≤7일 경고 색) — 🔄 drop_in/trial은 plan_kind 라벨("드롭인"/"체험") + 차감 후 잔여 횟수·당일 유효 표기(G-7, 16 문서) ④ 중복 체크인이었다면 "이미 체크인되었습니다"(기존 시각 표기) ⑤ **5초 후 idle 자동 복귀** |
 | 데이터 | §4.4 RPC 응답 data만 사용(추가 조회 없음 — 표시 지연 방지) |
 | 현재 상태 | ✅ |
 
@@ -103,7 +104,13 @@ QR 내용 = JSON 직렬화 문자열:
 ② 만료:   now - ts > 300s → 거부 [QR_EXPIRED]
 ③ 회원:   mid 실존 + status 활성 + is_blacklisted=false → 아니면 [MEMBER_INVALID]
 ④ 지점:   fid = 단말 facility (facility_sharing 예외) → 아니면 [FACILITY_MISMATCH]
-⑤ 멤버십: 활성 memberships 존재 → 없으면 [NO_MEMBERSHIP] (체크인 거부 + 데스크 안내)
+⑤ 멤버십: 🔄 plan_kind 인식형 분기(G-7, 16 문서) — 활성 memberships를 membership_plans.plan_kind로 판정
+   · standard  : 유효 기간 내 활성 → 통과
+   · drop_in/trial: 유효 조건 = 잔여 크레딧 ≥ 1 AND 당일 유효(발권일 = 사용일 기본,
+     시설 정책으로 유효기간 연장 가능) → 통과. 체크인 성공 시 §4.4 동일 트랜잭션에서
+     크레딧 1 차감(검증만 통과하고 차감 실패하는 부분실패 금지)
+   · 셋 다 해당 없음 → [NO_MEMBERSHIP] (체크인 거부 + 데스크 안내)
+     ※ 구 규칙 "활성 멤버십 없음 = 일괄 거부"는 폐기 — 드롭인·체험 유효 멤버십은 통과
 ⑥ 중복:   동일 mid + 동일 facility + 최근 5분 내 checkins 존재
           → 신규 INSERT 없이 [ALREADY_CHECKED_IN] (success 화면에 기존 체크인 표기)
 ⑦ 예약 자동감지(±30분): 아래 4.3 분기
@@ -133,13 +140,32 @@ QR 내용 = JSON 직렬화 문자열:
 
 ### 4.4 서버 처리 — 원자적 RPC
 
-- ⏳ **`fn_kiosk_checkin(p_payload jsonb, p_device_id uuid)`** — SECURITY DEFINER, §4.2~4.3 전체를 단일 트랜잭션으로 수행(중복 판정은 advisory lock 또는 UNIQUE 부분 인덱스로 동시 스캔 경합 차단). 반환 envelope `{success, data:{member_name, checkin_type: 'session'|'facility', session?, remaining_credits, membership_dday, duplicated}, error:{code}}`.
-- ※ 본 RPC는 contract §4의 30종 목록 외 **신규 제안** — 07-data-model 확정 시 표준 목록 등재 필요(교차검수 항목). 근거: 검증 7단계+이중 쓰기(checkins+bookings)를 클라이언트 다중 쿼리로 두면 경합·부분실패가 구조적으로 발생.
+- ⏳ **`fn_kiosk_checkin(p_payload jsonb, p_device_id uuid)`** — SECURITY DEFINER, §4.2~4.3 전체를 단일 트랜잭션으로 수행(중복 판정은 advisory lock 또는 UNIQUE 부분 인덱스로 동시 스캔 경합 차단). 🔄 plan_kind=drop_in/trial의 유효 판정+**크레딧 차감**도 같은 트랜잭션에 포함(§4.2⑤ — G-7, 16 문서). 반환 envelope `{success, data:{member_name, checkin_type: 'session'|'facility', session?, plan_kind 🔄, remaining_credits, membership_dday, duplicated}, error:{code}}`.
+- ※ 본 RPC는 contract §4 표준 목록에 **등재 완료**(06 문서 제안 → 4차 보정 반영: "plan_kind=drop_in/trial 멤버십도 유효 처리 — NO_MEMBERSHIP 거부 분기 해소, G-7"). 시그니처 전수 정본은 07-data-model §7. 근거: 검증 7단계+이중 쓰기(checkins+bookings)+크레딧 차감을 클라이언트 다중 쿼리로 두면 경합·부분실패가 구조적으로 발생.
 - 체크인 성공 시 `notifications` INSERT(회원 앱 Realtime 토스트의 원천 — 03 §3.3 ④).
 
 ### 4.5 보조 경로 — 고정 QR (`qr_codes`)
 
 시설 부착 인쇄형 고정 QR(Admin이 발급·관리)은 **역방향 경로**: 회원 폰 카메라로 스캔 → `/apps/checkin` 딥링크(동적 QR 화면 오픈). 고정 QR 자체는 체크인을 발생시키지 않는다 — 키오스크 프로토콜과 분리 유지.
+
+### 4.6 게스트(드롭인·체험) 체크인 흐름 ⏳ (G-7, 16 문서)
+
+드롭인 구매 직후 게스트가 **회원 앱 설치 없이** 체크인하는 표준 경로. `membership_plans.plan_kind=standard/drop_in/trial` 확장(contract §2)에 대응하며, as-is의 "드롭인 체크인 자체 불가"(NO_MEMBERSHIP 일괄 거부) 공백을 해소한다.
+
+```
+① 발권(데스크): Admin/데스크가 drop_in·trial 상품 결제(08 문서) →
+   members 경량 등록(이름+연락처 — 기존 회원이면 재사용)
+   + memberships 발급(plan_kind=drop_in|trial, 크레딧 N, 당일 유효)
+② 전달(발권 완료 화면에서 두 경로 제공):
+   · QR: 결제 완료 문자/알림톡 링크 → 웹 1회용 체크인 QR(§4.1과 동일 페이로드, mid=게스트 member_id)
+   · 수동 코드: 폰 미사용 게스트용 — 발권 시 출력되는 6자리 1회용 체크인 코드
+③ 체크인: 키오스크 scan에서 QR 판독 또는 수동 코드 입력 → §4.2 파이프라인
+   (⑤ drop_in/trial 유효 판정 + 크레딧 차감, §4.3 예약 감지 동일 적용)
+   → success: "드롭인 · 잔여 0회 · 당일 유효" 표기(§3.3 ③)
+```
+
+- 수동 코드는 기존 "전화번호 뒤 4자리" 폴백(§3.2 ⑤)과 별개의 **발권 연동 1회용 코드**(사용 즉시 소멸·당일 만료) — 게스트는 동적 QR을 발급할 앱 세션이 없기 때문. 서버 검증·기록은 동일하게 `fn_kiosk_checkin` 단일 경로(payload에 코드 필드 허용 — v 확장, §4.1).
+- trial 체크인 성공 시 코치 세션보드에 trial 플래그 노출(`member_alert_flags` trial 타입 연동, 04 문서) — 체험 후 전환 상담 후속조치의 트리거.
 
 ---
 
@@ -192,3 +218,4 @@ as-is는 자동 인식이 mock(수동 입력만 실동작)이었다. 재구축�
 4. 동일 회원 3분 내 재스캔 → 중복 안내(신규 `checkins` 0건)
 5. 네트워크 차단 → 오프라인 스캔 2건 큐잉 → 복구 → 서버 기록 2건·중복 0건, scanned_at 기준 판정 확인
 6. Heartbeat 중단 90초 → Admin 화면 offline 표기 → `reload` 원격 명령 수신·재기동
+7. ⏳(G-7) 드롭인 발권 직후 게스트 → 1회용 코드/QR 체크인 → 통과 + 크레딧 1→0 **원자 차감**·success에 "드롭인·잔여 0회" 표기. 동일 코드 재사용 → 거부. 크레딧 0 상태로 재방문 → NO_MEMBERSHIP 거부

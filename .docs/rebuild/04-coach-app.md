@@ -10,7 +10,7 @@
 
 ## 0. 문서 범위와 위상
 
-Coach 앱은 **"코치가 수업 현장에서 손에 들고 쓰는 운영 OS"**다. 데스크탑 Admin이 "설정·정산·통제"라면, Coach 앱은 "오늘 수업을 굴리는 실행기"다. as-is에서 P0(운영 안정화)→P1-A(수업 표준화)→P1-B(정산 가시화)→P2(퍼포먼스·후속조치·Race 재통합)까지 완성된 도메인으로, 재구축에서는 **기능 축소 없이 RPC 표면 통합(§4)과 IA 강조점 이동(§2)** 만 반영한다.
+Coach 앱은 **"코치가 수업 현장에서 손에 들고 쓰는 운영 OS"**다. 데스크탑 Admin이 "설정·정산·통제"라면, Coach 앱은 "오늘 수업을 굴리는 실행기"다. as-is에서 P0(운영 안정화)→P1-A(수업 표준화)→P1-B(정산 가시화)→P2(퍼포먼스·후속조치·Race 재통합)까지 완성된 도메인으로, 재구축에서는 **기능 축소 없이 RPC 표면 통합(§4)과 IA 강조점 이동(§2)** 을 반영하고, 벤치마킹 최종 검수(16-benchmark-gap-analysis)로 확정된 **일일 WOD 기록 루프의 코치 측 표면(§3.2 (b-2), G-1·G-2)** 을 신규 추가한다.
 
 - 대상 라우트(전수 8개): `/coach`(인덱스 리다이렉트), `/coach/dashboard`, `/coach/schedule`, `/coach/schedule/rotation`, `/coach/members`, `/coach/race`, `/coach/race/control`, `/coach/profile`
 - 디바이스 프로파일: 모바일/태블릿 세로 우선(코칭 패드 가로 대응), `data-density=mobile`, 디자인 토큰 `--bcl-*` 단일 세트(12-design-system.md)
@@ -129,6 +129,14 @@ pending ──키오스크/QR──▶ checked_in
 - **Save Draft** → `fn_upsert_session_wod`(publish_state=draft) / **Publish** → `fn_publish_session_wod`(movements_snapshot JSONB 동결 — publish 후 템플릿이 바뀌어도 세션 WOD 불변).
 - 전광판 미리보기 = `fn_get_class_display_wod` 응답 그대로 렌더(TV와 동일 소스 — 미리보기 별도 조립 금지). 공개용 메모는 `class_display_notes` 필드에만 작성(Display-Safe §1.3).
 - 🔄 레거시 `wods` 테이블·`sessions.wod_description` 완전 제거 — fallback 코드 이관 금지.
+
+#### (b-2) WOD 기록 입력 보조 + 세션 화이트보드 ⏳ (G-1·G-2, 16 문서)
+
+일일 WOD 점수 로깅(디지털 화이트보드)의 코치 측 표면. 데이터 정본은 `session_wod_results`(session_wod_id, member_id, score, score_type, rx_status[rx_plus/rx/scaled], note — contract §2).
+
+- **기록 입력 보조** ⏳ — 회원 본인 기록(03 문서, `fn_record_session_wod_result`)이 기본 경로이나, 현장에서 앱 미사용 회원의 점수를 **코치가 대신 입력**할 수 있다. 동일 RPC `fn_record_session_wod_result`에 대상 member_id를 지정해 호출 — 본인 외 기록은 서버가 **배정 코치/Admin 여부를 검증**(원칙 ②, `_assert_coach_can_edit_session` 경로)하고 입력 주체를 감사 기록. 입력 항목: score(`score_type`별 동적 단위), **`rx_status`(rx_plus/rx/scaled) 필수 선택**, note(선택). 기록 대상은 해당 세션의 **published WOD 한정**, 저장은 세션 WOD·회원당 1건 UPSERT(재입력=정정).
+- **세션 화이트보드 조회** ⏳ — `fn_get_session_wod_whiteboard(p_session_id)`: 세션 참가 전원의 결과를 **Rx+ → Rx → Scaled 계층 정렬**(계층 내 score_type=time은 오름차순, 그 외 내림차순 — contract §4 단일 정의)로 표시. 체크인 대비 **미기록 인원은 하단 별도 그룹**으로 노출해 입력 보조 진입 CTA로 연결. 코치 화면에는 note까지 표시하되, TV/공개 표면 전달은 Class 공개 RPC 경유만 허용(05 문서 §5.3) — note·부상 플래그는 공개 표면에 비노출(Display-Safe §1.3).
+- ※ "출석 대비 기록률" 코치 KPI 지표는 P2 로드맵(G-13, 16 문서) — 본 재구축 범위에서는 `fn_get_coach_monthly_report` kpis 섹션의 확장 여지만 확보한다.
 
 #### (c) 런시트 패널 (6탭 오버라이드) ✅
 
@@ -264,6 +272,7 @@ as-is에서 수동 테스트로 남아 있던 항목(P22 Phase5 · P23 Phase4 ·
 - S-21: 전광판 미리보기 = `/class/wod` 실렌더와 동일(같은 RPC 소스)
 - S-22: 런시트 6탭 중 2탭만 오버라이드 저장 → 나머지 4탭은 시설 템플릿 값 상속 표시, dirty 추적 정확
 - S-23: **Display-Safe**: `/class/*` 어느 화면에도 injury 플래그·노트·후속조치·정산 데이터가 응답 페이로드에 포함되지 않음(네트워크 레벨 검증)
+- S-24 ⏳(G-1·G-2): 코치가 회원 대신 WOD 점수 입력(rx_status=scaled) → `fn_get_session_wod_whiteboard` 계층 정렬(Rx+→Rx→Scaled)에 즉시 반영·미기록 그룹에서 제거. 미배정 코치의 타 세션 대리 입력 → 서버 거부
 
 **D. 회원 컨텍스트/퍼포먼스/후속조치 (P23+P25 편입)**
 - S-30: injury 플래그(critical) 등록 → 대시보드 경고 위젯+세션 보드 safety 인라인+컨텍스트 패널 3곳 일관 노출, 해소 시 3곳 동시 소멸
@@ -291,4 +300,5 @@ as-is에서 수동 테스트로 남아 있던 항목(P22 Phase5 · P23 Phase4 ·
 
 - 데이터 모델/RPC 정본: `07-data-model.md`, `sql/03_sessions_bookings.sql`, `sql/04_wod_runbook.sql`, `sql/07_performance_badges.sql`, `sql/09_rpc.sql`
 - Race 상세: `15-race-system.md` / TV 화면: `05-class-portal.md` / Admin 측 대응 화면: `02-admin.md`
+- 벤치마킹 갭 검수: `16-benchmark-gap-analysis.md` (G-1·G-2 일일 WOD 기록, G-13 기록률 KPI 근거)
 - 디자인 토큰·컴포넌트: `12-design-system.md` / 배포 Phase: `11-deployment-cutover.md`

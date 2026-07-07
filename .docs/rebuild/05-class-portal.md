@@ -20,7 +20,7 @@
 | `/class/race/run` (ERG 그리드) | 🟡 | 유지 | 〃 |
 | `/class/race/result` (결과) | 🟡 | 유지 | 〃 |
 | `/class/rotation-hud` (서킷 HUD) | ✅ | 유지 | 세션 단위 진입(`?session=`), 코치 리모컨과 1:1 결합 — 독립 유지 |
-| `/class/leaderboard` | ✅ | 유지 | 상시 콘솔과 달리 "이벤트 후 여운" 화면. 콘솔 `screen` 모드의 PR 티커와 역할 분담 |
+| `/class/leaderboard` | ✅ | 유지 + **일일 WOD 화이트보드 표시 모드** ⏳(G-1, 16 문서) | 상시 콘솔과 달리 "이벤트 후 여운" 화면. 콘솔 `screen` 모드의 PR 티커와 역할 분담 |
 
 **to-be 라우트 5개**: `screen-console`(4모드) / `race/view` / `race/run` / `race/result` / `rotation-hud` / `leaderboard`
 
@@ -157,15 +157,15 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | Display-Safe | 팀 배정 이름만. 회원 판정·메모 없음 |
 | 상태 | ✅ (원격제어가 이미 정식 동작하는 준거 구현 — §4의 원형) |
 
-### 5.3 `/class/leaderboard` ✅ 유지
+### 5.3 `/class/leaderboard` ✅ 유지 + 일일 WOD 화이트보드 모드 ⏳ (G-1·G-2, 16 문서)
 | 항목 | 내용 |
 |---|---|
-| 목적 | 최근 Race/벤치마크 기록 랭킹의 상시 표출(이벤트 후 여운·동기부여) |
-| 기능 | 최근 완료 이벤트 자동 선택, 기록 랭킹, 🔄 벤치마크 리더보드 탭 추가(`member_benchmark_results` 상위 — User 앱 퍼포먼스 허브와 동일 데이터의 TV 뷰) |
-| 데이터 | `race_events`(completed 최근) + `race_records`, 🔄 `fn_get_class_leaderboard(p_facility_id, p_scope)` 신설로 직접 query 대체(§6) |
-| 갱신 주기 | 5분 폴링(저빈도 충분) |
-| Display-Safe | 이름·기록·PR 배지만. 심박 등 생체 지표는 집계 랭킹에서 제외(개인 화면에서만) |
-| 상태 | ✅ → 🔄 RPC화 |
+| 목적 | 최근 Race/벤치마크 기록 랭킹 + **당일 WOD 디지털 화이트보드**의 상시 표출(이벤트 후 여운·동기부여) |
+| 기능 | ① 최근 완료 이벤트 자동 선택, 기록 랭킹 ② 🔄 벤치마크 리더보드 탭 추가(`member_benchmark_results` 상위 — User 앱 퍼포먼스 허브와 동일 데이터의 TV 뷰) ③ ⏳ **일일 WOD 화이트보드 모드(G-1·G-2, 16 문서)**: 당일 세션 WOD의 전원 기록을 **Rx+ → Rx → Scaled 계층 정렬**(계층 내 score_type=time 오름차순/그 외 내림차순 — contract §4 단일 정렬 정의)로 표시, 각 행에 **rx 배지**(Rx+/Rx/Scaled) 표기. 당일 세션이 복수면 세션별 로테이션 |
+| 데이터 | `race_events`(completed 최근) + `race_records`, 🔄 `fn_get_class_leaderboard(p_facility_id, p_scope)` 신설로 직접 query 대체(§6). ⏳ 화이트보드는 **동일 RPC의 `p_scope='daily_wod'` 확장**으로 조회 — 내부 소스는 `session_wod_results`(published 세션 WOD만)이며 정렬 규칙은 코치용 `fn_get_session_wod_whiteboard`(04 §3.2 (b-2))와 단일 정의를 공유. **anon 표면에 `fn_get_session_wod_whiteboard`를 직접 개방하지 않는다** — §6 화이트리스트 원칙상 공개용은 Display-Safe 필드만 SELECT하는 Class 공개 RPC(`fn_get_class_leaderboard` 확장)로만 표출 |
+| 갱신 주기 | 5분 폴링(저빈도 충분). ⏳ 화이트보드 모드는 60s(수업 직후 기록 유입 반영) |
+| Display-Safe | 이름·기록·PR/rx 배지만. 심박 등 생체 지표는 집계 랭킹에서 제외(개인 화면에서만). ⏳ 화이트보드: `session_wod_results.note`·부상 플래그·회원 메모·판정 정보는 **원천 미SELECT**(응답 필터링 방식 금지 — §6.2) |
+| 상태 | ✅ → 🔄 RPC화 + ⏳ 일일 WOD 화이트보드 모드(G-1·G-2, 16 문서) |
 
 ---
 
@@ -179,7 +179,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | `fn_get_class_display_wod` | RPC EXECUTE | published WOD 스냅샷만 | 현행 의도적 공개 승계 ✅ |
 | `fn_get_class_live_board` 🔄 | RPC EXECUTE | 세션 메타+집계+체크인 이름만 | as-is의 `sessions`/`checkins` 테이블 직접 SELECT를 **회수**하고 RPC로 좁힘 |
 | `fn_get_class_screen_prs` 🔄 | RPC EXECUTE | 공개 동의 회원의 이름+달성 항목 | screen 모드 PR 티커 |
-| `fn_get_class_leaderboard` 🔄 | RPC EXECUTE | 이름+기록 랭킹 | leaderboard |
+| `fn_get_class_leaderboard` 🔄 | RPC EXECUTE | 이름+기록 랭킹. ⏳ `p_scope='daily_wod'` 확장: 이름+점수+rx_status 배지만 반환(`note`·플래그 미SELECT — G-1·G-2, 16 문서) | leaderboard(벤치마크·일일 WOD 화이트보드) |
 | `session_rotation_states` | 테이블 SELECT | 전행(서킷 상태 — 민감정보 없음) | 현행 의도적 공개 승계 ✅ |
 | `race_events`·`race_teams`·`race_live_state`·`race_records` | 테이블 SELECT | 🔄 anon SELECT 허용(이름·기록 수준) — Race TV 화면 미인증 구동 | as-is는 authenticated 한정이라 TV에 로그인 필요했음(운영 결함) → 공개로 전환. 쓰기는 종전대로 coach/admin/SRK |
 | Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}` | 수신만 | Broadcast는 DB 비경유 |
@@ -201,7 +201,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | C-3 | 타이머 4모드(EMOM 라운드·타바타 페이즈 컬러 포함) 정상 동작 | 비프음·페이즈 전환 정확, 60fps |
 | C-4 | 네트워크 단절 30s → 복구 | 직전 데이터 유지+배지 표시, 복구 후 자동 재동기(스피너·크래시 없음) |
 | C-5 | 24h 연속 구동 | 메모리 증가 없음(구독 누수 0), 번인 시프트 동작 |
-| C-6 | Display-Safe 감사 | screen/live 표출 전 항목에 부상·메모·위험·정산·연락처 부재 확인 |
+| C-6 | Display-Safe 감사 | screen/live/leaderboard(일일 WOD 화이트보드 포함 ⏳) 표출 전 항목에 부상·메모(`session_wod_results.note` 포함)·위험·정산·연락처 부재 확인 |
 | C-7 | Race 3화면 | 15-race-system §8 게이트(L1 항목 중 화면 관련: 2-4, 3-2, 3-5, 4-6)로 위임 |
 | C-8 | rotation-hud 리모컨 연동 | 코치 조작→HUD 반영 < 1s, 새로고침 복원(`session_rotation_states`) |
 
