@@ -12,7 +12,7 @@
 - core: `facilities`, `profiles`(id=auth.uid, approval_status), `members`, `coaches`, `member_notes`🔄(coaching_notes+member_notes 통합: author_id, author_role, member_id, note_type[general/injury/progress/caution/counseling], content)
 - membership: `membership_plans`, `memberships`, `membership_history`
 - finance: `transactions`🔄(id UUID), `refunds`, `pg_settings`, `coach_settlements`
-- sessions: `sessions`🔄(wod_description 제거), `session_coaches`, `bookings`, `checkins`, `session_rotation_states`
+- sessions: `sessions`🔄(wod_description 제거), `session_coaches`, `bookings`, `checkins`, `session_rotation_states`, `session_feedback`(rating 1-5, admin_response)
 - wod: `movement_categories`, `movement_library`, `wod_templates`, `wod_template_movements`, `session_wods`, `class_runbook_templates`, `session_runbooks`, `member_alert_flags`  ※ `wods` 폐지
 - race: `race_events`🔄(race_format: individual|team|group|relay + group_target_m, heat_no), `race_records`, `pm5_devices`, `race_live_state`, `race_recordings`, `race_teams`
 - notification: `notifications`, `notification_rules`, `notification_logs`, `notification_preferences`, `push_subscriptions`
