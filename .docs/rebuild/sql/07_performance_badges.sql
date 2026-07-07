@@ -49,12 +49,18 @@ CREATE TABLE IF NOT EXISTS public.member_benchmark_results (
     session_id     UUID REFERENCES public.sessions(id) ON DELETE SET NULL,
     race_event_id  UUID REFERENCES public.race_events(id) ON DELETE SET NULL,
     result_value   NUMERIC(12,2) NOT NULL CHECK (result_value > 0),
-    result_meta    JSONB NOT NULL DEFAULT '{}'::jsonb,          -- {watts, spm, scaled 여부 등}
+    result_meta    JSONB NOT NULL DEFAULT '{}'::jsonb,          -- {watts, spm 등 보조 지표}
+    rx_status      VARCHAR(10) NOT NULL DEFAULT 'rx'
+                   CHECK (rx_status IN ('rx_plus','rx','scaled')),   -- 🔄 G-2 계층 어휘 통일
     is_pr          BOOLEAN NOT NULL DEFAULT false,
     recorded_by    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
     recorded_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 기존 배포분 증분 (멱등)
+ALTER TABLE public.member_benchmark_results ADD COLUMN IF NOT EXISTS rx_status VARCHAR(10) NOT NULL DEFAULT 'rx'
+    CHECK (rx_status IN ('rx_plus','rx','scaled'));
 
 -- 쿼리 패턴: (a) 회원×종목 베스트/이력, (b) PR 티커(시설 최근 PR)
 CREATE INDEX IF NOT EXISTS idx_benchmark_results_member
@@ -62,7 +68,7 @@ CREATE INDEX IF NOT EXISTS idx_benchmark_results_member
 CREATE INDEX IF NOT EXISTS idx_benchmark_results_recent_pr
     ON public.member_benchmark_results(recorded_at DESC) WHERE is_pr = true;
 
-COMMENT ON TABLE public.member_benchmark_results IS 'performance: 벤치마크 결과. INSERT는 fn_record_member_benchmark_result 경유(advisory lock으로 PR 동시성 보장)';
+COMMENT ON TABLE public.member_benchmark_results IS 'performance: 벤치마크 결과(+rx_status G-2). INSERT는 fn_record_member_benchmark_result 경유(advisory lock으로 PR 동시성 보장). PR 판정은 동일 rx_status 계층 내 비교';
 
 -- ----------------------------------------------------------------------------
 -- 3. coach_followups — 코치 후속 조치 태스크

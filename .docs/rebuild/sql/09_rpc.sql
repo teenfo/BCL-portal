@@ -1,8 +1,9 @@
 -- ============================================================================
 -- BCL Portal 재구축 DDL — 09_rpc.sql
 -- ----------------------------------------------------------------------------
--- 목적   : 표준 RPC 전수 — 계약 §4(공칭 30종) + 보정 4종(fn_kiosk_checkin,
---          Class 공개 3종) = 공칭 34종. (그룹 내 세부 함수 단위 전수는 아래 목차 참조)
+-- 목적   : 표준 RPC 전수 — 계약 §4 + 보정(fn_kiosk_checkin, Class 공개 3종)
+--          + 4차 보정(G-1~G-9: fn_sign_agreement, 일일 WOD 기록 3종, 예약 정책 검증)
+--          = 공칭 38종. (그룹 내 세부 함수 단위 전수는 아래 목차 참조)
 -- 의존   : 00~08 전부 (반드시 마지막에 적용)
 -- 공통 규약 (계약 §3):
 --   - SECURITY DEFINER + SET search_path = public
@@ -20,8 +21,10 @@
 --          get_member_with_membership(→PostgREST 중첩 select로 대체)
 -- 목차   :
 --   [A] 게이트 헬퍼 2종      : _assert_coach_or_admin / _assert_coach_can_edit_session
---   [B] 계정/권한 3종        : fn_my_permissions / promote_to_coach / demote_from_coach
+--   [B] 계정/권한 4종        : fn_my_permissions / promote_to_coach / demote_from_coach
+--                              / fn_sign_agreement(⏳G-6)
 --   [C] 예약·키오스크 3종    : fn_book_with_credit / fn_cancel_booking_with_credit / fn_kiosk_checkin
+--                              (🔄 G-4/G-5 booking_policy 검증, G-7 drop_in/trial 유효)
 --   [D] 코치 운영 5종        : fn_get_my_coach_context / fn_get_my_coach_dashboard /
 --                              fn_get_coach_schedule / fn_get_coach_session_board / fn_mark_attendance
 --   [E] WOD 10종             : fn_search_wod_movements / fn_list_movement_library /
@@ -32,9 +35,11 @@
 --                              fn_get_session_runbook / fn_upsert_session_runbook
 --   [G] 회원 컨텍스트 2종    : fn_get_member_context_panel / fn_upsert_member_alert_flag
 --   [H] KPI/정산 2종         : fn_get_coach_monthly_report / fn_calculate_monthly_settlement
---   [I] 퍼포먼스 6종         : fn_list_benchmark_definitions / fn_record_member_benchmark_result /
---                              fn_get_member_performance_profile / fn_create_followup /
---                              fn_complete_followup / fn_get_my_followups
+--   [I] 퍼포먼스 6종         : fn_list_benchmark_definitions / fn_record_member_benchmark_result(🔄+rx)
+--                              / fn_get_member_performance_profile(🔄+WOD 타임라인) / fn_create_followup
+--                              / fn_complete_followup / fn_get_my_followups
+--   [I2] 일일 WOD 기록 3종⏳ : fn_record_session_wod_result / fn_get_session_wod_whiteboard
+--                              / fn_get_my_wod_prep (G-1~G-3)
 --   [J] 배지 2종             : fn_get_my_badges / fn_evaluate_badges
 --   [K] Race 1종             : fn_prepare_race_session
 --   [L] Class 공개 3종       : fn_get_class_live_board / fn_get_class_screen_prs / fn_get_class_leaderboard
@@ -219,12 +224,57 @@ END;
 $$;
 
 
+-- B.4 fn_sign_agreement(p_doc_type, p_doc_version, p_signature) — ⏳ G-6 전자 동의 서명
+--     본인(member) 전용. 증빙 불변 — 동일 (doc_type, doc_version) 재서명은 already_signed 반환
+CREATE OR REPLACE FUNCTION public.fn_sign_agreement(
+    p_doc_type TEXT, p_doc_version TEXT, p_signature TEXT)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_member_id UUID;
+    v_id UUID;
+BEGIN
+    v_member_id := public.current_member_id();
+    IF v_member_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'member_not_found');
+    END IF;
+    IF p_doc_type NOT IN ('terms','privacy','refund_policy','health_waiver') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_doc_type');
+    END IF;
+    IF p_doc_version IS NULL OR p_doc_version = '' OR p_signature IS NULL OR p_signature = '' THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'missing_required_fields');
+    END IF;
+
+    INSERT INTO public.member_agreements (member_id, doc_type, doc_version, signature)
+    VALUES (v_member_id, p_doc_type, p_doc_version, p_signature)
+    ON CONFLICT (member_id, doc_type, doc_version) DO NOTHING
+    RETURNING id INTO v_id;
+
+    IF v_id IS NULL THEN
+        SELECT id INTO v_id FROM public.member_agreements
+        WHERE member_id = v_member_id AND doc_type = p_doc_type AND doc_version = p_doc_version;
+        RETURN jsonb_build_object('success', true,
+            'data', jsonb_build_object('id', v_id, 'already_signed', true), 'error', NULL);
+    END IF;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('id', v_id, 'already_signed', false,
+                                   'doc_type', p_doc_type, 'doc_version', p_doc_version),
+        'error', NULL);
+END;
+$$;
+
+COMMENT ON FUNCTION public.fn_sign_agreement(TEXT, TEXT, TEXT) IS 'G-6: 전자 동의·웨이버 서명 기록(본인). 가입 승인 전 서명 단계 — 미서명 필터는 member_agreements 조회로';
+
+
 -- ============================================================================
 -- [C] 예약 · 키오스크
 -- ============================================================================
 
 -- C.1 fn_book_with_credit(p_session_id) — 🔄 p_user_id 제거(auth.uid() 파생),
 --     advisory lock으로 정원 경합 직렬화, credit_used/membership_id 기록(환원 정합)
+--     🔄 G-4/G-5: facilities.booking_policy 검증 단계(예약 윈도우/주간 상한/노쇼 제한) — 계약 §6b
 CREATE OR REPLACE FUNCTION public.fn_book_with_credit(p_session_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -235,20 +285,78 @@ DECLARE
     v_membership RECORD;
     v_booking_id UUID;
     v_confirmed INT;
+    v_policy JSONB;
+    v_open_days INT;
+    v_weekly_cap INT;
+    v_noshow_threshold INT;
+    v_restrict_days INT;
+    v_noshow_count INT;
+    v_week_count INT;
 BEGIN
     v_member_id := public.current_member_id();
     IF v_member_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'member_not_found');
     END IF;
 
-    SELECT id, capacity, session_date, start_time, status INTO v_session
-    FROM public.sessions WHERE id = p_session_id;
+    SELECT s.id, s.capacity, s.session_date, s.start_time, s.status,
+           COALESCE(f.booking_policy, '{}'::jsonb) AS booking_policy
+    INTO v_session
+    FROM public.sessions s
+    LEFT JOIN public.facilities f ON f.id = s.facility_id
+    WHERE s.id = p_session_id;
     IF v_session.id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'session_not_found');
     END IF;
     IF v_session.status <> 'scheduled'
        OR (v_session.session_date + v_session.start_time) < now() THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'session_not_bookable');
+    END IF;
+
+    -- ── G-4 예약 정책 검증 (booking_policy가 유일한 정책 소스 — 클라이언트 하드코딩 금지) ──
+    v_policy := v_session.booking_policy;
+
+    -- (1) 예약 윈도우: 오픈일(D-n) 이전 예약 차단
+    v_open_days := (v_policy->>'booking_open_days')::INT;
+    IF v_open_days IS NOT NULL AND v_session.session_date > CURRENT_DATE + v_open_days THEN
+        RETURN jsonb_build_object('success', false, 'data',
+            jsonb_build_object('opens_at', (v_session.session_date - v_open_days)),
+            'error', 'booking_not_open');
+    END IF;
+
+    -- (2) 주간 상한: 해당 주(월~일)의 confirmed 예약 수
+    v_weekly_cap := (v_policy->>'weekly_booking_cap')::INT;
+    IF v_weekly_cap IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_week_count
+        FROM public.bookings b
+        JOIN public.sessions s2 ON s2.id = b.session_id
+        WHERE b.member_id = v_member_id AND b.status = 'confirmed'
+          AND s2.session_date >= date_trunc('week', v_session.session_date::timestamp)::date
+          AND s2.session_date <  (date_trunc('week', v_session.session_date::timestamp) + INTERVAL '7 days')::date;
+        IF v_week_count >= v_weekly_cap THEN
+            RETURN jsonb_build_object('success', false, 'data',
+                jsonb_build_object('weekly_booking_cap', v_weekly_cap),
+                'error', 'weekly_cap_reached');
+        END IF;
+    END IF;
+
+    -- (3) G-5 노쇼 페널티: 최근 30일 no_show ≥ threshold이고 최근 no_show 후 restrict_days 이내면 예약 제한
+    v_noshow_threshold := (v_policy->'noshow_penalty'->>'monthly_threshold')::INT;
+    v_restrict_days    := (v_policy->'noshow_penalty'->>'restrict_days')::INT;
+    IF v_noshow_threshold IS NOT NULL AND v_restrict_days IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_noshow_count
+        FROM public.bookings b
+        WHERE b.member_id = v_member_id
+          AND b.attendance_outcome = 'no_show'
+          AND b.attendance_marked_at > now() - INTERVAL '30 days';
+        IF v_noshow_count >= v_noshow_threshold
+           AND EXISTS (SELECT 1 FROM public.bookings b2
+                       WHERE b2.member_id = v_member_id AND b2.attendance_outcome = 'no_show'
+                         AND b2.attendance_marked_at > now() - (v_restrict_days || ' days')::INTERVAL) THEN
+            RETURN jsonb_build_object('success', false, 'data',
+                jsonb_build_object('noshow_count_30d', v_noshow_count,
+                                   'restrict_days', v_restrict_days),
+                'error', 'booking_restricted_noshow');
+        END IF;
     END IF;
 
     -- 정원 판정 직렬화 (세션 단위 advisory lock)
@@ -312,6 +420,8 @@ $$;
 
 -- C.2 fn_cancel_booking_with_credit(p_booking_id, p_reason)
 --     🔄 환원은 credit_used=true + 차감된 membership_id에만 (as-is 무차별 +1 버그 해소)
+--     🔄 G-4/G-5: cancel_deadline_hours 경과 후 취소 = late_cancel 판정 +
+--        정책(noshow_penalty.credit_forfeit=true)에 따라 크레딧 몰수
 CREATE OR REPLACE FUNCTION public.fn_cancel_booking_with_credit(
     p_booking_id UUID,
     p_reason TEXT DEFAULT NULL
@@ -322,6 +432,11 @@ AS $$
 DECLARE
     v_member_id UUID;
     v_booking RECORD;
+    v_session RECORD;
+    v_deadline_hours INT;
+    v_is_late BOOLEAN := false;
+    v_forfeit BOOLEAN := false;
+    v_refund BOOLEAN;
 BEGIN
     v_member_id := public.current_member_id();
 
@@ -338,12 +453,40 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'already_cancelled');
     END IF;
 
+    -- ── G-4 취소 마감 판정 (booking_policy.cancel_deadline_hours) ──
+    SELECT s.session_date, s.start_time,
+           COALESCE(f.booking_policy, '{}'::jsonb) AS booking_policy
+    INTO v_session
+    FROM public.sessions s
+    LEFT JOIN public.facilities f ON f.id = s.facility_id
+    WHERE s.id = v_booking.session_id;
+
+    v_deadline_hours := (v_session.booking_policy->>'cancel_deadline_hours')::INT;
+    IF v_deadline_hours IS NOT NULL AND v_booking.status = 'confirmed'
+       AND now() > (v_session.session_date + v_session.start_time)
+                   - (v_deadline_hours || ' hours')::INTERVAL THEN
+        v_is_late := true;
+        v_forfeit := COALESCE(
+            (v_session.booking_policy->'noshow_penalty'->>'credit_forfeit')::BOOLEAN, false);
+    END IF;
+    -- admin 취소는 정책 예외(운영 판단) — 페널티 미적용
+    IF public.is_admin() AND (v_booking.member_id <> v_member_id OR v_member_id IS NULL) THEN
+        v_is_late := false; v_forfeit := false;
+    END IF;
+
     UPDATE public.bookings
-    SET status = 'cancelled', cancel_reason = p_reason, updated_at = now()
+    SET status = 'cancelled',
+        cancel_reason = p_reason,
+        attendance_outcome = CASE WHEN v_is_late THEN 'late_cancel' ELSE attendance_outcome END,
+        attendance_marked_at = CASE WHEN v_is_late THEN now() ELSE attendance_marked_at END,
+        updated_at = now()
     WHERE id = p_booking_id;
     -- (confirmed→cancelled 전환 시 trg_notify_waitlist_on_vacancy가 대기자 알림 발송)
 
-    IF v_booking.credit_used AND v_booking.membership_id IS NOT NULL THEN
+    -- 크레딧 환원: 몰수 대상(late + credit_forfeit)이 아니면 차감 원천에만 +1
+    v_refund := v_booking.credit_used AND v_booking.membership_id IS NOT NULL
+                AND NOT (v_is_late AND v_forfeit);
+    IF v_refund THEN
         UPDATE public.memberships
         SET remaining_credits = COALESCE(remaining_credits, 0) + 1, updated_at = now()
         WHERE id = v_booking.membership_id;
@@ -353,7 +496,9 @@ BEGIN
 
     RETURN jsonb_build_object('success', true,
         'data', jsonb_build_object('booking_id', p_booking_id,
-                                   'credit_refunded', v_booking.credit_used),
+                                   'late_cancel', v_is_late,
+                                   'credit_forfeited', (v_is_late AND v_forfeit AND v_booking.credit_used),
+                                   'credit_refunded', v_refund),
         'error', NULL);
 END;
 $$;
@@ -361,6 +506,8 @@ $$;
 -- C.3 fn_kiosk_checkin(p_payload) — 신규(계약 보정): 키오스크 QR 체크인 원자 처리
 --     payload = {"mid": <member_id>, "fid": <facility_id>, "ts": <epoch초>, "v": 1}
 --     anon 실행 허용(키오스크 단말) — 검증은 전부 서버 내부
+--     🔄 G-7: 멤버십 유효성 검증 시 plan_kind 무관(standard/drop_in/trial 모두 유효)
+--        — as-is의 NO_MEMBERSHIP 거부로 드롭인 체크인 불가하던 분기 해소
 CREATE OR REPLACE FUNCTION public.fn_kiosk_checkin(p_payload JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -370,6 +517,7 @@ DECLARE
     v_facility_id UUID;
     v_ts BIGINT;
     v_member RECORD;
+    v_mem RECORD;
     v_booking RECORD;
     v_session RECORD;
     v_checkin_id UUID;
@@ -401,6 +549,23 @@ BEGIN
     END IF;
     IF v_member.status <> 'active' OR v_member.is_blacklisted THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'member_not_active');
+    END IF;
+
+    -- 3b) G-7 멤버십 유효성: plan_kind 무관 — 기간 유효(기간제) 또는 잔여 크레딧(횟수제)이면 통과.
+    --     drop_in(일일권)/trial(체험권)도 memberships 1행으로 발급되므로 같은 규칙으로 유효 처리
+    SELECT ms.id, mp.plan_kind, mp.name AS plan_name INTO v_mem
+    FROM public.memberships ms
+    LEFT JOIN public.membership_plans mp ON mp.id = ms.plan_id
+    WHERE ms.member_id = v_member_id
+      AND ms.status = 'active'
+      AND ms.start_date <= CURRENT_DATE
+      AND (ms.end_date IS NULL OR ms.end_date >= CURRENT_DATE)
+      AND (ms.remaining_credits IS NULL OR ms.remaining_credits > 0)
+    ORDER BY ms.end_date ASC NULLS LAST
+    LIMIT 1;
+
+    IF v_mem.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'no_active_membership');
     END IF;
 
     -- 4) 5분 내 중복 체크인 방지
@@ -443,6 +608,8 @@ BEGIN
         'data', jsonb_build_object(
             'checkin_id', v_checkin_id,
             'member_name', v_member.name,
+            'membership_plan_kind', COALESCE(v_mem.plan_kind, 'standard'),
+            'membership_plan_name', v_mem.plan_name,
             'session_id', v_booking.session_id,
             'session_title', v_booking.title,
             'linked_booking', v_booking.booking_id IS NOT NULL,
@@ -451,7 +618,7 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.fn_kiosk_checkin(JSONB) IS '키오스크 QR 체크인 원자 처리. 페이로드 {mid,fid,ts,v} 5분 만료, ±30분 예약 자동 감지, anon 실행 허용';
+COMMENT ON FUNCTION public.fn_kiosk_checkin(JSONB) IS '키오스크 QR 체크인 원자 처리. 페이로드 {mid,fid,ts,v} 5분 만료, 멤버십 유효 검증(G-7: drop_in/trial 포함), ±30분 예약 자동 감지, anon 실행 허용';
 
 
 -- ============================================================================
@@ -1737,10 +1904,12 @@ END;
 $$;
 
 -- I.2 fn_record_member_benchmark_result — PR 판정 + advisory lock + 세션 배정 검증
+--     🔄 G-2: p_rx_status 추가 — PR 판정은 동일 rx 계층 내에서만 비교
 CREATE OR REPLACE FUNCTION public.fn_record_member_benchmark_result(
     p_member_id UUID, p_benchmark_id UUID, p_result_value NUMERIC,
     p_session_id UUID DEFAULT NULL, p_race_event_id UUID DEFAULT NULL,
-    p_result_meta JSONB DEFAULT '{}'::jsonb)
+    p_result_meta JSONB DEFAULT '{}'::jsonb,
+    p_rx_status TEXT DEFAULT 'rx')
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -1761,6 +1930,9 @@ BEGIN
     END IF;
     IF p_result_value IS NULL OR p_result_value <= 0 THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_result_value');
+    END IF;
+    IF p_rx_status NOT IN ('rx_plus','rx','scaled') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_rx_status');
     END IF;
 
     -- 세션 연결 시: admin이 아니면 배정 코치만
@@ -1783,25 +1955,28 @@ BEGIN
 
     IF v_metric_type = 'time' THEN
         SELECT MIN(result_value) INTO v_best FROM public.member_benchmark_results
-        WHERE member_id = p_member_id AND benchmark_id = p_benchmark_id;
+        WHERE member_id = p_member_id AND benchmark_id = p_benchmark_id
+          AND rx_status = p_rx_status;
         v_is_pr := (v_best IS NULL OR p_result_value < v_best);
     ELSE
         SELECT MAX(result_value) INTO v_best FROM public.member_benchmark_results
-        WHERE member_id = p_member_id AND benchmark_id = p_benchmark_id;
+        WHERE member_id = p_member_id AND benchmark_id = p_benchmark_id
+          AND rx_status = p_rx_status;
         v_is_pr := (v_best IS NULL OR p_result_value > v_best);
     END IF;
 
     INSERT INTO public.member_benchmark_results
-        (member_id, benchmark_id, session_id, race_event_id, result_value, result_meta, is_pr, recorded_by)
+        (member_id, benchmark_id, session_id, race_event_id, result_value, result_meta,
+         rx_status, is_pr, recorded_by)
     VALUES
         (p_member_id, p_benchmark_id, p_session_id, p_race_event_id, p_result_value,
-         COALESCE(p_result_meta,'{}'::jsonb), v_is_pr, auth.uid())
+         COALESCE(p_result_meta,'{}'::jsonb), p_rx_status, v_is_pr, auth.uid())
     RETURNING * INTO v_row;
 
     RETURN jsonb_build_object('success', true,
         'data', jsonb_build_object(
             'id', v_row.id, 'member_id', v_row.member_id, 'benchmark_id', v_row.benchmark_id,
-            'result_value', v_row.result_value, 'is_pr', v_row.is_pr,
+            'result_value', v_row.result_value, 'rx_status', v_row.rx_status, 'is_pr', v_row.is_pr,
             'previous_best', v_best, 'recorded_at', v_row.recorded_at),
         'error', NULL);
 END;
@@ -1817,6 +1992,7 @@ DECLARE
     v_bests JSONB;
     v_recent JSONB;
     v_race JSONB;
+    v_wod_timeline JSONB;
 BEGIN
     SELECT EXISTS (SELECT 1 FROM public.members m
                    WHERE m.id = p_member_id AND m.user_id = auth.uid()) INTO v_is_self;
@@ -1862,12 +2038,28 @@ BEGIN
         LIMIT 10
     ) t;
 
+    -- 🔄 G-1: 일일 WOD 기록 타임라인 (최근 10건)
+    SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_wod_timeline
+    FROM (
+        SELECT swr.id, swr.session_wod_id, s.id AS session_id, s.session_date, s.title AS session_title,
+               COALESCE(sw.title_override, wt.title) AS wod_title,
+               swr.score, swr.score_type, swr.rx_status, swr.note, swr.created_at
+        FROM public.session_wod_results swr
+        JOIN public.session_wods sw ON sw.id = swr.session_wod_id
+        JOIN public.sessions s ON s.id = sw.session_id
+        LEFT JOIN public.wod_templates wt ON wt.id = sw.template_id
+        WHERE swr.member_id = p_member_id
+        ORDER BY s.session_date DESC, swr.created_at DESC
+        LIMIT 10
+    ) t;
+
     RETURN jsonb_build_object('success', true,
         'data', jsonb_build_object(
             'member_id', p_member_id,
             'benchmark_bests', v_bests,
             'recent_results', v_recent,
             'race_records', v_race,
+            'wod_timeline', v_wod_timeline,
             'benchmark_pr_count', (SELECT COUNT(*) FROM public.member_benchmark_results
                                    WHERE member_id = p_member_id AND is_pr),
             'race_pr_count', (SELECT COUNT(*) FROM public.race_records
@@ -1990,6 +2182,206 @@ BEGIN
     RETURN jsonb_build_object('success', true, 'data', v_data, 'error', NULL);
 END;
 $$;
+
+
+-- ============================================================================
+-- [I2] 일일 WOD 기록 (⏳ G-1~G-3 — 디지털 화이트보드/계층 리더보드/WOD Prep)
+-- ============================================================================
+
+-- I2.1 fn_record_session_wod_result — 본인 WOD 점수 기록 (upsert, rx_status 포함)
+CREATE OR REPLACE FUNCTION public.fn_record_session_wod_result(
+    p_session_id UUID,
+    p_score NUMERIC,
+    p_score_type TEXT,
+    p_rx_status TEXT DEFAULT 'rx',
+    p_note TEXT DEFAULT NULL)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_member_id UUID;
+    v_session_wod_id UUID;
+    v_row public.session_wod_results;
+BEGIN
+    v_member_id := public.current_member_id();
+    IF v_member_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'member_not_found');
+    END IF;
+    IF p_score IS NULL OR p_score <= 0 THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_score');
+    END IF;
+    IF p_score_type NOT IN ('time','reps','rounds_reps','weight','distance','calories') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_score_type');
+    END IF;
+    IF p_rx_status NOT IN ('rx_plus','rx','scaled') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_rx_status');
+    END IF;
+
+    SELECT id INTO v_session_wod_id
+    FROM public.session_wods
+    WHERE session_id = p_session_id AND publish_state = 'published';
+    IF v_session_wod_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'session_wod_not_published');
+    END IF;
+
+    -- 해당 세션 참가자만 기록 가능 (confirmed 예약 또는 walk_in — 취소자 제외)
+    IF NOT EXISTS (
+        SELECT 1 FROM public.bookings b
+        WHERE b.session_id = p_session_id AND b.member_id = v_member_id
+          AND (b.status = 'confirmed' OR b.attendance_outcome = 'walk_in')
+    ) THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'not_session_participant');
+    END IF;
+
+    INSERT INTO public.session_wod_results
+        (session_wod_id, member_id, score, score_type, rx_status, note, recorded_by)
+    VALUES (v_session_wod_id, v_member_id, p_score, p_score_type, p_rx_status,
+            NULLIF(p_note,''), auth.uid())
+    ON CONFLICT (session_wod_id, member_id) DO UPDATE SET
+        score = EXCLUDED.score,
+        score_type = EXCLUDED.score_type,
+        rx_status = EXCLUDED.rx_status,
+        note = EXCLUDED.note,
+        recorded_by = EXCLUDED.recorded_by,
+        updated_at = now()
+    RETURNING * INTO v_row;
+
+    RETURN jsonb_build_object('success', true, 'data', to_jsonb(v_row), 'error', NULL);
+END;
+$$;
+
+COMMENT ON FUNCTION public.fn_record_session_wod_result(UUID, NUMERIC, TEXT, TEXT, TEXT) IS 'G-1: 본인 일일 WOD 점수 기록(upsert). published WOD + 세션 참가자만';
+
+-- I2.2 fn_get_session_wod_whiteboard(p_session_id) — 세션 전원 결과, Rx+→Rx→Scaled 계층 정렬
+--      정렬 규칙: ① rx 계층(rx_plus=0, rx=1, scaled=2) ② score_type 방향(time=오름차순, 그 외=내림차순)
+CREATE OR REPLACE FUNCTION public.fn_get_session_wod_whiteboard(p_session_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_wod RECORD;
+    v_results JSONB;
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'no_session');
+    END IF;
+
+    SELECT sw.id, sw.session_id, COALESCE(sw.title_override, wt.title) AS wod_title,
+           COALESCE(sw.format_override, wt.format_type) AS format,
+           s.session_date, s.title AS session_title
+    INTO v_wod
+    FROM public.session_wods sw
+    JOIN public.sessions s ON s.id = sw.session_id
+    LEFT JOIN public.wod_templates wt ON wt.id = sw.template_id
+    WHERE sw.session_id = p_session_id AND sw.publish_state = 'published';
+
+    IF v_wod.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'session_wod_not_published');
+    END IF;
+
+    SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.rank), '[]'::jsonb) INTO v_results
+    FROM (
+        SELECT ROW_NUMBER() OVER (
+                   ORDER BY CASE r.rx_status WHEN 'rx_plus' THEN 0 WHEN 'rx' THEN 1 ELSE 2 END,
+                            CASE WHEN r.score_type = 'time' THEN r.score END ASC NULLS LAST,
+                            CASE WHEN r.score_type <> 'time' THEN r.score END DESC NULLS LAST,
+                            r.created_at ASC
+               ) AS rank,
+               m.name AS member_name, m.avatar_url,
+               r.member_id, r.score, r.score_type, r.rx_status, r.note, r.created_at
+        FROM public.session_wod_results r
+        JOIN public.members m ON m.id = r.member_id
+        WHERE r.session_wod_id = v_wod.id
+    ) t;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object(
+            'session_id', v_wod.session_id, 'session_title', v_wod.session_title,
+            'session_date', v_wod.session_date,
+            'wod_title', v_wod.wod_title, 'format', v_wod.format,
+            'results', v_results),
+        'error', NULL);
+END;
+$$;
+
+COMMENT ON FUNCTION public.fn_get_session_wod_whiteboard(UUID) IS 'G-1/G-2: 세션 화이트보드 — 전원 결과를 Rx+→Rx→Scaled 계층 + score_type 방향으로 정렬. authenticated 전용(anon 미공개 — 05 화이트리스트 정합)';
+
+-- I2.3 fn_get_my_wod_prep(p_session_id) — 예정 WOD + 본인 과거 베스트 조인 (G-3 WOD Prep)
+CREATE OR REPLACE FUNCTION public.fn_get_my_wod_prep(p_session_id UUID)
+RETURNS JSONB
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_member_id UUID;
+    v_wod RECORD;
+    v_history JSONB;
+    v_benchmark_best JSONB;
+BEGIN
+    v_member_id := public.current_member_id();
+    IF v_member_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'member_not_found');
+    END IF;
+
+    SELECT sw.id, sw.template_id, sw.movements_snapshot,
+           COALESCE(sw.title_override, wt.title) AS wod_title,
+           COALESCE(sw.format_override, wt.format_type) AS format,
+           COALESCE(sw.time_cap_override, wt.time_cap_minutes) AS time_cap_minutes,
+           COALESCE(sw.description_override, wt.description) AS description,
+           wt.is_benchmark
+    INTO v_wod
+    FROM public.session_wods sw
+    LEFT JOIN public.wod_templates wt ON wt.id = sw.template_id
+    WHERE sw.session_id = p_session_id AND sw.publish_state = 'published';
+
+    IF v_wod.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'session_wod_not_published');
+    END IF;
+
+    -- (a) 동일 템플릿 WOD의 본인 과거 기록 (최근 3건 + rx 계층 포함)
+    SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_history
+    FROM (
+        SELECT r.score, r.score_type, r.rx_status, r.note,
+               s.session_date, r.created_at
+        FROM public.session_wod_results r
+        JOIN public.session_wods sw2 ON sw2.id = r.session_wod_id
+        JOIN public.sessions s ON s.id = sw2.session_id
+        WHERE r.member_id = v_member_id
+          AND v_wod.template_id IS NOT NULL
+          AND sw2.template_id = v_wod.template_id
+          AND sw2.session_id <> p_session_id
+        ORDER BY s.session_date DESC
+        LIMIT 3
+    ) t;
+
+    -- (b) 동명 벤치마크 종목의 본인 베스트 (벤치마크 WOD명 = benchmark_definitions.name 매칭)
+    SELECT COALESCE(jsonb_agg(to_jsonb(t)), '[]'::jsonb) INTO v_benchmark_best
+    FROM (
+        SELECT bd.name, bd.metric_type, bd.unit, r.rx_status,
+               CASE WHEN bd.metric_type = 'time' THEN MIN(r.result_value)
+                    ELSE MAX(r.result_value) END AS best_value,
+               MAX(r.recorded_at) AS last_recorded_at
+        FROM public.member_benchmark_results r
+        JOIN public.benchmark_definitions bd ON bd.id = r.benchmark_id
+        WHERE r.member_id = v_member_id
+          AND bd.name = v_wod.wod_title
+        GROUP BY bd.name, bd.metric_type, bd.unit, r.rx_status
+    ) t;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object(
+            'session_id', p_session_id,
+            'wod', jsonb_build_object(
+                'session_wod_id', v_wod.id, 'title', v_wod.wod_title,
+                'format', v_wod.format, 'time_cap_minutes', v_wod.time_cap_minutes,
+                'description', v_wod.description, 'is_benchmark', COALESCE(v_wod.is_benchmark, false),
+                'movements_snapshot', v_wod.movements_snapshot),
+            'my_history_same_wod', v_history,
+            'my_benchmark_best', v_benchmark_best),
+        'error', NULL);
+END;
+$$;
+
+COMMENT ON FUNCTION public.fn_get_my_wod_prep(UUID) IS 'G-3 WOD Prep: 예정(published) WOD + 동일 템플릿 본인 과거 기록 + 동명 벤치마크 본인 베스트 조인';
 
 
 -- ============================================================================
@@ -2623,6 +3015,7 @@ BEGIN
         ('public.fn_my_permissions()'),
         ('public.promote_to_coach(uuid)'),
         ('public.demote_from_coach(uuid)'),
+        ('public.fn_sign_agreement(text,text,text)'),
         ('public.fn_book_with_credit(uuid)'),
         ('public.fn_cancel_booking_with_credit(uuid,text)'),
         ('public.fn_get_my_coach_context()'),
@@ -2648,11 +3041,14 @@ BEGIN
         ('public.fn_get_coach_monthly_report(text,text[])'),
         ('public.fn_calculate_monthly_settlement(text)'),
         ('public.fn_list_benchmark_definitions(boolean)'),
-        ('public.fn_record_member_benchmark_result(uuid,uuid,numeric,uuid,uuid,jsonb)'),
+        ('public.fn_record_member_benchmark_result(uuid,uuid,numeric,uuid,uuid,jsonb,text)'),
         ('public.fn_get_member_performance_profile(uuid)'),
         ('public.fn_create_followup(jsonb)'),
         ('public.fn_complete_followup(uuid,text)'),
         ('public.fn_get_my_followups(text,uuid,int)'),
+        ('public.fn_record_session_wod_result(uuid,numeric,text,text,text)'),
+        ('public.fn_get_session_wod_whiteboard(uuid)'),
+        ('public.fn_get_my_wod_prep(uuid)'),
         ('public.fn_get_my_badges()'),
         ('public.fn_evaluate_badges(uuid,text)'),
         ('public.fn_prepare_race_session(uuid,text,jsonb)'),
