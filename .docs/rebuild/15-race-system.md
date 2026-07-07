@@ -28,6 +28,7 @@ Personal Recording Mode(개인 가외 운동)는 §7 로드맵으로 격리(⏳ 
 | R-8 | **세션당 활성 이벤트 1개** | 같은 세션에 미종료(`status NOT IN (completed, cancelled)`) race_event는 최대 1개 — 부분 유니크 인덱스로 강제 |
 | R-9 | **모드락** | `pm5_devices.current_mode`(idle/racing/personal_recording)로 Racing↔Personal 기기 탈취 차단 |
 | R-10 | **디자인 토큰 준수** | 모든 Race 화면·에셋은 `--bcl-*` 토큰(12-design-system)만 사용. accent=#FF6A00 단일 |
+| R-11 | **기기 타입별 비주얼 테마** 🔄 | 레이스 화면 디자인은 연결 기기에 따라 변한다 — 트랙·배경·이펙트 테마는 `race_events.event_type`, 레인별 캐릭터는 각 레인 `pm5_devices.device_type` 기준(§5b.3b). 데이터 파이프라인·집계 로직은 테마와 무관하게 동일(표현 계층만 분기) |
 
 ### 0.3 아키텍처 한눈에
 ```
@@ -455,6 +456,7 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 ```
 - 16:9 고정 설계(TV/프로젝터), 3m 시청거리 기준 최소 텍스트 32px, 핵심 수치 64px+
 - 상태별 화면: `lobby`=Starting Pen(카트 도열+이름 플레이트+아이들 애니메이션) / `countdown`=신호등 오버레이 / `racing`=본 화면 / `finished`=체커기→포디움
+- 와이어의 🚣(로워/보트)는 `water` 테마 예시 — 트랙·카트·이펙트는 **연결 기기 타입에 따라 테마 전환**(§5b.3b, R-11): bike=로드+사이클리스트, skierg=설원+스키어, run=트랙+러너
 
 ### 5b.2 트랙·카메라 연출 규칙
 | 요소 | 규칙 |
@@ -465,7 +467,7 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 | 추월 강조 | rank 변동 감지(프레임 간 비교) → 추월 카트에 **스피드라인 스프라이트 0.8s + 스케일 펄스(1.0→1.08→1.0)** + 순위 스택 행 스왑 애니메이션(300ms). 동시 다발 시 최상위 1건만 강조(연출 과밀 방지) |
 | 1위 표식 | 크라운 스프라이트(카트 상단 부유+회전) + 팀/개인 컬러 글로우(`drop-shadow` 2겹). rank 1 이탈 시 0.5s 페이드로 이양 |
 | 구간 배너 | 진행률 25/50/75% 통과 시 상단 배너 슬라이드(“1000m — 김철수 선두!”) 2.5s. 단체전 A안은 마일스톤 게이트 통과 연출로 대체 |
-| 수면 이펙트 | Canvas 2D 별도 레이어: 파티클 ~30개 부유(현행 waterFloat 승계) + 🔄 카트 후방 웨이크(wake) 파티클 — SPM 비례 방출률 |
+| 트랙 이펙트 | Canvas 2D 별도 레이어: 부유 파티클 ~30개(현행 waterFloat 승계) + 🔄 카트 후방 트레일 파티클 — 스트로크 레이트 비례 방출률. **파티클 종류·색은 테마 팔레트(§5b.3b)를 따름**: water=물보라 웨이크 / road=더스트 라인 / snow=스노 스프레이 / track=더스트 |
 
 ### 5b.3 스프라이트 연출 규칙 (SPM 동기화)
 - **스트로크 애니메이션**: 로워 캐릭터 8~12프레임 스프라이트시트를 CSS `steps(N)` 재생. **재생 주기 = 실측 SPM 동기**:
@@ -473,6 +475,36 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 - **상태별 시트**: `stroke`(본 동작 8~12F) / `idle`(2F) / `celebrate`(완주 4F, 팔들기) / `offline`(1F grayscale — CSS filter로 처리, 별도 시트 불필요)
 - **팀 컬러 변형**: 스프라이트는 SVG 1벌 제작, 유니폼·보트 영역을 `var(--team-color)`로 칠함 → **팀 팔레트 8색이 시트 8벌이 아닌 CSS 변수 1개로 해결**. 래스터 시트로 굽는 경우에만 8색 사전 베이크
 - **부하 규칙**: 스프라이트 이동은 `transform: translate3d`만 사용(레이아웃 유발 속성 금지), 레인당 DOM 노드 ≤ 6개, 20레인×60fps에서 스타일 쓰기 ≤ 120회/frame
+
+### 5b.3b 기기 타입별 비주얼 테마 🔄 【연결 기기에 따른 디자인 변경 — R-11】
+> 어떤 기기가 연결됐는지에 따라 레이스 화면의 트랙·캐릭터·이펙트가 달라진다. 테마는 **표현 계층에만** 적용 — 위치 계산(실거리 R-3)·집계·상태머신은 전 테마 동일.
+
+**테마 결정 규칙 (2단계)**
+1. **트랙 테마** = `race_events.event_type` 기준 (이벤트 생성 시 확정, 화면 최상위 `data-race-theme` 속성 1곳으로 전환):
+
+| event_type | 테마 키 | 트랙 바닥 | 배경 무드 | 트레일 이펙트 | 카트 베이스 |
+|---|---|---|---|---|---|
+| `rowing` | `water` | 수면 타일(`track-water-tile`) | 하늘/산등성이/관중석 | 물보라 웨이크(`fx-wake`) | 보트(`boat-single/team`) |
+| `bike` | `road` | 아스팔트 로드 타일(`track-road-tile`) | 도로변/스카이라인 틴트 | 더스트 라인(`fx-dust`) | 자전거 자체(별도 탈것 없음) |
+| `skierg` | `snow` | 설원 타일(`track-snow-tile`) | 설산/한랭 틴트 | 스노 스프레이(`fx-snowspray`) | 스키어 자체 |
+| `run` | `track` | 러닝 트랙 레인 타일(`track-lane-tile`) | 스타디움 틴트 | 더스트(`fx-dust` 재사용) | 러너 자체 |
+| `other` | `track` 폴백 | 러닝 트랙 재사용 | 중립 틴트 | 더스트 | 제네릭 러너 |
+
+2. **레인 캐릭터** = 각 레인에 배정된 `pm5_devices.device_type` 기준 — `rower`→로워, `bike`→사이클리스트, `skierg`→스키어, `treadmill`→러너, `other`→제네릭. **혼합 편성 허용**: 트랙 테마는 event_type 하나로 고정하되 레인마다 다른 기기 캐릭터가 공존 가능(예: rowing 이벤트에 bike 참가 → 수면 트랙 위 사이클리스트, 데이터는 동일 집계).
+
+**애니메이션 동기 지표 (기기별)**
+
+| device_type | 루프 동작 | 동기 지표 | 주기 공식 |
+|---|---|---|---|
+| `rower` | 스트로크(캐치→드라이브→리커버리) | SPM | `60 / max(SPM, 6)`s (§5b.3) |
+| `bike` | 페달 회전 | RPM(케이던스) | `60 / max(RPM, 20)`s — 1프레임=반회전 기준 배속 |
+| `skierg` | 더블폴 풀다운 | SPM | 로워와 동일 공식 |
+| `treadmill` | 러닝 사이클 | 케이던스(spm 필드 유용) | `120 / max(cadence, 30)`s (1루프=2보) |
+
+- PM5 Broadcast 페이로드의 `spm` 필드는 기기 종류별로 SPM/RPM/케이던스를 담는다(Concept2 규격 그대로) — 파서 분기 불필요, 화면에서 단위 라벨만 교체(`SPM`/`RPM`/`SPM`/`CAD`)
+- **구현 규약**: 테마 전환은 CSS `data-race-theme=water|road|snow|track` + 테마 토큰 세트(`--bcl-race-surface`, `--bcl-race-trail`, `--bcl-race-bg-tint` — §5b.6)로만 처리. 컴포넌트 코드에 테마 조건분기 하드코딩 금지. 캐릭터 스프라이트는 `race/char-{type}-{state}` 네이밍 규칙으로 device_type→에셋 자동 매핑
+- 배경 3레이어(`bg-sky/ridge/crowd`)는 공용 1벌 + 테마별 틴트 토큰으로 처리(에셋 4벌 제작 금지 — 유지비 통제). 단 트랙 바닥 타일은 테마별 별도 제작(§5b.7)
+- HUD·순위 스택·미니맵·신호등·체커기·포디움은 전 테마 공용(테마 색 틴트만 상속)
 
 ### 5b.4 신호등·체커기·포디움 시퀀스
 | 시퀀스 | 연출 |
@@ -497,7 +529,7 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 - **rAF 단일 루프**: `useRaceAnimator` 승계 — `Map<serial, AnimatedLane>`를 `useRef`로 보관, 프레임마다 LERP(`x: 0.08 / power: 0.15 / spm: 0.1` — 검증 계수 승계) 후 **DOM `transform`/`animationDuration` 직접 조작으로 React 리렌더 우회**. `useState`는 순위 스택·배너 등 저빈도 UI만
 - **단절 처리**: offline/disconnected 레인은 LERP 스킵(현행) + grayscale filter
 - **성능 게이트**: 20레인 60fps(프레임 16.6ms 내), 시뮬레이터 2Hz 입력→끊김 없는 보간(수용 3-2), 장시간(30분) 레이스 메모리 안정
-- **토큰 연동**: 배경·트랙·HUD 색은 `--bcl-bg/--bcl-surface/--bcl-accent(#FF6A00)/--bcl-text` + Race 전용 확장 `--bcl-race-team-1..8`, `--bcl-race-water`, `--bcl-race-track`(12-design-system에 등록). Lexend + 숫자는 tabular-nums
+- **토큰 연동**: 배경·트랙·HUD 색은 `--bcl-bg/--bcl-surface/--bcl-accent(#FF6A00)/--bcl-text` + Race 전용 확장 `--bcl-race-team-1..8` + **테마 토큰 세트** `--bcl-race-surface/--bcl-race-trail/--bcl-race-bg-tint`(`data-race-theme=water|road|snow|track` 별 값 매핑 — §5b.3b, 12-design-system에 등록). Lexend + 숫자는 tabular-nums
 
 ### 5b.7 에셋 매니페스트 — 【전 에셋 = 클로드 디자인 제작】
 > 원칙: **SVG 우선**(팀 컬러 = CSS 변수 1벌), 프레임 애니메이션만 스프라이트시트. 형태 언어·팔레트는 12-design-system 토큰과 일관(#FF6A00 accent, 4px 그리드, radius 8px 계열의 라운드 지오메트리). 네이밍 `race/{category}-{name}[-{variant}]`.
@@ -509,10 +541,14 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 | `race/char-rower-celebrate` | SVG 스프라이트시트 | 160×120 × 4F | 동일 | 완주 세리머니 | 클로드 |
 | `race/boat-single` | SVG | 220×80 · 1F | 선체 `--team-color` | 개인전 카트(보트) 베이스 | 클로드 |
 | `race/boat-team` | SVG | 320×100 · 1F | 동일 | 팀전 합산 보트(아바타 스택 슬롯 4) | 클로드 |
-| `race/char-bike`·`race/char-ski` | SVG 스프라이트시트 | 160×120 × 8F each | 동일 | BikeErg/SkiErg 종목 변형 | 클로드 (후순위 ⏳) |
-| `race/track-water-tile` | SVG 타일 | 512×256 반복 타일 | — (`--bcl-race-water`) | 수면 트랙 바닥 | 클로드 |
+| `race/char-bike-pedal`·`-idle`·`-celebrate` | SVG 스프라이트시트 | 160×120 × 8F/2F/4F | 동일(저지·프레임) | BikeErg 페달 루프(RPM 동기) 🔄 R-11 정식 | 클로드 |
+| `race/char-ski-pull`·`-idle`·`-celebrate` | SVG 스프라이트시트 | 160×120 × 8F/2F/4F | 동일(수트·폴) | SkiErg 더블폴 루프(SPM 동기) 🔄 R-11 정식 | 클로드 |
+| `race/char-runner-run`·`-idle`·`-celebrate` | SVG 스프라이트시트 | 160×120 × 8F/2F/4F | 동일(유니폼) | 트레드밀/제네릭 러닝 루프(케이던스 동기) 🔄 | 클로드 |
+| `race/track-water-tile` | SVG 타일 | 512×256 반복 타일 | — (`--bcl-race-surface`) | 수면 트랙 바닥 (`water` 테마) | 클로드 |
+| `race/track-road-tile`·`race/track-snow-tile`·`race/track-lane-tile` | SVG 타일 | 512×256 반복 타일 each | — (`--bcl-race-surface`) | 아스팔트/설원/러닝트랙 바닥 (`road`/`snow`/`track` 테마) 🔄 R-11 | 클로드 |
 | `race/bg-sky`·`race/bg-ridge`·`race/bg-crowd` | SVG 레이어 3장 | 1920×360 each | — | 패럴랙스 배경(원경→근경) | 클로드 |
-| `race/fx-wake` | Canvas 파티클 정의(코드) | 파티클 4~8px | 팀컬러 틴트 | 카트 후방 물보라 | 클로드 |
+| `race/fx-wake` | Canvas 파티클 정의(코드) | 파티클 4~8px | 팀컬러 틴트 | 카트 후방 물보라 (`water` 테마) | 클로드 |
+| `race/fx-dust`·`race/fx-snowspray` | Canvas 파티클 정의(코드) | 파티클 3~6px | `--bcl-race-trail` | 더스트(`road`/`track`)·스노 스프레이(`snow`) 트레일 🔄 R-11 | 클로드 |
 | `race/fx-speedline` | SVG | 240×120 · 1F(불투명도 애니) | 팀컬러 틴트 | 추월 강조 | 클로드 |
 | `race/fx-crown` | SVG | 64×48 · 1F(CSS 부유) | — (골드 고정) | 1위 크라운 | 클로드 |
 | `race/fx-glow` | SVG(radial) | 280×140 | `--team-color` | 1위/포커스 글로우 | 클로드 |

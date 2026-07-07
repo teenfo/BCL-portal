@@ -18,9 +18,7 @@
 flowchart TD
     A[방문] --> B{/auth/login}
     B -->|가입| C[/auth/signup 3-Step/]
-    C --> D[인증 메일 발송]
-    D --> E[/auth/email-verify/]
-    E --> F{profiles.approval_status}
+    C -->|이메일 검증 없음 · 즉시 세션 발급| F{profiles.approval_status}
     B -->|로그인 성공| F
     OA[/auth/callback ⏳ 소셜 Phase2/] --> F
     F -->|pending| G[/auth/pending-approval/]
@@ -37,14 +35,18 @@ flowchart TD
 
 - 인증 기반: Supabase Auth(JWT). 세션 7일(Remember Me 30일), 비밀번호 8자·3종 조합,
   로그인 실패 5회 → 10분 Rate Limit.
-- **가입 ≠ 이용 가능**: 이메일 인증 후에도 `profiles.approval_status='pending'`이면
-  모든 보호 경로 접근 불가. 관리자 승인(`approved`)이 인증 게이트의 최종 관문이다(계약 §3).
+- **이메일 검증 제외(확정 결정)** 🔄: Supabase Auth `Confirm email` **OFF** — 가입 완료 즉시 세션 발급,
+  검증 메일을 보내지 않으며 `/auth/email-verify` 라우트는 만들지 않는다.
+  스팸 가입 방어는 이메일 검증 대신 **관리자 승인 게이트**(아래)가 전담한다.
+  단, 비밀번호 재설정 메일(`resetPasswordForEmail`)은 이 설정과 무관하게 정상 동작 — 유지.
+- **가입 ≠ 이용 가능**: 가입 직후 `profiles.approval_status='pending'`이면
+  모든 보호 경로 접근 불가. 관리자 승인(`approved`)이 인증 게이트의 유일한 관문이다(계약 §3).
 - 역할 판정 소스는 `profiles.role`(admin/coach/member) + `profiles.approval_status` 2필드뿐이다.
   세부 권한(admin_user_roles)은 인증 게이트와 무관 — 라우팅에 사용 금지.
 
 ---
 
-## 2. 라우트 명세 (8종 — 계약 §5 확정 목록)
+## 2. 라우트 명세 (7종 — 계약 §5 확정 목록, email-verify 폐지)
 
 ### 2.1 `/auth/login` ✅
 | 항목 | 내용 |
@@ -58,17 +60,14 @@ flowchart TD
 | 항목 | 내용 |
 |---|---|
 | 목적 | 3-Step 회원가입 |
-| 기능 | Step1 계정(이메일/비밀번호/확인 — 중복·강도 실시간 검증) → Step2 기본정보(이름/연락처/생년월일/성별, 지점 선택) → Step3 약관(필수: 이용약관·개인정보 / 선택: 마케팅). 완료 시 인증 메일 발송 안내 |
+| 기능 | Step1 계정(이메일/비밀번호/확인 — 중복·강도 실시간 검증) → Step2 기본정보(이름/연락처/생년월일/성별, 지점 선택) → Step3 약관(필수: 이용약관·개인정보 / 선택: 마케팅). 완료 시 **즉시 세션 발급 → `/auth/pending-approval` 이동**(이메일 검증 단계 없음 🔄) |
 | 데이터 | `supabase.auth.signUp({ email, password, options.data: metadata })` → DB 트리거가 `profiles`(role='member', approval_status='pending') + `members` 행 생성(07-data-model `01_core.sql` auth 연동 트리거) |
-| 상태·규칙 | 가입 직후 role은 항상 `member`(coach/admin 승격은 Admin에서만: `promote_to_coach`). Step 이탈 시 입력값 세션 보존. 메일 재발송 버튼(60초 쿨다운) |
+| 상태·규칙 | 가입 직후 role은 항상 `member`(coach/admin 승격은 Admin에서만: `promote_to_coach`). Step 이탈 시 입력값 세션 보존. Supabase `Confirm email` OFF 전제 — `signUp` 응답에 세션이 즉시 포함되며, 미포함(설정 오적용) 시 에러 표면화(무한 대기 금지) |
 
-### 2.3 `/auth/email-verify` ✅
-| 항목 | 내용 |
-|---|---|
-| 목적 | 가입 인증 메일 링크 랜딩 + 검증 결과 표시 |
-| 기능 | 토큰 검증 성공 → "인증 완료, 관리자 승인 대기" 안내 후 `/auth/pending-approval` 유도. 실패(만료/오염) → 재발송 CTA |
-| 데이터 | Supabase verifyOtp / 링크 내장 토큰 |
-| 상태·규칙 | 검증 성공해도 approval_status는 여전히 pending — 자동 승인 없음 |
+### 2.3 ~~`/auth/email-verify`~~ 🔄 **폐지** (이메일 검증 제외 결정)
+- as-is에는 존재하나 to-be에서 **라우트 자체를 만들지 않는다**. Supabase Auth `Confirm email` OFF(§1)로 검증 메일이 발송되지 않으므로 랜딩이 불필요.
+- 구버전 인증 메일 링크로 유입될 경우: 미들웨어가 `/auth/login?error=verify_deprecated`로 리다이렉트(안내 배너).
+- 가입 스팸·오타 이메일 리스크는 관리자 승인 게이트에서 흡수 — Admin 회원 승인 화면(02)에서 이메일 확인 후 승인/거부.
 
 ### 2.4 `/auth/pending-approval` ✅ (구 문서 누락분 — 정식 편입)
 | 항목 | 내용 |

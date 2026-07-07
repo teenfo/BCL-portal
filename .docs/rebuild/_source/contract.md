@@ -50,7 +50,7 @@ Admin 대시보드: `fn_get_dashboard_kpis`, `fn_get_revenue_stats`, `fn_get_coa
 **Coach (하단탭 5)**: home / **schedule(중앙 강조)**🔄 / members / race / profile
 **Class**: screen-console🔄(wod·live·timer·screen 모드 전환) / race(view·run·result) / rotation-hud / leaderboard
 **Kiosk**: idle / scan / success
-**Auth**: login / signup / reset-password / email-verify / callback / pending-approval / rejected / logout
+**Auth**: login / signup / reset-password / callback / pending-approval / rejected / logout — ※ email-verify 폐지(이메일 검증 제외 확정: Supabase Confirm email OFF, 가입 즉시 세션→pending-approval)
 
 ## 6. 디자인 토큰 스킴 (클로드 단일 디자인 시스템)
 - 네임스페이스: `--bcl-*` 1세트만 (기존 --app-*/--primary/수동 유틸 폐지)
@@ -60,6 +60,7 @@ Admin 대시보드: `fn_get_dashboard_kpis`, `fn_get_revenue_stats`, `fn_get_coa
 - 표준 컴포넌트: Button(variant: primary/soft/danger/ghost), Card, Modal, BottomSheet(92vh), Badge, Input/Select, Tabs, Toast, EmptyState, Skeleton — 인라인 재구현 금지
 
 ## 7. 인증 안정성 계약
+- **이메일 검증 제외(확정)**: Supabase Auth `Confirm email` OFF — 가입 즉시 세션 발급→pending-approval. 검증 메일·email-verify 라우트 없음. 게이트는 관리자 승인 단일 (01 문서 §1)
 - 세션 상수 1곳: `AUTH_STORAGE_KEY='bcl-portal-auth'` — 브라우저/미들웨어/서버 클라이언트 공용 팩토리에서만 참조
 - 금칙: onAuthStateChange 콜백 내 await(락 교착), 수동 쿠키명 중복 정의, 무한 스피너(에러 표면화 필수)
 - 역할 리다이렉트 단일 함수: `resolvePostLoginRoute(profile)`

@@ -62,6 +62,13 @@
 - glassmorphism(`rgba(38,38,38,.8)+blur`)은 토큰화하지 않음 — Class/TV 배경 연출 유틸
   `.bcl-glass`(surface 기반) 1개로만 제한.
 
+**Race 전용 확장 토큰** (15-race-system §5b 소비 — 이 파일이 등록 SSOT):
+- `--bcl-race-team-1..8`: `#FF6A00`(accent)·`#3B82F6`·`#22C55E`·`#F59E0B`·`#8B5CF6`·`#EC4899`·`#14B8A6`·`#EF4444` — 팀/레인 컬러 8색 고정
+- 테마 토큰 3종 `--bcl-race-surface` / `--bcl-race-trail` / `--bcl-race-bg-tint`:
+  `data-race-theme=water|road|snow|track` 4테마별 값 매핑 🔄(R-11 — 연결 기기 타입에 따른 화면 테마 전환).
+  water=심해 블루/포말 화이트, road=아스팔트 그레이/더스트 앰버, snow=설원 화이트-블루/스프레이 화이트, track=트랙 레드-브라운/더스트 앰버.
+  Race 화면 컴포넌트는 이 3토큰만 참조하고 테마 하드코딩 금지
+
 ### 2.2 간격 — 4px 그리드
 
 | 토큰 | 값 | | 토큰 | 값 |

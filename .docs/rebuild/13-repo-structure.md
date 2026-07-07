@@ -25,7 +25,7 @@ bcl-portal/                          # 신규 저장소 (기존 repo와 병행, 
 │   │   ├── design-system.md         # rebuild 12 승계본 (--bcl-* 토큰·컴포넌트 스펙)
 │   │   └── deployment.md            # rebuild 11 승계본 (인프라·CI/CD·롤백)
 │   └── screens/                     # 화면 명세: 파일 경로 = 라우트 경로 (§4)
-│       ├── auth/{login,signup,reset-password,email-verify,callback,pending-approval,rejected}.md
+│       ├── auth/{login,signup,reset-password,callback,pending-approval,rejected}.md
 │       ├── admin/{dashboard,members,attendance,payments,plans,schedule,coaches,
 │       │         wod-studio,race,lockers,badges,feedback,crm,settings}.md   # to-be 14화면
 │       ├── apps/{home,schedule,checkin,performance,profile,purchase,feedback,notifications}.md
