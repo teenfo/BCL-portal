@@ -180,6 +180,7 @@ BCL Admin
 - 통합검색(이름/전화/이메일), 상태·멤버십 상태 필터 (as-is memberships 화면의 "홀딩중/만기임박 전체 현황" 요구를 필터 뷰로 흡수)
 - 회원 등록(계정 미연결 회원 허용 — `members.user_id` nullable), CSV 내보내기
 - 행 클릭 → 상세. 가입 승인 대기(`profiles.approval_status='pending'`) 배지 노출 및 승인/거부 처리
+- ⏳ **웨이버 서명 여부 배지 + 미서명 필터**: `member_agreements`(doc_type/doc_version/signed_at) 기반 전자 동의서·웨이버 서명 상태를 승인 대기 행에 배지로 표시, 미서명 회원 필터 제공 — 미서명 상태 승인 시도 시 경고 confirm(서명 플로우 본문은 01-auth, 서명은 `fn_sign_agreement` 경유) (G-6, 16 문서)
 
 **핵심 기능 — 상세 `overview` 탭**
 - 프로필(연락처/비상연락/생일/선호), 현재 멤버십 요약 카드(잔여 크레딧·D-Day), 경고 플래그(`member_alert_flags`) 표시·설정, 블랙리스트 토글
@@ -199,7 +200,7 @@ BCL Admin
 - `notes`: 상담/코칭 노트 통합 타임라인 — `member_notes`(author_role로 admin/coach 구분, note_type: general/injury/progress/caution/counseling) 🔄(coaching_notes 통합)
 - `performance`: 벤치마크·PR 요약(`fn_get_member_performance_profile`), 보유 배지(`badge_awards` ⏳)
 
-**데이터 소스**: `members`, `profiles`(승인), `memberships`, `membership_plans`, `membership_history`, `member_notes`🔄, `member_alert_flags`, `bookings`, `checkins`, `transactions`, `badge_awards`⏳ / RPC: `fn_get_member_context_panel`, `fn_get_member_performance_profile`, `fn_upsert_member_alert_flag`, `promote_to_coach`
+**데이터 소스**: `members`, `profiles`(승인), `memberships`, `membership_plans`, `membership_history`, `member_notes`🔄, `member_agreements`⏳(웨이버 서명 증빙 — G-6), `member_alert_flags`, `bookings`, `checkins`, `transactions`, `badge_awards`⏳ / RPC: `fn_get_member_context_panel`, `fn_get_member_performance_profile`, `fn_upsert_member_alert_flag`, `promote_to_coach`
 
 **파괴적 행동 확인 규칙**
 - 블랙리스트 지정: 사유 입력 필수 + confirm — 즉시 예약 차단됨을 명시
@@ -207,7 +208,7 @@ BCL Admin
 - 양도: 이관 내역 미리보기 + 양측 회원명 표시 confirm, 되돌리기 불가 명시
 - 회원 삭제: 금지(soft delete/비활성만). 거래·출석 이력 보존
 
-**현재 상태**: ✅ 목록·상세·memberships 기능 전부 as-is 운영 승계 / 🔄 화면 통합·member_notes 단일화가 재구축 신규 / ⏳ performance 탭의 배지 표시(배지 스키마 신설 후)
+**현재 상태**: ✅ 목록·상세·memberships 기능 전부 as-is 운영 승계 / 🔄 화면 통합·member_notes 단일화가 재구축 신규 / ⏳ performance 탭의 배지 표시(배지 스키마 신설 후) / ⏳ 웨이버 서명 배지·미서명 필터(G-6, 16 문서 — `member_agreements` 스키마 선행)
 
 ---
 
@@ -227,13 +228,14 @@ BCL Admin
 **핵심 기능 — `report` 탭**
 - 요일×시간 Heatmap, 기간 필터, 세션 유형·코치별 출석률, 노쇼율 추이
 - 회원별 출석 순위/장기 미출석 리스트(재방문 유도 → CRM 알림 작성 딥링크)
+- ⏳ **노쇼 페널티 집행 현황**: `facilities.booking_policy` 노쇼 규칙(월 N회 초과 시 D일 예약 제한·크레딧 몰수)에 따라 **현재 예약 제한 중인 회원** 목록·잔여 제한 기간·근거(노쇼/지각취소 건) 표시, 수동 해제(사유 필수 + audit) — 정책 편집은 `/admin/settings?tab=branch`(§3.14) 딥링크 (G-5, 16 문서)
 - CSV/Excel 내보내기
 
-**데이터 소스**: `checkins`, `bookings`(attendance_outcome), `sessions`, `members` / RPC: `fn_mark_attendance`🔄(단건+일괄 통합형)
+**데이터 소스**: `checkins`, `bookings`(attendance_outcome), `sessions`, `members`, `facilities`🔄(booking_policy — 페널티 규칙 참조 ⏳ G-5) / RPC: `fn_mark_attendance`🔄(단건+일괄 통합형)
 
 **파괴적 행동**: 출결 판정 변경 시 confirm(정산 Basis에 영향 명시) + 사유, `audit_logs` 기록. 체크인 레코드 삭제 금지(정정은 판정 변경으로만)
 
-**현재 상태**: ✅ checkins 로그·insights 리포트 승계 / 🔄 화면 통합 + `fn_mark_attendance` 통합 RPC 전환(기존 mark/bulk_mark 폐지)
+**현재 상태**: ✅ checkins 로그·insights 리포트 승계 / 🔄 화면 통합 + `fn_mark_attendance` 통합 RPC 전환(기존 mark/bulk_mark 폐지) / ⏳ 노쇼 페널티 집행 현황(G-5, 16 문서 — booking_policy 집행 트리거 선행)
 
 ---
 
@@ -247,22 +249,24 @@ BCL Admin
 
 **핵심 기능 — `transactions` 탭**
 - 거래 목록: 기간/상태(toss_status)/수단/source(online·pos·manual) 필터, order_id 검색, 원본 payload(toss_raw_data) 열람
+- ⏳ **현금영수증 상태 컬럼**: source=manual/pos 거래(현금·이체)에 `transactions.cash_receipt_status`/`cash_receipt_approval_no` 표시 + 발급 처리(Toss 현금영수증 API — 08 문서) — 의무발행 업종 미발급 가산세 대응 (G-9, 16 문서)
 - 수동 결제 등록(현장 POS/이체 — source=manual)
 - **환불 워크플로우**(결제 불변식 준수): 요청 접수 → 위약금·환급액 **서버 계산** 표시 → 관리자 승인(2단계) → PG 취소 실행(`refunds` 상태: pending→approved→completed/rejected) → audit 기록
 - 시뮬레이션 거래 구분 배지(`pg_settings.payment_mode`), live 미가동 상태 명시
 
 **핵심 기능 — `report` 탭**
 - 월/기간 매출(`fn_get_revenue_stats`), 요금제별 매출 구성, 결제수단 통계, 환불율
+- ⏳ **현금영수증 미발급 경고 리포트**: 현금성 거래(source=manual/pos) 중 cash_receipt_status 미발급 건 집계·경고 배지 — `transactions` 탭 해당 필터 뷰 딥링크 (G-9, 16 문서)
 - 코치 월 정산 섹션: `fn_calculate_monthly_settlement` 실행(관리자 전용, Coach는 read-only 원칙) → `coach_settlements` 상태 관리(pending→confirmed→paid) — 상세 근거는 `/admin/coaches?tab=performance`와 상호 딥링크
 
-**데이터 소스**: `transactions`🔄(id UUID), `refunds`, `pg_settings`, `coach_settlements`, `membership_plans` / RPC: `fn_get_revenue_stats`, `fn_calculate_monthly_settlement`
+**데이터 소스**: `transactions`🔄(id UUID, +cash_receipt_status/cash_receipt_approval_no ⏳ G-9), `refunds`, `pg_settings`, `coach_settlements`, `membership_plans` / RPC: `fn_get_revenue_stats`, `fn_calculate_monthly_settlement`
 
 **파괴적 행동 확인 규칙**
 - 환불: **2단계 승인**(계산 결과 확인 → 금액 재표시 + "환불" 타이핑) — 클라이언트 금액 전달 금지, 서버가 DB 기준 재계산 (Fail-to-NOT-charge)
 - 정산 확정(confirmed→paid): confirm + 되돌리기 불가 명시
 - 거래 삭제 금지 — 취소는 PG 취소 플로우로만
 
-**현재 상태**: ✅ 거래·환불·정산 승계 / 🧪 Toss 실결제(payment_mode 기본 simulation — live 전환은 settings 시스템 탭 이중장치) / 🔄 transactions.id text→UUID, 화면 통합
+**현재 상태**: ✅ 거래·환불·정산 승계 / 🧪 Toss 실결제(payment_mode 기본 simulation — live 전환은 settings 시스템 탭 이중장치) / 🔄 transactions.id text→UUID, 화면 통합 / ⏳ 현금영수증 상태 컬럼·미발급 경고 리포트(G-9, 16 문서)
 
 ---
 
@@ -276,15 +280,16 @@ BCL Admin
 
 **핵심 기능**
 - 요금제 CRUD: type(기간제/횟수권), price, duration_days, credit_count, 판매 상태(활성/숨김)
+- ⏳ **`plan_kind` 구분(standard/drop_in/trial)**: 목록에 kind 배지·필터 표시. 드롭인/체험은 현장 수동 결제(→payments source=manual)와 함께 즉시 발급하는 1회성 멤버십으로 처리 — 키오스크 체크인도 유효(`fn_kiosk_checkin` NO_MEMBERSHIP 거부 분기 해소, 06 문서 §4.2) (G-7, 16 문서)
 - 정책 편집: `refund_policy`(JSONB — 경과 기간별 환급률), `max_pauses`(홀딩 허용 횟수), `facility_sharing`
 - 활성 구독 수 표시(요금제별 `memberships` count), 가격 변경 시 기존 멤버십 불변 명시(스냅샷 원칙)
 - User 앱 `purchase` 노출 순서/추천 배지 설정
 
-**데이터 소스**: `membership_plans`, `memberships`(참조 count)
+**데이터 소스**: `membership_plans`🔄(+plan_kind: standard/drop_in/trial ⏳ G-7), `memberships`(참조 count)
 
 **파괴적 행동**: 활성 구독이 있는 요금제 삭제 **차단**(숨김만 허용). 가격/정책 변경 confirm(신규 판매분부터 적용 명시)
 
-**현재 상태**: ✅ as-is 승계 (`plans`→`membership_plans` 표준 명칭 전환만)
+**현재 상태**: ✅ as-is 승계 (`plans`→`membership_plans` 표준 명칭 전환만) / ⏳ plan_kind 드롭인·체험권 확장(G-7, 16 문서)
 
 ---
 
@@ -304,7 +309,7 @@ BCL Admin
 **핵심 기능 — 세션 통합 패널 (🔄 핵심, 세션 클릭 시 우측 슬라이드)**
 - 헤더: 세션 정보 요약 + 상태 변경 + 세션 취소
 - `roster` 서브탭: 확정 예약 명단(`bookings.status=confirmed`), 관리자 대리 예약(회원 검색 → `fn_book_with_credit`), 대리 취소(`fn_cancel_booking_with_credit` — 크레딧 복구 규칙 서버 판정), 출결 판정 일괄/개별(`fn_mark_attendance`), walk_in 추가
-- `waitlist` 서브탭: 대기열 순번(`waitlisted`), 우선순위 수동 조정, 수동 승격(빈자리 발생 시 자동 승격 트리거 `fn_notify_waitlist_on_vacancy`와 병행), 노쇼 통제 정책 표시
+- `waitlist` 서브탭: 대기열 순번(`waitlisted`), 우선순위 수동 조정, 수동 승격(빈자리 발생 시 자동 승격 트리거 `fn_notify_waitlist_on_vacancy`와 병행), 노쇼 통제 정책 표시(⏳ `facilities.booking_policy` 값 표시 — 하드코딩 금지, G-4·G-5 16 문서)
 - `wod` 서브탭: 세션 WOD 조회(`fn_get_session_wod`)·배정(`fn_upsert_session_wod` — wod-studio 템플릿 검색 연결)·게시(`fn_publish_session_wod`). ※ `sessions.wod_description` 컬럼 폐지 — `session_wods` 스냅샷만 사용
 
 **데이터 소스**: `sessions`🔄(wod_description 제거), `session_coaches`, `bookings`, `checkins`, `session_wods`, `coaches`, `members` / RPC: `fn_book_with_credit`, `fn_cancel_booking_with_credit`, `fn_mark_attendance`, `fn_get_session_wod`, `fn_upsert_session_wod`, `fn_publish_session_wod`
@@ -366,6 +371,8 @@ BCL Admin
 - 템플릿 참조 수 표시(참조 중 동작의 의미 변경 경고)
 
 **데이터 소스**: `wod_templates`, `wod_template_movements`, `movement_library`, `movement_categories`, `session_wods`(참조 현황) / RPC: `fn_list_wod_templates`, `fn_get_wod_template`, `fn_upsert_wod_template`, `fn_publish_wod_template`, `fn_search_wod_movements`, `fn_list_movement_library` ※ 레거시 `wods` 테이블 폐지 — 마이그레이션 대상 없음
+
+※ ⏳ **일일 WOD 기록(`session_wod_results`)은 회원/코치 앱에서 입력하고 Admin은 조회 전용** — 회원 상세 performance 탭(§3.2)·Class 리더보드에서 열람하며 wod-studio에 입력 UI를 두지 않는다 (G-1, 16 문서. 명세 본문은 03·04 문서)
 
 **파괴적 행동**: 게시된 템플릿 삭제 → **archive만 허용**(세션 스냅샷 `movements_snapshot`은 동결이므로 과거 세션 무영향 명시). 템플릿 참조가 있는 동작 삭제 차단(비활성만). 카테고리 삭제는 소속 동작 0일 때만
 
@@ -515,6 +522,7 @@ BCL Admin
 
 **핵심 기능 — `branch` 탭**
 - 지점 정보(`facilities`): 이름/주소/좌표/사진, 운영시간, 약관·개인정보·환불정책 문서
+- ⏳ **예약 정책 편집(`facilities.booking_policy` JSONB)**: 예약 오픈 일수(예약 윈도우)/취소 마감 시간/주간 예약 상한/노쇼 페널티 규칙(월 N회 초과 시 D일 예약 제한·크레딧 몰수 여부) 편집 폼 — 정책 저장은 이 JSONB **단일 소스**, 집행은 `fn_book_with_credit`/`fn_cancel_booking_with_credit` 내부 검증(클라이언트 하드코딩 금지 — 계약 §6b). 변경 시 confirm(신규 예약부터 적용 명시) + audit. 집행 현황 열람은 `/admin/attendance?tab=report`(§3.3) (G-4·G-5, 16 문서)
 
 **핵심 기능 — `system` 탭**
 - PG 연동: `pg_settings` — 키 암호화 저장(`save_pg_settings`/`get_decrypted_pg_settings`, pgp_sym), **payment_mode(simulation/live) 전환**
@@ -533,7 +541,7 @@ BCL Admin
 **핵심 기능 — `audit` 탭**
 - `audit_logs` 조회: actor/action/target/기간 필터, old·new_values diff 뷰, 에러 로그, CSV 내보내기 (읽기 전용)
 
-**데이터 소스**: `facilities`, `pg_settings`, `system_config`, `qr_codes`, `kiosk_devices`, `admin_roles`🔄, `admin_user_roles`, `audit_logs` / RPC: `fn_my_permissions`, `save_pg_settings`, `get_decrypted_pg_settings`
+**데이터 소스**: `facilities`🔄(+booking_policy JSONB ⏳ G-4·G-5), `pg_settings`, `system_config`, `qr_codes`, `kiosk_devices`, `admin_roles`🔄, `admin_user_roles`, `audit_logs` / RPC: `fn_my_permissions`, `save_pg_settings`, `get_decrypted_pg_settings`
 
 **파괴적 행동 확인 규칙**
 - **payment_mode live 전환**: 최고 위험 — 2단계(체크리스트 확인 → "LIVE" 타이핑) + min(Admin 설정, env) 이중장치로 env가 simulation이면 live 불가 명시
@@ -542,7 +550,7 @@ BCL Admin
 - QR 재발급: 기존 QR 즉시 무효 명시 confirm
 - 감사 로그: 수정·삭제 불가(append-only)
 
-**현재 상태**: ✅ setup 4화면 + roles + infrastructure 기능 승계 / 🔄 통합 + permissions JSONB 단일형 + admin_user_roles 단일 소스 승격이 재구축 핵심 변경
+**현재 상태**: ✅ setup 4화면 + roles + infrastructure 기능 승계 / 🔄 통합 + permissions JSONB 단일형 + admin_user_roles 단일 소스 승격이 재구축 핵심 변경 / ⏳ 예약 정책(booking_policy) 편집 UI(G-4·G-5, 16 문서)
 
 ---
 
@@ -601,6 +609,8 @@ widget_settings (
 | schedule 세션 `wod` 서브탭 | wod-studio templates | 템플릿 검색·편집 |
 | race events | schedule 세션 | 세션 연결 |
 | settings system 키오스크 | attendance live | 키오스크 체크인 확인 |
+| attendance report 페널티 집행 현황 ⏳ | settings branch 예약 정책 | 정책 편집 (G-4·G-5, 16 문서) |
+| payments report 미발급 경고 ⏳ | payments transactions 미발급 필터 | 현금영수증 발급 처리 (G-9, 16 문서) |
 
 ---
 

@@ -12,7 +12,7 @@
 | 항목 | 내용 |
 |---|---|
 | 성격 | 회원용 모바일 앱(PWA). 하단탭 5개 + 비탭 스택 화면 최소화 |
-| 진입 가드 | `profiles.role='member'` AND `profiles.approval_status='approved'` (pending/rejected는 `/auth/pending-approval`·`/auth/rejected`로 — 01-auth 참조) |
+| 진입 가드 | `profiles.role='member'` AND `profiles.approval_status='approved'` (pending/rejected는 `/auth/pending-approval`·`/auth/rejected`로 — 01-auth 참조). ⏳ 가입 승인 전 웨이버(전자 동의서) 서명 단계 포함 — `fn_sign_agreement`→`member_agreements` 적재, 플로우 본문은 01-auth (G-6, 16 문서) |
 | 데이터 접근 | `query()`/`rpc()` 헬퍼 강제. 비즈니스 데이터는 **member_id 기준**(auth user_id 직접 사용 금지) — `auth.uid()→members.user_id` 매핑은 RPC/RLS 내부에서만 수행 |
 | RPC 규약 | SECURITY DEFINER + envelope `{success, data, error}` 1종. 클라이언트가 member_id를 전달하지 않는다(서버가 `auth.uid()`로 판정) |
 | 디자인 | `--bcl-*` 토큰 단일 세트, `data-density=mobile`, 표준 컴포넌트(BottomSheet 92vh, Toast, EmptyState, Skeleton) — 12-design-system 준수 |
@@ -87,28 +87,36 @@
 | 항목 | 내용 |
 |---|---|
 | 목적 | 주간 수업 탐색 → 예약/대기 → 내 예약 관리를 한 화면에서 완결 |
-| 핵심 기능 | ① 주간 캘린더 + 세션 목록(코치/정원/잔여 — 코치 카드 as-is coaches 흡수) ② 세션 상세 BottomSheet: WOD 미리보기(`fn_get_class_display_wod` 결과 요약)·서킷 뷰어·코치 소개 ③ 예약/Waitlist 등록 ④ "내 예약" 탭: 확정/대기/지난 예약, 취소 ⑤ 대기→확정 승격 시 Realtime 토스트 |
-| 데이터 | `sessions`, `session_coaches`(+`coaches`), `bookings`, `session_wods` — RPC: **`fn_book_with_credit`**, **`fn_cancel_booking_with_credit`**, `fn_get_class_display_wod` |
-| 상태·권한 | bookings.status 상태머신(confirmed/waitlisted/cancelled)은 서버(RPC)만 전이. attendance_outcome은 회원 read-only(코치 판정 영역) |
-| 현재 상태 | ✅ (bookings 통합은 🔄) |
+| 핵심 기능 | ① 주간 캘린더 + 세션 목록(코치/정원/잔여 — 코치 카드 as-is coaches 흡수) ② 세션 상세 BottomSheet: WOD 미리보기(`fn_get_class_display_wod` 결과 요약)·서킷 뷰어·코치 소개 + ⏳ **WOD Prep**: `fn_get_my_wod_prep(p_session_id)` — 예정 WOD의 동일 벤치마크·동작에 대한 **본인 과거 베스트 병기**(오늘 목표 페이스 참고) (G-3, 16 문서) ③ 예약/Waitlist 등록 ④ "내 예약" 탭: 확정/대기/지난 예약, 취소 ⑤ 대기→확정 승격 시 Realtime 토스트 ⑥ ⏳ **예약 제한 상태 배너**: 노쇼 페널티로 예약 제한 중이면 제한 사유·해제 예정일 표시(예약 버튼 비활성 + 사유 안내) (G-5, 16 문서) |
+| 데이터 | `sessions`, `session_coaches`(+`coaches`), `bookings`, `session_wods`, `facilities`🔄(booking_policy — 규칙 안내문 표시용 조회) — RPC: **`fn_book_with_credit`**🔄, **`fn_cancel_booking_with_credit`**🔄(booking_policy 검증 단계 포함), `fn_get_class_display_wod`, `fn_get_my_wod_prep`⏳(G-3) |
+| 상태·권한 | bookings.status 상태머신(confirmed/waitlisted/cancelled)은 서버(RPC)만 전이. attendance_outcome은 회원 read-only(코치 판정 영역). 예약 오픈 일수·취소 마감 등 규칙 안내문은 `facilities.booking_policy` 값을 표시할 뿐 **클라이언트에 규칙 하드코딩 금지**(계약 §6b) |
+| 현재 상태 | ✅ (bookings 통합은 🔄) / ⏳ WOD Prep(G-3)·예약 제한 배너(G-5) / 🔄 예약·취소 규칙의 booking_policy 서버 집행 전환(G-4·G-5, 16 문서) |
 
 **예약·Waitlist·크레딧 흐름 (불변 규칙 — 서버 단일 경로)**
 
 ```
 [예약] fn_book_with_credit(p_session_id)
   1. auth.uid() → members 매핑 (클라이언트 member_id 전달 금지)
-  2. 활성 membership FOR UPDATE 잠금 → remaining_credits ≥ 1 검증
-  3. 세션 정원 확인:
+  2. 🔄 facilities.booking_policy 검증 (G-4·G-5, 16 문서):
+     - 예약 윈도우(예약 오픈 일수 이내인가) / 주간 예약 상한 초과 여부
+     - 노쇼 페널티 예약 제한 중 여부 — 위반 시 사유 코드 포함 error 반환(클라이언트는 표시만)
+  3. 활성 membership FOR UPDATE 잠금 → remaining_credits ≥ 1 검증
+  4. 세션 정원 확인:
      - 잔여 있음 → bookings INSERT(status=confirmed) + 크레딧 1 차감
      - 만석    → bookings INSERT(status=waitlisted) — 크레딧 차감 없음(승격 시점 차감)
-  4. envelope 반환 {success, data:{status, remaining_credits}, error}
+  5. envelope 반환 {success, data:{status, remaining_credits}, error}
 
 [취소] fn_cancel_booking_with_credit(p_booking_id)
-  1. 본인 예약 검증 → status=cancelled + confirmed였다면 크레딧 복구
+  1. 본인 예약 검증 + 🔄 booking_policy 취소 마감 시간 검증 (G-4·G-5, 16 문서):
+     - 마감 전 취소 → status=cancelled + confirmed였다면 크레딧 복구
+     - 마감 후 취소 → 지각취소(late_cancel) 처리 — 크레딧 복구 여부는 booking_policy 규칙이 판정
   2. 빈자리 발생 → 트리거 fn_notify_waitlist_on_vacancy: 대기 상위 3명에게 알림
      (승격은 선착 확정 — fn_book_with_credit 재호출 경로, waitlist_promoted_at 기록)
-  3. 노쇼/지각취소 페널티 판정은 코치·Admin 영역(attendance_outcome), 회원 취소는 시각 기준 규정만 적용
+  3. 노쇼/지각취소 페널티(크레딧 몰수·월 N회 초과 시 D일 예약 제한)는 booking_policy 규칙으로
+     서버가 자동 집행 — 출결 판정(attendance_outcome) 자체는 코치·Admin 영역
 ```
+
+※ 🔄 예약·취소 규칙(윈도우/마감/상한/페널티)의 **단일 소스는 `facilities.booking_policy` JSONB**이며 집행은 위 두 RPC 내부에서만 수행한다 — 화면은 규칙 값을 안내문으로 표시할 뿐 하드코딩하지 않는다 (G-4·G-5, 16 문서. 정책 편집 UI는 02-admin §3.14)
 
 ### 3.3 탭3 — checkin (`/apps/checkin`)
 
@@ -124,16 +132,26 @@
 
 | 항목 | 내용 |
 |---|---|
-| 목적 | 기록·랭킹·배지를 "내 성과"라는 단일 서사로 묶어 리텐션 루프(기록→비교→보상) 형성 |
-| 구성 | 상단 세그먼트 탭 3개: **내 기록 / 랭킹 / 배지** (딥링크 `?tab=records|leaderboard|badges` — 기존 3라우트 301 매핑) |
+| 목적 | 기록·랭킹·배지를 "내 성과"라는 단일 서사로 묶어 리텐션 루프(기록→비교→보상) 형성 — ⏳ 일일 WOD 기록(§1b)이 이 루프의 매일의 입력점 (G-1, 16 문서) |
+| 구성 | 상단 세그먼트 탭 3개: **내 기록 / 랭킹 / 배지** (딥링크 `?tab=records|leaderboard|badges` — 기존 3라우트 301 매핑). 내 기록 탭 최상단에 「오늘의 WOD 기록」 카드(§1b ⏳) |
 
 **§1 내 기록** (as-is `/apps/records` 승계)
 
 | 항목 | 내용 |
 |---|---|
-| 기능 | 벤치마크 WOD 기록 목록(For Time/AMRAP/Weight/Distance/Calories), PR 뱃지·추이 스파크라인, 자가 기록 입력(BottomSheet), 레이스 기록 카드(순위/파워/페이스) |
-| 데이터 | **`member_benchmark_results`**(+`benchmark_definitions` — metric_type: time=낮을수록 우수), **`race_records`**(result_time/avg_watts/finish_rank/is_pr) — RPC: `fn_get_member_performance_profile`(본인 조회), `fn_list_benchmark_definitions`, `fn_record_member_benchmark_result`(자가 입력 — 서버가 auth.uid()→본인 검증, advisory lock으로 PR 판정 동시성 보장) |
-| 상태 | ✅ (records) / race_records 연동 표시는 🟡 |
+| 기능 | 벤치마크 WOD 기록 목록(For Time/AMRAP/Weight/Distance/Calories), PR 뱃지·추이 스파크라인, 자가 기록 입력(BottomSheet — 🔄 rx_status 선택 포함), 레이스 기록 카드(순위/파워/페이스) |
+| 데이터 | **`member_benchmark_results`**🔄(+rx_status — G-2)(+`benchmark_definitions` — metric_type: time=낮을수록 우수), **`race_records`**(result_time/avg_watts/finish_rank/is_pr) — RPC: `fn_get_member_performance_profile`🔄(+일일 WOD 기록 타임라인 포함), `fn_list_benchmark_definitions`, `fn_record_member_benchmark_result`🔄(+rx_status. 자가 입력 — 서버가 auth.uid()→본인 검증, advisory lock으로 PR 판정 동시성 보장) |
+| 상태 | ✅ (records) / race_records 연동 표시는 🟡 / rx_status 컬럼·타임라인 통합은 🔄 (G-2, 16 문서) |
+
+**§1b 오늘의 WOD 기록 + 화이트보드 ⏳ (신규 — G-1·G-2, 16 문서)**
+
+| 항목 | 내용 |
+|---|---|
+| 기능 | ① **오늘의 WOD 기록 입력**: 오늘 체크인·예약한 세션의 게시 WOD(`session_wods`)에 내 점수 기록 — `score_type`별 입력 폼(time=mm:ss / rounds+reps / weight / distance / calories), **rx_status 선택(rx_plus/rx/scaled)** + 스케일 내용 메모. 세션당 1회, 본인 수정 허용 ② **화이트보드 뷰**: 같은 세션 참가자 전원의 결과를 **Rx+ → Rx → Scaled 계층 정렬**(계층 내 score 순)로 표시 — 박스 화이트보드 문화의 디지털화. 내 행 고정 표시, 미기록 참가자는 이름만(기록 유도) |
+| 데이터 | **`session_wod_results`**⏳(session_wod_id, member_id, score, score_type, rx_status, note) — RPC: `fn_record_session_wod_result`⏳(본인 기록 — 서버가 auth.uid()→본인 검증), `fn_get_session_wod_whiteboard(p_session_id)`⏳(전원 결과 계층 정렬) |
+| 진입점 | performance §내 기록 최상단 카드(오늘 세션 자동 감지), 체크인 성공 토스트 딥링크, 수업 종료 알림 |
+| 상태·권한 | 본인 체크인/예약 세션만 기록 가능(서버 검증). 화이트보드 노출 범위는 동일 세션 참가자 — 랭킹 익명 설정(`members.preferences`) 존중 |
+| 상태 | ⏳ — 벤치마크만 기록 가능하던 **구조적 공백** 해소(테이블·RPC 신설 선행, 07-data-model·04_wod sql). Class 리더보드·배지 판정·코치 KPI가 이 데이터 위에 연동 (G-1·G-2, 16 문서) |
 
 **§2 랭킹** (as-is `/apps/leaderboard` 승계)
 
@@ -222,3 +240,5 @@
 4. performance: 벤치마크 자가 기록 → PR 뱃지 → 랭킹 반영 → (배지 스키마 적용 후) 배지 자동 지급 모달
 5. profile 시트: 5개 섹션 전환에 페이지 내비게이션 0회, 알림 설정 변경 즉시 반영
 6. purchase(simulation): 요금제 선택→3단계 확인→success→멤버십 활성 / fail 경로에서 과금 0건 검증
+7. ⏳ 오늘의 WOD 기록(G-1·G-2): 체크인 세션 WOD에 score_type별 점수 + rx_status 기록 → 화이트보드에 Rx+→Rx→Scaled 계층 정렬 반영 → 내 기록 타임라인·Class 리더보드 연동
+8. 🔄 예약 정책 집행(G-4·G-5): booking_policy의 취소 마감 이후 취소 시도 → 서버가 지각취소 판정(크레딧 복구 규칙 정책 적용), 노쇼 페널티 제한 중 예약 시도 → 사유 코드 반환·제한 배너 표시 — 클라이언트 하드코딩 규칙 0건
