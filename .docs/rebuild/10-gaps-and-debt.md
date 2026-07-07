@@ -2,6 +2,7 @@
 
 > 재구축에서 해소할 항목 **전수**를 우선순위로 정렬한 단일 목록.
 > 근거 스냅샷: [`_source/nonfunctional-history.md`](./_source/nonfunctional-history.md), [`_source/screens-inventory.md`](./_source/screens-inventory.md), [`_source/backend-inventory.md`](./_source/backend-inventory.md)
+> 🔄 **벤치마킹 검수([16-benchmark-gap-analysis.md](./16-benchmark-gap-analysis.md)) 반영됨** — P1(G-1~G-10)은 contract.md 4차 보정+담당 문서에 반영, P2 16건(G-11~G-26)은 §2-3에, P3는 §3-2에 병합.
 > 표기: ✅ 운영 · 🟡 코드완료(검증 대기) · 🧪 mock/시뮬레이션 · ⏳ 미구현 · 🔄 to-be 변경/통합
 
 ## 0. 우선순위 정의
@@ -53,7 +54,33 @@
 | P2-09 | **경기 모드 3종(individual/team/group)** ⏳ | race_format에 group 부재, 모드별 편성/집계/화면 미설계 | `race_events.race_format` 확장(+group_target_m, heat_no), `fn_prepare_race_session(p_race_format)` 파라미터화, 모드별 화면 변형 | [15-race-system.md](./15-race-system.md) §4-b, [`sql/05_race.sql`](./sql/05_race.sql) |
 | P2-10 | **2.5D 카트레이싱 연출 + 에셋** ⏳ | 현행 2.5D 뷰는 기본 연출 | 카트게임 문법 재설계 + Claude 제작 SVG/스프라이트 에셋 매니페스트(12번 토큰 일관) | [15-race-system.md](./15-race-system.md) §5-b, [12-design-system.md](./12-design-system.md) |
 
+### 2-3. 벤치마킹 검수 병합 — 차기 Phase 로드맵 (16 문서 §2, G-11~G-26 전량)
+
+> 벤치마킹 검수 P2 16건. 재구축 cutover의 전제조건은 아니며 **차기 Phase(cutover 이후 스프린트) 배치 대상** —
+> 단 스키마 확장 여지(컬럼·enum·JSONB)가 필요한 항목은 07-data-model에 선반영 확인. 전 항목 ⏳.
+
+| # | 항목 | 출처(벤치마크) | 해소 방법 | 담당 문서 |
+|---|---|---|---|---|
+| P2-11 | **소셜 리액션(피스트범프·코멘트)** ⏳ (G-11) | SugarWOD 대표 기능 | reactions 테이블 + 알림 룰 1종 — 일일 WOD 기록(G-1, `session_wod_results`) 후속 | [03-user-app.md](./03-user-app.md), [07-data-model.md](./07-data-model.md) |
+| P2-12 | **1RM 추정(e1RM)·%1RM 환산** ⏳ (G-12) | BTWB, TrainHeroic | 1단계 표시만이라도 도입, %1RM 처방 연동은 2단계 | [03-user-app.md](./03-user-app.md) 퍼포먼스 허브 |
+| P2-13 | **출석 대비 기록률 코치 인사이트** ⏳ (G-13) | SugarWOD, PushPress | G-1 전제 — 코치 KPI 지표 1개 + 대시보드 위젯 | [04-coach-app.md](./04-coach-app.md) |
+| P2-14 | **동작 데모 영상** ⏳ (G-14) | SugarWOD, TrainHeroic | `movement_library.demo_video_url` 링크 방식(저비용) + WOD 뷰어 재생 버튼 | [07-data-model.md](./07-data-model.md), [03-user-app.md](./03-user-app.md) |
+| P2-15 | **마일스톤 자동 축하 + 라이프사이클 자동 메시지**(온보딩/생일/재등록 유도/장기 미출석) ⏳ (G-15) | Wodify, PushPress Grow, 다짐매니저 18종 | `notification_rules.trigger_type` 어휘 확장만으로 흡수(first_checkin, checkin_count, days_inactive, signup_welcome, birthday, renewal_lapsed) | [08-integrations.md](./08-integrations.md) §2 |
+| P2-16 | **At-Risk 리텐션 자동 감지·아웃리치 태스크** ⏳ (G-16) | Wodify Retain, Mindbody | 규칙 기반 경량 — `coach_followups`에 retention 유형 확장(기존 자산 재활용) | [04-coach-app.md](./04-coach-app.md), [08-integrations.md](./08-integrations.md) |
+| P2-17 | **셀프서비스 홀딩 신청** ⏳ (G-17) | TeamUp, Glofox | 서버 로직 기존재 — User 앱 신청 시트 + 승인 큐만 추가. **P1 승격 후보**(저비용·티켓 수작업 즉감) | [03-user-app.md](./03-user-app.md) profile |
+| P2-18 | **리드·체험 퍼널 CRM**(비회원 리드→상담→전환) ⏳ (G-18) | PushPress Grow, 바디코디 | 최소형 leads 파이프라인 — 성장기 진입 시 최우선 | [02-admin.md](./02-admin.md) crm |
+| P2-19 | **1:1 PT 어포인트먼트·세션권·커미션** ⏳ (G-19) | Mindbody, 포인티 | 스키마에 `sessions.session_type` 확장 여지만 확보(계약 §2 반영됨 — personal⏳). **BCL이 PT 상품 판매 시 P1 승격** | [02-admin.md](./02-admin.md), [07-data-model.md](./07-data-model.md) |
+| P2-20 | **정기 자동결제(Toss 빌링/CMS 이체)+dunning** ⏳ (G-20) | 전 해외 솔루션, 효성CMS | 현 배제(❌-4, Fail-to-NOT-charge)는 타당 — **Toss live 안정화 후 Toss 빌링+dunning을 별도 Phase로 재검토(CMS 계좌 자동이체 포함 여부 함께)** | [08-integrations.md](./08-integrations.md) §1.2 |
+| P2-21 | **미수금(부분 수납) 관리** ⏳ (G-21) | 다짐매니저·바디코디 공통 관행 | 멤버십 1:결제 N 매핑 + 미수 대시보드·자동 알림 | [02-admin.md](./02-admin.md) payments, [07-data-model.md](./07-data-model.md) |
+| P2-22 | **Race 핸디캡/에이지 그레이딩 스타트** ⏳ (G-22) | ErgRace, 마스터스 표준 | `lane_assignments[].handicap_m`(또는 start_delay_s) — Python 무변경, Portal 오프셋 계산 | [15-race-system.md](./15-race-system.md) |
+| P2-23 | **Race 시딩 + 예선→결승 진출 로직** ⏳ (G-23) | Time-Team Regatta | `parent_event_id` 시리즈에 heat_role(heat/final) + 이전 히트 기록순 재편성 버튼(시딩 소스=member_benchmark_results) | [15-race-system.md](./15-race-system.md) §4b.3 |
+| P2-24 | **Race 공식 결과 워크플로**(정정·provisional/official·PDF/인증서) ⏳ (G-24) | Time-Team, ErgRace | `race_records.status`(provisional/official) + Coach 정정 UI(멱등 UPSERT라 재적재 안전) — 오배정 확정 시 벤치마크 이력(15 §6.2) 오염 방지 | [15-race-system.md](./15-race-system.md) |
+| P2-25 | **Race 드래그팩터 기록·검증** ⏳ (G-25) | WR/Concept2 공식 프로토콜 | `race_records.drag_factor` + JSONL `_meta` — 파서 1개 확장, PR 공식성 근거 | [15-race-system.md](./15-race-system.md) §3.3 |
+| P2-26 | **Race 참가자 1인칭 화면**(자기 레인 모바일) ⏳ (G-26) | ErgRace Online, RowPro | Broadcast anon 구독 + 자기 시리얼 필터로 구현 가능(파이프라인 무변경) | [15-race-system.md](./15-race-system.md) §7.4 |
+
 ## 3. P3 후순위 — 설계만 선반영, 구현은 후속 백로그
+
+### 3-1. 설계 선반영 백로그
 
 | # | 항목 | 상태 | 선반영 내용 | 담당 |
 |---|---|---|---|---|
@@ -65,10 +92,17 @@
 | P3-06 | **AI 위젯 생성기** ⏳ | 설계만(Gemini) | 부록 처리 — widget_settings 스키마가 수용 가능함만 확인 | [02-admin.md](./02-admin.md) 부록 |
 | P3-07 | **보안 ⏳ 계획군** | MFA, CSP(Report-Only), CSRF 토큰, rate limit, Fail2ban, Dependabot, 개인정보 파기 절차 | 로드맵·적용 순서만 명세(재구축 아키텍처가 차단하지 않음 확인) | [09-nonfunctional.md](./09-nonfunctional.md) §보안 로드맵 |
 
+### 3-2. 벤치마킹 인지·비권장 리스트 (16 문서 §3 병합 — 도입 비권장 또는 장기, 확장 여지만 확인)
+
+- **WOD**: 피트니스 레벨·약점 레이더(BTWB) / 챌린지·커스텀 리더보드(오픈 인트라뮤럴) / 프로그래밍 트랙 다중화 / 레디니스·습관 트래킹
+- **운영**: 리테일 POS·재고 / 24/7 도어 액세스(무인 운영 결정 시 재검토 — `fn_kiosk_checkin` 응답에 개방 신호 확장점만 문서화) / 가족 계정(키즈 클래스 시 P2 승격) / 회원 정기 자동 예약(크레딧·노쇼 정책과 충돌 — **부적합 판정**) / 마케팅 드립·평판 스위트 / 네이버 플레이스 연동 / 락커 요금 상품화(경량이라 P2 승격 여지)
+- **Race**: Elimination/Chase 포맷 / 칼로리 목표(저비용 우선 후보)·인터벌 레이스 / 원격 관전·방송 오버레이(`?overlay=1`) / 지점 간 원격 대항전(다지점 확장 시) / 스트릭트 스타트 옵션(start_mode 플래그만 예약) / 회원용 리플레이(JSONL Storage 아카이빙 전제)
+
 ## 4. 커버리지 대조 (전수 확인)
 
 - **미구현/mock 6종** (plan 확정 목록): 배지 스키마(P1-08) · pg_cron(P1-09) · 카카오/SMS(P3-02) · Kiosk QR(P2-01) · 소셜로그인(P3-01) · Timer 원격(P3-03) + Personal Recording(P3-04), Toss simulation(P2-02) — **전부 등재**
 - **수동 수용테스트 잔여**: P14 알림 QA(P2-03) · P21 L1~L4(P2-04) · P22 Ph5/P23 Ph4/P25 §11.8(P2-05) — **재구축 수용 기준으로 전량 이관**
 - **구조 부채**: 권한 이원화(P1-01) · 네이밍(P1-03) · 레거시 wods/RPC/노트 중복(P1-04) · transactions.id(P1-05) · 테스트 0(P1-06) · 3중 테마(P1-07) · 인증 장애 패턴(P1-02) · lockers 삼중(P1-10) · 문서 드리프트(P1-11) · 화면 이중화(P1-12) · 위젯 4테이블(P2-08) — **전부 등재**
+- **벤치마킹 검수(16 문서)**: P1 10건(G-1~G-10)=contract.md 4차 보정 + 담당 문서(01/03/04/05/06/08/15) 직접 반영 · P2 16건(G-11~G-26)=§2-3 병합(P2-11~P2-26) · P3=§3-2 병합 — **전량 등재**
 
 > 이 문서의 P1 전 항목은 [14-agent-workflow.md](./14-agent-workflow.md)의 병합 게이트 체크리스트에 그대로 인용된다. 신규 항목 발견 시 이 표에 먼저 추가한 뒤 담당 문서를 갱신한다(1문서 갱신 원칙).

@@ -29,7 +29,7 @@
 | ❌-1 | 자동 결제 금지 | 사용자의 명시적 액션 없이 결제가 실행되는 코드 경로 자체가 존재 금지 |
 | ❌-2 | 백그라운드 과금 금지 | cron/트리거/Webhook 어디에서도 금액 차감 로직 금지 |
 | ❌-3 | 자동 재시도 금지 | `/confirm` 실패 시 자동 재시도 없음 — 사용자가 직접 재시도 |
-| ❌-4 | 빌링키(정기결제) 미사용 | 필요 시 별도 기획으로만 — 본 설계 범위 외 |
+| ❌-4 | 빌링키(정기결제) 미사용 | 필요 시 별도 기획으로만 — 본 설계 범위 외. 로드맵: **Toss live 안정화 후 Toss 빌링+dunning을 별도 Phase로 재검토(CMS 계좌 자동이체 포함 여부 함께 결정)** (G-20, 16 문서 — 10-gaps-and-debt P2 등재) |
 | ❌-5 | 클라이언트 금액 불신뢰 | 프론트 전달 금액 승인 금지 — 서버에서 `membership_plans.price`와 반드시 비교 |
 
 **Fail-Safe 설계 원칙**
@@ -58,7 +58,7 @@
 
 **개발 규칙**: 결제 코드 변경=단독 커밋+리뷰 필수 / 시뮬레이션 전체 플로우 검증 없이 배포 금지 / catch 블록에서 결제 진행 금지 / 로그에 Secret Key·카드정보 금지 / 금액 하드코딩 금지(반드시 DB 조회).
 
-### 1.3 Edge Function 4종 계약 ⏳ (재구축 Phase 5 구현)
+### 1.3 Edge Function 4종 계약 ⏳ (재구축 Phase 5 구현 — +⑤ `issue-cash-receipt` ⏳는 §1.8)
 
 공통: Deno(Supabase Edge Functions), Secret Key는 `pg_settings` 암호화 컬럼(pgp_sym)에서만 로드, 클라이언트 노출 절대 금지. 응답 envelope `{success, data, error}`.
 
@@ -138,24 +138,65 @@ PROD       live           🟢 운영(실거래)  live_gck / live_gsk   ← 유�
 7. [ ] **소액 실결제 1건 + 즉시 전액 환불 1건** 리허설(관리자 카드) — transactions/refunds/audit_logs/알림 4종 기록 대조
 8. [ ] 롤백 경로 확인: 문제 발생 시 Admin 토글 1회로 simulation 복귀(배포 불필요) — 이것이 라이브 사고의 1차 차단기
 
-### 1.6 위약금·환불 규정 (체육시설법 기준 — 서버 단일 계산)
+### 1.6 위약금·환불 규정 (공정위 10% 상한형 — 서버 단일 계산) 🔄 ⚠️교정 (G-8, 16 문서)
 
 ```
-환불금 = 결제금액 − 이용금액 − 위약금
-이용금액 = (결제금액 ÷ 총 이용일수) × 이용 일수
-위약금  = 결제금액 × 위약금률
-
-위약금률: 이용 시작 전 0%(전액) / 1/3 경과 전 10% / 1/2 경과 전 20% / 1/2 경과 후 환불 불가(센터 재량)
+환불금 = 결제금액 − 이용일수 해당액 − min(위약금, 결제금액 × 10%)
+이용일수 해당액 = (결제금액 ÷ 총 이용일수) × 이용 일수
+위약금 = 결제금액 × 위약금률(플랜 정책) — 단 공제액은 결제금액의 10%가 절대 상한
+이용 시작 전 해지 = 위약금 0 (전액 환불)
 ```
 
-- 구현: DB 함수 `fn_calculate_refund(p_transaction_id, p_membership_id)` → `{refund_amount, penalty_amount, used_days, total_days, penalty_rate}` 반환
+- **법규 근거**: 공정위 **위약금 산정기준**·**소비자분쟁해결기준** — 체육시설업 중도해지 위약금은
+  **총 계약대금의 10% 이내** + 이용일수 해당액 공제. 소비자원 조정에서 10% 초과 공제는 반복적으로 부당 판정.
+- ⚠️ **구 기본값 폐기(설계 결함 교정)**: 종전의 경과율 기반 기본 산식("1/3 경과 전 10% / **1/2 경과 전 20% /
+  1/2 경과 후 환불 불가**")은 분쟁 실무와 충돌(패소·시정 리스크) — to-be에서 사용 금지, 어떤 코드 경로에도 남기지 않는다.
+- 구현: DB 함수 `fn_calculate_refund(p_transaction_id, p_membership_id)` → `{refund_amount, penalty_amount, used_days, total_days, penalty_rate}` 반환 — **10% 상한 캡은 함수 내부에서 무조건 적용**
 - Admin 환불 모달은 이 함수 결과를 **미리보기로만** 표시 — 확정 시 EF가 동일 함수로 재계산 대조
-- 플랜별 예외 정책은 `membership_plans.refund_policy`(JSONB)로 오버라이드 가능(없으면 법정 기본)
+- 플랜별 예외 정책은 `membership_plans.refund_policy`(JSONB)로 오버라이드 가능(없으면 법정 기본) —
+  단 **10% 상한 초과 설정 금지**: `fn_calculate_refund`가 오버라이드 값에도 `min(위약금, 결제금액×10%)`를
+  강제 적용하고, Admin 플랜 설정 UI는 상한 초과 위약금률 입력을 저장 단계에서 차단(계약 §6b)
 
 ### 1.7 결제 수용 시나리오 (Phase 5 게이트)
 
-정상: 시뮬 결제 성공 / 라이브 결제 성공(PROD 한정) / 환불(전액·부분, 위약금 차감 정확성) / 모드 전환 즉시 반영.
+정상: 시뮬 결제 성공 / 라이브 결제 성공(PROD 한정) / 환불(전액·부분, 위약금 차감 정확성 — **10% 상한 캡 포함**) / 모드 전환 즉시 반영.
 예외: DEV에서 live 선택→시뮬 강제+경고 배지 / 금액 위변조→EF 거부 / 동일 orderId 재요청→거부 / Toss 타임아웃→실패 처리 후 Webhook 보정 / 기환불 건 재환불→차단 / 라이브 키 미입력+live 모드→결제 차단+설정 안내.
+
+### 1.8 현금영수증 발급 관리 ⏳ (G-9, 16 문서)
+
+> 헬스장은 국세청 현금영수증 **의무발행 업종** — 건당 **10만원 이상 현금성 거래(현금/계좌이체)**는 소비자 요청이
+> 없어도 **거래일로부터 5일 내** 자진 발급 의무, **미발급 시 거래액의 20% 가산세**. as-is는 수동 결제
+> 등록(source=manual — 현장 현금/이체 매출)에 현금영수증 개념이 전무 — 세무 리스크 무방비 상태의 교정.
+
+**스키마** — `transactions` +컬럼 2 (계약 §2 finance, `sql/02_membership_finance.sql`):
+
+| 컬럼 | 값/규칙 |
+|------|---------|
+| `cash_receipt_status` | `not_required`(카드 등 비대상) / `pending`(발급 대기 — **10만원 이상 현금성 거래의 기본값**) / `issued` / `failed` / `cancelled`(환불 취소 완료) |
+| `cash_receipt_approval_no` | 국세청 승인번호 — `issued` 시 기록(리포트·세무 대사 키) |
+
+**Toss 현금영수증 API 경로**
+
+| 용도 | 경로 | 비고 |
+|------|------|------|
+| 발급 | `POST /v1/cash-receipts` | 금액·소득공제/지출증빙 구분·식별번호(휴대폰/사업자번호) → 승인번호(approvalNumber) 저장 |
+| 발급 취소 | `POST /v1/cash-receipts/{receiptKey}/cancel` | 환불 시 연동 — `cancel-payment` EF가 현금성 거래 환불 시 함께 처리 |
+| 조회 | `GET /v1/cash-receipts` | 발급 상태 대사(월 마감 리포트) |
+
+- 온라인 Toss 결제(가상계좌·계좌이체)는 confirm 요청의 `cashReceipt` 옵션으로 Toss가 자동 발급 —
+  **별도 발급 플로우가 필요한 것은 수동 등록 거래(현금/이체)뿐**.
+- Secret Key 로드·암호화 규약은 §1.3 공통(pg_settings pgp_sym)과 동일.
+
+**수동(현금/계좌이체) 결제 등록 시 발급 플로우** ⏳
+
+1. Admin payments에서 수동 거래 등록(source=manual, method=cash|transfer) → 10만원 이상이면
+   `cash_receipt_status='pending'` 자동 세팅 + 발급 입력 필드 노출(식별번호, 소득공제/지출증빙 구분)
+2. [현금영수증 발급] → EF ⑤ `issue-cash-receipt`(JWT: admin 전용 — §1.3 공통 규약 준수) → Toss API 발급
+   → `issued` + `cash_receipt_approval_no` 저장 + `audit_logs` 기록
+3. 실패 시 `failed` + 사유 표기 — 수동 재시도만(자동 재시도 없음, ❌-3 준용)
+4. **미발급 경고 리포트**: `pending` 상태로 거래일 D+3 경과 건을 Admin payments 리포트 탭·대시보드에
+   경고 배지 노출(**D+5 = 법정 발급 기한** — 20% 가산세 방어선)
+5. 환불 시: 발급 완료 건은 현금영수증 **취소**를 환불 2단계 플로우(🔒 규칙)에 포함 — 취소 누락 검증 후 `cancelled` 전이
 
 ---
 

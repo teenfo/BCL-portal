@@ -161,7 +161,7 @@ pm5_devices (
 
 | event | payload 핵심 | 발행 주체 |
 |---|---|---|
-| `erg_update` | `{device_serial, device_id, lane, d, p, spm, hr, cal, max_w, ts}` | Python |
+| `erg_update` | `{device_serial, device_id, lane, d, p, spm, hr, cal, max_w, ts, virtual_lane?}` — ⏳ `virtual_lane: true` = 페이스보트 가상 레인(§4b.5, 렌더 전용) | Python |
 | `race_start` / `race_finish` / `race_reset` | `{event_id, ts}` (+finish: 최종 스냅샷) | Python (control 명령 수행 시) |
 | `state_snapshot` | 전 레인 상태(5s 주기, 경로2와 동일 내용) | Python |
 | `lane_assign` | `{lane, device_id, member_id, member_name, team_id}` | Portal(코치 편성)·회원 QR 배정 |
@@ -170,6 +170,7 @@ pm5_devices (
 | `target_reached` 🔄 | `{total_m, ts}` | Portal — 단체전 공동목표 달성 연출 트리거 |
 
 - 클라이언트 수신: `useRaceRealtime`(승계) — Broadcast 1차, 실패 시 `/api/race/live` 0.3s 폴링 폴백, 필드 축약형(`d/p/spm/...`)과 전체형 모두 수용.
+- ⏳ **가상 레인 규칙(계약 §6b, G-10)**: `virtual_lane: true` 페이로드는 **렌더 전용** — 순위·팀 합산·달성률 집계와 `race_records` 적재에서 제외하며, 경로2(`race_live_state`)·경로3(JSONL)에도 기록하지 않는다(§4b.5).
 
 ### 3.2 경로 2 — `race_live_state` (5s 스냅샷, ephemeral)
 ```sql
@@ -291,6 +292,7 @@ fn_prepare_race_session(
 | `group_target_m` | group(A안) | 공동 목표 거리 |
 | `heat_mode` (bool) | group(B안) | 히트 방식 여부 |
 | `next_heat_of` (event_id) | group(B안) | 이 이벤트가 지정 이벤트의 다음 히트임(heat_no+1, parent 연결, carryover 자동 계산) |
+| `pacer` (jsonb) ⏳ | 전 모드 공통 | 페이스보트/버추얼 페이서 설정 — `{source, member_id?, split_500m?|pace_schedule?}` (§4b.5, G-10) |
 
 동작 규칙(승계+확장): ① 코치 배정 세션 검증(admin 예외) ② 미종료 이벤트 존재 시 **재개 반환**(created=false) — 단 `next_heat_of` 지정 시 이전 히트가 finished인지 검증 후 신규 생성 ③ 신규 생성 시 `race_format`·옵션 반영. advisory lock으로 동시 호출 직렬화(승계).
 
@@ -398,6 +400,34 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 - **Admin 경로**: `/admin/race` 이벤트 생성 폼에서 동일 파라미터 지정(세션 미연동 이벤트 허용 — 특별 이벤트용)
 - 미종료 이벤트 재개 시 모드 변경 불가(reset 후 재생성) — 진행 중 모드 전환으로 인한 집계 붕괴 방지
 
+### 4b.5 가상 레인 — 페이스보트/버추얼 페이서 ⏳ (모드 공통 옵션 — G-10, 16 문서)
+
+> 벤치마크: Time-Team pace boat·ErgRace Chase Race·RowPro 페이스보트·EXR PR 고스트·Zwift HoloReplay.
+> 트랙 위에 목표 페이스로 전진하는 **가상 레인 1개**를 추가해 참가자가 "지금 이기고 있는지"를 즉시 인지하게 한다.
+> 소인원 수업(2~3명)의 경쟁 밀도 보강 효과가 크다. 전 `race_format` 공통 옵션(단체전 A안에서는 목표 페이스 기준선으로 활용).
+
+**페이스 소스 3종** (`p_options.pacer.source`)
+
+| source | 기준 기록 | 파라미터 |
+|---|---|---|
+| `member_pr` | 회원 본인 PR — `member_benchmark_results`에서 동일 event_type·동일 목표거리 best 조회 | `member_id` (기본: 코치 지정 포커스 레인 회원) |
+| `club_record` | 클럽 기록 — 시설 스코프 동일 종목·거리 best(`race_records`/벤치마크) | 자동 조회 |
+| `coach_split` | 코치 지정 스플릿 — 고정 페이스 또는 구간별 스케줄 | `split_500m`(초) 또는 `pace_schedule[]` |
+
+**파이프라인 계약 (계약 §6b — 렌더 전용)**
+- Broadcast `erg_update`에 **`virtual_lane: true`** 플래그(§3.1) — 이 페이로드는 **렌더 전용**:
+  순위·팀 합산·달성률 **집계 제외** + `race_records` **적재 제외** + `race_live_state` UPSERT·JSONL 기록도
+  하지 않는다(3경로 중 경로1만 사용 — R-2 경로 분리·결과 데이터 오염 없음)
+- 발행 주체: **시뮬레이터 가상 레인 재사용** — `simulator.py`의 가상 레인 엔진이 페이스 스케줄대로
+  `erg_update`(시리얼 `PACER-1`) 발행. 파서 이후 코드 공유 원칙(§6.4) 그대로 — 수신 측은 `virtual_lane`
+  플래그로만 구분(별도 분기 로직 최소화), `pm5_devices` 시드 불요(DB 미기록 레인이므로 M-6 비적용)
+- 설정 경로: `fn_prepare_race_session(p_options.pacer)` → `POST /api/race/setup` payload에 `pacer` 전달 →
+  Python이 countdown→GO 전이에 맞춰 발행 시작(READY 스킵 규칙 §2.4 동일 적용, 0점 동기 출발)
+- 화면 규칙: 순위 스택·결과 화면·PR 판정 대상에서 제외. 미니맵에는 페이서 도트 표시 가능 —
+  §5b.5 고스트 마커(이전 히트 best)와는 별개 개념(페이서는 트랙 위 카트로 렌더)
+
+**연출**: 고스트 반투명 카트 스타일 + 이름 플레이트 `PACER` — §5b.2 표·§5b.7 에셋 `race/fx-pacer-ghost` 참조
+
 ---
 
 ## ⑤ 화면 계층
@@ -468,6 +498,7 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 | 1위 표식 | 크라운 스프라이트(카트 상단 부유+회전) + 팀/개인 컬러 글로우(`drop-shadow` 2겹). rank 1 이탈 시 0.5s 페이드로 이양 |
 | 구간 배너 | 진행률 25/50/75% 통과 시 상단 배너 슬라이드(“1000m — 김철수 선두!”) 2.5s. 단체전 A안은 마일스톤 게이트 통과 연출로 대체 |
 | 트랙 이펙트 | Canvas 2D 별도 레이어: 부유 파티클 ~30개(현행 waterFloat 승계) + 🔄 카트 후방 트레일 파티클 — 스트로크 레이트 비례 방출률. **파티클 종류·색은 테마 팔레트(§5b.3b)를 따름**: water=물보라 웨이크 / road=더스트 라인 / snow=스노 스프레이 / track=더스트 |
+| 페이서 가상 레인 ⏳ | `virtual_lane` 수신 레인은 **고스트 스타일** 렌더: 카트 스프라이트 반투명(opacity ~0.45) + `race/fx-pacer-ghost` 오버레이 + 이름 플레이트 **"PACER"**(팀 컬러 대신 중립 회백 톤). 위치 계산은 실레인과 동일(실거리 비례 — R-3), 단 추월 강조·크라운·순위 스택·결과 대상에서 제외 — 렌더 전용(G-10, §4b.5) |
 
 ### 5b.3 스프라이트 연출 규칙 (SPM 동기화)
 - **스트로크 애니메이션**: 로워 캐릭터 8~12프레임 스프라이트시트를 CSS `steps(N)` 재생. **재생 주기 = 실측 SPM 동기**:
@@ -550,6 +581,7 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 | `race/fx-wake` | Canvas 파티클 정의(코드) | 파티클 4~8px | 팀컬러 틴트 | 카트 후방 물보라 (`water` 테마) | 클로드 |
 | `race/fx-dust`·`race/fx-snowspray` | Canvas 파티클 정의(코드) | 파티클 3~6px | `--bcl-race-trail` | 더스트(`road`/`track`)·스노 스프레이(`snow`) 트레일 🔄 R-11 | 클로드 |
 | `race/fx-speedline` | SVG | 240×120 · 1F(불투명도 애니) | 팀컬러 틴트 | 추월 강조 | 클로드 |
+| `race/fx-pacer-ghost` | SVG(+CSS filter) | 240×100 · 1F(불투명도 펄스) | — (중립 회백 고정) | 페이스보트 가상 레인 고스트 오버레이 + "PACER" 이름 플레이트 ⏳ (G-10, §4b.5) | 클로드 |
 | `race/fx-crown` | SVG | 64×48 · 1F(CSS 부유) | — (골드 고정) | 1위 크라운 | 클로드 |
 | `race/fx-glow` | SVG(radial) | 280×140 | `--team-color` | 1위/포커스 글로우 | 클로드 |
 | `race/ui-trafficlight` | SVG 스프라이트시트 | 120×320 × **6F**(적3·황2·녹1) | — | 카운트다운 신호등 | 클로드 |

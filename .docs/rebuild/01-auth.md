@@ -145,6 +145,72 @@ signUp ──▶ profiles.approval_status='pending'
 
 ---
 
+## 3b. 전자 동의·웨이버 서명 게이트 ⏳ (G-6 — 벤치마킹 검수 16 문서)
+
+> 배경: Zen Planner·Wodify(digital contracts)·모두싸인(국내) 등 벤치마크 전반의 온보딩 표준 기능.
+> as-is는 약관 "열람"만 존재 — 회원별 동의·서명 **증빙 레코드**가 없어 부상 위험 업종의 법적 리스크,
+> 환불 분쟁 시 "환불규정 고지·동의" 증빙 방어가 불가하다. 가입 플로우(§2.2)와 승인 게이트(§3) **사이**에 서명 단계를 신설한다.
+
+### 3b.1 플로우 위치 — 가입과 승인 사이
+
+```
+signup 3-Step 완료 (즉시 세션 발급)
+        │
+        ▼
+ Step4 전자 동의·웨이버 서명 ⏳     ← 세션 발급 후에만 가능 (fn_sign_agreement가 auth.uid() 내부 검증)
+   ├─ 필수: terms_of_service / privacy / waiver(부상 위험 고지·면책) / refund_policy(환불규정 동의)
+   ├─ 선택: marketing
+   └─ 문서 스냅샷 열람 + 동의 체크 + canvas 서명 캡처 → fn_sign_agreement (문서당 1회 호출)
+        │  필수 문서 전건 서명 완료 시에만
+        ▼
+ /auth/pending-approval  →  관리자 승인 게이트 (§3)
+```
+
+- **승인 게이트와의 순서 규칙**: 서명 게이트는 **승인 게이트보다 선행**한다.
+  ① 표준 경로 = 가입 직후 Step4 서명 → pending 대기 진입.
+  ② 서명 중 이탈자가 재로그인하면 AuthGuard가 pending-approval 렌더보다 **먼저** 서명 게이트를 렌더(§5.4).
+  ③ Admin 회원 승인 화면(02 문서)은 **미서명 필터** 제공 — 필수 문서 미서명자는 승인 버튼 비활성(승인 불가).
+- **라우트는 신설하지 않는다**(계약 §5 Auth 메뉴 7종 불변) — signup 라우트의 Step4 화면 + AuthGuard 하위
+  전면 게이트 컴포넌트(재서명용) 2곳에서 동일 서명 UI 컴포넌트를 공유.
+
+### 3b.2 데이터 계약 — `member_agreements` ⏳ + `fn_sign_agreement` ⏳
+
+```sql
+member_agreements (              -- 계약 §2 core · append-only (UPDATE/DELETE 없음 — 증빙 불변성)
+  id UUID PK,
+  member_id UUID NOT NULL REFERENCES members(id),
+  doc_type TEXT NOT NULL CHECK (doc_type IN
+    ('terms_of_service','privacy','waiver','refund_policy','marketing')),
+  doc_version TEXT NOT NULL,                  -- 서명 시점의 문서 버전 (유효 버전은 system_config에서 관리)
+  signed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  signature TEXT NOT NULL,                    -- canvas 서명 캡처(data URL) 또는 동의 해시
+  UNIQUE(member_id, doc_type, doc_version)    -- 동일 버전 중복 서명 방지(멱등)
+)
+```
+
+- RPC `fn_sign_agreement(p_doc_type, p_doc_version, p_signature)` — 계약 §4 등재.
+  SECURITY DEFINER + `SET search_path=public` + `auth.uid()`→members 매핑을 **내부에서** 수행(클라이언트가
+  member_id 전달 금지 — F-8 준용) + p_doc_version이 현재 유효 버전과 불일치하면 거부 + envelope `{success, data, error}`.
+- 미서명 판정: `fn_get_pending_agreements()` — 필수 doc_type별 유효 버전 대비 본인 미서명 목록 반환
+  (AuthGuard 게이트·Admin 미서명 필터가 같은 판정 소스 공유).
+- RLS: 본인 행만 SELECT, INSERT는 RPC 경유만(직접 INSERT 금지). Admin은 전체 열람(승인 화면 증빙 확인·감사 대응).
+
+### 3b.3 미서명 상태의 접근 규칙 + 재서명 정책
+
+| 상태 | 접근 규칙 |
+|---|---|
+| 필수 문서 미서명 + pending | AuthGuard가 서명 게이트 렌더(pending-approval보다 선행) → 완료 후 pending-approval |
+| 필수 문서 미서명 + approved (문서 버전 개정 등) | 보호 경로 진입 시 서명 게이트가 전면 인터셉트 — 서명 완료 전 앱 진입 불가 |
+| 필수 문서 전건 서명 | §5.4 표준 게이트 순서대로 진행(서명 게이트 통과) |
+
+- **문서 버전 개정 시 재서명 정책**: 필수 문서의 유효 버전(doc_version)이 상향되면 기존 회원도
+  다음 로그인/보호 경로 진입 시 재서명 게이트 대상이 된다(개정 문서만 재서명 — 전건 아님).
+  구버전 서명 행은 **삭제하지 않고 보존**(append-only 이력 = 시점별 동의 증빙), 신규 버전 행을 INSERT.
+- 선택 문서(marketing)는 게이트 비대상 — 동의/철회는 User 앱 profile 설정에서 관리.
+- 서명 게이트도 에러 표면화 3원칙(§5.6) 적용: 문서 로드·RPC 실패 시 에러 카드 + [다시 시도]/[로그아웃].
+
+---
+
 ## 4. 역할별 리다이렉트 — `resolvePostLoginRoute` 단일 함수
 
 > 장애 이력 배경: 현행은 로그인 페이지/미들웨어/각 앱 AuthGuard 3곳에 리다이렉트 로직이
@@ -291,6 +357,7 @@ profile=null로 남겨 화면이 "왜 안 되는지 모르는" 상태가 된다.
 loading=true          → Skeleton (최대 4s — safety timeout이 보장)
 authError             → 에러 카드(메시지 + 재시도 + 로그아웃 버튼)   ← 무한 스피너 금지
 user 없음             → /auth/login?redirect={현재경로}
+필수 문서 미서명 ⏳    → 전자 동의·웨이버 서명 게이트 (§3b — 승인 게이트보다 선행, G-6)
 pending / rejected    → /auth/pending-approval | /auth/rejected
 role이 현재 prefix 밖 → resolvePostLoginRoute(profile) 로 이동 (F-6: ROLE_PREFIXES 표만 참조)
 정상                  → children 렌더 (+Coach 앱은 CoachStateGate 후속 — 04 문서)
@@ -396,5 +463,7 @@ updateSession(request):
 - `profiles`: `id`(=auth.uid) / `role`(admin|coach|member) / `approval_status`(pending|approved|rejected) /
   (🔄 신규) `rejection_reason text` / `facility_id`. auth.users INSERT 트리거로 자동 생성.
 - `members.user_id` nullable(미연결 회원 존재) — memberId 매핑은 AuthContext 1곳에서만 수행(F-8).
+- ⏳ `member_agreements`: member_id / doc_type / doc_version / signed_at / signature — append-only 서명 증빙
+  (G-6, §3b). 쓰기는 `fn_sign_agreement` RPC 경유만, 미서명 판정은 `fn_get_pending_agreements()` 단일 소스.
 - 승인/거부 RPC 또는 Admin 화면 UPDATE는 `is_admin()` + audit_logs 기록 필수.
 - RLS: 미승인(pending/rejected) 사용자는 자신의 profiles 행 외 비즈니스 테이블 SELECT 불가.
