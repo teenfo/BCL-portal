@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS public.pm5_devices (
 CREATE INDEX IF NOT EXISTS idx_pm5_devices_facility_status ON public.pm5_devices(facility_id, status);
 
 COMMENT ON TABLE  public.pm5_devices IS 'race: PM5 기기. serial_number 주 식별자. current_mode=기기 모드락(idle/racing/personal_recording)';
+COMMENT ON COLUMN public.pm5_devices.device_type IS 'R-11: 레인 캐릭터(스프라이트) 테마 결정 소스 — rower/bike/skierg/treadmill/other (15-race-system §5b.3b)';
 
 -- ----------------------------------------------------------------------------
 -- 2. race_events — Race 이벤트 (🔄 race_format group 추가 + group_target_m/heat_no)
@@ -78,6 +79,7 @@ CREATE INDEX IF NOT EXISTS idx_race_events_facility_date ON public.race_events(f
 CREATE INDEX IF NOT EXISTS idx_race_events_active ON public.race_events(status) WHERE status = 'in_progress';
 
 COMMENT ON TABLE  public.race_events IS 'race: 이벤트. race_format=individual/team/group(단체전 신규)/relay. lobby_status=진행 상태머신(setup→lobby→countdown→racing→finished)';
+COMMENT ON COLUMN public.race_events.event_type IS 'rowing/bike/skierg/run/other. R-11: 트랙/이펙트 비주얼 테마 결정 소스 (15-race-system §5b.3b)';
 COMMENT ON COLUMN public.race_events.group_target_m IS '단체전 A안 공동 목표 거리(전원 합산). 달성률=(carryover_m+Σdistance)/group_target_m';
 COMMENT ON COLUMN public.race_events.heat_no IS '단체전 B안 히트 번호. 통합 랭킹은 COALESCE(parent_event_id,id) 시리즈 기준 집계 (15-race-system §4b.3)';
 COMMENT ON COLUMN public.race_events.parent_event_id IS '히트 시리즈 루트. 히트 전환은 이전 이벤트 종료 후 fn_prepare_race_session(next_heat_of)로 생성';

@@ -139,6 +139,9 @@ COMMENT ON COLUMN public.member_notes.author_role IS '작성 주체 구분(admin
 
 -- ----------------------------------------------------------------------------
 -- 6. auth 연동 트리거 — 가입 시 profiles(pending) + members 자동 생성
+--    【이메일 검증 제외 확정】 Supabase Auth 'Confirm email' OFF 전제.
+--    email_confirmed_at 의존 금지 — auth.users INSERT 즉시 생성(가입 즉시 세션 발급
+--    → /auth/pending-approval 격리. /auth/email-verify 라우트 폐지)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_auth_user()
 RETURNS TRIGGER
