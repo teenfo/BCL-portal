@@ -83,7 +83,7 @@ bcl-portal/                          # 신규 저장소 (기존 repo와 병행, 
 ### 인증 (장애 이력 있음 — 절대 금칙)
 - onAuthStateChange 콜백 안에서 `await` 금지 (락 교착 → 로그인 5~10초 지연 실사고)
 - Supabase 클라이언트는 `src/lib/supabase/` 팩토리로만 생성. 쿠키명/storageKey 수동 정의 금지
-  (`AUTH_STORAGE_KEY`는 `src/lib/constants.ts` 한 곳에만 존재)
+  (`AUTH_STORAGE_KEY`는 `src/lib/supabase/constants.ts` 한 곳에만 존재 — 01-auth §5.1)
 - 역할별 리다이렉트는 `resolvePostLoginRoute(profile)` 단일 함수만 사용 (분산 구현 금지)
 - 로딩 실패 시 에러 표면화 필수 — 무한 스피너 금지
 

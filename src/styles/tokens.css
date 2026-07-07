@@ -1,0 +1,145 @@
+/* ============================================================================
+ * BCL 디자인 토큰 — 유일 정의처 (docs/12-design-system.md §2, 계약 §6)
+ * 이 파일 밖에서 색상 HEX 리터럴 등장 시 리뷰 반려 (CI grep 가드)
+ * ==========================================================================*/
+
+/* ---- 불변 토큰: 간격(4px grid) · radius · 폰트 ---- */
+:root {
+  --bcl-space-1: 4px;
+  --bcl-space-2: 8px;
+  --bcl-space-3: 12px;
+  --bcl-space-4: 16px;
+  --bcl-space-5: 20px;
+  --bcl-space-6: 24px;
+  --bcl-space-7: 28px;
+  --bcl-space-8: 32px;
+
+  --bcl-radius-sm: 6px;
+  --bcl-radius-md: 10px;
+  --bcl-radius-lg: 16px;
+
+  --bcl-font: 'Lexend', 'Pretendard', system-ui, sans-serif;
+  --bcl-font-scale: 1;
+}
+
+/* ---- 색 토큰: 다크 (Admin·Class·Kiosk 기본) ---- */
+:root,
+:root[data-theme='dark'] {
+  --bcl-bg: #161616;
+  --bcl-surface: #1f1f1f;
+  --bcl-surface-raised: #2a2a2a;
+  --bcl-border: #3a3a3a;
+  --bcl-text: #f5f5f5;
+  --bcl-text-muted: #9e9e9e;
+
+  --bcl-accent: #ff6a00;
+  --bcl-accent-ink: #ff8a3d;
+  --bcl-accent-soft: rgba(255, 106, 0, 0.16);
+  --bcl-accent-border: rgba(255, 106, 0, 0.4);
+
+  --bcl-success: #34c759;
+  --bcl-success-soft: rgba(52, 199, 89, 0.16);
+  --bcl-warning: #f5a623;
+  --bcl-warning-soft: rgba(245, 166, 35, 0.16);
+  --bcl-danger: #ff4d4f;
+  --bcl-danger-soft: rgba(255, 77, 79, 0.16);
+  --bcl-info: #4da3ff;
+  --bcl-info-soft: rgba(77, 163, 255, 0.16);
+
+  --bcl-overlay: rgba(0, 0, 0, 0.6);
+  --bcl-focus-ring: rgba(255, 138, 61, 0.55);
+  --bcl-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+/* ---- 색 토큰: 라이트 (User·Coach 기본) ---- */
+:root[data-theme='light'] {
+  --bcl-bg: #f7f7f5;
+  --bcl-surface: #ffffff;
+  --bcl-surface-raised: #ffffff;
+  --bcl-border: #e4e4e0;
+  --bcl-text: #1c1c1c;
+  --bcl-text-muted: #6e6e6b;
+
+  --bcl-accent: #ff6a00;
+  --bcl-accent-ink: #c24e00;
+  --bcl-accent-soft: rgba(255, 106, 0, 0.1);
+  --bcl-accent-border: rgba(255, 106, 0, 0.35);
+
+  --bcl-success: #1e9e4a;
+  --bcl-success-soft: rgba(30, 158, 74, 0.12);
+  --bcl-warning: #b97508;
+  --bcl-warning-soft: rgba(185, 117, 8, 0.12);
+  --bcl-danger: #d6383a;
+  --bcl-danger-soft: rgba(214, 56, 58, 0.12);
+  --bcl-info: #1d6fd6;
+  --bcl-info-soft: rgba(29, 111, 214, 0.12);
+
+  --bcl-overlay: rgba(20, 20, 20, 0.45);
+  --bcl-focus-ring: rgba(194, 78, 0, 0.45);
+  --bcl-shadow-md: 0 4px 16px rgba(28, 28, 28, 0.1);
+}
+
+/* ---- 밀도 프로파일 (docs/12 §2.5) — 컴포넌트는 이 변수만 소비 ---- */
+:root[data-density='admin'] {
+  --bcl-font-scale: 0.93;
+  --bcl-control-h: 32px;
+  --bcl-control-h-sm: 26px;
+  --bcl-pad-card: var(--bcl-space-4);
+  --bcl-pad-page: var(--bcl-space-6);
+  --bcl-row-h: 36px;
+  --bcl-hit-min: 24px;
+}
+
+:root[data-density='mobile'] {
+  --bcl-font-scale: 1;
+  --bcl-control-h: 44px;
+  --bcl-control-h-sm: 36px;
+  --bcl-pad-card: var(--bcl-space-4);
+  --bcl-pad-page: var(--bcl-space-4);
+  --bcl-row-h: 52px;
+  --bcl-hit-min: 44px;
+}
+
+:root[data-density='tv'] {
+  --bcl-font-scale: 1.6;
+  --bcl-control-h: 64px;
+  --bcl-control-h-sm: 52px;
+  --bcl-pad-card: var(--bcl-space-6);
+  --bcl-pad-page: var(--bcl-space-8);
+  --bcl-row-h: 72px;
+  --bcl-hit-min: 48px;
+}
+
+/* ---- Race 전용 확장 (docs/12 §2.1 — 15-race §5b 소비) ---- */
+:root {
+  --bcl-race-team-1: #ff6a00;
+  --bcl-race-team-2: #3b82f6;
+  --bcl-race-team-3: #22c55e;
+  --bcl-race-team-4: #f59e0b;
+  --bcl-race-team-5: #8b5cf6;
+  --bcl-race-team-6: #ec4899;
+  --bcl-race-team-7: #14b8a6;
+  --bcl-race-team-8: #ef4444;
+}
+
+/* 테마 토큰 3종 × 4테마 (R-11 — data-race-theme로만 전환, 컴포넌트 분기 금지) */
+[data-race-theme='water'] {
+  --bcl-race-surface: #0e3a5c;
+  --bcl-race-trail: #cfe9ff;
+  --bcl-race-bg-tint: rgba(14, 58, 92, 0.35);
+}
+[data-race-theme='road'] {
+  --bcl-race-surface: #3d3d42;
+  --bcl-race-trail: #e8b96a;
+  --bcl-race-bg-tint: rgba(61, 61, 66, 0.35);
+}
+[data-race-theme='snow'] {
+  --bcl-race-surface: #dfeaf5;
+  --bcl-race-trail: #ffffff;
+  --bcl-race-bg-tint: rgba(122, 160, 199, 0.3);
+}
+[data-race-theme='track'] {
+  --bcl-race-surface: #8a4a3b;
+  --bcl-race-trail: #e8b96a;
+  --bcl-race-bg-tint: rgba(138, 74, 59, 0.3);
+}

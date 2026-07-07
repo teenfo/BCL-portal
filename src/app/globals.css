@@ -1,0 +1,3 @@
+/* globals.css = --bcl-* 토큰 + UA 리셋만 (docs/13 §1) — 여기에 다른 스타일 추가 금지 */
+@import '../styles/tokens.css';
+@import '../styles/reset.css';
