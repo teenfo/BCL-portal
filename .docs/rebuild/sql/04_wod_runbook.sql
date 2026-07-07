@@ -164,6 +164,34 @@ CREATE INDEX IF NOT EXISTS idx_session_wods_published
 COMMENT ON TABLE public.session_wods IS 'wod: 세션 WOD 스냅샷 — sessions.wod_description을 완전 대체하는 유일한 WOD 소스. publish 후 템플릿 변경 무영향';
 
 -- ----------------------------------------------------------------------------
+-- 5b. session_wod_results — 일일 WOD 점수 로깅 (⏳ G-1/G-2 디지털 화이트보드)
+--     벤치마크(member_benchmark_results)와 별개로 "매일의 WOD" 결과를 세션 단위 기록
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.session_wod_results (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_wod_id  UUID NOT NULL REFERENCES public.session_wods(id) ON DELETE CASCADE,
+    member_id       UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+    score           NUMERIC(12,2) NOT NULL CHECK (score > 0),
+    score_type      VARCHAR(15) NOT NULL
+                    CHECK (score_type IN ('time','reps','rounds_reps','weight','distance','calories')),
+    rx_status       VARCHAR(10) NOT NULL DEFAULT 'rx'
+                    CHECK (rx_status IN ('rx_plus','rx','scaled')),          -- G-2 계층 리더보드 어휘
+    note            TEXT,
+    recorded_by     UUID REFERENCES auth.users(id) ON DELETE SET NULL,       -- 본인 또는 코치 대리 기록
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (session_wod_id, member_id)                                       -- WOD당 회원 1행(수정=upsert)
+);
+
+-- 쿼리 패턴: (a) 화이트보드(세션 전원·rx 계층 정렬), (b) 내 WOD 타임라인, (c) WOD Prep(동일 템플릿 과거 기록)
+CREATE INDEX IF NOT EXISTS idx_session_wod_results_member
+    ON public.session_wod_results(member_id, created_at DESC);
+
+COMMENT ON TABLE  public.session_wod_results IS 'wod: 일일 WOD 점수(G-1). 기록=fn_record_session_wod_result, 전원 열람=fn_get_session_wod_whiteboard 경유 — 테이블 전원 SELECT·anon 미공개(05 화이트리스트 정합 판단)';
+COMMENT ON COLUMN public.session_wod_results.score IS 'score_type별 해석: time=초(낮을수록 우수), rounds_reps=rounds*1000+reps 합성(높을수록 우수), 그 외=높을수록 우수';
+COMMENT ON COLUMN public.session_wod_results.rx_status IS 'G-2: rx_plus > rx > scaled 계층 — 화이트보드 1차 정렬 키';
+
+-- ----------------------------------------------------------------------------
 -- 6. class_runbook_templates — 클래스 표준 런시트
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.class_runbook_templates (
@@ -257,6 +285,9 @@ CREATE TRIGGER trg_runbook_templates_updated_at BEFORE UPDATE ON public.class_ru
 DROP TRIGGER IF EXISTS trg_session_runbooks_updated_at ON public.session_runbooks;
 CREATE TRIGGER trg_session_runbooks_updated_at BEFORE UPDATE ON public.session_runbooks
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+DROP TRIGGER IF EXISTS trg_session_wod_results_updated_at ON public.session_wod_results;
+CREATE TRIGGER trg_session_wod_results_updated_at BEFORE UPDATE ON public.session_wod_results
+    FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 DROP TRIGGER IF EXISTS trg_member_alert_flags_updated_at ON public.member_alert_flags;
 CREATE TRIGGER trg_member_alert_flags_updated_at BEFORE UPDATE ON public.member_alert_flags
     FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
@@ -273,6 +304,7 @@ ALTER TABLE public.session_wods            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.class_runbook_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.session_runbooks        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.member_alert_flags      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.session_wod_results     ENABLE ROW LEVEL SECURITY;
 
 -- movement_categories / movement_library: 인증 읽기, staff INSERT/UPDATE, admin DELETE
 DO $$
@@ -354,6 +386,40 @@ CREATE POLICY "member_alert_flags staff update" ON public.member_alert_flags
     USING (public.is_admin_or_coach()) WITH CHECK (public.is_admin_or_coach());
 DROP POLICY IF EXISTS "member_alert_flags admin delete" ON public.member_alert_flags;
 CREATE POLICY "member_alert_flags admin delete" ON public.member_alert_flags
+    FOR DELETE TO authenticated USING (public.is_admin());
+
+-- session_wod_results: 본인 SELECT/INSERT/UPDATE + staff 관리, DELETE=admin.
+--   전원 열람은 fn_get_session_wod_whiteboard(DEFINER) 경유 — 테이블 전원 SELECT 미부여.
+--   anon 미공개(05-class-portal §6.1 화이트리스트에 없음 — Class 노출 필요 시 공개 RPC 신설로만)
+DROP POLICY IF EXISTS "session_wod_results own read" ON public.session_wod_results;
+CREATE POLICY "session_wod_results own read" ON public.session_wod_results
+    FOR SELECT TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.members m
+                   WHERE m.id = session_wod_results.member_id AND m.user_id = auth.uid()));
+DROP POLICY IF EXISTS "session_wod_results own insert" ON public.session_wod_results;
+CREATE POLICY "session_wod_results own insert" ON public.session_wod_results
+    FOR INSERT TO authenticated
+    WITH CHECK (EXISTS (SELECT 1 FROM public.members m
+                        WHERE m.id = session_wod_results.member_id AND m.user_id = auth.uid()));
+DROP POLICY IF EXISTS "session_wod_results own update" ON public.session_wod_results;
+CREATE POLICY "session_wod_results own update" ON public.session_wod_results
+    FOR UPDATE TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.members m
+                   WHERE m.id = session_wod_results.member_id AND m.user_id = auth.uid()))
+    WITH CHECK (EXISTS (SELECT 1 FROM public.members m
+                        WHERE m.id = session_wod_results.member_id AND m.user_id = auth.uid()));
+DROP POLICY IF EXISTS "session_wod_results staff read" ON public.session_wod_results;
+CREATE POLICY "session_wod_results staff read" ON public.session_wod_results
+    FOR SELECT TO authenticated USING (public.is_admin_or_coach());
+DROP POLICY IF EXISTS "session_wod_results staff write" ON public.session_wod_results;
+CREATE POLICY "session_wod_results staff write" ON public.session_wod_results
+    FOR INSERT TO authenticated WITH CHECK (public.is_admin_or_coach());
+DROP POLICY IF EXISTS "session_wod_results staff update" ON public.session_wod_results;
+CREATE POLICY "session_wod_results staff update" ON public.session_wod_results
+    FOR UPDATE TO authenticated
+    USING (public.is_admin_or_coach()) WITH CHECK (public.is_admin_or_coach());
+DROP POLICY IF EXISTS "session_wod_results admin delete" ON public.session_wod_results;
+CREATE POLICY "session_wod_results admin delete" ON public.session_wod_results
     FOR DELETE TO authenticated USING (public.is_admin());
 
 -- ============================================================================

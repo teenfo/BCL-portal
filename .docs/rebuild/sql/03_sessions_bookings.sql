@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS public.sessions (
     facility_id      UUID NOT NULL REFERENCES public.facilities(id) ON DELETE CASCADE,
     title            VARCHAR(200) NOT NULL,
     description      TEXT,
+    session_type     VARCHAR(10) NOT NULL DEFAULT 'group'
+                     CHECK (session_type IN ('group','personal')),
+                     -- ⏳ G-19 확장형 컬럼만: personal(1:1 PT) 예약 스키마 여지 확보 — 현 Phase 구현 없음
     class_type       VARCHAR(40),                          -- 런시트 템플릿 매칭 키 (wod/strength/beginner...)
     session_date     DATE NOT NULL,
     start_time       TIME NOT NULL,
@@ -37,6 +40,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_date_status   ON public.sessions(session
 
 COMMENT ON TABLE  public.sessions IS 'sessions: 수업 일정. 🔄 wod_description 제거 — WOD 본문은 session_wods가 유일한 소스';
 COMMENT ON COLUMN public.sessions.class_type IS 'class_runbook_templates.class_type과 매칭되는 수업 유형 키';
+COMMENT ON COLUMN public.sessions.session_type IS 'group(기본)/personal(1:1 PT — G-19 확장 여지, 현 Phase 예약만·구현 없음)';
+
+-- 기존 배포분 증분 (멱등)
+ALTER TABLE public.sessions ADD COLUMN IF NOT EXISTS session_type VARCHAR(10) NOT NULL DEFAULT 'group'
+    CHECK (session_type IN ('group','personal'));
 
 -- ----------------------------------------------------------------------------
 -- 2. session_coaches — 수업-코치 배정

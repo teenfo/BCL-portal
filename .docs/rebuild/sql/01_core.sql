@@ -24,13 +24,28 @@ CREATE TABLE IF NOT EXISTS public.facilities (
     terms_of_service  TEXT,
     privacy_policy    TEXT,
     refund_policy     TEXT,
+    booking_policy    JSONB NOT NULL DEFAULT '{
+        "booking_open_days": 7,
+        "cancel_deadline_hours": 3,
+        "weekly_booking_cap": null,
+        "noshow_penalty": {"credit_forfeit": true, "monthly_threshold": 3, "restrict_days": 7}
+    }'::jsonb,                                            -- 🔄 G-4/G-5 예약 정책 단일 소스 (계약 §6b)
     is_active         BOOLEAN NOT NULL DEFAULT true,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-COMMENT ON TABLE  public.facilities IS 'core: 지점 정보 (약관/환불정책 원문 포함)';
+COMMENT ON TABLE  public.facilities IS 'core: 지점 정보 (약관/환불정책 원문 + booking_policy 예약 정책 JSONB)';
 COMMENT ON COLUMN public.facilities.operating_hours IS '요일별 운영 시간 JSON';
+COMMENT ON COLUMN public.facilities.booking_policy IS 'G-4/G-5 예약 정책 단일 소스: booking_open_days(예약 오픈 D-n)/cancel_deadline_hours(취소 마감 h)/weekly_booking_cap(주간 상한, null=무제한)/noshow_penalty{credit_forfeit,monthly_threshold,restrict_days}. 집행은 fn_book_with_credit·fn_cancel_booking_with_credit 내부만(클라이언트 하드코딩 금지)';
+
+-- 기존 배포분 증분 (멱등)
+ALTER TABLE public.facilities ADD COLUMN IF NOT EXISTS booking_policy JSONB NOT NULL DEFAULT '{
+    "booking_open_days": 7,
+    "cancel_deadline_hours": 3,
+    "weekly_booking_cap": null,
+    "noshow_penalty": {"credit_forfeit": true, "monthly_threshold": 3, "restrict_days": 7}
+}'::jsonb;
 
 -- ----------------------------------------------------------------------------
 -- 2. profiles — 인증 게이트 (id = auth.uid, 권한 판정의 단일 소스)
@@ -138,6 +153,30 @@ COMMENT ON TABLE  public.member_notes IS 'core: 회원 메모 단일 테이블 (
 COMMENT ON COLUMN public.member_notes.author_role IS '작성 주체 구분(admin/coach) — 구 2테이블 구분을 컬럼으로 흡수';
 
 -- ----------------------------------------------------------------------------
+-- 5b. member_agreements — 전자 동의·웨이버 서명 증빙 (⏳ G-6, 계약 §2 core)
+--     가입 승인 전 서명 단계의 저장소. 문서 개정 시 doc_version 올려 재서명 요구
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.member_agreements (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    member_id    UUID NOT NULL REFERENCES public.members(id) ON DELETE CASCADE,
+    doc_type     VARCHAR(20) NOT NULL
+                 CHECK (doc_type IN ('terms','privacy','refund_policy','health_waiver')),
+    doc_version  VARCHAR(20) NOT NULL,                    -- 'v1.0' 등 — facilities 약관 개정과 연동
+    signature    TEXT NOT NULL,                           -- 서명 이미지(data URL) 또는 서명 해시
+    signed_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    ip_address   INET,
+    user_agent   TEXT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (member_id, doc_type, doc_version)
+);
+
+-- 쿼리 패턴: (a) 회원별 서명 현황(미서명 필터), (b) 문서·버전별 서명자
+CREATE INDEX IF NOT EXISTS idx_member_agreements_member ON public.member_agreements(member_id, doc_type);
+
+COMMENT ON TABLE  public.member_agreements IS 'core: 전자 동의·웨이버 서명 증빙(G-6). 기록은 fn_sign_agreement RPC 경유, 수정·삭제 불가(법적 증빙 — admin DELETE만)';
+COMMENT ON COLUMN public.member_agreements.doc_type IS 'terms(이용약관)/privacy(개인정보)/refund_policy(환불규정)/health_waiver(건강·부상 면책)';
+
+-- ----------------------------------------------------------------------------
 -- 6. auth 연동 트리거 — 가입 시 profiles(pending) + members 자동 생성
 --    【이메일 검증 제외 확정】 Supabase Auth 'Confirm email' OFF 전제.
 --    email_confirmed_at 의존 금지 — auth.users INSERT 즉시 생성(가입 즉시 세션 발급
@@ -204,11 +243,12 @@ CREATE TRIGGER trg_member_notes_updated_at BEFORE UPDATE ON public.member_notes
 -- ----------------------------------------------------------------------------
 -- 8. RLS
 -- ----------------------------------------------------------------------------
-ALTER TABLE public.facilities   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.members      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.coaches      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.member_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.facilities        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.members           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.coaches           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_notes      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.member_agreements ENABLE ROW LEVEL SECURITY;
 
 -- facilities: 인증 읽기 / admin 쓰기
 DROP POLICY IF EXISTS "facilities read" ON public.facilities;
@@ -271,6 +311,20 @@ CREATE POLICY "member_notes staff update" ON public.member_notes
     USING (public.is_admin_or_coach()) WITH CHECK (public.is_admin_or_coach());
 DROP POLICY IF EXISTS "member_notes admin delete" ON public.member_notes;
 CREATE POLICY "member_notes admin delete" ON public.member_notes
+    FOR DELETE TO authenticated USING (public.is_admin());
+
+-- member_agreements: 본인 읽기 + staff 읽기(미서명 필터) / 기록=fn_sign_agreement(DEFINER),
+--                    UPDATE 정책 없음(증빙 불변), DELETE=admin만(오기록 정정)
+DROP POLICY IF EXISTS "member_agreements own read" ON public.member_agreements;
+CREATE POLICY "member_agreements own read" ON public.member_agreements
+    FOR SELECT TO authenticated
+    USING (EXISTS (SELECT 1 FROM public.members m
+                   WHERE m.id = member_agreements.member_id AND m.user_id = auth.uid()));
+DROP POLICY IF EXISTS "member_agreements staff read" ON public.member_agreements;
+CREATE POLICY "member_agreements staff read" ON public.member_agreements
+    FOR SELECT TO authenticated USING (public.is_admin_or_coach());
+DROP POLICY IF EXISTS "member_agreements admin delete" ON public.member_agreements;
+CREATE POLICY "member_agreements admin delete" ON public.member_agreements
     FOR DELETE TO authenticated USING (public.is_admin());
 
 -- ============================================================================

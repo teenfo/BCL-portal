@@ -17,12 +17,17 @@ CREATE TABLE IF NOT EXISTS public.membership_plans (
     facility_id       UUID REFERENCES public.facilities(id) ON DELETE SET NULL,  -- NULL=전 지점 공용
     name              VARCHAR(100) NOT NULL,
     type              VARCHAR(10) NOT NULL CHECK (type IN ('period','count')),
+    plan_kind         VARCHAR(10) NOT NULL DEFAULT 'standard'
+                      CHECK (plan_kind IN ('standard','drop_in','trial')),   -- 🔄 G-7 드롭인·체험권
     duration_days     INT,                      -- period형 필수
     credit_count      INT,                      -- count형 필수
     price             NUMERIC(12,0) NOT NULL CHECK (price >= 0),
     discount_price    NUMERIC(12,0) CHECK (discount_price IS NULL OR discount_price >= 0),
     description       TEXT,
-    refund_policy     JSONB NOT NULL DEFAULT '{}'::jsonb,   -- {"within_7days":1.0,"within_30days":0.5}
+    refund_policy     JSONB NOT NULL DEFAULT '{"formula": "statutory_kr", "penalty_rate_cap": 0.10}'::jsonb,
+                      -- 🔄 G-8 기본 산식(계약 §6b):
+                      --   환불금 = 결제금액 − 이용일수 해당액 − min(위약금, 결제금액×10%)
+                      --   오버라이드 허용하되 penalty_rate_cap > 0.10 설정 금지(공정위 상한)
     max_pauses        INT NOT NULL DEFAULT 0,
     facility_sharing  BOOLEAN NOT NULL DEFAULT false,
     is_active         BOOLEAN NOT NULL DEFAULT true,
@@ -31,12 +36,21 @@ CREATE TABLE IF NOT EXISTS public.membership_plans (
     CONSTRAINT chk_plan_type CHECK (
         (type = 'period' AND duration_days > 0) OR
         (type = 'count'  AND credit_count  > 0)
+    ),
+    CONSTRAINT chk_refund_penalty_cap CHECK (
+        COALESCE((refund_policy->>'penalty_rate_cap')::NUMERIC, 0.10) <= 0.10
     )
 );
 
+-- 기존 배포분 증분 (멱등)
+ALTER TABLE public.membership_plans ADD COLUMN IF NOT EXISTS plan_kind VARCHAR(10) NOT NULL DEFAULT 'standard'
+    CHECK (plan_kind IN ('standard','drop_in','trial'));
+
 CREATE INDEX IF NOT EXISTS idx_membership_plans_active ON public.membership_plans(is_active, facility_id);
 
-COMMENT ON TABLE public.membership_plans IS 'membership: 요금제. period(기간제)/count(횟수제). 가격은 원화 정수(NUMERIC(12,0))';
+COMMENT ON TABLE public.membership_plans IS 'membership: 요금제. period(기간제)/count(횟수제) × plan_kind(standard/drop_in/trial — G-7). 가격은 원화 정수';
+COMMENT ON COLUMN public.membership_plans.plan_kind IS 'G-7: drop_in(일일권)·trial(체험권)도 정식 상품 — 키오스크 체크인 유효(NO_MEMBERSHIP 거부 분기 해소)';
+COMMENT ON COLUMN public.membership_plans.refund_policy IS 'G-8 환불 산식(계약 §6b): 결제금액−이용일수 해당액−min(위약금, 결제금액×10%). penalty_rate_cap ≤ 0.10 CHECK 강제';
 
 -- ----------------------------------------------------------------------------
 -- 2. memberships — 회원권 보유 내역
@@ -113,10 +127,23 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     cancel_amount     NUMERIC(12,0),
     cancelled_at      TIMESTAMPTZ,
     receipt_url       TEXT,
+    cash_receipt_status      VARCHAR(15) NOT NULL DEFAULT 'not_required'
+                             CHECK (cash_receipt_status IN ('not_required','pending','issued','failed')),
+                             -- 🔄 G-9 현금영수증 의무발행(미발급 가산세 20%) — 현금/이체 매출은 pending으로 시작
+    cash_receipt_approval_no VARCHAR(30),                                   -- 국세청 승인번호
     toss_raw_data     JSONB NOT NULL DEFAULT '{}'::jsonb,                   -- 승인 응답 불변 원본
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- 기존 배포분 증분 (멱등)
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS cash_receipt_status VARCHAR(15) NOT NULL DEFAULT 'not_required'
+    CHECK (cash_receipt_status IN ('not_required','pending','issued','failed'));
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS cash_receipt_approval_no VARCHAR(30);
+
+-- G-9 미발급 경고 리포트 스캔
+CREATE INDEX IF NOT EXISTS idx_transactions_cash_receipt_pending
+    ON public.transactions(created_at DESC) WHERE cash_receipt_status IN ('pending','failed');
 
 -- 쿼리 패턴: (a) 회원 결제 이력, (b) 기간 매출 리포트, (c) Toss orderId 콜백 조회
 CREATE INDEX IF NOT EXISTS idx_transactions_member_created ON public.transactions(member_id, created_at DESC);

@@ -18,8 +18,10 @@
 flowchart TD
     A[방문] --> B{/auth/login}
     B -->|가입| C[/auth/signup 3-Step/]
-    C -->|이메일 검증 없음 · 즉시 세션 발급| F{profiles.approval_status}
+    C -->|이메일 검증 없음 · 즉시 세션 발급| C2[Step4 전자 동의·웨이버 서명 ⏳ G-6]
+    C2 -->|fn_sign_agreement 필수 문서 전건| F{profiles.approval_status}
     B -->|로그인 성공| F
+    F -.->|필수 문서 미서명·버전 개정| C2
     OA[/auth/callback ⏳ 소셜 Phase2/] --> F
     F -->|pending| G[/auth/pending-approval/]
     F -->|rejected| H[/auth/rejected/]
@@ -41,6 +43,9 @@ flowchart TD
   단, 비밀번호 재설정 메일(`resetPasswordForEmail`)은 이 설정과 무관하게 정상 동작 — 유지.
 - **가입 ≠ 이용 가능**: 가입 직후 `profiles.approval_status='pending'`이면
   모든 보호 경로 접근 불가. 관리자 승인(`approved`)이 인증 게이트의 유일한 관문이다(계약 §3).
+- ⏳ **전자 동의·웨이버 서명 게이트(G-6)**: 가입 플로우와 승인 게이트 **사이**에 서명 단계를 신설한다 —
+  필수 문서(약관/개인정보/웨이버/환불규정) 서명 증빙(`member_agreements`)이 없으면 승인 대기·앱 진입 모두 불가.
+  상세는 §3b. 승인 게이트는 서명 완료를 전제로 한다(Admin 미서명 필터).
 - 역할 판정 소스는 `profiles.role`(admin/coach/member) + `profiles.approval_status` 2필드뿐이다.
   세부 권한(admin_user_roles)은 인증 게이트와 무관 — 라우팅에 사용 금지.
 
@@ -60,9 +65,9 @@ flowchart TD
 | 항목 | 내용 |
 |---|---|
 | 목적 | 3-Step 회원가입 |
-| 기능 | Step1 계정(이메일/비밀번호/확인 — 중복·강도 실시간 검증) → Step2 기본정보(이름/연락처/생년월일/성별, 지점 선택) → Step3 약관(필수: 이용약관·개인정보 / 선택: 마케팅). 완료 시 **즉시 세션 발급 → `/auth/pending-approval` 이동**(이메일 검증 단계 없음 🔄) |
+| 기능 | Step1 계정(이메일/비밀번호/확인 — 중복·강도 실시간 검증) → Step2 기본정보(이름/연락처/생년월일/성별, 지점 선택) → Step3 약관(필수: 이용약관·개인정보 / 선택: 마케팅). 완료 시 **즉시 세션 발급 → Step4 전자 동의·웨이버 서명(⏳ G-6, §3b) → `/auth/pending-approval` 이동**(이메일 검증 단계 없음 🔄) |
 | 데이터 | `supabase.auth.signUp({ email, password, options.data: metadata })` → DB 트리거가 `profiles`(role='member', approval_status='pending') + `members` 행 생성(07-data-model `01_core.sql` auth 연동 트리거) |
-| 상태·규칙 | 가입 직후 role은 항상 `member`(coach/admin 승격은 Admin에서만: `promote_to_coach`). Step 이탈 시 입력값 세션 보존. Supabase `Confirm email` OFF 전제 — `signUp` 응답에 세션이 즉시 포함되며, 미포함(설정 오적용) 시 에러 표면화(무한 대기 금지) |
+| 상태·규칙 | 가입 직후 role은 항상 `member`(coach/admin 승격은 Admin에서만: `promote_to_coach`). Step 이탈 시 입력값 세션 보존. Supabase `Confirm email` OFF 전제 — `signUp` 응답에 세션이 즉시 포함되며, 미포함(설정 오적용) 시 에러 표면화(무한 대기 금지). ⏳ Step4(서명) 중 이탈 시 재로그인하면 AuthGuard 서명 게이트가 이어받는다(§3b — 별도 라우트 신설 없음) |
 
 ### 2.3 ~~`/auth/email-verify`~~ 🔄 **폐지** (이메일 검증 제외 결정)
 - as-is에는 존재하나 to-be에서 **라우트 자체를 만들지 않는다**. Supabase Auth `Confirm email` OFF(§1)로 검증 메일이 발송되지 않으므로 랜딩이 불필요.
