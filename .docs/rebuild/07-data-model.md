@@ -701,3 +701,354 @@ erDiagram
 - anon + authenticated: `fn_kiosk_checkin`, `fn_get_class_display_wod`, `fn_get_class_live_board`, `fn_get_class_screen_prs`, `fn_get_class_leaderboard`
 - authenticated 전용: 나머지 전부 (내부에서 역할 재검증)
 - Service Role 전용(클라이언트 미노출): `get_decrypted_pg_settings`
+
+---
+
+## 7. RPC 계약서 — 표준 34종 (계약 §4 30종 + 보정: kiosk 1 + Class 공개 3)
+
+> 전 함수 공통: `SECURITY DEFINER` + `SET search_path=public` + envelope `{success, data, error}`.
+> 폐지 목록(§10 참조)의 함수명은 to-be 코드 어디에서도 등장 금지.
+> 게이트 헬퍼: `_assert_coach_or_admin()` / `_assert_coach_can_edit_session(session_id)` — RPC 내부 전용.
+
+### 7.1 계정/권한 (3)
+
+| # | 시그니처 | 권한 | 설명 |
+|---|---|---|---|
+| 1 | `fn_my_permissions()` | authenticated | 역할+승인+세부 권한 병합. UI 게이트 유일 소스 |
+| 2 | `promote_to_coach(p_target_user_id uuid)` | admin (내부 is_admin) | 🔄 admin_user_id 파라미터 제거. profiles.role 변경 + coaches upsert + audit |
+| 3 | `demote_from_coach(p_target_user_id uuid)` | admin | role=member + coaches inactive + audit |
+
+`fn_my_permissions` 반환 예시:
+```json
+{ "success": true, "error": null,
+  "data": { "user_id": "…", "role": "admin", "approval_status": "approved",
+            "is_super_admin": false,
+            "permissions": { "members": ["view","edit"], "payments": ["view"] } } }
+```
+규칙: admin_user_roles의 모든 역할 permissions를 그룹별 배열 union으로 병합. `role='admin'`인데 매핑 0건이면 `{"*":["all"]}` 간주(부트스트랩 잠금 방지).
+
+### 7.2 예약 · 키오스크 (3)
+
+| # | 시그니처 | 권한 | 동시성 |
+|---|---|---|---|
+| 4 | `fn_book_with_credit(p_session_id uuid)` | authenticated(member 본인 파생) | **advisory lock** `booking:{session_id}` + 멤버십 행 FOR UPDATE |
+| 5 | `fn_cancel_booking_with_credit(p_booking_id uuid, p_reason text=null)` | 본인 또는 admin | booking 행 FOR UPDATE |
+| 6 | `fn_kiosk_checkin(p_payload jsonb)` ⏳ | **anon 허용**(키오스크 단말) | 5분 중복 가드 |
+
+- **fn_book_with_credit** 🔄: p_user_id 제거(auth.uid()→current_member_id()). 흐름 = 세션 유효성(scheduled·미시작) → lock → 중복 검사 → 정원 판정 → 초과 시 waitlisted(크레딧 미차감) / 여유 시 횟수제 활성권 차감 + `bookings.membership_id/credit_used` 기록.
+  ```json
+  { "success": true, "data": { "booking_id": "…", "status": "confirmed",
+    "credits_used": 1, "remaining_credits": 7 }, "error": null }
+  ```
+- **fn_cancel_booking_with_credit** 🔄: 환원은 `credit_used=true`인 예약의 `membership_id`에만 +1 (as-is의 "아무 활성권에나 +1" 버그 해소). confirmed→cancelled 전환이 빈자리 알림 트리거를 발화.
+- **fn_kiosk_checkin**: 페이로드 `{mid,fid,ts,v:1}` — ① 구조·버전 검증 ② `|now-ts|>300s`→`qr_expired` ③ 회원 active·비블랙리스트 ④ 5분 내 중복→`duplicate_checkin` ⑤ 오늘 ±30분 시작 confirmed 예약 자동 감지 ⑥ checkins INSERT(kiosk) ⑦ outcome pending→checked_in(**코치 기판정 미변경**).
+  ```json
+  { "success": true, "data": { "checkin_id": "…", "member_name": "김회원",
+    "session_id": "…", "session_title": "WOD 10:00", "linked_booking": true,
+    "checkin_time": "2026-07-07T01:00:00Z" }, "error": null }
+  ```
+
+### 7.3 코치 운영 (5)
+
+| # | 시그니처 | 권한 | 설명 |
+|---|---|---|---|
+| 7 | `fn_get_my_coach_context()` | authenticated | 연결 상태 단일 진입점 (unlinked/on_leave/linked_active/linked_unassigned) |
+| 8 | `fn_get_my_coach_dashboard()` | coach 본인 | 당일 세션 + risk_summary(waitlist/unchecked/starting_soon) + open_followups |
+| 9 | `fn_get_coach_schedule(p_from date, p_to date)` | coach 본인 | 기간 ≤92일. 세션별 집계 + has_wod + race_linked |
+| 10 | `fn_get_coach_session_board(p_session_id uuid)` | **배정 코치/admin** (_assert) | 보드 단일 소스: session+coaches+attendees(+active_flags)+summary |
+| 11 | `fn_mark_attendance(p_session_id uuid, p_items jsonb)` 🔄 | 배정 코치/admin | **mark+bulk_mark 통합**. items=[{member_id, action}] — 단건=1원소. walk_in은 booking 자동 생성. 부분 성공 반환 |
+
+`fn_mark_attendance` 반환:
+```json
+{ "success": false, "error": "partial_failure",
+  "data": { "success_count": 3, "failure_count": 1,
+    "results": [ { "member_id": "…", "action": "checked_in", "success": true, "error": null }, … ] } }
+```
+action ∈ checked_in/no_show/late_cancel/coach_excused/walk_in. checked_in·walk_in은 checkins 사실 기록 동반(부분 유니크로 멱등).
+
+### 7.4 WOD (10)
+
+| # | 시그니처 | 권한 |
+|---|---|---|
+| 12 | `fn_search_wod_movements(p_query, p_category, p_equipment, p_limit=50)` | staff |
+| 13 | `fn_list_movement_library(p_query, p_category, p_is_active, p_limit=100, p_offset=0)` | staff — Admin 관리용(usage count+카테고리 조인+total) |
+| 14 | `fn_list_wod_templates(p_scope='shared'|'facility'|'benchmark', p_facility_id, p_template_kind)` | staff |
+| 15 | `fn_get_wod_template(p_template_id uuid)` ⏳신설 | staff |
+| 16 | `fn_upsert_wod_template(p_payload jsonb)` | staff — movement line 전체 교체(멱등) |
+| 17 | `fn_publish_wod_template(p_template_id uuid)` ⏳신설 | staff — published_at 스탬프 |
+| 18 | `fn_get_session_wod(p_session_id uuid)` | staff |
+| 19 | `fn_upsert_session_wod(p_session_id uuid, p_payload jsonb)` | 배정 코치/admin — draft upsert |
+| 20 | `fn_publish_session_wod(p_session_id uuid)` | 배정 코치/admin — draft→published, source_version+1 |
+| 21 | `fn_get_class_display_wod(p_facility_id uuid=null, p_date date=today, p_session_id uuid=null)` 🔄 | **anon 허용** — published 스냅샷만(Display-Safe) |
+
+### 7.5 런시트 (4)
+
+| # | 시그니처 | 권한 |
+|---|---|---|
+| 22 | `fn_list_runbook_templates(p_facility_id, p_class_type)` | staff |
+| 23 | `fn_upsert_runbook_template(p_payload jsonb)` | staff |
+| 24 | `fn_get_session_runbook(p_session_id uuid)` | staff — 오버라이드+상속 템플릿 동시 반환 |
+| 25 | `fn_upsert_session_runbook(p_session_id uuid, p_payload jsonb)` | 배정 코치/admin |
+
+### 7.6 회원 컨텍스트 (2)
+
+| # | 시그니처 | 권한 |
+|---|---|---|
+| 26 | `fn_get_member_context_panel(p_member_id uuid)` 🔄 | staff — member+active_flags+recent_notes(member_notes 통합)+attendance+active_membership+**open_followups** (fn_list_member_alert_flags 흡수) |
+| 27 | `fn_upsert_member_alert_flag(p_member_id uuid, p_payload jsonb)` | staff — resolved=true 시 해제 |
+
+### 7.7 KPI/정산 (2)
+
+| # | 시그니처 | 권한 |
+|---|---|---|
+| 28 | `fn_get_coach_monthly_report(p_year_month text=null, p_sections text[]=['basis','kpis','retention'])` 🔄 | coach 본인 — **P1-B 3종 통합** |
+| 29 | `fn_calculate_monthly_settlement(p_year_month text)` 🔄 | admin — 전 코치 스냅샷 upsert. cancelled 세션 제외(버그 수정), confirmed/paid 스냅샷 보호 |
+
+`fn_get_coach_monthly_report` 반환(섹션 선택형):
+```json
+{ "success": true, "error": null, "data": {
+  "year_month": "2026-07",
+  "basis":     { "base_salary": 2000000, "session_allowance": 30000,
+                 "payable_session_count": 42, "cancelled_session_count": 2,
+                 "completed_session_count": 8, "expected_total_amount": 3260000,
+                 "settlement_snapshot_status": null },
+  "kpis":      { "total_sessions": 44, "total_bookings": 380, "checkin_count": 330,
+                 "no_show_count": 18, "attendance_rate": 86.8, "no_show_rate": 4.7,
+                 "waitlist_converted": 12, "payable_session_count": 42 },
+  "retention": { "renewal_risk": [ { "member_id": "…", "name": "…", "end_date": "…", "days_until_expiry": 12 } ],
+                 "long_absence": [ { "member_id": "…", "name": "…", "last_checkin": "…" } ] } } }
+```
+
+### 7.8 퍼포먼스 (6)
+
+| # | 시그니처 | 권한 | 동시성 |
+|---|---|---|---|
+| 30 | `fn_list_benchmark_definitions(p_include_inactive bool=false)` | authenticated | |
+| 31 | `fn_record_member_benchmark_result(p_member_id, p_benchmark_id, p_result_value, p_session_id=null, p_race_event_id=null, p_result_meta='{}')` | staff (+세션 지정 시 배정 코치 검증) | **advisory lock** `member:benchmark` — PR 판정 직렬화 |
+| 32 | `fn_get_member_performance_profile(p_member_id uuid)` | 본인 또는 staff | |
+| 33 | `fn_create_followup(p_payload jsonb)` | coach 본인 | 입력 사전 검증(P25) |
+| 34 | `fn_complete_followup(p_followup_id uuid, p_status='completed')` | 소유 코치/admin | completed/dismissed/open(재오픈) |
+| 35 | `fn_get_my_followups(p_status='open', p_member_id=null, p_limit=50)` | coach 본인 | priority>due_date 정렬 + is_overdue |
+
+### 7.9 배지 (2) ⏳
+
+| # | 시그니처 | 권한 |
+|---|---|---|
+| 36 | `fn_get_my_badges()` | member 본인 — 보유+미보유 진행률(current_value/threshold). 조회 시 재평가(멱등) |
+| 37 | `fn_evaluate_badges(p_member_id uuid, p_trigger text=null)` | 트리거 4종 경유(DEFINER) / 직접 호출은 staff 또는 본인 |
+
+`fn_evaluate_badges` 반환:
+```json
+{ "success": true, "error": null, "data": {
+  "member_id": "…", "trigger": "checkin",
+  "newly_awarded": [ { "badge_id": "…", "slug": "checkin-10", "name": "출석 10회" } ],
+  "metrics": { "checkin_count": 10, "streak_weeks": 3, "pr_count": 2,
+               "race_count": 1, "race_podium_count": 0, "membership_days": 45 } } }
+```
+
+### 7.10 Race (1)
+
+| # | 시그니처 | 권한 | 동시성 |
+|---|---|---|---|
+| 38 | `fn_prepare_race_session(p_session_id uuid, p_race_format text='individual', p_options jsonb='{}')` 🔄 | 배정 코치/admin | **advisory lock** `race_session:{id}` + 부분 유니크 이중 방어 |
+
+p_options 키(15-race-system §4b): `target_distance_m`(개인/팀/릴레이) · `duration_minutes`(시간제) · `group_target_m`(단체전 A안) · `heat_mode`(bool, B안) · `next_heat_of`(event_id — heat_no+1, parent 연결, **carryover 자동 계산**=이전 이월+이전 히트 기록 합).
+동작: 미종료 이벤트 존재 시 재개(created=false); `next_heat_of` 지정 시 이전 히트 종료 검증 후 신규 생성.
+```json
+{ "success": true, "error": null, "data": {
+  "created": true, "event_id": "…", "event_name": "WOD 10:00 — 07/07 (Heat 2)",
+  "session_id": "…", "status": "scheduled", "lobby_status": "setup",
+  "race_format": "group", "target_distance_m": null, "duration_minutes": null,
+  "group_target_m": 10000, "heat_no": 2, "parent_event_id": "…", "carryover_m": 4180.5 } }
+```
+
+### 7.11 Class 공개 (3) ⏳ — anon 실행, Display-Safe를 데이터 계층에서 강제
+
+| # | 시그니처 | 반환 범위 (민감 컬럼 SELECT 자체 금지) |
+|---|---|---|
+| 39 | `fn_get_class_live_board(p_facility_id uuid)` | 현재/다음 세션 메타+집계+체크인 **이름만** (연락처·판정·메모 원천 미포함) |
+| 40 | `fn_get_class_screen_prs(p_facility_id uuid, p_days int=7)` | 최근 PR: 이름+항목+기록 라벨. `celebrate_opt_in` 존중, 생체 지표 제외 |
+| 41 | `fn_get_class_leaderboard(p_facility_id uuid, p_scope text='month'|'week'|'all')` | 이름+거리/승수/PR수 랭킹 top10 (HR 등 생체 제외) |
+
+`fn_get_class_live_board` 반환 예시:
+```json
+{ "success": true, "error": null, "data": {
+  "server_time": "2026-07-07T01:00:00Z",
+  "current": { "id": "…", "title": "WOD 10:00", "start_time": "10:00", "end_time": "11:00",
+               "capacity": 15, "coach_names": ["박코치"], "booked_count": 12,
+               "checkin_count": 9, "checked_in_names": ["김회원", "이회원"] },
+  "next": { "id": "…", "title": "Strength 11:30", "start_time": "11:30",
+            "end_time": "12:30", "capacity": 12, "booked_count": 7 } } }
+```
+
+### 7.12 Admin 대시보드 (3) 🔄 fn_ 접두 표준화 + admin 게이트
+
+| # | 시그니처 | 설명 |
+|---|---|---|
+| 42 | `fn_get_dashboard_kpis()` | 회원/승인대기/체크인/예약/세션/월매출/활성권/만기 D-7/코치/신규/티켓 — as-is의 스테일 컬럼 참조(joined_date, start_time::date 등) 전부 수정 |
+| 43 | `fn_get_revenue_stats(p_start_date, p_end_date)` | completed 기준 합계+카테고리별+소스별 |
+| 44 | `fn_get_coach_performance_stats()` | 코치별 세션수/평점(session_feedback)/담당 회원수 |
+
+### 7.13 부속 내부 함수 (표준 34종 외)
+
+| 함수 | 권한 | 비고 |
+|---|---|---|
+| `save_pg_settings(facility, test_key, live_key, webhook, enc_key)` | admin (🔄 게이트 추가) | facility_id 기준 UPSERT(as-is id 충돌 버그 수정), 부분 갱신 COALESCE |
+| `get_decrypted_pg_settings(facility, enc_key)` | **Service Role 전용** (authenticated REVOKE) | 서버 결제 라우트만 |
+| `current_member_id()` / `is_admin()` / `is_admin_or_coach()` | authenticated | 00_extensions_helpers |
+| `_assert_coach_or_admin()` / `_assert_coach_can_edit_session()` | RPC 내부 | 09 |
+
+> **함수 수 주기**: 계약 §4의 "30종"은 그룹 공칭이며, 함수 단위 전수는 위 44개(표준 34분류)+부속이다. 교차검수는 이 표의 함수명 목록을 기준으로 한다.
+
+---
+
+## 8. 자동화 (트리거 · pg_cron) / Storage / Edge Functions
+
+### 8.1 트리거 전수
+
+| 트리거 | 테이블/이벤트 | 함수 | 효과 |
+|---|---|---|---|
+| trg_on_auth_user_created | auth.users INSERT | handle_new_auth_user | profiles(pending)+members 생성·연결 (R11: email_confirmed_at 의존 금지) |
+| trg_notifications_side_effects | notifications INSERT | fn_handle_notification_side_effects | pg_net→EF 팬아웃(push 전 구독, 중요 알림은 kakao/sms) + notification_logs. **실패해도 원 INSERT 성공** |
+| trg_notify_waitlist_on_vacancy | bookings UPDATE OF status | fn_notify_waitlist_on_vacancy | confirmed→cancelled 시 waitlisted 상위 3명 알림 |
+| trg_badges_on_checkin | checkins INSERT | _badges_on_checkin → fn_evaluate_badges | 출석 배지 판정 |
+| trg_badges_on_benchmark | member_benchmark_results INSERT(is_pr) | _badges_on_benchmark | PR 배지 판정 |
+| trg_badges_on_race_record | race_records INSERT | _badges_on_race_record | 레이스 배지 판정 |
+| trg_badges_on_membership | memberships INSERT | _badges_on_membership | 멤버십 기간 배지 판정 |
+| trg_*_updated_at (25+) | 각 테이블 BEFORE UPDATE | update_updated_at_column | updated_at 자동 갱신 |
+
+### 8.2 pg_cron — 🔄 **DDL에 등록 포함 (as-is 등록 0건 해소)**, `06_notification.sql`이 SSOT
+
+| jobname | 스케줄 | 함수 | 내용 |
+|---|---|---|---|
+| `bcl-class-reminders` | `*/10 * * * *` | fn_send_class_reminders | 시작 50~70분 전 창의 confirmed 예약자 리마인더. 세션당 2시간 dedupe |
+| `bcl-membership-expiry-reminders` | `0 0 * * *` (UTC = KST 09:00) | fn_send_membership_expiry_reminders ⏳ | active 만기 **D-7/D-3/D-1**. (membership_id, d_day) 멱등. as-is에선 문서만 존재 → 정식 구현 |
+
+Edge 호출 설정은 `system_config(edge_base_url, edge_service_key)` — as-is의 `request.headers` 의존(크론 컨텍스트 불능) 제거. 미설정 시 인앱 알림만 남기고 발송 스킵.
+
+### 8.3 Storage 버킷 (00_extensions_helpers.sql)
+
+| 버킷 | 공개 | 용도 | 쓰기 정책 |
+|---|---|---|---|
+| `avatars` | public read | 회원/코치 프로필 | 본인 경로(`{uid}/…`)만 INSERT |
+| `facility-photos` | public read | 시설 사진 | staff |
+| `movement-media` | public read | 운동 썸네일/영상 | staff |
+| `uploads` | private | 티켓 첨부 등 | 본인 경로 RW + admin |
+
+### 8.4 Edge Functions
+
+| 함수 | 상태 | 호출 경로 | 비고 |
+|---|---|---|---|
+| `send-push-notification` | ✅ 실동작(web-push+VAPID) | notifications 트리거 → pg_net | 구독 무효(410) 시 push_subscriptions.is_active=false 콜백 권장 |
+| `send-external-notification` | 🧪 카카오/SMS mock | 동일 트리거(중요 알림+옵트인) | P14 실연동 대기 — 인터페이스(채널/phone/message/category)는 확정 |
+
+(참고) Race Python 브릿지(FastAPI 8001)는 Service Role Key로 DB 접근 — RLS 미적용 경로. REST/Broadcast 계약은 15-race-system.
+
+---
+
+## 9. 데이터 접근 규약 (앱 구현 에이전트용)
+
+1. **읽기**: 단순 목록/상세는 PostgREST(select) + RLS. 집계·교차 도메인·공개 화면은 반드시 표준 RPC.
+2. **쓰기**: bookings/checkins/attendance/크레딧/배지/정산/Race 준비는 **RPC 전용** — 테이블 직접 쓰기 금지(정책도 없음).
+3. **결제**: 클라이언트는 결제창 오픈까지만. 승인/취소/환불은 서버 라우트(Service Role)에서 transactions/refunds 기록.
+4. **Realtime**: postgres_changes 구독은 `checkins`(Class live), `session_rotation_states`(HUD), `race_live_state`(복원)에 한정. 고빈도 스트림은 Broadcast(0.3s)로 — DB에 흘리지 않는다.
+5. **타입 생성**: `supabase gen types typescript` 결과를 §2 enum 표와 대조하는 스크립트를 CI 게이트로 (11-deployment §CI).
+
+---
+
+## 10. as-is → to-be 변경 대조표 (전환 근거 — 이관 스크립트의 매핑 기준)
+
+### 10.1 권한/계정
+
+| # | as-is | to-be | 근거/이관 |
+|---|---|---|---|
+| 1 | 권한 이원화: profiles.role(실제 RLS) vs admin_roles(UI 전용 미연동) | **단일 체계**: profiles.role(1차 게이트) + admin_user_roles→admin_roles(세부) + `fn_my_permissions()` 1함수 | UI/서버 판정 불일치 제거. 이관: 기존 admin에게 super_admin 매핑 1행 생성 |
+| 2 | admin_roles.permissions 2형태 혼재(불리언맵 `{read:true}` vs 배열) | **`{group: string[]}` 배열형 1종** + jsonb_typeof CHECK. 그룹 키=Admin 14화면 | 시드 재작성. 구 데이터는 시드로 대체(운영 커스텀 역할 없음 확인) |
+| 3 | promote/demote가 admin_user_id 파라미터 수신 | auth.uid() 내부 검증 + coaches upsert 원자화 + envelope | 클라이언트 식별자 전달 금지(R3) |
+| 4 | profiles 본인 UPDATE로 role 변경 이론상 가능 | 본인 UPDATE 정책 제거(권한상승 벡터 차단) | |
+| 5 | 이메일 검증 흐름 잔존(/auth/email-verify) | **Confirm email OFF 확정** — 트리거 email_confirmed_at 의존 금지, 라우트 폐지 | R11 |
+
+### 10.2 테이블 통합/제거
+
+| # | as-is | to-be | 이관 |
+|---|---|---|---|
+| 6 | `coaching_notes` + `member_notes` 중복 | **`member_notes` 1테이블**(author_id, author_role, note_type 5종) | coaching_notes→author_role='coach', 구 member_notes→'admin', members.counseling_notes→note_type='counseling' 행 분해 |
+| 7 | `wods` 레거시(문서 DEPRECATED) | **폐지 — 생성하지 않음**. WOD 소스=session_wods 유일 | 잔존 데이터는 이관 대상 아님(session_wods 이미 병행 운영) |
+| 8 | `lockers`+`locker_assignments`+`members.locker_number` 삼중 | **lockers 단일화**(assigned_member_id/start/end + 정합 CHECK). 이력=audit_logs | locker_assignments 활성행→lockers 컬럼, 과거행→audit_logs INSERT |
+| 9 | `sessions.wod_description` (DEPRECATED) | **컬럼 제거** | 값 있는 세션은 session_wods.description_override로 이관 |
+| 10 | 위젯 4테이블(설계만 존재, 실체 없음) | **widget_settings 1테이블** | 신규 — 이관 없음 |
+| 11 | badge_definitions/badge_awards 문서만 존재(마이그레이션 부재) | ⏳ **정식 스키마 + 판정 트리거 4종 + 시드 12종** | 신규 |
+| 12 | session_feedback가 문서상 비정식 | sessions 도메인 정식 등재 + UNIQUE(session,member) | 그대로 이관 |
+| 13 | faqs 부재(문서 참조만) | ⏳ 신규 생성 | |
+
+### 10.3 네이밍/타입 표준
+
+| # | as-is | to-be | 이관 |
+|---|---|---|---|
+| 14 | `transactions.id` **text** (+refunds FK text) | **UUID PK** — Toss 식별자는 order_id/payment_key 컬럼으로 분리 | 구 id는 metadata 보존 or order_id로 매핑. refunds.transaction_id 재매핑 |
+| 15 | transactions `payment_status`와 `status` 혼용(마이그레이션마다 상이) | `status` 1컬럼(6값) | payment_status 값 → status 매핑 |
+| 16 | check_ins/checkins, reservations/bookings, plans/membership_plans 표기 혼재(문서·코드) | **checkins / bookings / membership_plans**만 사용 | 코드 전수 치환(계약 §2) |
+| 17 | bookings.status에 no_show/waitlist·waitlisted 혼재 | status 3값(confirmed/waitlisted/cancelled) — 판정은 attendance_outcome | status='no_show'→status 'confirmed'+outcome 'no_show', 'waitlist'→'waitlisted' |
+| 18 | bookings.user_id 직접 참조(구 fn_book_with_credit) | member_id 단일 참조(R2) | user_id→members 매핑 |
+| 19 | session_coaches.role(primary/assistant) → assignment_role(lead/assistant) 이중 이력 | assignment_role만 | primary→lead |
+| 20 | coaches.status 'Inactive' 대소문자 혼용 | 소문자 CHECK 강제 | lower() 이관 |
+| 21 | notifications.message vs content 혼용 | `content` 통일 | |
+| 22 | banners.position 한글 CHECK | 영문 슬러그 5종 | 값 매핑 |
+| 23 | uuid_generate_v4()/gen_random_uuid() 혼용 | gen_random_uuid() 통일(uuid-ossp 미사용) | |
+
+### 10.4 무결성/보안 강화 (신규 제약)
+
+| # | 항목 | 내용 |
+|---|---|---|
+| 24 | checkins 세션당 1회 | 부분 UNIQUE(session_id, member_id) — 앱 로직 의존 제거 |
+| 25 | bookings 크레딧 정합 | membership_id + credit_used 기록 → 취소 환원이 차감 원천에만 (as-is 무차별 +1 버그) |
+| 26 | pg_settings facility당 1행 | UNIQUE(facility_id) + save_pg_settings UPSERT 기준 수정(as-is ON CONFLICT(id) 무의미) |
+| 27 | notification_preferences user당 1행 / push endpoint UNIQUE | 중복 구독·설정 방지 |
+| 28 | lockers 배정 정합 | CHECK(occupied ↔ assigned_member_id) |
+| 29 | coach_settlements 확정 보호 | fn_calculate가 status='pending'만 갱신 |
+| 30 | anon RLS | 기본 전면 차단 + 화이트리스트 명문화(rotation_states, race 4테이블 🔄공개 전환, 공개 RPC 5종) — fix_anon_rls_exposure 원칙 승계·확장 |
+| 31 | notification_rules/logs·audit_logs·qr/kiosk의 authenticated 전체 읽기 | admin 전용으로 축소 |
+| 32 | 대시보드 RPC 무게이트(as-is get_dashboard_kpis 등) | admin 게이트 + 스테일 컬럼 참조(joined_date, checkins.time, memberships.user_id 등) 수정 |
+
+### 10.5 RPC 표면: ~40종 → 표준 34종 통합 매핑
+
+| as-is (폐지) | to-be 대체 |
+|---|---|
+| fn_get_coach_dashboard(p_user_id) | fn_get_my_coach_dashboard() |
+| fn_get_session_attendees | fn_get_coach_session_board |
+| fn_coach_mark_attendance(p_coach_user_id…) | fn_mark_attendance |
+| fn_mark_session_attendance + fn_bulk_mark_session_attendance | **fn_mark_attendance(p_session_id, p_items[])** 1종 |
+| fn_get_coach_monthly_settlement_basis / fn_get_coach_monthly_kpis / fn_get_coach_retention_panel | **fn_get_coach_monthly_report(p_year_month, p_sections[])** 1종 |
+| fn_list_member_alert_flags | fn_get_member_context_panel에 흡수(active_flags) |
+| get_member_with_membership | PostgREST 중첩 select + RLS로 대체(RPC 불필요) |
+| get_dashboard_kpis / get_revenue_stats | fn_get_dashboard_kpis / fn_get_revenue_stats (fn_ 접두 + admin 게이트) |
+| fn_book_with_credit(p_session, **p_user_id**) | fn_book_with_credit(p_session) — 식별자 전달 금지 |
+| fn_prepare_race_session(p_session) | fn_prepare_race_session(p_session, **p_race_format, p_options**) |
+| (부재) fn_send_membership_expiry_reminders | ⏳ 구현 + 크론 등록 |
+| (부재) fn_get_my_badges / fn_evaluate_badges | ⏳ 구현(트리거 연동) |
+| (부재) 키오스크 체크인 API(클라이언트 조합) | ⏳ fn_kiosk_checkin 원자 RPC |
+| (부재) Class 화면의 sessions/checkins 직접 SELECT | ⏳ fn_get_class_live_board / screen_prs / leaderboard (공개 표면 RPC화) |
+
+### 10.6 운영 자동화
+
+| # | as-is | to-be |
+|---|---|---|
+| 33 | pg_cron 등록 **0건** (함수만 존재) | cron.schedule 2건을 06_notification.sql에 포함(리마인더 10분 / 만기 일일) |
+| 34 | 트리거 EF URL을 request.headers에서 파생(크론에서 불능) | system_config(edge_base_url/edge_service_key) 기반 + 미설정 시 안전 스킵 + notification_logs 기록 |
+| 35 | 배지 판정 경로 부재 | 트리거 4종 + fn_evaluate_badges 멱등 판정 + 획득 알림 |
+
+---
+
+## 11. 검증 체크리스트 (스키마 게이트 — 14-agent-workflow 연동)
+
+- [ ] `sql/00~09` 순서 적용이 빈 프로젝트에서 무오류 완주 + **2회차 재실행도 무오류**(멱등)
+- [ ] 시드 검증: movement_categories 8 / benchmark_definitions 6 / badge_definitions 12 / admin_roles 4
+- [ ] `select cron.job` 2건(bcl-class-reminders, bcl-membership-expiry-reminders)
+- [ ] anon 스모크: 화이트리스트(rotation_states·race 4테이블 SELECT, 공개 RPC 5종)만 통과, 그 외 전부 차단
+- [ ] RPC 스모크: §7의 44개 함수명 존재 + envelope 3키 형식 + 폐지 함수명 grep 0건
+- [ ] enum 대조: `gen types` 결과 ↔ §2 표 일치
+- [ ] 동시성: fn_book_with_credit 병렬 10요청 시 정원 초과 0건, fn_prepare_race_session 병렬 호출 시 활성 이벤트 1개
+
+---
+
+**문서 버전**: 1.0.0 (재구축 설계 확정본) · **작성**: 2026-07-07 · **다음 문서**: `08-integrations.md`(결제/알림 외부 연동), `15-race-system.md`(Race 정밀 명세)

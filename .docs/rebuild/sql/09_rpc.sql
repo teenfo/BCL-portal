@@ -2013,7 +2013,7 @@ DECLARE
     v_current NUMERIC;
     v_awarded JSONB := '[]'::jsonb;
     v_user_id UUID;
-    v_inserted BOOLEAN;
+    v_rowcount INT;
 BEGIN
     -- 직접 호출 시 권한: staff 또는 본인(자기 재평가). 트리거 경유는 DEFINER로 통과
     IF auth.uid() IS NOT NULL AND NOT public.is_admin_or_coach() THEN
@@ -2066,9 +2066,9 @@ BEGIN
             INSERT INTO public.badge_awards (member_id, badge_id, source, progress_value)
             VALUES (p_member_id, v_def.id, 'auto', v_current)
             ON CONFLICT (member_id, badge_id) DO NOTHING;
-            GET DIAGNOSTICS v_inserted = ROW_COUNT;
+            GET DIAGNOSTICS v_rowcount = ROW_COUNT;
 
-            IF v_inserted THEN
+            IF v_rowcount > 0 THEN
                 v_awarded := v_awarded || jsonb_build_array(jsonb_build_object(
                     'badge_id', v_def.id, 'slug', v_def.slug, 'name', v_def.name));
 
