@@ -1,13 +1,17 @@
 'use client';
 
-// Admin 셸 — 사이드바(권한 게이트 + 그룹 아코디언) + 메인 콘텐츠 영역 (02-admin §2.1)
-// AuthGuard 통과 후(레이아웃) 마운트되므로 여기서는 권한 로딩·미노출만 담당.
-import { useMemo, useState } from 'react';
+// Admin 셸 — Bootstrap 5.3 sidebars 스타일(브랜드 + 아이콘 pill 네비 + 하단 유저 드롭다운).
+// 권한 게이트(can(group,'view')) + 그룹 아코디언은 유지. AuthGuard 통과 후 마운트.
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMyPermissions } from '@/features/permissions';
+import { useAuth } from '@/features/auth';
 import { ADMIN_NAV } from './nav';
+import { NavIcon } from './icons';
 import styles from './AdminShell.module.css';
+
+const ROLE_LABEL: Record<string, string> = { admin: '관리자', coach: '코치', member: '회원' };
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,7 +27,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     [can, loading],
   );
 
-  // 아코디언 상태: 접힌 그룹 집합(기본 전체 펼침). 현재 경로가 속한 그룹은 항상 펼침 처리.
+  // 아코디언 상태: 접힌 그룹 집합(기본 전체 펼침). 현재 경로가 속한 그룹은 항상 펼침.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (header: string) =>
     setCollapsed((prev) => {
@@ -36,7 +40,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar} aria-label="관리자 메뉴">
-        <div className={styles.brand}>BCL Admin</div>
+        <div className={styles.brand}>
+          <NavIcon name="brand" className={styles.brandIcon} width={22} height={22} />
+          <span>BCL Admin</span>
+        </div>
+
         <nav className={styles.nav}>
           {groups.map((group, gi) => {
             const hasActive = group.items.some(
@@ -48,7 +56,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               return (
                 <div key={`top-${gi}`} className={styles.group}>
                   {group.items.map((it) => (
-                    <NavLink key={it.href} href={it.href} label={it.label} pathname={pathname} />
+                    <NavLink key={it.href} item={it} pathname={pathname} />
                   ))}
                 </div>
               );
@@ -64,17 +72,17 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                   aria-expanded={isOpen}
                 >
                   <span className={styles.groupLabel}>{group.header}</span>
-                  <span
+                  <NavIcon
+                    name="chevron"
+                    width={14}
+                    height={14}
                     className={`${styles.chevron}${isOpen ? ` ${styles.chevronOpen}` : ''}`}
-                    aria-hidden="true"
-                  >
-                    ▾
-                  </span>
+                  />
                 </button>
                 {isOpen ? (
                   <div className={styles.groupItems}>
                     {group.items.map((it) => (
-                      <NavLink key={it.href} href={it.href} label={it.label} pathname={pathname} />
+                      <NavLink key={it.href} item={it} pathname={pathname} />
                     ))}
                   </div>
                 ) : null}
@@ -82,24 +90,102 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
-        <Link href="/auth/logout" className={styles.logout}>
-          로그아웃
-        </Link>
+
+        <UserMenu />
       </aside>
       <main className={styles.content}>{children}</main>
     </div>
   );
 }
 
-function NavLink({ href, label, pathname }: { href: string; label: string; pathname: string }) {
-  const active = pathname === href || pathname.startsWith(`${href}/`);
+function NavLink({
+  item,
+  pathname,
+}: {
+  item: { href: string; label: string; group: string };
+  pathname: string;
+}) {
+  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
   return (
     <Link
-      href={href}
+      href={item.href}
       className={`${styles.navItem}${active ? ` ${styles.navItemActive}` : ''}`}
       aria-current={active ? 'page' : undefined}
     >
-      {label}
+      <NavIcon name={item.group} className={styles.navIcon} />
+      <span className={styles.navLabel}>{item.label}</span>
     </Link>
+  );
+}
+
+// 하단 유저 드롭다운(Bootstrap sidebars 풋터 패턴) — 아바타 + 이름/역할 + 드롭업 메뉴.
+function UserMenu() {
+  const { profile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const email = profile?.email ?? '';
+  const namePart = email ? email.split('@')[0] : '관리자';
+  const initial = (namePart.charAt(0) || 'A').toUpperCase();
+  const roleLabel = ROLE_LABEL[profile?.role ?? 'admin'] ?? '관리자';
+
+  return (
+    <div className={styles.userMenu} ref={ref}>
+      {open ? (
+        <div className={styles.userDropdown} role="menu">
+          <Link
+            href="/admin/settings"
+            className={styles.userDropdownItem}
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            <NavIcon name="settings" width={16} height={16} />
+            설정
+          </Link>
+          <div className={styles.userDropdownDivider} />
+          <Link href="/auth/logout" className={styles.userDropdownItem} role="menuitem">
+            <NavIcon name="logout" width={16} height={16} />
+            로그아웃
+          </Link>
+        </div>
+      ) : null}
+      <button
+        type="button"
+        className={styles.userToggle}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <span className={styles.avatar} aria-hidden="true">
+          {initial}
+        </span>
+        <span className={styles.userInfo}>
+          <span className={styles.userName}>{namePart}</span>
+          <span className={styles.userRole}>{roleLabel}</span>
+        </span>
+        <NavIcon
+          name="chevron"
+          width={14}
+          height={14}
+          className={`${styles.userChevron}${open ? ` ${styles.userChevronOpen}` : ''}`}
+        />
+      </button>
+    </div>
   );
 }
