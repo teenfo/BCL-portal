@@ -35,7 +35,7 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     header: '프로그램',
     items: [
-      { href: '/admin/wod-studio', label: 'WOD 스튜디오', group: 'wod' },
+      { href: '/admin/wod-studio', label: 'WOD 스튜디오', group: 'wod_studio' },
       { href: '/admin/race', label: 'Race', group: 'race' },
       { href: '/admin/badges', label: '배지', group: 'badges' },
     ],

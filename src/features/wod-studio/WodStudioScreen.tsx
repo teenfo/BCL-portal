@@ -23,7 +23,7 @@ export function WodStudioScreen() {
   const initial = searchParams?.get('tab') === 'library' ? 'library' : 'templates';
   const [tab, setTab] = useState<TabKey>(initial);
 
-  if (!can('wod', 'view')) {
+  if (!can('wod_studio', 'view')) {
     return (
       <div className={styles.page}>
         <Card>

@@ -19,8 +19,8 @@ const PAGE_SIZE = 20;
 export function LibraryTab() {
   const toast = useToast();
   const { can } = useMyPermissions();
-  const canEdit = can('wod', 'edit');
-  const canDelete = can('wod', 'delete');
+  const canEdit = can('wod_studio', 'edit');
+  const canDelete = can('wod_studio', 'delete');
 
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [term, setTerm] = useState('');

@@ -30,7 +30,7 @@ const SCOPE_OPTIONS: { value: TemplateScope; label: string }[] = [
 export function TemplatesTab() {
   const toast = useToast();
   const { can } = useMyPermissions();
-  const canEdit = can('wod', 'edit');
+  const canEdit = can('wod_studio', 'edit');
 
   const [scope, setScope] = useState<TemplateScope>('all');
   const [kindFilter, setKindFilter] = useState<string>('all');
