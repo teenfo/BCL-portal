@@ -1,0 +1,41 @@
+.gateWrap {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--bcl-pad-page);
+  min-height: 60dvh;
+}
+
+.gateWrap > * {
+  width: 100%;
+  max-width: 480px;
+}
+
+.gateInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+  align-items: flex-start;
+}
+
+.gateTitle {
+  margin: 0;
+  font-size: calc(24px * var(--bcl-font-scale));
+  line-height: 1.3;
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.gateBody {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: 1.5;
+  color: var(--bcl-text-muted);
+}
+
+.gateActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+  width: 100%;
+}

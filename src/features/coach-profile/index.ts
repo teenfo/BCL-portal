@@ -1,0 +1,1 @@
+export { CoachProfileScreen } from './CoachProfileScreen';

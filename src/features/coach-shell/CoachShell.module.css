@@ -1,0 +1,93 @@
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--bcl-bg);
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px));
+}
+
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  align-items: center;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bcl-surface);
+  border-top: 1px solid var(--bcl-border);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 100%;
+  min-height: var(--bcl-hit-min);
+  text-decoration: none;
+  color: var(--bcl-text-muted);
+}
+
+.tabActive {
+  color: var(--bcl-accent-ink);
+}
+
+.tabIcon {
+  font-size: calc(20px * var(--bcl-font-scale));
+  line-height: 1;
+}
+
+.tabLabel {
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 500;
+}
+
+/* 중앙 강조 슬롯 — accent 원형 버튼 상단 돌출 */
+.centerSlot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  text-decoration: none;
+  color: var(--bcl-text-muted);
+}
+
+.centerButton {
+  position: absolute;
+  top: -18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+  border: 1px solid var(--bcl-accent-border);
+  font-size: calc(22px * var(--bcl-font-scale));
+  box-shadow: var(--bcl-shadow-md);
+}
+
+.centerButtonActive {
+  background: var(--bcl-accent);
+  color: #ffffff;
+  border-color: var(--bcl-accent);
+}
+
+.centerLabel {
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 600;
+  margin-bottom: var(--bcl-space-1);
+}

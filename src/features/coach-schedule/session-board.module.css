@@ -1,0 +1,427 @@
+/* 세션 운영 보드 (전면 전환) */
+.boardOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bcl-bg);
+}
+
+.boardHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3) var(--bcl-space-4);
+  border-bottom: 1px solid var(--bcl-border);
+  background: var(--bcl-surface);
+}
+
+.boardTitleWrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.boardTitle {
+  font-size: calc(17px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardMeta {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.boardTabs {
+  padding: 0 var(--bcl-space-4);
+  border-bottom: 1px solid var(--bcl-border);
+  background: var(--bcl-surface);
+}
+
+.boardBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--bcl-space-4);
+}
+
+.boardFooter {
+  border-top: 1px solid var(--bcl-border);
+  background: var(--bcl-surface);
+  padding: var(--bcl-space-3) var(--bcl-space-4);
+  padding-bottom: calc(var(--bcl-space-3) + env(safe-area-inset-bottom, 0px));
+}
+
+/* 패널 공통 */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.groupTitle {
+  margin: 0;
+  font-size: calc(14px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.hint {
+  margin: 0;
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 출결 통계 그리드 */
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--bcl-space-2);
+}
+
+.statTile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: var(--bcl-space-2);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+}
+
+.statValue {
+  font-size: calc(20px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.statLabel {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.attendeeSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.attendeeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.attendeeRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.attendeeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  min-width: 0;
+}
+
+.attendeeTop {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.attendeeName {
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.flagLine {
+  display: flex;
+  gap: var(--bcl-space-1);
+  flex-wrap: wrap;
+}
+
+.actionRow {
+  display: flex;
+  gap: var(--bcl-space-1);
+  flex-wrap: wrap;
+}
+
+/* WOD 패널 */
+.wodStateRow {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+
+.twoCol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-2);
+}
+
+.movementBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.movementList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.movementRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+}
+
+.movementName {
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.movementInputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-2);
+  margin-top: var(--bcl-space-2);
+}
+
+.searchRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-2);
+}
+
+.searchRow > :first-child {
+  flex: 1;
+}
+
+.hitList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-1);
+}
+
+.wodActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+
+.previewBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+
+.previewTitle {
+  font-size: calc(17px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.previewMeta {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.previewLine {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+.previewNotes {
+  margin-top: var(--bcl-space-2);
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 런시트 */
+.runbookTabs {
+  display: flex;
+  gap: var(--bcl-space-1);
+  overflow-x: auto;
+}
+
+.runbookTab {
+  position: relative;
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  white-space: nowrap;
+  min-height: var(--bcl-hit-min);
+}
+
+.runbookTabActive {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+  font-weight: 600;
+}
+
+.dirtyDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: var(--bcl-space-1);
+  border-radius: 999px;
+  background: var(--bcl-accent);
+  vertical-align: middle;
+}
+
+.overrideEditor,
+.inheritBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.overrideHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.overrideTextarea {
+  width: 100%;
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  font-size: max(1em, 16px);
+  resize: vertical;
+}
+
+.inheritText {
+  margin: 0;
+  padding: var(--bcl-space-3);
+  border: 1px dashed var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+  font-size: calc(14px * var(--bcl-font-scale));
+  white-space: pre-wrap;
+}
+
+.safetyBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-danger);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-danger-soft);
+}
+
+.safetyLabel {
+  font-size: calc(12px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+/* 화이트보드 */
+.wbHead {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.wbTitle {
+  font-size: calc(17px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.wbList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.wbRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+}
+
+.wbRank {
+  font-size: calc(18px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-accent-ink);
+  min-width: 24px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.wbInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.wbNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.wbNote {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.wbScore {
+  font-size: calc(18px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.missingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+
+.missingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--bcl-space-2);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+}
+
+/* 빠른 액션 + 폼 */
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+
+.formCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}

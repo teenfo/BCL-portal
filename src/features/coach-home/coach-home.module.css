@@ -1,0 +1,177 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+  padding: var(--bcl-pad-page);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: calc(24px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--bcl-space-2);
+}
+
+.sessionList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.sessionCard {
+  display: flex;
+  gap: var(--bcl-space-3);
+  align-items: center;
+  width: 100%;
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  text-align: left;
+  min-height: var(--bcl-hit-min);
+}
+
+.sessionCard:hover {
+  border-color: var(--bcl-accent-border);
+}
+
+.sessionTime {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 56px;
+}
+
+.sessionHour {
+  font-size: calc(17px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionDash {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionMain {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  flex: 1;
+  min-width: 0;
+}
+
+.sessionTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.sessionName {
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.sessionMeta {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.flagRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+
+.followupList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.followupRow {
+  display: flex;
+  gap: var(--bcl-space-3);
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.followupBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  min-width: 0;
+}
+
+.followupTop {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.followupMember {
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.followupNote {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.followupDue {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.followupActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  flex-shrink: 0;
+}
+
+.ctaBar {
+  position: sticky;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  padding-top: var(--bcl-space-2);
+}
