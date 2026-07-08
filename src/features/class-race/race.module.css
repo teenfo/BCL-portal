@@ -1,0 +1,427 @@
+/* Race 화면 — 다크/tv, 토큰만. 테마 표면은 --bcl-race-surface/-trail/-bg-tint(data-race-theme). */
+
+.raceRoot,
+.runRoot,
+.resultRoot {
+  position: fixed;
+  inset: 0;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 톱바 ── */
+.topbar {
+  height: 8vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--bcl-space-8);
+  background: var(--bcl-surface);
+}
+.topbarName {
+  font-size: 44px;
+  font-weight: 800;
+}
+.topbarMeta {
+  display: flex;
+  gap: var(--bcl-space-5);
+  font-size: 32px;
+  color: var(--bcl-text-muted);
+  align-items: center;
+}
+.heatBadge {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: 2px var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+}
+
+/* ── 스테이지: 순위 스택 + 트랙 ── */
+.stage {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 22% 1fr;
+  min-height: 0;
+}
+.rankStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-4);
+  overflow: hidden;
+}
+.rankRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  background: var(--bcl-surface);
+  border-radius: var(--bcl-radius-md);
+  transition: transform 300ms ease;
+}
+.rankRow[data-rank='1'] {
+  background: var(--bcl-accent-soft);
+  box-shadow: 0 0 0 2px var(--bcl-accent-border);
+}
+.rankNum {
+  font-size: 40px;
+  font-weight: 800;
+  width: 1.4em;
+  text-align: center;
+}
+.rankDot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.rankName {
+  font-size: 32px;
+  font-weight: 600;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rankGap {
+  font-size: 28px;
+  color: var(--bcl-text-muted);
+}
+
+/* ── 트랙(CSS3D) ── */
+.track {
+  position: relative;
+  overflow: hidden;
+  perspective: 800px;
+  perspective-origin: 50% 30%;
+  background: var(--bcl-race-bg-tint, var(--bcl-surface));
+}
+.trackSky {
+  position: absolute;
+  inset: 0 0 40% 0;
+  background: linear-gradient(var(--bcl-bg), transparent);
+  opacity: 0.6;
+}
+.trackSurface {
+  position: absolute;
+  inset: 12% 0 0 0;
+  transform: rotateX(25deg);
+  transform-origin: 50% 100%;
+  background: var(--bcl-race-surface, var(--bcl-surface-raised));
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  padding: var(--bcl-space-4) 0;
+}
+.lane {
+  position: relative;
+  height: 9%;
+  display: flex;
+  align-items: center;
+  border-bottom: 2px dashed var(--bcl-race-trail, var(--bcl-border));
+}
+.laneLabel {
+  position: absolute;
+  left: var(--bcl-space-3);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--bcl-race-trail, var(--bcl-text-muted));
+  opacity: 0.6;
+}
+.kart {
+  position: relative;
+  left: 4%;
+  width: 92%;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  will-change: transform; /* translate3d only — 레이아웃 유발 금지(§5b.3) */
+}
+.kartSprite {
+  font-size: 56px;
+  line-height: 1;
+  filter: drop-shadow(0 0 8px var(--team-color, transparent));
+}
+.kartSprite[data-idle='true'] {
+  opacity: 0.85;
+}
+.kart[data-offline='true'] {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+.kart[data-stale='true'] .kartSprite {
+  opacity: 0.75;
+}
+.kart[data-virtual='true'] {
+  opacity: 0.45;
+}
+.kartName {
+  font-size: 24px;
+  font-weight: 700;
+  background: var(--bcl-overlay);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+}
+.kart[data-rank='1'] .kartName {
+  color: var(--bcl-accent-ink);
+}
+.finishLine {
+  position: absolute;
+  top: 12%;
+  bottom: 0;
+  right: 4%;
+  width: 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bcl-text) 0 10px,
+    var(--bcl-bg) 10px 20px
+  );
+}
+
+/* ── 미니맵 ── */
+.minimap {
+  height: 8vh;
+  padding: var(--bcl-space-3) var(--bcl-space-8);
+  background: var(--bcl-surface);
+}
+.minimapTrack {
+  position: relative;
+  height: 100%;
+  background: var(--bcl-surface-raised);
+  border-radius: var(--bcl-radius-lg);
+}
+.minimapDot {
+  position: absolute;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  transition: left 300ms linear;
+}
+
+/* ── 상태 오버레이 ── */
+.stateOverlay,
+.countdownOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-4);
+  background: var(--bcl-overlay);
+  z-index: 30;
+}
+.stateLabel {
+  font-size: 120px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-accent);
+}
+.stateSub {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.trafficLight {
+  font-size: 260px;
+  font-weight: 800;
+  color: var(--bcl-danger);
+}
+.trafficLight[data-n='2'],
+.trafficLight[data-n='1'] {
+  color: var(--bcl-warning);
+}
+.trafficLight[data-n='0'] {
+  color: var(--bcl-success);
+}
+
+/* ── ERG 그리드(run) ── */
+.grid {
+  flex: 1;
+  display: grid;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-6);
+  grid-template-columns: repeat(4, 1fr);
+  align-content: start;
+}
+.grid[data-count='1'],
+.grid[data-count='2'],
+.grid[data-count='3'],
+.grid[data-count='4'] {
+  grid-template-columns: repeat(2, 1fr);
+}
+.tile {
+  background: var(--bcl-surface);
+  border-left: 8px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  padding: var(--bcl-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.tileHead {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+}
+.tileLane {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+}
+.tileName {
+  font-size: 34px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tileMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-2);
+}
+.tileDist {
+  font-size: 88px;
+  font-weight: 800;
+  line-height: 1;
+}
+.tileUnit {
+  font-size: 36px;
+  color: var(--bcl-text-muted);
+}
+.tileStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2) var(--bcl-space-5);
+  font-size: 30px;
+  color: var(--bcl-text-muted);
+}
+.tileStats b {
+  color: var(--bcl-text);
+}
+
+/* ── 결과 ── */
+.resultRoot {
+  padding: var(--bcl-space-6) 5vw;
+}
+.resultHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-4);
+}
+.resultTitle {
+  font-size: 72px;
+  font-weight: 800;
+}
+.axisTabs {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+.axisTab {
+  font-family: var(--bcl-font);
+  font-size: 30px;
+  font-weight: 600;
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  color: var(--bcl-text-muted);
+  border: none;
+  cursor: pointer;
+}
+.axisTabActive {
+  background: var(--bcl-accent);
+  color: var(--bcl-bg);
+}
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--bcl-space-5);
+  margin: var(--bcl-space-6) 0;
+  min-height: 30vh;
+}
+.podiumCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  width: 22%;
+}
+.podiumName {
+  font-size: 40px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+.podiumValue {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+}
+.podiumStand {
+  width: 100%;
+  border-radius: var(--bcl-radius-md) var(--bcl-radius-md) 0 0;
+  color: var(--bcl-bg);
+  font-size: 88px;
+  font-weight: 800;
+  text-align: center;
+}
+.podiumCol[data-place='1'] .podiumStand {
+  height: 26vh;
+}
+.podiumCol[data-place='2'] .podiumStand {
+  height: 18vh;
+}
+.podiumCol[data-place='3'] .podiumStand {
+  height: 13vh;
+}
+.prTag {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+}
+.resultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+.resultRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-3) var(--bcl-space-4);
+  border-bottom: 2px solid var(--bcl-border);
+  font-size: 36px;
+}
+.resultRank {
+  font-weight: 800;
+  width: 1.6em;
+  color: var(--bcl-text-muted);
+}
+.resultName {
+  flex: 1;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+.resultValue {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+}

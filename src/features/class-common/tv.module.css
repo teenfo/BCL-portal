@@ -1,0 +1,148 @@
+/* Class TV 공통 프리미티브 — 토큰만 사용(HEX 금지). 16:9·3m 시청거리 타이포. */
+
+.tvRoot {
+  position: fixed;
+  inset: 0;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+
+.tvFill {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 시계 ── */
+.clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.05;
+}
+.clockLarge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.02;
+}
+.clock .clockTime {
+  font-size: 48px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.clockLarge .clockTime {
+  font-size: 200px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+.clockDate {
+  font-size: 24px;
+  color: var(--bcl-text-muted);
+  font-weight: 500;
+}
+.clockLarge .clockDate {
+  font-size: 40px;
+  margin-top: var(--bcl-space-2);
+}
+
+/* ── 상태 스트립 ── */
+.statusStrip {
+  position: absolute;
+  top: var(--bcl-space-5);
+  right: var(--bcl-space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  font-size: 24px;
+  color: var(--bcl-text-muted);
+  z-index: 20;
+}
+.statusItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+.dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dotOk {
+  background: var(--bcl-success);
+}
+.dotWarn {
+  background: var(--bcl-warning);
+}
+.dotErr {
+  background: var(--bcl-danger);
+}
+.statusBadge {
+  padding: 2px var(--bcl-space-3);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text);
+  font-size: 20px;
+  font-weight: 600;
+}
+.statusStale {
+  background: var(--bcl-danger-soft);
+  color: var(--bcl-danger);
+}
+
+/* ── 콘솔 식별 오버레이(identify 명령) ── */
+.identifyOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-4);
+  background: var(--bcl-overlay);
+  z-index: 100;
+}
+.identifyLabel {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.identifyId {
+  font-size: 120px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+  letter-spacing: 0.04em;
+}
+
+/* ── 미설정(시설 없음) 안내 ── */
+.setupNotice {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-5);
+  text-align: center;
+  padding: var(--bcl-space-8);
+}
+.setupTitle {
+  font-size: 64px;
+  font-weight: 800;
+}
+.setupBody {
+  font-size: 32px;
+  color: var(--bcl-text-muted);
+  max-width: 60ch;
+}
+.setupCode {
+  font-family: var(--bcl-font);
+  background: var(--bcl-surface-raised);
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-accent-ink);
+}

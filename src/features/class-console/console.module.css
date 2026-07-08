@@ -1,0 +1,359 @@
+/* 통합 스크린 콘솔 스타일 — 다크/tv 밀도, 토큰만(HEX 금지). 16:9·3m 시청거리. */
+
+.consoleRoot {
+  position: fixed;
+  inset: 0;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+
+/* ── 모드 크로스페이드 스택 ── */
+.modeStack {
+  position: absolute;
+  inset: 0;
+}
+.modeLayer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+.modeActive {
+  opacity: 1;
+  pointer-events: auto;
+}
+.modePad {
+  position: absolute;
+  inset: 0;
+}
+
+/* ── WOD 모드 ── */
+.wodBoard {
+  position: absolute;
+  inset: 0;
+  padding: var(--bcl-space-8) 6vw;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-6);
+}
+.wodHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.wodFormat {
+  align-self: flex-start;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: var(--bcl-space-1) var(--bcl-space-5);
+  border-radius: var(--bcl-radius-md);
+}
+.wodTitle {
+  font-size: 96px;
+  font-weight: 800;
+  line-height: 1.02;
+}
+.wodMeta {
+  display: flex;
+  gap: var(--bcl-space-6);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--bcl-accent-ink);
+}
+.wodDesc {
+  font-size: 36px;
+  color: var(--bcl-text-muted);
+}
+.wodList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+  margin: 0;
+  padding: 0;
+}
+.wodItem {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-5);
+  padding: var(--bcl-space-3) 0;
+  border-bottom: 2px solid var(--bcl-border);
+}
+.wodItemName {
+  font-size: 52px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.wodItemDetail {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.wodItemRx {
+  margin-left: auto;
+  font-size: 34px;
+  font-weight: 600;
+  color: var(--bcl-accent-ink);
+}
+.wodNotes {
+  margin-top: auto;
+  font-size: 32px;
+  color: var(--bcl-text-muted);
+  border-left: 4px solid var(--bcl-accent);
+  padding-left: var(--bcl-space-4);
+}
+.wodEmpty,
+.wodEmptyTitle {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wodEmptyTitle {
+  font-size: 56px;
+  color: var(--bcl-text-muted);
+}
+
+/* ── LIVE 모드 ── */
+.liveBoard {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--bcl-space-6);
+  padding: var(--bcl-space-8) 5vw;
+}
+.liveCurrent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+.liveTag {
+  align-self: flex-start;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--bcl-accent);
+  background: var(--bcl-accent-soft);
+  padding: var(--bcl-space-1) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+}
+.liveTitle {
+  font-size: 88px;
+  font-weight: 800;
+  line-height: 1.02;
+}
+.liveNextTitle {
+  font-size: 52px;
+  font-weight: 700;
+}
+.liveSub {
+  display: flex;
+  gap: var(--bcl-space-6);
+  font-size: 36px;
+  color: var(--bcl-text-muted);
+}
+.liveCount {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-3);
+}
+.liveCountNum {
+  font-size: 140px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+  line-height: 1;
+}
+.liveCountDen {
+  font-size: 44px;
+  color: var(--bcl-text-muted);
+}
+.liveBarTrack {
+  height: 20px;
+  background: var(--bcl-surface-raised);
+  border-radius: var(--bcl-radius-lg);
+  overflow: hidden;
+}
+.liveBarFill {
+  height: 100%;
+  width: 0%;
+  background: var(--bcl-accent);
+  border-radius: var(--bcl-radius-lg);
+}
+.liveNames {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-3);
+  margin: var(--bcl-space-2) 0 0;
+  padding: 0;
+  overflow: hidden;
+}
+.liveNameChip {
+  font-size: 34px;
+  font-weight: 600;
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  background: var(--bcl-surface);
+  border-radius: var(--bcl-radius-md);
+}
+.liveNext {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+  background: var(--bcl-surface);
+  border-radius: var(--bcl-radius-lg);
+  padding: var(--bcl-space-6);
+}
+.liveIdle {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.welcomeToast {
+  position: absolute;
+  bottom: var(--bcl-space-8);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 56px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: var(--bcl-space-4) var(--bcl-space-8);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: var(--bcl-shadow-md);
+  animation: welcomePop 400ms ease;
+}
+@keyframes welcomePop {
+  from {
+    transform: translateX(-50%) scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── TIMER 모드 ── */
+.timerRoot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-6);
+  transition: background 300ms ease;
+}
+.timerRoot[data-phase='work'] {
+  background: var(--bcl-success-soft);
+}
+.timerRoot[data-phase='rest'] {
+  background: var(--bcl-danger-soft);
+}
+.timerRoot[data-phase='emom'] {
+  background: var(--bcl-accent-soft);
+}
+.timerLabel {
+  font-size: 72px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bcl-accent-ink);
+  min-height: 1.1em;
+}
+.timerTime {
+  font-size: 380px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: 0.01em;
+}
+
+/* ── SCREEN 모드 ── */
+.screenGrid {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: 1fr auto auto;
+  gap: var(--bcl-space-6);
+  padding: var(--bcl-space-8) 5vw var(--bcl-space-6);
+}
+.screenClock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.screenCards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-5);
+}
+.screenCard {
+  background: var(--bcl-surface);
+  border-radius: var(--bcl-radius-lg);
+  padding: var(--bcl-space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+.screenCardTag {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bcl-accent);
+}
+.screenCardTitle {
+  font-size: 56px;
+  font-weight: 800;
+}
+.screenCardSub {
+  font-size: 34px;
+  color: var(--bcl-text-muted);
+}
+.prTicker {
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bcl-surface-raised);
+  border-radius: var(--bcl-radius-lg);
+}
+.prItem {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-5);
+  animation: prFade 500ms ease;
+}
+@keyframes prFade {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.prBadge {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: var(--bcl-space-1) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+}
+.prName {
+  font-size: 48px;
+  font-weight: 800;
+}
+.prLabel {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.prIdle {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
