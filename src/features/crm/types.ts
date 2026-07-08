@@ -69,6 +69,9 @@ export interface SupportTicket {
   priority: 'low' | 'normal' | 'high' | 'urgent';
   assigned_to: string | null;
   resolved_at: string | null;
+  reply: string | null;
+  replied_at: string | null;
+  replied_by: string | null;
   created_at: string;
   members: { name: string } | null;
 }

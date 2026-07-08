@@ -2,7 +2,8 @@
 
 // 설정 · 시스템 탭 (02-admin §3.14 system)
 // PG 연동 상태(pg_settings — 키 마스킹, payment_mode 전환) + 키오스크 기기(kiosk_devices) + 고정 QR(qr_codes).
-// payment_mode live 전환 = 최고 위험: "LIVE" 타이핑 2단계 confirm. 쓰기는 admin RLS 직접(⏳ audit 후속).
+// payment_mode live 전환 = 최고 위험: "LIVE" 타이핑 2단계 confirm + 서버 전용 RPC(fn_set_payment_mode,
+//   is_admin 게이트 + 값 검증 + audit_logs). 키오스크/QR 쓰기는 admin RLS 직접(트리거로 자동 audit).
 import { useState } from 'react';
 import {
   Card,
@@ -18,7 +19,7 @@ import {
 import type { TableColumn } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { type PgSettings, type KioskDevice, type QrCode, fmtDateTime } from './types';
 import styles from './settings.module.css';
@@ -77,9 +78,7 @@ export function SystemTab() {
   const doSetMode = async () => {
     if (!pg.data || !modeTarget) return;
     setModeBusy(true);
-    const res = await query(client, 'pg_settings', (q) =>
-      q.update({ payment_mode: modeTarget }).eq('id', pg.data!.id),
-    );
+    const res = await rpc(client, 'fn_set_payment_mode', { p_mode: modeTarget });
     setModeBusy(false);
     if (!res.success) {
       toast.error(res.error ?? '결제 모드 전환에 실패했습니다.');

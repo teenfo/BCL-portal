@@ -136,6 +136,9 @@ export type Database = {
           id: string
           member_id: string
           progress_value: number | null
+          revoke_reason: string | null
+          revoked_at: string | null
+          revoked_by: string | null
           source: string
         }
         Insert: {
@@ -145,6 +148,9 @@ export type Database = {
           id?: string
           member_id: string
           progress_value?: number | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           source?: string
         }
         Update: {
@@ -154,6 +160,9 @@ export type Database = {
           id?: string
           member_id?: string
           progress_value?: number | null
+          revoke_reason?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
           source?: string
         }
         Relationships: [
@@ -2799,6 +2808,9 @@ export type Database = {
           id: string
           member_id: string
           priority: string
+          replied_at: string | null
+          replied_by: string | null
+          reply: string | null
           resolved_at: string | null
           status: string
           subject: string
@@ -2812,6 +2824,9 @@ export type Database = {
           id?: string
           member_id: string
           priority?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply?: string | null
           resolved_at?: string | null
           status?: string
           subject: string
@@ -2825,6 +2840,9 @@ export type Database = {
           id?: string
           member_id?: string
           priority?: string
+          replied_at?: string | null
+          replied_by?: string | null
+          reply?: string | null
           resolved_at?: string | null
           status?: string
           subject?: string
@@ -3174,6 +3192,7 @@ export type Database = {
         Returns: string
       }
       _assert_coach_or_admin: { Args: never; Returns: string }
+      _is_super_admin: { Args: never; Returns: boolean }
       _notify_edge_config: {
         Args: never
         Returns: {
@@ -3183,6 +3202,48 @@ export type Database = {
       }
       current_member_id: { Args: never; Returns: string }
       demote_from_coach: { Args: { p_target_user_id: string }; Returns: Json }
+      fn_admin_add_walkin: {
+        Args: { p_member_id: string; p_session_id: string }
+        Returns: Json
+      }
+      fn_admin_adjust_membership: {
+        Args: { p_action: string; p_membership_id: string; p_payload: Json }
+        Returns: Json
+      }
+      fn_admin_book_session: {
+        Args: { p_member_id: string; p_session_id: string }
+        Returns: Json
+      }
+      fn_admin_create_membership: {
+        Args: {
+          p_member_id: string
+          p_plan_id: string
+          p_start_date: string
+          p_transaction_id?: string
+        }
+        Returns: Json
+      }
+      fn_admin_review_signup: {
+        Args: { p_decision: string; p_reason?: string; p_user_id: string }
+        Returns: Json
+      }
+      fn_admin_set_blacklist: {
+        Args: { p_member_id: string; p_on: boolean; p_reason?: string }
+        Returns: Json
+      }
+      fn_admin_transfer_membership: {
+        Args: {
+          p_membership_id: string
+          p_reason: string
+          p_target_member_id: string
+        }
+        Returns: Json
+      }
+      fn_archive_membership_plan: { Args: { p_plan_id: string }; Returns: Json }
+      fn_assign_admin_role: {
+        Args: { p_facility_id?: string; p_role_id: string; p_user_id: string }
+        Returns: Json
+      }
       fn_book_with_credit: { Args: { p_session_id: string }; Returns: Json }
       fn_calculate_monthly_settlement: {
         Args: { p_year_month: string }
@@ -3194,6 +3255,10 @@ export type Database = {
       }
       fn_cancel_booking_with_credit: {
         Args: { p_booking_id: string; p_reason?: string }
+        Returns: Json
+      }
+      fn_cancel_session: {
+        Args: { p_reason?: string; p_session_id: string }
         Returns: Json
       }
       fn_complete_followup: {
@@ -3298,6 +3363,10 @@ export type Database = {
         Args: { p_options?: Json; p_race_format?: string; p_session_id: string }
         Returns: Json
       }
+      fn_promote_from_waitlist: {
+        Args: { p_booking_id: string }
+        Returns: Json
+      }
       fn_publish_session_wod: { Args: { p_session_id: string }; Returns: Json }
       fn_publish_wod_template: {
         Args: { p_template_id: string }
@@ -3325,6 +3394,11 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_reply_support_ticket: {
+        Args: { p_reply: string; p_status?: string; p_ticket_id: string }
+        Returns: Json
+      }
+      fn_revoke_admin_role: { Args: { p_assignment_id: string }; Returns: Json }
       fn_search_wod_movements: {
         Args: {
           p_category?: string
@@ -3336,15 +3410,26 @@ export type Database = {
       }
       fn_send_class_reminders: { Args: never; Returns: undefined }
       fn_send_membership_expiry_reminders: { Args: never; Returns: undefined }
+      fn_set_payment_mode: { Args: { p_mode: string }; Returns: Json }
+      fn_set_role_permissions: {
+        Args: { p_permissions: Json; p_role_id: string }
+        Returns: Json
+      }
       fn_sign_agreement: {
         Args: { p_doc_type: string; p_doc_version: string; p_signature: string }
+        Returns: Json
+      }
+      fn_update_coach_profile: {
+        Args: { p_coach_id: string; p_patch: Json }
         Returns: Json
       }
       fn_upsert_member_alert_flag: {
         Args: { p_member_id: string; p_payload: Json }
         Returns: Json
       }
+      fn_upsert_membership_plan: { Args: { p_payload: Json }; Returns: Json }
       fn_upsert_runbook_template: { Args: { p_payload: Json }; Returns: Json }
+      fn_upsert_session: { Args: { p_payload: Json }; Returns: Json }
       fn_upsert_session_runbook: {
         Args: { p_payload: Json; p_session_id: string }
         Returns: Json

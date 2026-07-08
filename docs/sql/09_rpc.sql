@@ -53,6 +53,10 @@
 --                              fn_upsert_session / fn_cancel_session / fn_promote_from_waitlist
 --                              (Phase 2 하드닝 — 02-admin §3.2·§3.3·§3.5·§3.6.
 --                               보강 3종 audit는 D.5/C.2/G.2 원 정의에 직접 반영)
+--   [Q] Phase 2B audit 하드닝     : _audit_row_change/_audit_system_config_change 트리거(config 19종)
+--                              + _is_super_admin + fn_set_payment_mode / fn_set_role_permissions /
+--                              fn_assign_admin_role / fn_revoke_admin_role / fn_update_coach_profile /
+--                              fn_reply_support_ticket (mig 20260708060000)
 -- ============================================================================
 
 
@@ -4251,6 +4255,410 @@ BEGIN
         EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', v_fn);
     END LOOP;
 END $$;
+
+-- ============================================================================
+-- [Q] Phase 2B audit 하드닝 — 트리거 + config 쓰기 RPC
+--     (마이그레이션 20260708060000_admin_audit_hardening.sql 미러)
+--     목적: Admin config 쓰기가 audit_logs 불변식("edit 이상 모든 쓰기는 audit 기록")을
+--           우회하던 [권고] 갭을 광역 AFTER 트리거로 일괄 해소 + 서버 강제 부족했던
+--           고위험 쓰기(payment_mode·RBAC·코치 급여)에 전용 RPC 도입.
+--     스키마 보강(Part C):
+--       support_tickets += reply text, replied_at timestamptz, replied_by uuid
+--                          (assigned_to 관례 따라 FK 없음)
+--       badge_awards    += revoke_reason text, revoked_at timestamptz, revoked_by uuid (nullable)
+--     ※ audit_logs 실제 컬럼 = user_id/action/table_name/record_id/old_values/new_values/…
+--       (문서 초안의 actor/target_table 아님)
+-- ============================================================================
+
+-- Q.A1 _audit_row_change() — config 테이블 광역 audit AFTER 트리거 함수
+--      action = <op>_<table> (예: update_lockers), record_id = COALESCE(NEW.id, OLD.id),
+--      old/new = to_jsonb(row). auth.uid()는 cron/system 쓰기 시 NULL 허용.
+CREATE OR REPLACE FUNCTION public._audit_row_change()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_old jsonb := NULL;
+    v_new jsonb := NULL;
+    v_record_id uuid;
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        v_new := to_jsonb(NEW);
+        v_record_id := NEW.id;
+    ELSIF TG_OP = 'UPDATE' THEN
+        v_old := to_jsonb(OLD);
+        v_new := to_jsonb(NEW);
+        v_record_id := COALESCE(NEW.id, OLD.id);
+    ELSE -- DELETE
+        v_old := to_jsonb(OLD);
+        v_record_id := OLD.id;
+    END IF;
+
+    INSERT INTO public.audit_logs (user_id, action, table_name, record_id, old_values, new_values)
+    VALUES (auth.uid(), lower(TG_OP) || '_' || TG_TABLE_NAME, TG_TABLE_NAME,
+            v_record_id, v_old, v_new);
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+-- Q.A2 _audit_system_config_change() — system_config 전용(is_secret 행 config_value 마스킹 ***)
+CREATE OR REPLACE FUNCTION public._audit_system_config_change()
+RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_old jsonb := NULL;
+    v_new jsonb := NULL;
+    v_record_id uuid;
+BEGIN
+    IF TG_OP <> 'INSERT' THEN
+        v_old := to_jsonb(OLD);
+        IF OLD.is_secret THEN
+            v_old := jsonb_set(v_old, '{config_value}', '"***"'::jsonb);
+        END IF;
+    END IF;
+    IF TG_OP <> 'DELETE' THEN
+        v_new := to_jsonb(NEW);
+        IF NEW.is_secret THEN
+            v_new := jsonb_set(v_new, '{config_value}', '"***"'::jsonb);
+        END IF;
+    END IF;
+    v_record_id := COALESCE(NEW.id, OLD.id);
+
+    INSERT INTO public.audit_logs (user_id, action, table_name, record_id, old_values, new_values)
+    VALUES (auth.uid(), lower(TG_OP) || '_system_config', 'system_config',
+            v_record_id, v_old, v_new);
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+-- Q.A3 트리거 부착 — config 18종 + system_config 전용.
+--      제외(고빈도/트랜잭션): checkins/bookings/payments/members/profiles/sessions/session_wod_results 등.
+DO $$
+DECLARE
+    v_tbl text;
+BEGIN
+    FOREACH v_tbl IN ARRAY ARRAY[
+        'coaches', 'lockers', 'notices', 'banners', 'faqs', 'notification_rules',
+        'badge_definitions', 'badge_awards', 'race_events', 'pm5_devices',
+        'movement_library', 'kiosk_devices', 'qr_codes', 'facilities',
+        'session_feedback', 'support_tickets', 'admin_roles', 'admin_user_roles'
+    ]
+    LOOP
+        EXECUTE format('DROP TRIGGER IF EXISTS trg_audit_%1$s ON public.%1$I', v_tbl);
+        EXECUTE format(
+            'CREATE TRIGGER trg_audit_%1$s AFTER INSERT OR UPDATE OR DELETE ON public.%1$I '
+            'FOR EACH ROW EXECUTE FUNCTION public._audit_row_change()', v_tbl);
+    END LOOP;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_audit_system_config ON public.system_config;
+CREATE TRIGGER trg_audit_system_config
+    AFTER INSERT OR UPDATE OR DELETE ON public.system_config
+    FOR EACH ROW EXECUTE FUNCTION public._audit_system_config_change();
+
+-- Q.B0 _is_super_admin() — '*' 권한 role 보유 OR (admin && role 매핑 없음) 부트스트랩
+--      (fn_my_permissions.is_super_admin / bootstrap 로직과 동일)
+CREATE OR REPLACE FUNCTION public._is_super_admin()
+RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+    IF auth.uid() IS NULL THEN
+        RETURN false;
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM public.admin_user_roles aur
+        JOIN public.admin_roles ar ON ar.id = aur.role_id
+        WHERE aur.user_id = auth.uid() AND ar.permissions ? '*'
+    ) THEN
+        RETURN true;
+    END IF;
+    IF public.is_admin() AND NOT EXISTS (
+        SELECT 1 FROM public.admin_user_roles aur WHERE aur.user_id = auth.uid()
+    ) THEN
+        RETURN true;
+    END IF;
+    RETURN false;
+END;
+$$;
+
+-- Q.B1 fn_set_payment_mode(p_mode) — pg_settings.payment_mode 전환. 게이트 is_admin().
+--      ※ pg_settings에는 Part A 트리거 없음 → 이 RPC에서만 수동 audit(set_payment_mode).
+--      ENFORCEMENT: min(admin,env) 이중장치의 env 축은 결제 승인 시점(서버/edge)에서 강제.
+--      Postgres 세션에 배포 env가 없으므로 mode 값 자체는 여기서 막지 않고 관리자 인증+값검증+audit만 강제.
+CREATE OR REPLACE FUNCTION public.fn_set_payment_mode(p_mode text)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_row RECORD;
+    v_count int := 0;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+    IF p_mode IS NULL OR p_mode NOT IN ('simulation', 'live') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_mode');
+    END IF;
+
+    FOR v_row IN SELECT id, payment_mode FROM public.pg_settings FOR UPDATE
+    LOOP
+        IF v_row.payment_mode IS DISTINCT FROM p_mode THEN
+            UPDATE public.pg_settings SET payment_mode = p_mode, updated_at = now()
+            WHERE id = v_row.id;
+
+            INSERT INTO public.audit_logs (user_id, action, table_name, record_id, old_values, new_values)
+            VALUES (auth.uid(), 'set_payment_mode', 'pg_settings', v_row.id,
+                    jsonb_build_object('payment_mode', v_row.payment_mode),
+                    jsonb_build_object('payment_mode', p_mode));
+            v_count := v_count + 1;
+        END IF;
+    END LOOP;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('payment_mode', p_mode, 'updated_rows', v_count), 'error', NULL);
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'data', NULL, 'error', SQLERRM);
+END;
+$$;
+
+-- Q.B2 fn_set_role_permissions(p_role_id, p_permissions) — admin_roles.permissions 편집.
+--      게이트 super_admin 전용. 시스템 역할 편집 잠금. mutation → trg_audit_admin_roles 자동 audit.
+CREATE OR REPLACE FUNCTION public.fn_set_role_permissions(p_role_id uuid, p_permissions jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_role RECORD;
+BEGIN
+    IF NOT public._is_super_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+    IF p_permissions IS NULL OR jsonb_typeof(p_permissions) <> 'object' THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_permissions');
+    END IF;
+
+    SELECT id, name, is_system_role INTO v_role FROM public.admin_roles WHERE id = p_role_id;
+    IF v_role.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'role_not_found');
+    END IF;
+    IF v_role.is_system_role THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'system_role_locked');
+    END IF;
+
+    UPDATE public.admin_roles SET permissions = p_permissions, updated_at = now()
+    WHERE id = p_role_id;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('role_id', p_role_id), 'error', NULL);
+END;
+$$;
+
+-- Q.B3 fn_assign_admin_role(p_user_id, p_role_id, p_facility_id) — admin_user_roles insert.
+--      게이트 super_admin. assigned_by = auth.uid(). mutation → trg_audit_admin_user_roles 자동 audit.
+CREATE OR REPLACE FUNCTION public.fn_assign_admin_role(
+    p_user_id uuid, p_role_id uuid, p_facility_id uuid DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_id uuid;
+BEGIN
+    IF NOT public._is_super_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+    IF p_user_id IS NULL OR p_role_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'missing_required_fields');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_user_id) THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'user_not_found');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.admin_roles WHERE id = p_role_id) THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'role_not_found');
+    END IF;
+
+    INSERT INTO public.admin_user_roles (user_id, role_id, facility_id, assigned_by)
+    VALUES (p_user_id, p_role_id, p_facility_id, auth.uid())
+    RETURNING id INTO v_id;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('assignment_id', v_id), 'error', NULL);
+EXCEPTION
+    WHEN unique_violation THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'already_assigned');
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', SQLERRM);
+END;
+$$;
+
+-- Q.B4 fn_revoke_admin_role(p_assignment_id) — admin_user_roles delete. 게이트 super_admin.
+--      mutation(DELETE) → trg_audit_admin_user_roles 자동 audit.
+CREATE OR REPLACE FUNCTION public.fn_revoke_admin_role(p_assignment_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_deleted uuid;
+BEGIN
+    IF NOT public._is_super_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+
+    DELETE FROM public.admin_user_roles WHERE id = p_assignment_id
+    RETURNING id INTO v_deleted;
+
+    IF v_deleted IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'assignment_not_found');
+    END IF;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('assignment_id', v_deleted), 'error', NULL);
+END;
+$$;
+
+-- Q.B5 fn_update_coach_profile(p_coach_id, p_patch) — 코치 프로필+급여 편집. 게이트 is_admin().
+--      급여(base_salary/session_allowance)=정산 basis 영향(계약 §3.7). 화이트리스트 컬럼만 갱신.
+--      mutation → trg_audit_coaches 자동 audit.
+CREATE OR REPLACE FUNCTION public.fn_update_coach_profile(p_coach_id uuid, p_patch jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_coach_id uuid;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+    IF p_patch IS NULL OR jsonb_typeof(p_patch) <> 'object' OR p_patch = '{}'::jsonb THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'empty_patch');
+    END IF;
+
+    SELECT id INTO v_coach_id FROM public.coaches WHERE id = p_coach_id;
+    IF v_coach_id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'coach_not_found');
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM jsonb_object_keys(p_patch) AS k
+        WHERE k NOT IN ('name','email','phone','specialties','bio',
+                        'profile_image_url','base_salary','session_allowance','status')
+    ) THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'unknown_field');
+    END IF;
+
+    IF p_patch ? 'name' AND COALESCE(NULLIF(trim(p_patch->>'name'), ''), '') = '' THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_name');
+    END IF;
+    IF p_patch ? 'base_salary' AND (p_patch->>'base_salary')::int < 0 THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_salary');
+    END IF;
+    IF p_patch ? 'session_allowance' AND (p_patch->>'session_allowance')::int < 0 THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_salary');
+    END IF;
+
+    UPDATE public.coaches SET
+        name              = CASE WHEN p_patch ? 'name' THEN trim(p_patch->>'name') ELSE name END,
+        email             = CASE WHEN p_patch ? 'email' THEN NULLIF(p_patch->>'email', '') ELSE email END,
+        phone             = CASE WHEN p_patch ? 'phone' THEN NULLIF(p_patch->>'phone', '') ELSE phone END,
+        specialties       = CASE WHEN p_patch ? 'specialties'
+                                 THEN ARRAY(SELECT jsonb_array_elements_text(p_patch->'specialties'))
+                                 ELSE specialties END,
+        bio               = CASE WHEN p_patch ? 'bio' THEN NULLIF(p_patch->>'bio', '') ELSE bio END,
+        profile_image_url = CASE WHEN p_patch ? 'profile_image_url'
+                                 THEN NULLIF(p_patch->>'profile_image_url', '') ELSE profile_image_url END,
+        base_salary       = CASE WHEN p_patch ? 'base_salary' THEN (p_patch->>'base_salary')::int ELSE base_salary END,
+        session_allowance = CASE WHEN p_patch ? 'session_allowance' THEN (p_patch->>'session_allowance')::int ELSE session_allowance END,
+        status            = CASE WHEN p_patch ? 'status' THEN p_patch->>'status' ELSE status END,
+        updated_at        = now()
+    WHERE id = p_coach_id;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('coach_id', p_coach_id), 'error', NULL);
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'data', NULL, 'error', SQLERRM);
+END;
+$$;
+
+-- Q.B6 fn_reply_support_ticket(p_ticket_id, p_reply, p_status) — 문의 답변+상태 전환. 게이트 is_admin().
+--      reply/replied_at=now()/replied_by=auth.uid() 기록. mutation → trg_audit_support_tickets 자동 audit.
+CREATE OR REPLACE FUNCTION public.fn_reply_support_ticket(
+    p_ticket_id uuid, p_reply text, p_status text DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_ticket RECORD;
+    v_status text;
+    v_resolved_at timestamptz;
+    v_has_reply boolean;
+BEGIN
+    IF NOT public.is_admin() THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+    END IF;
+
+    SELECT id, status, resolved_at INTO v_ticket FROM public.support_tickets WHERE id = p_ticket_id;
+    IF v_ticket.id IS NULL THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'ticket_not_found');
+    END IF;
+
+    v_status := COALESCE(NULLIF(p_status, ''), v_ticket.status);
+    IF v_status NOT IN ('open', 'in_progress', 'resolved', 'closed') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_status');
+    END IF;
+
+    v_has_reply := NULLIF(trim(p_reply), '') IS NOT NULL;
+    v_resolved_at := v_ticket.resolved_at;
+    IF v_status IN ('resolved', 'closed') AND v_ticket.resolved_at IS NULL THEN
+        v_resolved_at := now();
+    ELSIF v_status IN ('open', 'in_progress') THEN
+        v_resolved_at := NULL;
+    END IF;
+
+    UPDATE public.support_tickets SET
+        reply       = CASE WHEN v_has_reply THEN p_reply ELSE reply END,
+        replied_at  = CASE WHEN v_has_reply THEN now() ELSE replied_at END,
+        replied_by  = CASE WHEN v_has_reply THEN auth.uid() ELSE replied_by END,
+        status      = v_status,
+        resolved_at = v_resolved_at,
+        updated_at  = now()
+    WHERE id = p_ticket_id;
+
+    RETURN jsonb_build_object('success', true,
+        'data', jsonb_build_object('ticket_id', p_ticket_id, 'status', v_status,
+                                   'replied', v_has_reply), 'error', NULL);
+END;
+$$;
+
+-- Q.GRANT — client 호출 RPC 6종 authenticated EXECUTE, 내부 함수(트리거·게이트) 전 client 회수
+DO $$
+DECLARE
+    v_fn text;
+BEGIN
+    FOR v_fn IN VALUES
+        ('public.fn_set_payment_mode(text)'),
+        ('public.fn_set_role_permissions(uuid,jsonb)'),
+        ('public.fn_assign_admin_role(uuid,uuid,uuid)'),
+        ('public.fn_revoke_admin_role(uuid)'),
+        ('public.fn_update_coach_profile(uuid,jsonb)'),
+        ('public.fn_reply_support_ticket(uuid,text,text)')
+    LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC', v_fn);
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM anon', v_fn);
+        EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO authenticated', v_fn);
+    END LOOP;
+
+    FOR v_fn IN VALUES
+        ('public._audit_row_change()'),
+        ('public._audit_system_config_change()'),
+        ('public._is_super_admin()')
+    LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated', v_fn);
+    END LOOP;
+END $$;
+
 
 -- ============================================================================
 -- 09_rpc.sql 끝 — 전체 스키마 적용 완료

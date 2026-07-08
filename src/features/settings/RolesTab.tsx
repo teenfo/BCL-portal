@@ -3,7 +3,8 @@
 // 설정 · 권한 탭 (02-admin §3.14 roles)
 // admin_roles 권한 매트릭스(그룹×액션, permissions JSONB 단일형 {group:[actions]}) 편집
 //   + admin_user_roles 사용자↔역할 배정. super_admin({"*":["all"]})은 편집 잠금.
-// roles 편집은 super_admin 전용(계약 §3). 쓰기 = admin RLS 직접(⏳ audit 후속).
+// roles 편집은 super_admin 전용(계약 §3). 쓰기 = 서버 전용 RPC(fn_set_role_permissions/
+//   fn_assign_admin_role/fn_revoke_admin_role — super_admin 게이트 + 시스템역할 잠금 + audit_logs).
 import { useMemo, useState } from 'react';
 import {
   Card,
@@ -19,7 +20,7 @@ import {
 import type { TableColumn } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   type AdminRole,
@@ -90,7 +91,7 @@ export function RolesTab() {
   const doRemove = async () => {
     if (!removing) return;
     setRemoveBusy(true);
-    const res = await query(client, 'admin_user_roles', (q) => q.delete().eq('id', removing.id));
+    const res = await rpc(client, 'fn_revoke_admin_role', { p_assignment_id: removing.id });
     setRemoveBusy(false);
     if (!res.success) {
       toast.error(res.error ?? '배정 해제에 실패했습니다.');
@@ -261,9 +262,10 @@ function RoleMatrix({
       if (acts.length > 0) permissions[g.key] = acts;
     }
     setSaving(true);
-    const res = await query(getSupabaseBrowserClient(), 'admin_roles', (q) =>
-      q.update({ permissions }).eq('id', role.id),
-    );
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_set_role_permissions', {
+      p_role_id: role.id,
+      p_permissions: permissions,
+    });
     setSaving(false);
     if (!res.success) {
       toast.error(res.error ?? '권한 저장에 실패했습니다.');
@@ -349,9 +351,11 @@ function AssignModal({
     }
     setSaving(true);
     setError(null);
-    const res = await query(getSupabaseBrowserClient(), 'admin_user_roles', (q) =>
-      q.insert({ user_id: userId, role_id: roleId }),
-    );
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_assign_admin_role', {
+      p_user_id: userId,
+      p_role_id: roleId,
+      p_facility_id: null,
+    });
     setSaving(false);
     if (!res.success) {
       setError(res.error ?? '배정에 실패했습니다.');
