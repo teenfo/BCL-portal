@@ -158,7 +158,7 @@ signup 3-Step 완료 (즉시 세션 발급)
         │
         ▼
  Step4 전자 동의·웨이버 서명 ⏳     ← 세션 발급 후에만 가능 (fn_sign_agreement가 auth.uid() 내부 검증)
-   ├─ 필수: terms_of_service / privacy / waiver(부상 위험 고지·면책) / refund_policy(환불규정 동의)
+   ├─ 필수: terms / privacy / health_waiver(부상 위험 고지·면책) / refund_policy(환불규정 동의)
    ├─ 선택: marketing
    └─ 문서 스냅샷 열람 + 동의 체크 + canvas 서명 캡처 → fn_sign_agreement (문서당 1회 호출)
         │  필수 문서 전건 서명 완료 시에만
@@ -180,7 +180,7 @@ member_agreements (              -- 계약 §2 core · append-only (UPDATE/DELET
   id UUID PK,
   member_id UUID NOT NULL REFERENCES members(id),
   doc_type TEXT NOT NULL CHECK (doc_type IN
-    ('terms_of_service','privacy','waiver','refund_policy','marketing')),
+    ('terms','privacy','refund_policy','health_waiver')),
   doc_version TEXT NOT NULL,                  -- 서명 시점의 문서 버전 (유효 버전은 system_config에서 관리)
   signed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   signature TEXT NOT NULL,                    -- canvas 서명 캡처(data URL) 또는 동의 해시
@@ -432,7 +432,7 @@ updateSession(request):
 
 ## 7. Playwright 인증 E2E 스모크 + CI 게이트
 
-### 7.1 시나리오 명세 (`e2e/auth-smoke.spec.ts`)
+### 7.1 시나리오 명세 (`e2e/auth.smoke.spec.ts`)
 
 전 시나리오 공통 픽스처: 시드 계정 4종(admin/coach/member-approved/member-pending) —
 `sql/` 시드 최소셋에 포함, 테스트 전용 Supabase 프로젝트(또는 로컬 스택) 대상.

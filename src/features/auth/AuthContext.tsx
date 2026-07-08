@@ -65,7 +65,7 @@ export interface AuthContextValue {
   ) => Promise<ActionResult>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<ActionResult>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<AuthProfile | null>;
 }
 
 const INIT_TIMEOUT_MS = 4_000; // safety timeout (F-5: 무한 스피너 금지)
@@ -102,8 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // auth lock 해제 후 실행되는 실제 조회 — profiles + members 병렬 (query 헬퍼 경유만)
+  // 반환값: 반영된 프로필(성공) / null(실패·가드 탈락) — refreshProfile 호출자가 최신값 판정에 사용
   const fetchUserData = useCallback(
-    async (uid: string, requestId: number) => {
+    async (uid: string, requestId: number): Promise<AuthProfile | null> => {
       const supabase = getSupabaseBrowserClient();
       const [profileRes, memberRes] = await Promise.all([
         query<AuthProfile>(supabase, 'profiles', (q) =>
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ),
       ]);
       // requestId 가드(마지막 요청만 반영) + mountedRef 가드(StrictMode 안전)
-      if (!mountedRef.current || requestId !== requestIdRef.current) return;
+      if (!mountedRef.current || requestId !== requestIdRef.current) return null;
 
       if (!profileRes.success || !profileRes.data) {
         // §5.6: 실패를 삼키지 않는다 — authError로 표면화 (무통보 null 금지)
@@ -124,13 +125,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           code: 'PROFILE_LOAD_FAILED',
           message: '프로필을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.',
         });
-      } else {
-        setProfile(profileRes.data);
-        // F-8: members.user_id nullable — 계정 미연결(coach/admin 등)이면 memberId=null
-        setMemberId(memberRes.success ? (memberRes.data?.id ?? null) : null);
-        setAuthError(null);
+        setLoading(false);
+        return null;
       }
+      setProfile(profileRes.data);
+      // F-8: members.user_id nullable — 계정 미연결(coach/admin 등)이면 memberId=null
+      setMemberId(memberRes.success ? (memberRes.data?.id ?? null) : null);
+      setAuthError(null);
       setLoading(false);
+      return profileRes.data;
     },
     [setLoading],
   );
@@ -292,13 +295,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { success: !error, error: error?.message ?? null };
   }, []);
 
-  const refreshProfile = useCallback(async () => {
+  const refreshProfile = useCallback(async (): Promise<AuthProfile | null> => {
     const uid = userRef.current?.id;
-    if (!uid) return;
+    if (!uid) return null;
     setAuthError(null);
     setLoading(true);
     const requestId = ++requestIdRef.current;
-    await fetchUserData(uid, requestId); // 액션 컨텍스트 — auth 콜백 밖이므로 직접 await 가능
+    // F-5: 액션 경로도 유한해야 한다 — 마운트 safety timeout(4s)은 초기화 1회뿐이므로
+    // 재시도 경로가 hang이면 해제 경로 없는 스켈레톤이 된다. 5s 레이스로 차단.
+    const result = await Promise.race([
+      fetchUserData(uid, requestId), // 액션 컨텍스트 — auth 콜백 밖이므로 직접 await 가능
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 5_000)),
+    ]);
+    if (result === 'timeout') {
+      if (mountedRef.current && requestId === requestIdRef.current) {
+        setAuthError({
+          code: 'PROFILE_LOAD_FAILED',
+          message: '응답이 지연되고 있습니다. 네트워크 상태를 확인하고 다시 시도해주세요.',
+        });
+        setLoading(false);
+      }
+      return null;
+    }
+    return result;
   }, [fetchUserData, setLoading]);
 
   // ---- 파생 상태 + 컨텍스트 값 --------------------------------------------

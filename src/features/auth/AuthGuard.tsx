@@ -7,6 +7,7 @@
 import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { resolvePostLoginRoute } from '@/lib/auth/resolve-route';
+import { Button, Card, Skeleton } from '@/components/ui';
 import { useAuth } from './useAuth';
 import type { AuthError } from './AuthContext';
 
@@ -66,8 +67,7 @@ export function AuthGuard({ requiredPrefix, children }: AuthGuardProps) {
   return <>{children}</>;
 }
 
-// ---- 내부 표시 컴포넌트 (토큰만 사용 — HEX·수동 유틸 클래스 금지) ----------
-// TODO(Phase 1 후속): components/ui 표준 Button/EmptyState 착지 시 그 컴포넌트로 교체
+// ---- 내부 표시 컴포넌트 — 표준 컴포넌트(components/ui)만 조립 (인라인 재구현 금지) ----
 
 const fullPageStyle: CSSProperties = {
   minHeight: '100dvh',
@@ -75,91 +75,20 @@ const fullPageStyle: CSSProperties = {
   padding: 'var(--bcl-pad-page)',
 };
 
-const skeletonWrapStyle: CSSProperties = {
-  ...fullPageStyle,
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--bcl-space-3)',
-};
-
-const skeletonBarStyle: CSSProperties = {
-  height: 'var(--bcl-control-h)',
-  borderRadius: 'var(--bcl-radius-md)',
-  backgroundColor: 'var(--bcl-surface-raised)',
-  opacity: 0.7,
-};
-
 function GuardSkeleton() {
   return (
-    <div style={skeletonWrapStyle} role="status" aria-label="인증 확인 중">
-      <div style={{ ...skeletonBarStyle, width: '40%' }} />
-      <div style={{ ...skeletonBarStyle, width: '100%' }} />
-      <div style={{ ...skeletonBarStyle, width: '100%' }} />
-      <div style={{ ...skeletonBarStyle, width: '70%' }} />
+    <div
+      style={{ ...fullPageStyle, display: 'flex', flexDirection: 'column', gap: 'var(--bcl-space-3)' }}
+      role="status"
+      aria-label="인증 확인 중"
+    >
+      <Skeleton variant="rect" width="40%" />
+      <Skeleton variant="rect" width="100%" />
+      <Skeleton variant="rect" width="100%" />
+      <Skeleton variant="rect" width="70%" />
     </div>
   );
 }
-
-const errorWrapStyle: CSSProperties = {
-  ...fullPageStyle,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-};
-
-const errorCardStyle: CSSProperties = {
-  width: '100%',
-  maxWidth: '360px',
-  padding: 'var(--bcl-pad-card)',
-  backgroundColor: 'var(--bcl-surface)',
-  border: '1px solid var(--bcl-border)',
-  borderRadius: 'var(--bcl-radius-lg)',
-  boxShadow: 'var(--bcl-shadow-md)',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: 'var(--bcl-space-3)',
-};
-
-const errorTitleStyle: CSSProperties = {
-  margin: 0,
-  color: 'var(--bcl-text)',
-  fontWeight: 600,
-};
-
-const errorMessageStyle: CSSProperties = {
-  margin: 0,
-  color: 'var(--bcl-text-muted)',
-};
-
-const buttonRowStyle: CSSProperties = {
-  display: 'flex',
-  gap: 'var(--bcl-space-2)',
-  marginTop: 'var(--bcl-space-2)',
-};
-
-const buttonBaseStyle: CSSProperties = {
-  flex: 1,
-  height: 'var(--bcl-control-h)',
-  minHeight: 'var(--bcl-hit-min)',
-  padding: '0 var(--bcl-space-4)',
-  borderRadius: 'var(--bcl-radius-md)',
-  fontFamily: 'var(--bcl-font)',
-  cursor: 'pointer',
-};
-
-const retryButtonStyle: CSSProperties = {
-  ...buttonBaseStyle,
-  backgroundColor: 'var(--bcl-accent-soft)',
-  border: '1px solid var(--bcl-accent-border)',
-  color: 'var(--bcl-accent-ink)',
-};
-
-const signOutButtonStyle: CSSProperties = {
-  ...buttonBaseStyle,
-  backgroundColor: 'transparent',
-  border: '1px solid var(--bcl-border)',
-  color: 'var(--bcl-text-muted)',
-};
 
 // §5.6 에러 표면화 3원칙: 사용자 언어 메시지 + 탈출구([다시 시도]·[로그아웃]) 필수
 function GuardErrorCard({
@@ -172,18 +101,19 @@ function GuardErrorCard({
   onSignOut: () => void;
 }) {
   return (
-    <div style={errorWrapStyle}>
-      <div style={errorCardStyle} role="alert">
-        <p style={errorTitleStyle}>로그인 정보를 확인하지 못했습니다</p>
-        <p style={errorMessageStyle}>{error.message}</p>
-        <div style={buttonRowStyle}>
-          <button type="button" style={retryButtonStyle} onClick={onRetry}>
-            다시 시도
-          </button>
-          <button type="button" style={signOutButtonStyle} onClick={onSignOut}>
-            로그아웃
-          </button>
-        </div>
+    <div style={{ ...fullPageStyle, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '100%', maxWidth: '360px' }} role="alert">
+        <Card variant="raised" title="로그인 정보를 확인하지 못했습니다">
+          <p style={{ margin: 0, color: 'var(--bcl-text-muted)' }}>{error.message}</p>
+          <div style={{ display: 'flex', gap: 'var(--bcl-space-2)', marginTop: 'var(--bcl-space-3)' }}>
+            <Button variant="soft" onClick={onRetry} block>
+              다시 시도
+            </Button>
+            <Button variant="ghost" onClick={onSignOut} block>
+              로그아웃
+            </Button>
+          </div>
+        </Card>
       </div>
     </div>
   );

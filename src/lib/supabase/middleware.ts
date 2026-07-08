@@ -36,6 +36,17 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // 폐지 라우트: 구버전 인증 메일 링크 유입 → 안내 배너로 (docs/01 §2.3, 이메일 검증 제외 결정)
+  if (pathname === '/auth/email-verify') {
+    const legacyUrl = request.nextUrl.clone();
+    legacyUrl.pathname = '/auth/login';
+    legacyUrl.search = '?error=verify_deprecated';
+    const redirect = NextResponse.redirect(legacyUrl);
+    supabaseResponse.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+    return redirect;
+  }
+
   const isProtected = PROTECTED_PREFIXES.some((p) => pathname.startsWith(p));
 
   if (isProtected && !user) {

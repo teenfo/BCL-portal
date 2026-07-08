@@ -7,6 +7,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/features/auth';
+import {
+  AGREEMENT_DOC_LABELS,
+  AGREEMENT_DOC_VERSION,
+  REQUIRED_AGREEMENT_DOCS,
+} from '@/lib/auth/agreements';
 import { validatePassword } from '@/lib/auth/password';
 import { normalizeAuthResult } from '@/lib/auth/normalize';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -17,9 +22,9 @@ import styles from '../auth.module.css';
 const TOTAL_STEPS = 4;
 const DRAFT_KEY = 'bcl-signup-draft'; // Step 이탈 시 입력값 세션 보존 (§2.2) — 비밀번호 제외
 
-// G-6 필수 문서 3건 (지시 명세: terms / privacy / health_waiver)
-const REQUIRED_DOCS = ['terms', 'privacy', 'health_waiver'] as const;
-const DOC_VERSION = '2026-07-08';
+// G-6 필수 문서 4종 — 단일 정의처 src/lib/auth/agreements.ts (환불규정 포함, docs/01 §3b)
+const REQUIRED_DOCS = REQUIRED_AGREEMENT_DOCS;
+const DOC_VERSION = AGREEMENT_DOC_VERSION;
 
 type Gender = 'male' | 'female' | 'other';
 
@@ -75,9 +80,16 @@ export default function SignupPage() {
   // 드래프트 복원 (비밀번호 제외) — 하이드레이션 이후 비동기 복원(서버 프리렌더와의 불일치 방지)
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      // ?resume=sign — Step4 이탈자의 서명 재개 경로 (pending-approval 미서명 감지에서 진입, §3b)
+      // 이미 계정·세션이 있는 상태이므로 드래프트 복원 없이 곧장 서명 단계로.
+      const resumeSign = new URLSearchParams(window.location.search).get('resume') === 'sign';
       const restored = loadDraft();
       setDraft(restored);
-      // 계정 생성 전(비밀번호 미보존)이므로 Step3까지만 복원 — Step4 이탈 재개는 AuthGuard 서명 게이트 담당(§3b)
+      if (resumeSign) {
+        setStep(4);
+        return;
+      }
+      // 계정 생성 전(비밀번호 미보존)이므로 Step3까지만 복원
       const resumed = Math.min(restored.step, 3);
       setStep(resumed >= 1 ? resumed : 1);
     }, 0);
@@ -177,7 +189,8 @@ export default function SignupPage() {
       setFieldErrors({ signature: '서명할 성명을 입력해주세요.' });
       return;
     }
-    if (signatureName.trim() !== draft.name.trim()) {
+    // 서명 재개(?resume=sign) 경로는 드래프트가 없을 수 있음 — 이름 대조는 드래프트 보유 시에만
+    if (draft.name.trim() && signatureName.trim() !== draft.name.trim()) {
       setFieldErrors({ signature: '가입 시 입력한 이름과 동일하게 입력해주세요.' });
       return;
     }
@@ -390,8 +403,11 @@ export default function SignupPage() {
             </p>
             <div className={styles.termsBox}>
               필수 서명 문서 (버전 {DOC_VERSION})
-              <br />· 이용약관(terms) · 개인정보 처리방침(privacy) · 건강 및 부상 위험 고지·면책
-              동의서(health_waiver)
+              {REQUIRED_DOCS.map((d) => (
+                <span key={d}>
+                  <br />· {AGREEMENT_DOC_LABELS[d]}({d})
+                </span>
+              ))}
               {/* ⏳ 문서 스냅샷 전문 열람 UI — 문서 관리(system_config) 구현 후 연결 */}
             </div>
             <Input
@@ -420,8 +436,8 @@ export default function SignupPage() {
               서명 완료
             </Button>
             <p className={styles.caption}>
-              서명을 완료해야 승인 대기 단계로 진행됩니다. 이탈 후 재로그인하면 서명 단계부터
-              이어집니다.
+              서명을 완료해야 승인 대기 단계로 진행됩니다. 이탈해도 로그인 후 승인 대기 화면에서
+              서명을 이어서 완료할 수 있습니다.
             </p>
           </div>
         ) : null}

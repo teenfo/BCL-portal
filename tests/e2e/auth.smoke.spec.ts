@@ -12,7 +12,8 @@ const ROLES = [
 async function login(page: Page, email: string, password = PW) {
   await page.goto('/auth/login');
   await page.getByLabel(/이메일|email/i).fill(email);
-  await page.getByLabel(/비밀번호|password/i).fill(password);
+  // exact: 비밀번호 input 라벨만 매치 — "비밀번호 표시" 토글 버튼(aria-label)과의 strict 충돌 방지
+  await page.getByLabel('비밀번호', { exact: true }).fill(password);
   await page.getByRole('button', { name: /로그인|sign in/i }).click();
 }
 
@@ -65,7 +66,7 @@ test.describe('auth.smoke', () => {
     await page.goto('/coach/dashboard');
     await expect(page).toHaveURL(/\/auth\/login\?redirect=/, { timeout: 8_000 });
     await page.getByLabel(/이메일|email/i).fill('coach@bcl.com');
-    await page.getByLabel(/비밀번호|password/i).fill(PW);
+    await page.getByLabel('비밀번호', { exact: true }).fill(PW);
     await page.getByRole('button', { name: /로그인|sign in/i }).click();
     await expect(page).toHaveURL(/\/coach\/dashboard/, { timeout: 10_000 });
   });
