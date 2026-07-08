@@ -1,0 +1,28 @@
+/* Auth 셸 — 단일 카드 중앙 정렬, max 420px (docs/12 §6 Auth 행) */
+
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bcl-pad-page);
+  background: var(--bcl-bg);
+}
+
+.inner {
+  width: 100%;
+  max-width: 420px; /* docs/12 §6 명세값 */
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.brand {
+  text-align: center;
+  /* type-h2 20/28 600 */
+  font-size: calc(20px * var(--bcl-font-scale));
+  line-height: calc(28 / 20);
+  font-weight: 600;
+  color: var(--bcl-accent-ink); /* 브랜드 accent 1곳(로고) */
+  margin: 0;
+}

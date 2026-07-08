@@ -1,6 +1,20 @@
 /* Skeleton — docs/12 §4.11. surface-raised 배경 + 1.4s 셔머
  * 소비처 규약: 표시 4s 초과 시 반드시 에러 상태로 전이 (F-5 — 타임아웃 없는 스켈레톤 금지) */
 
+.wrap {
+  display: contents;
+}
+
+/* 시각적 숨김(스크린리더 전용) */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .skeleton {
   position: relative;
   overflow: hidden;
