@@ -39,13 +39,47 @@
   gap: 2px;
 }
 
+/* 그룹 헤더 = 라벨형(구분선 + 대비 낮춘 소형 대문자) + 아코디언 토글 버튼 */
 .groupHeader {
-  font-size: calc(11px * var(--bcl-font-scale));
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  margin-top: var(--bcl-space-2);
+  border-top: 1px solid var(--bcl-border);
   color: var(--bcl-text-muted);
-  padding: var(--bcl-space-2) var(--bcl-space-3) var(--bcl-space-1);
+  cursor: pointer;
+}
+
+.groupHeader:hover .groupLabel {
+  color: var(--bcl-text);
+}
+
+.groupLabel {
+  font-size: calc(10px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.chevron {
+  font-size: calc(10px * var(--bcl-font-scale));
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+  transform: rotate(-90deg);
+}
+
+.chevronOpen {
+  transform: rotate(0deg);
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 2px;
 }
 
 .navItem {
