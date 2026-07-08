@@ -1,0 +1,114 @@
+/* Admin CRM — 토큰만 사용 (02-admin §3.13) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: calc(16px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.filter {
+  min-width: 150px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.rowActions {
+  display: inline-flex;
+  gap: var(--bcl-space-2);
+  justify-content: flex-end;
+}
+
+.hint {
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+/* 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.errorText {
+  color: var(--bcl-danger);
+}
+
+.pending {
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  white-space: pre-wrap;
+}
+
+.ticketBody {
+  color: var(--bcl-text);
+  white-space: pre-wrap;
+  font-size: calc(14px * var(--bcl-font-scale));
+}
+
+.metaRow {
+  display: flex;
+  gap: var(--bcl-space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
