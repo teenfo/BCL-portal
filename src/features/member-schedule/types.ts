@@ -1,19 +1,19 @@
-export interface CoachRef {
-  name: string | null;
-  profile_image_url?: string | null;
-}
-export interface SessionCoachRow {
-  coaches: CoachRef | null;
-}
+// fn_get_member_schedule 반환 세션 (정원/예약/대기 카운트 + 본인 예약상태 포함)
 export interface SessionItem {
   id: string;
   title: string;
   session_date: string;
   start_time: string;
   end_time: string;
+  class_type?: string | null;
   capacity: number;
   status: string;
-  session_coaches: SessionCoachRow[] | null;
+  coach_names: string[];
+  booked_count: number;
+  waitlist_count: number;
+  remaining: number;
+  my_booking_status: string | null;
+  has_wod: boolean;
 }
 export interface MyBookingItem {
   id: string;

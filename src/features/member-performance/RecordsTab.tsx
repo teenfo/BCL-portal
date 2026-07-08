@@ -10,6 +10,7 @@ import { formatScore, formatDate, secToClock, RX_LABEL } from '@/features/member
 import screen from '@/features/member-shell/screen.module.css';
 import styles from './performance.module.css';
 import { WodRecordSheet } from './WodRecordSheet';
+import { BenchmarkRecordSheet } from './BenchmarkRecordSheet';
 
 interface BenchmarkBest {
   benchmark_id: string;
@@ -92,6 +93,7 @@ async function loadTodayWod(memberId: string): Promise<Envelope<TodayWod | null>
 
 export function RecordsTab({ memberId }: { memberId: string | null }) {
   const [sheet, setSheet] = useState(false);
+  const [benchSheet, setBenchSheet] = useState(false);
 
   const perf = useQuery<PerfProfile>(
     () =>
@@ -175,7 +177,12 @@ export function RecordsTab({ memberId }: { memberId: string | null }) {
           <section className={screen.section}>
             <div className={screen.rowBetween}>
               <h2 className={screen.sectionTitle}>벤치마크 기록</h2>
-              <Badge variant="accent">PR {perf.data.benchmark_pr_count}</Badge>
+              <div className={screen.metaRow}>
+                <Badge variant="accent">PR {perf.data.benchmark_pr_count}</Badge>
+                <Button variant="soft" size="sm" onClick={() => setBenchSheet(true)}>
+                  기록 입력
+                </Button>
+              </div>
             </div>
             <Card>
               {perf.data.benchmark_bests.length === 0 ? (
@@ -252,6 +259,13 @@ export function RecordsTab({ memberId }: { memberId: string | null }) {
             today.refetch();
             perf.refetch();
           }}
+        />
+      ) : null}
+
+      {benchSheet ? (
+        <BenchmarkRecordSheet
+          onClose={() => setBenchSheet(false)}
+          onSaved={() => perf.refetch()}
         />
       ) : null}
     </>

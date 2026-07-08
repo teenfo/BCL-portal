@@ -63,9 +63,8 @@ export function SessionSheet({
     [session.id],
   );
 
-  const coaches = (session.session_coaches ?? [])
-    .map((sc) => sc.coaches?.name)
-    .filter(Boolean) as string[];
+  const coaches = session.coach_names ?? [];
+  const full = session.remaining <= 0;
 
   const book = async () => {
     setBusy(true);
@@ -114,7 +113,7 @@ export function SessionSheet({
     </Button>
   ) : (
     <Button variant="primary" block loading={busy} onClick={book}>
-      예약하기
+      {full ? '대기 등록' : '예약하기'}
     </Button>
   );
 
@@ -125,6 +124,11 @@ export function SessionSheet({
           <Badge variant="neutral">{formatDate(session.session_date)}</Badge>
           <Badge variant="info">
             {formatTime(session.start_time)}–{formatTime(session.end_time)}
+          </Badge>
+          <Badge variant={full ? 'warning' : 'neutral'}>
+            {full
+              ? `정원 마감${session.waitlist_count > 0 ? ` · 대기 ${session.waitlist_count}` : ''}`
+              : `잔여 ${session.remaining}/${session.capacity}`}
           </Badge>
           {myBookingStatus ? (
             <Badge variant={myBookingStatus === 'confirmed' ? 'success' : 'warning'}>

@@ -2,8 +2,8 @@
 
 // 탭2 schedule (/apps/schedule) — docs/03 §3.2
 // [수업 목록 | 내 예약] 통합. 주간 캘린더 + 세션 목록 → 상세 시트(예약/대기/취소).
-// 참고: 세션별 잔여 정원(타 회원 confirmed 수)은 member RLS로 직접 집계 불가 →
-//       예약 결과(confirmed/waitlisted)로 확정. (FLAG: fn_get_member_schedule 부재)
+// 세션별 잔여/예약/대기 카운트 + 본인 예약상태는 fn_get_member_schedule(DEFINER) 경유
+// (member RLS는 타 회원 bookings 집계 불가 → RPC로 Display-Safe 카운트만 수신).
 import { useMemo, useState } from 'react';
 import { Tabs, Card, Badge, Button, EmptyState, Skeleton, ConfirmModal, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
@@ -29,47 +29,18 @@ const DOW = ['월', '화', '수', '목', '금', '토', '일'];
 
 interface WeekData {
   sessions: SessionItem[];
-  bookings: MyBookingItem[];
-  facilityId: string | null;
 }
 
-async function loadWeek(memberId: string, from: string, to: string): Promise<Envelope<WeekData>> {
-  const sb = getSupabaseBrowserClient();
-  const memberRes = await query<{ facility_id: string | null }>(sb, 'members', (q) =>
-    q.select('facility_id').eq('id', memberId).single(),
-  );
-  const facilityId = memberRes.data?.facility_id ?? null;
-
-  const [sessionsRes, bookingsRes] = await Promise.all([
-    query<SessionItem[]>(sb, 'sessions', (q) => {
-      let b = q
-        .select('id, title, session_date, start_time, end_time, capacity, status, session_coaches(coaches(name, profile_image_url))')
-        .gte('session_date', from)
-        .lte('session_date', to)
-        .eq('status', 'scheduled')
-        .order('session_date', { ascending: true })
-        .order('start_time', { ascending: true });
-      if (facilityId) b = b.eq('facility_id', facilityId);
-      return b;
-    }),
-    query<MyBookingItem[]>(sb, 'bookings', (q) =>
-      q
-        .select('id, session_id, status, attendance_outcome, sessions!inner(title, session_date, start_time, end_time)')
-        .eq('member_id', memberId)
-        .neq('status', 'cancelled')
-        .gte('sessions.session_date', from)
-        .lte('sessions.session_date', to),
-    ),
-  ]);
-
-  if (!sessionsRes.success) {
-    return { success: false, data: null, error: sessionsRes.error };
+async function loadWeek(from: string, to: string): Promise<Envelope<WeekData>> {
+  // fn_get_member_schedule: 기간 세션 + 정원/예약/대기 카운트 + 본인 예약상태(current_member_id 스코프)
+  const res = await rpc<SessionItem[]>(getSupabaseBrowserClient(), 'fn_get_member_schedule', {
+    p_from: from,
+    p_to: to,
+  });
+  if (!res.success) {
+    return { success: false, data: null, error: res.error };
   }
-  return {
-    success: true,
-    data: { sessions: sessionsRes.data ?? [], bookings: bookingsRes.data ?? [], facilityId },
-    error: null,
-  };
+  return { success: true, data: { sessions: res.data ?? [] }, error: null };
 }
 
 async function loadMyBookings(memberId: string): Promise<Envelope<MyBookingItem[]>> {
@@ -100,7 +71,7 @@ export function ScheduleScreen() {
   const week = useQuery<WeekData>(
     () =>
       memberId
-        ? loadWeek(memberId, isoOf(monday), isoOf(sunday))
+        ? loadWeek(isoOf(monday), isoOf(sunday))
         : Promise.resolve<Envelope<WeekData>>({ success: false, data: null, error: '회원 정보가 없습니다.' }),
     [memberId, isoOf(monday), isoOf(sunday)],
   );
@@ -113,11 +84,14 @@ export function ScheduleScreen() {
     [memberId],
   );
 
+  // 세션→본인 활성 예약 매핑 — 상세 시트 취소에 필요한 booking id 확보(내 예약 RLS 가시)
   const bookingBySession = useMemo(() => {
     const m = new Map<string, MyBookingItem>();
-    (week.data?.bookings ?? []).forEach((b) => m.set(b.session_id, b));
+    (mine.data ?? []).forEach((b) => {
+      if (b.status !== 'cancelled') m.set(b.session_id, b);
+    });
     return m;
-  }, [week.data]);
+  }, [mine.data]);
 
   const byDay = useMemo(() => {
     const groups = new Map<string, SessionItem[]>();
@@ -211,20 +185,23 @@ export function ScheduleScreen() {
                 <div key={iso} className={styles.dayGroup}>
                   <p className={styles.dayHead}>{DOW[i]} · {day.getMonth() + 1}.{day.getDate()}</p>
                   {list.map((s) => {
-                    const mb = bookingBySession.get(s.id);
-                    const coach = (s.session_coaches ?? []).map((sc) => sc.coaches?.name).filter(Boolean)[0];
+                    const coach = (s.coach_names ?? [])[0];
+                    const full = s.remaining <= 0;
                     return (
                       <button key={s.id} type="button" className={styles.sessionRow} onClick={() => setSelected(s)}>
                         <span className={styles.sessionTime}>{formatTime(s.start_time)}</span>
                         <span className={styles.sessionMain}>
                           <span className={styles.sessionTitle}>{s.title}</span>
                           <span className={styles.sessionMeta}>
-                            {coach ? `${coach} · ` : ''}정원 {s.capacity}명
+                            {coach ? `${coach} · ` : ''}
+                            {full
+                              ? `정원 마감${s.waitlist_count > 0 ? ` · 대기 ${s.waitlist_count}명` : ''}`
+                              : `잔여 ${s.remaining}/${s.capacity}명`}
                           </span>
                         </span>
-                        {mb ? (
-                          <Badge variant={mb.status === 'confirmed' ? 'success' : 'warning'} size="sm">
-                            {mb.status === 'confirmed' ? '예약' : '대기'}
+                        {s.my_booking_status ? (
+                          <Badge variant={s.my_booking_status === 'confirmed' ? 'success' : 'warning'} size="sm">
+                            {s.my_booking_status === 'confirmed' ? '예약' : '대기'}
                           </Badge>
                         ) : null}
                       </button>
@@ -280,7 +257,7 @@ export function ScheduleScreen() {
         <SessionSheet
           session={selected}
           myBookingId={bookingBySession.get(selected.id)?.id ?? null}
-          myBookingStatus={bookingBySession.get(selected.id)?.status ?? null}
+          myBookingStatus={selected.my_booking_status ?? bookingBySession.get(selected.id)?.status ?? null}
           onClose={() => setSelected(null)}
           onChanged={refetchAll}
         />
