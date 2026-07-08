@@ -93,3 +93,37 @@
   font-size: 48px;
   color: var(--bcl-text-muted);
 }
+
+/* 일일 WOD 화이트보드 모드 (fn_get_class_wod_board) */
+.lbSub {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  margin-top: var(--bcl-space-2);
+}
+.lbScore {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.rxBadge {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: var(--bcl-space-1) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-sm);
+  text-align: center;
+}
+.rxPlus {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+  box-shadow: inset 0 0 0 2px var(--bcl-accent-border);
+}
+.rx {
+  background: var(--bcl-success-soft);
+  color: var(--bcl-success);
+}
+.scaled {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text-muted);
+}

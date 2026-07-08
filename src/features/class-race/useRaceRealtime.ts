@@ -6,8 +6,9 @@
 //  3) Broadcast 장애 시 /api/race/live 0.3s 폴링 폴백(옵션 — 서비스 URL 있을 때만)
 // 가상 레인(virtual_lane)은 렌더 전용 — meta에 플래그 보관, 순위/집계에서 제외(§4b.5).
 import { useEffect, useRef, useState } from 'react';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { DeviceType } from '@/features/race-admin/types';
 import { raceChannelName, type ErgUpdate, type LaneAssign } from './contract';
 
 export type LobbyStatus = 'setup' | 'lobby' | 'countdown' | 'racing' | 'finished';
@@ -36,6 +37,23 @@ export interface LaneMeta {
   member_name: string | null;
   team_id: string | null;
   virtual: boolean;
+  /** 레인별 기기 타입 — R-11 캐릭터 테마 구동(fn_get_race_lanes anon). null=트랙 테마 폴백 */
+  device_type: DeviceType | null;
+}
+
+/** fn_get_race_lanes(p_event_id) anon 응답 — 레인별 이름+device_type(Display-Safe) */
+interface RaceLaneRow {
+  lane_number: number;
+  member_name: string | null;
+  device_type: DeviceType | null;
+  connection_status: string;
+  distance_m: number;
+  power_w: number;
+  stroke_rate_spm: number;
+}
+interface RaceLanesData {
+  event_id: string;
+  lanes: RaceLaneRow[];
 }
 
 interface LiveStateRow {
@@ -76,6 +94,10 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
 
   // serial↔lane 매핑(device_id 기준 복원, M-2)
   const serialByDeviceRef = useRef<Map<string, string>>(new Map());
+  // lane_number → {이름, 기기타입} — fn_get_race_lanes(anon) 병합 소스(R-11 레인 캐릭터)
+  const laneMetaByNumberRef = useRef<Map<number, { member_name: string | null; device_type: DeviceType | null }>>(
+    new Map(),
+  );
 
   function upsertSample(u: ErgUpdate) {
     const serial = u.device_serial;
@@ -122,14 +144,17 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
           lastAt: Date.now(),
           connection: row.connection_status,
         });
+        const laneMeta = laneMetaByNumberRef.current.get(row.lane_number);
         nextLanes.push({
           lane: row.lane_number,
           serial,
           device_id: row.device_id,
           member_id: row.member_id,
-          member_name: null, // FLAG: race_live_state에 이름 없음 — lane_assign 수신 시 채움
+          // 이름: fn_get_race_lanes(anon) 병합 → 없으면 lane_assign broadcast 수신 시 채움
+          member_name: laneMeta?.member_name ?? null,
           team_id: row.team_id,
           virtual: false,
+          device_type: laneMeta?.device_type ?? null,
         });
       }
       nextLanes.sort((a, b) => a.lane - b.lane);
@@ -137,6 +162,42 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
     });
     return () => {
       cancelled = true;
+    };
+  }, [eventId]);
+
+  // ── 1b) 레인 메타 병합(anon RPC) ──
+  //   fn_get_race_lanes: 레인별 실명 + device_type(pm5_devices anon 갭 해소). 저빈도 폴링.
+  //   실패 시 직전 lanes 유지(graceful degradation) — device_type 없으면 트랙 테마 폴백.
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const load = async () => {
+      const res = await rpc<RaceLanesData>(getSupabaseBrowserClient(), 'fn_get_race_lanes', {
+        p_event_id: eventId,
+      });
+      if (cancelled || !res.success || !res.data) return; // 실패=직전 유지
+      const byNum = laneMetaByNumberRef.current;
+      for (const row of res.data.lanes) {
+        byNum.set(row.lane_number, { member_name: row.member_name, device_type: row.device_type });
+      }
+      setLanes((prev) =>
+        prev.map((l) => {
+          const meta = byNum.get(l.lane);
+          if (!meta) return l;
+          return {
+            ...l,
+            // lane_assign broadcast(실시간)이 이미 채운 이름 우선, 없으면 RPC 실명
+            member_name: l.member_name ?? meta.member_name,
+            device_type: meta.device_type ?? l.device_type,
+          };
+        }),
+      );
+    };
+    void load();
+    const id = setInterval(() => void load(), 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
     };
   }, [eventId]);
 

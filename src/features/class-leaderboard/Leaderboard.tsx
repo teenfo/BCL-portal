@@ -1,12 +1,13 @@
 'use client';
 
 // 리더보드 (docs/05 §5.3) — fn_get_class_leaderboard(anon §6.1). 이름+기록 랭킹(생체 지표 제외).
-// 스코프 탭(week/month/all). ⏳ 일일 WOD 화이트보드 모드(daily_wod)·벤치마크 탭은 RPC 확장 필요(FLAG).
+// 스코프 탭(week/month/all). 일일 WOD 화이트보드 모드(?session)는 WodBoard(fn_get_class_wod_board)로 분기.
 // Display-Safe: 이름·기록·PR/승수만.
 import { useState } from 'react';
 import { StatusStrip, usePolling } from '@/features/class-common';
 import { rpc, type Envelope } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { WodBoard } from './WodBoard';
 import styles from './leaderboard.module.css';
 
 type Scope = 'week' | 'month' | 'all';
@@ -39,7 +40,22 @@ function fetchLeaderboard(facilityId: string, scope: Scope): Promise<Envelope<Le
   });
 }
 
-export function Leaderboard({ facilityId }: { facilityId: string | null }) {
+export function Leaderboard({
+  facilityId,
+  sessionId = null,
+}: {
+  facilityId: string | null;
+  /** 지정 시 일일 WOD 화이트보드 모드(fn_get_class_wod_board)로 렌더 */
+  sessionId?: string | null;
+}) {
+  // 화이트보드 모드: ?session 제공 시 daily-WOD 보드로 분기(별도 훅 트리 — hooks 규칙 준수).
+  if (sessionId) {
+    return <WodBoard sessionId={sessionId} />;
+  }
+  return <RaceLeaderboard facilityId={facilityId} />;
+}
+
+function RaceLeaderboard({ facilityId }: { facilityId: string | null }) {
   const [scope, setScope] = useState<Scope>('month');
   const { data, initialLoading } = usePolling<LeaderboardData | null>(
     () =>

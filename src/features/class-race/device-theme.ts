@@ -77,9 +77,9 @@ export function teamColorVar(index: number): string {
 }
 
 /**
- * 트랙 테마의 기본 기기 타입 — 레인별 device_type을 anon TV가 조회할 수 없을 때 폴백.
- * (FLAG: pm5_devices는 admin+coach SELECT 전용(docs/15 §6.3) → 혼합 편성 캐릭터는
- *  device_type을 broadcast(lane_assign/erg_update)로 전달하거나 anon 노출이 필요)
+ * 트랙 테마의 기본 기기 타입 — 레인별 device_type이 아직 도착하지 않았을 때의 폴백만 담당.
+ * (레인별 device_type은 fn_get_race_lanes anon RPC가 반환 — pm5_devices anon 갭 해소됨.
+ *  useRaceRealtime가 LaneMeta.device_type에 병합하고, RaceView/RaceRun이 레인별 캐릭터 구동.)
  */
 export function defaultDeviceForTheme(theme: RaceTheme): DeviceType {
   switch (theme) {

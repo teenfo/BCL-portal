@@ -21,7 +21,6 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   const rt = useRaceRealtime(eventId);
   const theme = themeForEvent(event.data?.event_type);
   const target = event.data?.target_distance_m ?? null;
-  const character = characterForDevice(defaultDeviceForTheme(theme));
 
   const [ranks, setRanks] = useState<RankRow[]>([]);
   const animator = useRaceAnimator(rt.samplesRef, {
@@ -78,17 +77,22 @@ export function RaceView({ eventId }: { eventId: string | null }) {
         <div className={styles.track}>
           <div className={styles.trackSky} />
           <div className={styles.trackSurface}>
-            {lanes.map((l, i) => (
-              <LaneRow
-                key={l.serial}
-                meta={l}
-                index={i}
-                glyph={character.glyph}
-                register={animator.registerKart}
-                unregister={animator.unregister}
-                deviceType={defaultDeviceForTheme(theme)}
-              />
-            ))}
+            {lanes.map((l, i) => {
+              // R-11: 레인별 device_type이 캐릭터 테마를 구동(혼합 편성). 없으면 트랙 테마 폴백.
+              const deviceType = l.device_type ?? defaultDeviceForTheme(theme);
+              const character = characterForDevice(deviceType);
+              return (
+                <LaneRow
+                  key={l.serial}
+                  meta={l}
+                  index={i}
+                  glyph={character.glyph}
+                  register={animator.registerKart}
+                  unregister={animator.unregister}
+                  deviceType={deviceType}
+                />
+              );
+            })}
           </div>
           <div className={styles.finishLine} aria-hidden />
         </div>

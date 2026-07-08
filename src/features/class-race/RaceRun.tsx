@@ -14,8 +14,8 @@ export function RaceRun({ eventId }: { eventId: string | null }) {
   const event = useRaceEvent(eventId);
   const rt = useRaceRealtime(eventId);
   const theme = themeForEvent(event.data?.event_type);
-  const deviceType = defaultDeviceForTheme(theme);
-  const rateLabel = characterForDevice(deviceType).rateLabel;
+  // 헤더 라벨은 트랙 테마 기본 rate — 타일별 실제 라벨은 레인 device_type로 개별 산정.
+  const headerRateLabel = characterForDevice(defaultDeviceForTheme(theme)).rateLabel;
   const animator = useRaceAnimator(rt.samplesRef, {
     targetDistance: event.data?.target_distance_m ?? null,
   });
@@ -25,20 +25,25 @@ export function RaceRun({ eventId }: { eventId: string | null }) {
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
       <header className={styles.topbar}>
         <div className={styles.topbarName}>{event.data?.name ?? 'RACE'}</div>
-        <div className={styles.topbarMeta}>{rateLabel} · 실시간</div>
+        <div className={styles.topbarMeta}>{headerRateLabel} · 실시간</div>
       </header>
       <div className={styles.grid} data-count={rt.lanes.length}>
-        {rt.lanes.map((l, i) => (
-          <GridTile
-            key={l.serial}
-            meta={l}
-            index={i}
-            rateLabel={rateLabel}
-            deviceType={deviceType}
-            register={animator.registerKart}
-            unregister={animator.unregister}
-          />
-        ))}
+        {rt.lanes.map((l, i) => {
+          // R-11: 레인별 device_type이 캐릭터/rate 라벨 구동. 없으면 트랙 테마 폴백.
+          const deviceType = l.device_type ?? defaultDeviceForTheme(theme);
+          const rateLabel = characterForDevice(deviceType).rateLabel;
+          return (
+            <GridTile
+              key={l.serial}
+              meta={l}
+              index={i}
+              rateLabel={rateLabel}
+              deviceType={deviceType}
+              register={animator.registerKart}
+              unregister={animator.unregister}
+            />
+          );
+        })}
       </div>
     </div>
   );
