@@ -6,7 +6,7 @@ const PW = '0000';
 const ROLES = [
   { email: 'admin@bcl.com', dashboard: '/admin/dashboard' },
   { email: 'coach@bcl.com', dashboard: '/coach/dashboard' },
-  { email: 'member@bcl.com', dashboard: '/apps/dashboard' },
+  { email: 'member@bcl.com', dashboard: '/apps/home' },
 ] as const;
 
 async function login(page: Page, email: string, password = PW) {
@@ -31,16 +31,16 @@ test.describe('auth.smoke', () => {
 
   test('S2 새로고침 세션 유지', async ({ page }) => {
     await login(page, 'member@bcl.com');
-    await page.waitForURL('**/apps/dashboard');
+    await page.waitForURL('**/apps/home');
     await page.reload();
-    await expect(page).toHaveURL(/\/apps\/dashboard/, { timeout: 8_000 });
+    await expect(page).toHaveURL(/\/apps\/home/, { timeout: 8_000 });
   });
 
   test('S3 앱 전환 세션 유지 (admin — 장애 #3 회귀 감지선)', async ({ page }) => {
     await login(page, 'admin@bcl.com');
     await page.waitForURL('**/admin/dashboard');
-    await page.goto('/apps/dashboard');
-    await expect(page).toHaveURL(/\/apps\/dashboard/, { timeout: 8_000 });
+    await page.goto('/apps/home');
+    await expect(page).toHaveURL(/\/apps\/home/, { timeout: 8_000 });
     await page.goto('/coach/dashboard');
     await expect(page).toHaveURL(/\/coach\/dashboard/, { timeout: 8_000 });
     // 쿠키명 단일 확인 (bcl-portal-auth)
@@ -57,9 +57,9 @@ test.describe('auth.smoke', () => {
 
   test('S5 역할 경계 — member의 /admin 직접 진입', async ({ page }) => {
     await login(page, 'member@bcl.com');
-    await page.waitForURL('**/apps/dashboard');
+    await page.waitForURL('**/apps/home');
     await page.goto('/admin/dashboard');
-    await expect(page).toHaveURL(/\/apps\/dashboard/, { timeout: 8_000 });
+    await expect(page).toHaveURL(/\/apps\/home/, { timeout: 8_000 });
   });
 
   test('S6 비인증 보호경로 + redirect 복귀', async ({ page }) => {
@@ -73,7 +73,7 @@ test.describe('auth.smoke', () => {
 
   test('S7 로그아웃 — 세션 잔존 없음', async ({ page }) => {
     await login(page, 'member@bcl.com');
-    await page.waitForURL('**/apps/dashboard');
+    await page.waitForURL('**/apps/home');
     await page.goto('/auth/logout');
     await page.waitForURL('**/auth/login**', { timeout: 8_000 });
     await page.goto('/apps/dashboard');

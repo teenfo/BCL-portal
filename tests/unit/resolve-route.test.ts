@@ -6,7 +6,7 @@ const ROLES = ['admin', 'coach', 'member'] as const;
 const DASHBOARDS: Record<(typeof ROLES)[number], string> = {
   admin: '/admin/dashboard',
   coach: '/coach/dashboard',
-  member: '/apps/dashboard',
+  member: '/apps/home',
 };
 
 describe('resolvePostLoginRoute', () => {
@@ -38,13 +38,13 @@ describe('resolvePostLoginRoute', () => {
     });
 
     it('타 역할 영역 redirect는 무시하고 기본 대시보드', () => {
-      expect(resolvePostLoginRoute(approved('member'), '/admin/members')).toBe('/apps/dashboard');
+      expect(resolvePostLoginRoute(approved('member'), '/admin/members')).toBe('/apps/home');
       expect(resolvePostLoginRoute(approved('coach'), '/admin/dashboard')).toBe('/coach/dashboard');
     });
 
     it('외부/비허용 경로 redirect는 무시', () => {
-      expect(resolvePostLoginRoute(approved('member'), 'https://evil.example')).toBe('/apps/dashboard');
-      expect(resolvePostLoginRoute(approved('member'), '/auth/login')).toBe('/apps/dashboard');
+      expect(resolvePostLoginRoute(approved('member'), 'https://evil.example')).toBe('/apps/home');
+      expect(resolvePostLoginRoute(approved('member'), '/auth/login')).toBe('/apps/home');
     });
 
     it('미승인 상태에서는 redirect 자체를 무시(게이트 우선)', () => {
