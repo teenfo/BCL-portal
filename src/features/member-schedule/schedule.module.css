@@ -1,0 +1,104 @@
+.weekBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+}
+.weekNav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bcl-hit-min);
+  height: var(--bcl-hit-min);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text);
+}
+.weekNav:hover {
+  background: var(--bcl-surface-raised);
+}
+.weekLabel {
+  font-weight: 600;
+  color: var(--bcl-text);
+  font-size: calc(15px * var(--bcl-font-scale));
+}
+
+.dayGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.dayHead {
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  margin: var(--bcl-space-2) 0 0;
+}
+
+.sessionRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--bcl-space-3);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text);
+}
+.sessionRow:hover {
+  border-color: var(--bcl-accent-border);
+}
+.sessionTime {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 52px;
+}
+.sessionMain {
+  flex: 1;
+  min-width: 0;
+}
+.sessionTitle {
+  font-weight: 600;
+  color: var(--bcl-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sessionMeta {
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.sheetSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.sheetLabel {
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wodBody {
+  white-space: pre-wrap;
+  color: var(--bcl-text);
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+}
+.prepRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) 0;
+  border-bottom: 1px solid var(--bcl-border);
+}
+.policyNote {
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+}

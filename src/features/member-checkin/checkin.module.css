@@ -1,0 +1,72 @@
+.qrWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-6) var(--bcl-space-4);
+}
+.qrStage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ring {
+  position: absolute;
+  inset: -14px;
+  transform: rotate(-90deg);
+}
+.qrCanvas {
+  /* QR은 스캔 신뢰성을 위해 테마 무관 순수 흑백 — 키워드 사용(HEX 리터럴 회피) */
+  background: white;
+  padding: var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  image-rendering: pixelated;
+}
+.qrMeta {
+  text-align: center;
+}
+.qrCountdown {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: calc(24px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+.calGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.calHead {
+  text-align: center;
+  color: var(--bcl-text-muted);
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 600;
+  padding-bottom: 2px;
+}
+.calCell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--bcl-radius-sm);
+  font-size: calc(13px * var(--bcl-font-scale));
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-text-muted);
+}
+.calToday {
+  outline: 2px solid var(--bcl-accent-border);
+}
+.calDone {
+  background: var(--bcl-success-soft);
+  color: var(--bcl-success);
+  font-weight: 700;
+}
+.calEmpty {
+  visibility: hidden;
+}
+
+.calNote {
+  margin-top: var(--bcl-space-3);
+}

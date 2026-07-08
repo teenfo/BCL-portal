@@ -1,0 +1,122 @@
+.recordRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-3) 0;
+  border-bottom: 1px solid var(--bcl-border);
+}
+.recordRow:last-child {
+  border-bottom: none;
+}
+.recordName {
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+.recordValue {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.rankRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-3) 0;
+  border-bottom: 1px solid var(--bcl-border);
+}
+.rankRow:last-child {
+  border-bottom: none;
+}
+.rankNum {
+  width: 28px;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-text-muted);
+}
+.rankMe {
+  background: var(--bcl-accent-soft);
+  border-radius: var(--bcl-radius-md);
+  padding-left: var(--bcl-space-2);
+  padding-right: var(--bcl-space-2);
+}
+.rankMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--bcl-space-3);
+}
+.badgeCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-1);
+  padding: var(--bcl-space-3) var(--bcl-space-2);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  text-align: center;
+}
+.badgeIcon {
+  font-size: 28px;
+  line-height: 1;
+}
+.badgeLocked {
+  opacity: 0.45;
+}
+.badgeName {
+  font-size: calc(13px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+.badgeProg {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.wbRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) 0;
+  border-bottom: 1px solid var(--bcl-border);
+}
+.wbRank {
+  width: 24px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+}
+.wbName {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fieldRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+.fieldLabel {
+  font-weight: 600;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+.segRow {
+  display: flex;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.errText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}

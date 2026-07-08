@@ -34,7 +34,7 @@ export function resolvePostLoginRoute(
     case 'coach':
       return '/coach/dashboard';
     case 'member':
-      return '/apps/dashboard';
+      return '/apps/home';
     default:
       return '/auth/login'; // 알 수 없는 role은 안전 실패
   }
