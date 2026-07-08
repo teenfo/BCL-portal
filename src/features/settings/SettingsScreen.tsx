@@ -2,8 +2,9 @@
 
 // /admin/settings — 설정 (지점·시스템·사이트·권한·감사 5탭) (02-admin §3.14)
 // Tabs(branch|system|site|roles|audit) — ?tab= URL 쿼리 SSOT(Tabs syncUrl 기본).
-// 진입=settings.view. roles 탭 편집=super_admin 전용, audit 탭=audit.view 별도 그룹(각 탭 내부 게이트).
-import { useState } from 'react';
+// 탭 목록 자체를 권한으로 게이트: branch/system/site/roles=settings.view, audit=audit.view.
+// audit.view만 있는 사용자는 감사 탭만 보이고(기본 탭) settings 정보(PG키 유무·지점정보) 비노출.
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Tabs, Card } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
@@ -14,19 +15,38 @@ import { RolesTab } from './RolesTab';
 import { AuditTab } from './AuditTab';
 import styles from './settings.module.css';
 
-const TAB_KEYS = ['branch', 'system', 'site', 'roles', 'audit'] as const;
-type TabKey = (typeof TAB_KEYS)[number];
+type TabKey = 'branch' | 'system' | 'site' | 'roles' | 'audit';
 
 export function SettingsScreen() {
   const { can } = useMyPermissions();
   const searchParams = useSearchParams();
+  const canSettings = can('settings', 'view');
+  const canAudit = can('audit', 'view');
+
+  // 권한별 노출 탭 — settings.view 그룹(branch/system/site/roles) + audit.view(audit)
+  const visibleTabs = useMemo(() => {
+    const list: { key: TabKey; label: string }[] = [];
+    if (canSettings) {
+      list.push(
+        { key: 'branch', label: '지점' },
+        { key: 'system', label: '시스템' },
+        { key: 'site', label: '사이트' },
+        { key: 'roles', label: '권한' },
+      );
+    }
+    if (canAudit) list.push({ key: 'audit', label: '감사' });
+    return list;
+  }, [canSettings, canAudit]);
+
+  const allowed = useMemo(() => new Set(visibleTabs.map((t) => t.key)), [visibleTabs]);
+  const firstKey: TabKey = visibleTabs[0]?.key ?? 'branch';
   const initial = searchParams?.get('tab');
   const [tab, setTab] = useState<TabKey>(
-    TAB_KEYS.includes(initial as TabKey) ? (initial as TabKey) : 'branch',
+    initial && allowed.has(initial as TabKey) ? (initial as TabKey) : firstKey,
   );
 
-  // 진입 가드: settings.view 또는 audit.view(감사 탭 전용 접근) 중 하나라도 있어야 노출
-  if (!can('settings', 'view') && !can('audit', 'view')) {
+  // 진입 가드: 노출 가능한 탭이 하나도 없으면 접근 불가
+  if (visibleTabs.length === 0) {
     return (
       <div className={styles.page}>
         <Card>
@@ -35,6 +55,9 @@ export function SettingsScreen() {
       </div>
     );
   }
+
+  // 방어: 현재 선택 탭이 허용 목록에 없으면(권한 없는 ?tab= 직접 접근 등) 첫 노출 탭으로
+  const activeTab: TabKey = allowed.has(tab) ? tab : firstKey;
 
   return (
     <div className={styles.page}>
@@ -46,23 +69,17 @@ export function SettingsScreen() {
       </header>
 
       <Tabs
-        tabs={[
-          { key: 'branch', label: '지점' },
-          { key: 'system', label: '시스템' },
-          { key: 'site', label: '사이트' },
-          { key: 'roles', label: '권한' },
-          { key: 'audit', label: '감사' },
-        ]}
-        value={tab}
+        tabs={visibleTabs}
+        value={activeTab}
         onChange={(k) => setTab(k as TabKey)}
         aria-label="설정 탭"
       />
 
-      {tab === 'branch' ? <BranchTab /> : null}
-      {tab === 'system' ? <SystemTab /> : null}
-      {tab === 'site' ? <SiteTab /> : null}
-      {tab === 'roles' ? <RolesTab /> : null}
-      {tab === 'audit' ? <AuditTab /> : null}
+      {activeTab === 'branch' && canSettings ? <BranchTab /> : null}
+      {activeTab === 'system' && canSettings ? <SystemTab /> : null}
+      {activeTab === 'site' && canSettings ? <SiteTab /> : null}
+      {activeTab === 'roles' && canSettings ? <RolesTab /> : null}
+      {activeTab === 'audit' && canAudit ? <AuditTab /> : null}
     </div>
   );
 }

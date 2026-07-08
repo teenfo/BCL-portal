@@ -104,9 +104,13 @@ export function CoachManageTab() {
     linkable.refetch();
   };
 
-  // ── 계정 연결: coaches.user_id 세팅 → promote_to_coach ──
+  // ── 계정 연결: coaches.user_id 프라이밍 → promote_to_coach → 실패 시 원복 ──
+  // promote_to_coach는 coaches를 ON CONFLICT(user_id) upsert하므로, 사전등록된 이 코치 행을
+  // 대상으로 삼으려면 user_id를 먼저 세팅(프라이밍)해야 한다(안 하면 새 bare 행이 생겨 급여/전문분야 유실).
+  // 따라서 순서 역전·UPDATE 제거는 불가 → 대신 RPC 실패 시 연결 UPDATE를 원복해 부분상태를 제거한다.
   const doLink = async () => {
     if (!linking || !linkUserId) return;
+    const prevStatus = linking.status;
     setLinkBusy(true);
     const upd = await query(client, 'coaches', (q) =>
       q
@@ -119,19 +123,26 @@ export function CoachManageTab() {
       return;
     }
     const promo = await rpc(client, 'promote_to_coach', { p_target_user_id: linkUserId });
-    setLinkBusy(false);
     if (!promo.success) {
+      // 권한 전환 실패 → 프라이밍한 연결을 되돌려 미연결 상태로 복구(정합성 유지)
+      await query(client, 'coaches', (q) =>
+        q.update({ user_id: null, linked_at: null, status: prevStatus }).eq('id', linking.id),
+      );
+      setLinkBusy(false);
       toast.error(coachRpcError(promo.error));
       reload();
       return;
     }
+    setLinkBusy(false);
     toast.success('계정을 연결했습니다.');
     setLinking(null);
     setLinkUserId(null);
     reload();
   };
 
-  // ── 계정 해제: demote_from_coach → coaches.user_id 해제 ──
+  // ── 계정 해제: demote_from_coach(RPC 먼저) → 성공 시에만 coaches.user_id 해제 ──
+  // demote_from_coach는 profiles.role='member' + coaches.status='inactive'만 처리(user_id는 그대로).
+  // 이미 RPC-우선 순서라 부분상태 안전(RPC 실패 시 연결 미변경). 성공 후 반영 UPDATE로 user_id를 해제한다.
   const doUnlink = async () => {
     if (!unlinking || !unlinking.user_id) return;
     setUnlinkBusy(true);

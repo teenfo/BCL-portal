@@ -1700,11 +1700,14 @@ $$;
 -- [H] KPI / 정산
 -- ============================================================================
 
--- H.1 fn_get_coach_monthly_report(p_year_month, p_sections)
+-- H.1 fn_get_coach_monthly_report(p_year_month, p_sections, p_coach_id)
 --     🔄 P1-B 3종(settlement_basis + kpis + retention_panel) 통합 — 섹션 파라미터 선택
+--     🔄 P2B: p_coach_id 추가 — NULL=본인(coach 앱), 값 지정=is_admin() 검증 후 해당 코치(Admin 월별 상세)
+--     (마이그레이션: 20260708070000_coach_monthly_report_admin_scope — 2-인자 DROP 후 재생성)
 CREATE OR REPLACE FUNCTION public.fn_get_coach_monthly_report(
     p_year_month TEXT DEFAULT NULL,
-    p_sections TEXT[] DEFAULT ARRAY['basis','kpis','retention'])
+    p_sections TEXT[] DEFAULT ARRAY['basis','kpis','retention'],
+    p_coach_id UUID DEFAULT NULL)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -1719,10 +1722,21 @@ DECLARE
     -- kpis
     v_total_sessions INT; v_total_bookings INT; v_checkins INT; v_noshow INT; v_waitlist_conv INT;
 BEGIN
-    SELECT id, COALESCE(base_salary,0) AS base_salary,
-           COALESCE(session_allowance,0) AS session_allowance
-    INTO v_coach
-    FROM public.coaches WHERE user_id = auth.uid() LIMIT 1;
+    -- 대상 코치 스코프: NULL=본인(auth.uid()), 값=Admin 지정(is_admin() 필수)
+    IF p_coach_id IS NULL THEN
+        SELECT id, COALESCE(base_salary,0) AS base_salary,
+               COALESCE(session_allowance,0) AS session_allowance
+        INTO v_coach
+        FROM public.coaches WHERE user_id = auth.uid() LIMIT 1;
+    ELSE
+        IF NOT public.is_admin() THEN
+            RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'forbidden');
+        END IF;
+        SELECT id, COALESCE(base_salary,0) AS base_salary,
+               COALESCE(session_allowance,0) AS session_allowance
+        INTO v_coach
+        FROM public.coaches WHERE id = p_coach_id LIMIT 1;
+    END IF;
 
     IF v_coach.id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'coach_not_found');
@@ -4181,7 +4195,7 @@ BEGIN
         ('public.fn_upsert_session_runbook(uuid,jsonb)'),
         ('public.fn_get_member_context_panel(uuid)'),
         ('public.fn_upsert_member_alert_flag(uuid,jsonb)'),
-        ('public.fn_get_coach_monthly_report(text,text[])'),
+        ('public.fn_get_coach_monthly_report(text,text[],uuid)'),
         ('public.fn_calculate_monthly_settlement(text)'),
         ('public.fn_calculate_refund(uuid,uuid)'),
         ('public.fn_list_benchmark_definitions(boolean)'),
