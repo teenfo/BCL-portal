@@ -3161,6 +3161,26 @@ BEGIN
     EXECUTE 'REVOKE ALL ON FUNCTION public.get_decrypted_pg_settings(uuid,text) FROM PUBLIC';
     EXECUTE 'REVOKE ALL ON FUNCTION public.get_decrypted_pg_settings(uuid,text) FROM anon';
     EXECUTE 'REVOKE ALL ON FUNCTION public.get_decrypted_pg_settings(uuid,text) FROM authenticated';
+
+    -- 내부 함수(트리거·크론·설정) client 회수 — PG 기본 PUBLIC EXECUTE 제거로 anon 화이트리스트 계약 관철.
+    -- 트리거는 트리거 메커니즘, 크론은 크론 소유자로 실행되므로 client EXECUTE 회수해도 정상 동작.
+    -- ※ RLS 헬퍼(is_admin/is_admin_or_coach/current_member_id)는 RLS 평가에 필요 → 회수 대상 아님.
+    -- ⚠️ _notify_edge_config는 service_key를 반환 → 전 client 역할 회수(트리거 definer 내부 호출만 허용).
+    EXECUTE 'REVOKE ALL ON FUNCTION public._notify_edge_config() FROM PUBLIC, anon, authenticated';
+    FOR v_fn IN VALUES
+        ('public._badges_on_benchmark()'),
+        ('public._badges_on_checkin()'),
+        ('public._badges_on_membership()'),
+        ('public._badges_on_race_record()'),
+        ('public.fn_handle_notification_side_effects()'),
+        ('public.fn_notify_waitlist_on_vacancy()'),
+        ('public.handle_new_auth_user()'),
+        ('public.update_updated_at_column()'),
+        ('public.fn_send_class_reminders()'),
+        ('public.fn_send_membership_expiry_reminders()')
+    LOOP
+        EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon', v_fn);
+    END LOOP;
 END $$;
 
 -- ============================================================================

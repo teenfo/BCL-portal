@@ -10,6 +10,28 @@
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
+-- 0. 역할 GRANT (Supabase 표준) — RLS 이전에 base-table 권한 검사가 선행되므로 필수
+--    RLS가 실제 행 접근을 통제하고, 이 GRANT는 "접근 시도 허용"만 담당(Supabase 모델).
+--    ※ schema 재생성(DROP/CREATE) 초기화 시 유실되므로 최우선 파일에서 복원.
+--    ※ 이 파일이 tables 생성보다 먼저 실행되므로 DEFAULT PRIVILEGES로 01~09 객체에 자동 부여.
+-- ----------------------------------------------------------------------------
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+-- 테이블·시퀀스: 3역할 부여 (행 접근은 RLS가 통제 — anon은 anon 정책 있는 테이블만 조회)
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES    TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+-- 함수: authenticated + service_role만 (anon 실행 권한은 09_rpc.sql 말미 화이트리스트 5종에서만 부여)
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO authenticated, service_role;
+
+-- 이미 존재하는 객체(재적용 시)에도 소급 부여 — 멱등
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO authenticated, service_role;
+
+-- 참고: 함수 권한 최소화(anon 화이트리스트 5종, get_decrypted_pg_settings=Service Role 전용)는
+--       09_rpc.sql 말미 [Z] 블록이 최종 확정한다. 이 블록은 base 권한 부재로 인한 42501 차단 방지용.
+
+-- ----------------------------------------------------------------------------
 -- 1. 확장 (Extensions)
 -- ----------------------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";       -- gen_random_uuid(), pgp_sym_encrypt/decrypt (결제 키 암호화)
