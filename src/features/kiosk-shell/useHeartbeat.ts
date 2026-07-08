@@ -1,12 +1,11 @@
 'use client';
 
-// Heartbeat (docs/06 §6) — 30초 주기 kiosk_devices.last_heartbeat UPDATE.
-// ※ kiosk_devices RLS는 admin 전용(docs/sql/08 §RLS: "키오스크 단말은 Service Role 사용")이라
-//   anon 클라이언트의 UPDATE는 차단된다. 여기서는 best-effort로 시도하고, 성공/실패를
-//   네트워크 상태 신호로만 사용한다. 정식 heartbeat 경로(device-token RPC 또는 서버)는 미구현 — FLAG.
+// Heartbeat (docs/06 §6) — 30초 주기 단말 상태 갱신.
+// Phase 3.5: 직접 kiosk_devices UPDATE(anon RLS 차단)를 ANON DEFINER RPC fn_kiosk_heartbeat로 교체.
+//   RPC가 last_heartbeat/status를 갱신한다. 성공/실패를 네트워크 상태 신호로도 사용한다.
 import { useEffect, useRef } from 'react';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 
 const HEARTBEAT_MS = 30_000;
 
@@ -29,9 +28,10 @@ export function useHeartbeat({ deviceId, onResult }: Options): void {
     const beat = async () => {
       try {
         const client = getSupabaseBrowserClient();
-        const res = await query(client, 'kiosk_devices', (q) =>
-          q.update({ last_heartbeat: new Date().toISOString(), status: 'active' }).eq('id', deviceId),
-        );
+        const res = await rpc(client, 'fn_kiosk_heartbeat', {
+          p_device_id: deviceId,
+          p_status: 'online',
+        });
         if (!cancelled) onResultRef.current(res.success);
       } catch {
         if (!cancelled) onResultRef.current(false);

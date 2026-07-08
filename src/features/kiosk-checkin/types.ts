@@ -14,20 +14,44 @@ export interface QrPayload {
 }
 
 /**
- * fn_kiosk_checkin 성공 응답 data (docs/sql/09_rpc.sql 실제 시그니처 기준).
- * ※ docs/06 §4.4 문서상 필드(checkin_type/remaining_credits/membership_dday/duplicated)와
- *   실제 RPC 반환 필드가 다르다 — 실제 RPC에 맞춘다. (deviation FLAG 참조)
+ * fn_kiosk_checkin 성공 응답 data (Phase 3.5 신 시그니처 — migration R1.1 기준).
+ * duplicated=false 정상 체크인 payload. 크레딧 원자 차감 후 잔여/만료 D-day 포함.
  */
 export interface KioskCheckinData {
   checkin_id: string | null;
+  /** 같은 날 중복 여부 — 정상 성공은 false (중복은 KioskDuplicateData로 분기) */
+  duplicated: boolean;
   member_name: string;
   membership_plan_kind: 'standard' | 'drop_in' | 'trial' | string;
   membership_plan_name: string | null;
+  /** 차감 후 잔여 횟수 — 기간제/무제한은 null */
+  remaining_credits: number | null;
+  /** 멤버십 만료 D-day(남은 일수) — 만료일 없으면 null */
+  membership_dday: number | null;
   session_id: string | null;
   session_title: string | null;
   /** 예약 감지되어 수업에 연결됐는지 — true=수업 체크인, false=시설(자유) 체크인 */
   linked_booking: boolean;
   checkin_time: string;
+}
+
+/**
+ * 같은 날 중복 체크인 성공 payload (migration R1.1 duplicated:true).
+ * 오류가 아니라 성공 화면에서 "이미 체크인됨"으로 친화 표기한다(2차 미기록).
+ */
+export interface KioskDuplicateData {
+  member_name: string;
+  /** 최초 체크인 시각(ISO) */
+  checkin_time: string;
+  remaining_credits: number | null;
+  membership_dday: number | null;
+}
+
+/** 수기 대체 조회 후보 (fn_kiosk_lookup_member data 원소 — 마스킹된 최소 정보) */
+export interface KioskCandidate {
+  member_id: string;
+  masked_name: string;
+  phone_tail: string;
 }
 
 /** 서버/클라이언트 공통 오류 코드 — 실제 RPC가 반환하는 문자열 + 클라이언트 선검증 코드 */
@@ -42,10 +66,10 @@ export type KioskErrorCode =
   | 'unsupported_version' // 클라이언트 선검증
   | 'network_error';
 
-/** 스캔 결과 — 성공(데이터) / 중복(성공 화면 경유) / 오류(토스트) / 오프라인 접수 */
+/** 스캔 결과 — 성공(데이터) / 중복(성공 화면 경유, 회원명·시각) / 오류(토스트) / 오프라인 접수 */
 export type ScanOutcome =
   | { kind: 'success'; data: KioskCheckinData }
-  | { kind: 'duplicate' } // docs §4.2⑥ — 오류 아님, success 화면에서 중복 표기
+  | { kind: 'duplicate'; data: KioskDuplicateData } // §4.2⑥ — 오류 아님, success 화면 표기
   | { kind: 'queued' } // 오프라인 접수(§7)
   | { kind: 'error'; code: KioskErrorCode };
 

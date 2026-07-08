@@ -1,7 +1,7 @@
 // 오프라인 체크인 로컬 큐 (docs/06 §7) — IndexedDB.
 // 네트워크 단절 시 {payload, scanned_at, device_id}를 보존(24h)하고, 복구 시 순서대로 재전송.
-// ※ 서버 재전송 시 scanned_at 소급 판정은 fn_kiosk_checkin이 p_scanned_at 파라미터를
-//   받지 않아 현재 불가 — 재전송은 p_payload만 전송한다(만료/중복이 전송 시각 기준 판정됨). FLAG.
+// Phase 3.5: 재전송 시 적재 당시 scanned_at/device_id를 fn_kiosk_checkin(p_scanned_at,p_device_id)로
+//   그대로 넘겨 만료/중복을 스캔 시각 기준으로 소급 판정한다(resubmitPayload).
 import type { QrPayload } from './types';
 
 const DB_NAME = 'bcl-kiosk';

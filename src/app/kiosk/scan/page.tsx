@@ -9,9 +9,13 @@ import { Button, Input, useToast } from '@/components/ui';
 import { useKiosk } from '@/features/kiosk-shell';
 import {
   KIOSK_ERROR_MESSAGE,
+  lookupMembers,
   setSuccessResult,
+  submitManualCheckin,
   submitScan,
   useScanner,
+  type KioskCandidate,
+  type ScanOutcome,
 } from '@/features/kiosk-checkin';
 import styles from '../kiosk.module.css';
 
@@ -38,6 +42,30 @@ export default function KioskScanPage() {
     };
   }, [resetIdleTimer]);
 
+  // 결과 → success 전환 또는 오류 토스트 (스캔·수동 공통). 성공 계열이면 true
+  const applyOutcome = useCallback(
+    (outcome: ScanOutcome): boolean => {
+      if (outcome.kind === 'success') {
+        setSuccessResult({ kind: 'success', data: outcome.data });
+        router.push('/kiosk/success');
+        return true;
+      }
+      if (outcome.kind === 'duplicate') {
+        setSuccessResult({ kind: 'duplicate', data: outcome.data });
+        router.push('/kiosk/success');
+        return true;
+      }
+      if (outcome.kind === 'queued') {
+        setSuccessResult({ kind: 'queued' });
+        router.push('/kiosk/success');
+        return true;
+      }
+      toast.error(KIOSK_ERROR_MESSAGE[outcome.code]);
+      return false;
+    },
+    [router, toast],
+  );
+
   const handleRaw = useCallback(
     async (raw: string) => {
       if (processingRef.current) return; // 재진입 차단(디바운스와 별개)
@@ -50,23 +78,7 @@ export default function KioskScanPage() {
           facilityId: device?.facilityId ?? null,
           offline: !online,
         });
-        if (outcome.kind === 'success') {
-          setSuccessResult({ kind: 'success', data: outcome.data });
-          router.push('/kiosk/success');
-          return;
-        }
-        if (outcome.kind === 'duplicate') {
-          setSuccessResult({ kind: 'duplicate' });
-          router.push('/kiosk/success');
-          return;
-        }
-        if (outcome.kind === 'queued') {
-          setSuccessResult({ kind: 'queued' });
-          router.push('/kiosk/success');
-          return;
-        }
-        // error → 토스트 후 스캔 재개
-        toast.error(KIOSK_ERROR_MESSAGE[outcome.code]);
+        applyOutcome(outcome);
       } catch {
         toast.error(KIOSK_ERROR_MESSAGE.network_error);
       } finally {
@@ -77,7 +89,21 @@ export default function KioskScanPage() {
         }, 1500);
       }
     },
-    [device, online, resetIdleTimer, router, toast],
+    [applyOutcome, device, online, resetIdleTimer, toast],
+  );
+
+  // 수동 대체 체크인 — 후보(member_id) 선택 → 서버 위임(submitManualCheckin)
+  const handleManualCheckin = useCallback(
+    async (memberId: string) => {
+      resetIdleTimer();
+      const outcome = await submitManualCheckin(memberId, {
+        deviceId: device?.deviceId ?? null,
+        facilityId: device?.facilityId ?? null,
+        offline: !online,
+      });
+      applyOutcome(outcome);
+    },
+    [applyOutcome, device, online, resetIdleTimer],
   );
 
   const { videoRef, state, hasDecoder } = useScanner({
@@ -117,7 +143,12 @@ export default function KioskScanPage() {
           )}
         </div>
       ) : (
-        <ManualEntry onBack={() => setShowManual(false)} toastError={toast.error} />
+        <ManualEntry
+          facilityId={device?.facilityId ?? null}
+          onBack={() => setShowManual(false)}
+          onCheckin={handleManualCheckin}
+          toastError={toast.error}
+        />
       )}
 
       <div className={styles.scanFooter}>
@@ -133,10 +164,53 @@ export default function KioskScanPage() {
   );
 }
 
-// 수동 폴백 (docs/06 §3.2⑤) — 전화번호 뒤 4자리 후보 조회.
-// ※ 후보 조회 RPC(fn_kiosk_lookup_by_phone류) 미존재 — UI 셸만 제공하고 안내로 격하. FLAG.
-function ManualEntry({ onBack, toastError }: { onBack: () => void; toastError: (m: string) => void }) {
+// 수동 폴백 (docs/06 §3.2⑤) — 전화번호 뒤 4자리 → 마스킹 후보(fn_kiosk_lookup_member) → 데스크 지원 체크인.
+// 후보 선택 시 member_id를 서버(submitManualCheckin→fn_kiosk_checkin)에 위임한다(클라 멤버십 로직 없음).
+function ManualEntry({
+  facilityId,
+  onBack,
+  onCheckin,
+  toastError,
+}: {
+  facilityId: string | null;
+  onBack: () => void;
+  onCheckin: (memberId: string) => Promise<void>;
+  toastError: (m: string) => void;
+}) {
   const [digits, setDigits] = useState('');
+  const [candidates, setCandidates] = useState<KioskCandidate[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleLookup = useCallback(async () => {
+    if (digits.length !== 4) return;
+    setLoading(true);
+    try {
+      const found = await lookupMembers(facilityId, digits);
+      setCandidates(found);
+      if (found.length === 0) {
+        toastError('일치하는 회원이 없습니다. 데스크에 문의해주세요.');
+      }
+    } catch {
+      toastError(KIOSK_ERROR_MESSAGE.network_error);
+    } finally {
+      setLoading(false);
+    }
+  }, [digits, facilityId, toastError]);
+
+  const handleSelect = useCallback(
+    async (memberId: string) => {
+      if (submitting) return;
+      setSubmitting(true);
+      try {
+        await onCheckin(memberId);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [onCheckin, submitting],
+  );
+
   return (
     <div className={styles.manual}>
       <Input
@@ -144,17 +218,39 @@ function ManualEntry({ onBack, toastError }: { onBack: () => void; toastError: (
         inputMode="numeric"
         maxLength={4}
         value={digits}
-        onChange={(e) => setDigits(e.target.value.replace(/\D/g, '').slice(0, 4))}
+        onChange={(e) => {
+          setDigits(e.target.value.replace(/\D/g, '').slice(0, 4));
+          setCandidates(null);
+        }}
         placeholder="1234"
       />
       <Button
         variant="primary"
         block
-        disabled={digits.length !== 4}
-        onClick={() => toastError('수동 체크인은 데스크에 문의해주세요.')}
+        disabled={digits.length !== 4 || loading}
+        onClick={() => void handleLookup()}
       >
-        조회
+        {loading ? '조회 중…' : '조회'}
       </Button>
+
+      {candidates && candidates.length > 0 ? (
+        <ul className={styles.candidateList}>
+          {candidates.map((c) => (
+            <li key={c.member_id}>
+              <button
+                type="button"
+                className={styles.candidate}
+                disabled={submitting}
+                onClick={() => void handleSelect(c.member_id)}
+              >
+                <span className={styles.candidateName}>{c.masked_name}</span>
+                <span className={styles.candidatePhone}>···{c.phone_tail}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
       <Button variant="ghost" size="sm" onClick={onBack}>
         뒤로
       </Button>

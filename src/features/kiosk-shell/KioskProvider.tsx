@@ -90,7 +90,7 @@ export function KioskProvider({ children }: { children: ReactNode }) {
         const items = await readQueue();
         for (const item of items) {
           if (item.id === undefined) continue;
-          const outcome = await resubmitPayload(item.payload);
+          const outcome = await resubmitPayload(item);
           // 성공·중복·도메인 거절 = 처리 완료로 간주하고 큐에서 제거(네트워크 오류만 보존)
           if (outcome.kind !== 'error' || outcome.code !== 'network_error') {
             await removeFromQueue(item.id);

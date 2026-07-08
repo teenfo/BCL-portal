@@ -1,7 +1,7 @@
 'use client';
 
 // /kiosk/success — 완료 화면 (docs/06 §3.3)
-// 회원명·인사 + 분기 결과(수업 vs 시설) + plan_kind 라벨. 5초 후 idle 자동 복귀.
+// 회원명·인사 + 분기 결과(수업 vs 시설) + 잔여 횟수/만료 D-day. 5초 후 idle 자동 복귀.
 // RPC 응답 data만 사용(추가 조회 없음). result-store에서 1회성 소비.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +16,44 @@ const PLAN_LABEL: Record<string, string> = {
   drop_in: '드롭인',
   trial: '체험',
 };
+
+/** ISO 시각 → HH:MM (표시용) */
+function formatTime(iso: string): string {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '';
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+}
+
+/** 만료 D-day 라벨 — 0=당일, 양수=남은 일수 */
+function ddayLabel(d: number): string {
+  return d <= 0 ? '만료 D-DAY' : `만료 D-${d}`;
+}
+
+/** 잔여 횟수/만료 D-day 칩 행 (성공·중복 공통) */
+function MembershipMeta({
+  planLabel,
+  remainingCredits,
+  membershipDday,
+}: {
+  planLabel?: string;
+  remainingCredits: number | null;
+  membershipDday: number | null;
+}) {
+  const chips: string[] = [];
+  if (planLabel) chips.push(planLabel);
+  if (remainingCredits != null) chips.push(`잔여 ${remainingCredits}회`);
+  if (membershipDday != null) chips.push(ddayLabel(membershipDday));
+  if (chips.length === 0) return null;
+  return (
+    <div className={styles.successMeta}>
+      {chips.map((c) => (
+        <span key={c} className={styles.successChip}>
+          {c}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function KioskSuccessPage() {
   const router = useRouter();
@@ -45,16 +83,24 @@ export default function KioskSuccessPage() {
   }
 
   if (result.kind === 'duplicate') {
+    const dup = result.data;
+    const at = formatTime(dup.checkin_time);
     return (
-      <ResultShell tone="info" title="이미 체크인되었습니다" subtitle="">
-        <p className={styles.successNote}>조금 전 체크인이 완료되어 있습니다.</p>
+      <ResultShell tone="info" title={`${dup.member_name}님`} subtitle="이미 체크인됨">
+        <p className={styles.successNote}>
+          {at ? `오늘 ${at}에 체크인이 완료되어 있습니다.` : '조금 전 체크인이 완료되어 있습니다.'}
+        </p>
+        <MembershipMeta
+          remainingCredits={dup.remaining_credits}
+          membershipDday={dup.membership_dday}
+        />
       </ResultShell>
     );
   }
 
   const data: KioskCheckinData = result.data;
   const isSession = data.linked_booking && !!data.session_title;
-  const planLabel = PLAN_LABEL[data.membership_plan_kind] ?? data.membership_plan_name ?? '';
+  const planLabel = PLAN_LABEL[data.membership_plan_kind] ?? data.membership_plan_name ?? undefined;
 
   return (
     <ResultShell tone="success" title={`${data.member_name}님`} subtitle="체크인 완료">
@@ -69,7 +115,11 @@ export default function KioskSuccessPage() {
           <span className={styles.successSession}>자유 이용</span>
         </div>
       )}
-      {planLabel ? <p className={styles.successNote}>{planLabel}</p> : null}
+      <MembershipMeta
+        planLabel={planLabel}
+        remainingCredits={data.remaining_credits}
+        membershipDday={data.membership_dday}
+      />
     </ResultShell>
   );
 }

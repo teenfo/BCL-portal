@@ -1,5 +1,5 @@
 // 키오스크 체크인 프로토콜 배럴 (docs/06 §4·§5·§7)
-export { submitScan, resubmitPayload } from './checkin';
+export { submitScan, resubmitPayload, submitManualCheckin, lookupMembers } from './checkin';
 export { parsePayload, isExpired, isFacilityMismatch } from './payload';
 export { useScanner } from './useScanner';
 export type { CameraState } from './useScanner';
@@ -10,6 +10,8 @@ export {
   KIOSK_ERROR_MESSAGE,
   type QrPayload,
   type KioskCheckinData,
+  type KioskDuplicateData,
+  type KioskCandidate,
   type KioskErrorCode,
   type ScanOutcome,
 } from './types';
