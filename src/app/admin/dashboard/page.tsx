@@ -1,30 +1,9 @@
 'use client';
 
-// /admin/dashboard — Phase 1 스텁 (역할별 리다이렉트 검증용 최소 셸)
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/features/auth';
-import { Button, Card } from '@/components/ui';
-import styles from '../../_shared/dashboard.module.css';
+// /admin/dashboard — 운영 홈 (02-admin §3.1). 화면 본문은 features/dashboard.
+// 진입 가드·권한 컨텍스트는 admin/layout(AuthGuard+PermissionsProvider)에서 처리됨.
+import { DashboardScreen } from '@/features/dashboard/DashboardScreen';
 
 export default function AdminDashboardPage() {
-  const router = useRouter();
-  const { profile } = useAuth();
-  const role = (profile as { role?: string } | null)?.role ?? '—';
-
-  // Phase 2 기반 스텁 — 실제 KPI 대시보드는 screen 단계에서 교체 (셸의 <main> 내부이므로 div)
-  return (
-    <div className={styles.page}>
-      <Card
-        title="관리자 대시보드"
-        action={
-          <Button variant="ghost" size="sm" onClick={() => router.replace('/auth/logout')}>
-            로그아웃
-          </Button>
-        }
-      >
-        <p className={styles.welcome}>환영합니다. BCL Portal 관리자 화면입니다.</p>
-        <p className={styles.meta}>현재 역할: {role}</p>
-      </Card>
-    </div>
-  );
+  return <DashboardScreen />;
 }

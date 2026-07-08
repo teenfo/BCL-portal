@@ -1,0 +1,127 @@
+/* Admin 대시보드 — 토큰만 사용 (docs/12 §2, 02-admin §3.1) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-6);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-weight: 600;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--bcl-space-4);
+}
+
+.urgentGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--bcl-space-4);
+}
+
+/* 긴급 위젯 카드 내부 */
+.urgentBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+}
+
+.urgentValue {
+  font-size: calc(28px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.urgentValueAlert {
+  color: var(--bcl-warning);
+}
+
+/* 매출 구성 막대 */
+.barList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.barRow {
+  display: grid;
+  grid-template-columns: 96px 1fr auto;
+  align-items: center;
+  gap: var(--bcl-space-3);
+}
+
+.barLabel {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.barTrack {
+  height: 10px;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent-soft);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent);
+}
+
+.barValue {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.revStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--bcl-space-4);
+  margin-bottom: var(--bcl-space-5);
+}
+
+.quickActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-3);
+}
