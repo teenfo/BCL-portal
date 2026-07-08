@@ -82,9 +82,9 @@ test.describe('auth.smoke', () => {
 
   test('S8 로그인 실패 표면화 — 무한 스피너 금지 (F-5 회귀 감지선)', async ({ page }) => {
     await login(page, 'member@bcl.com', 'wrong-password');
-    // 3초 내 에러 메시지 렌더 + 스피너 해소
-    await expect(page.getByRole('alert').or(page.getByText(/실패|올바르지|잘못|invalid/i)).first()).toBeVisible({
-      timeout: 3_000,
-    });
+    // 3초 내 자격 증명 오류 메시지 렌더 — 네트워크 오류("Failed to fetch")는 통과로 치지 않는다
+    const alert = page.getByRole('alert').first();
+    await expect(alert).toBeVisible({ timeout: 3_000 });
+    await expect(alert).toHaveText(/invalid|올바르지|로그인에 실패|rate limit/i);
   });
 });
