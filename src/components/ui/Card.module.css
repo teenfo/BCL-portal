@@ -1,0 +1,43 @@
+/* Card — docs/12 §4.2. header(제목 h3+우측 액션) / body / footer 슬롯 */
+
+.card {
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: var(--bcl-pad-card);
+  color: var(--bcl-text);
+}
+
+.raised {
+  background: var(--bcl-surface-raised);
+  border-color: transparent;
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: var(--bcl-shadow-md);
+}
+
+.accent {
+  border-left: 3px solid var(--bcl-accent);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  margin-bottom: var(--bcl-space-4);
+}
+
+.title {
+  /* type-h3 17/24 600 (docs/12 §2.4) */
+  margin: 0;
+  font-size: calc(17px * var(--bcl-font-scale));
+  line-height: calc(24 / 17);
+  font-weight: 600;
+}
+
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--bcl-space-2);
+  margin-top: var(--bcl-space-4);
+}

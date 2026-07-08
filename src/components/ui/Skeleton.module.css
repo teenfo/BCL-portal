@@ -1,0 +1,37 @@
+/* Skeleton — docs/12 §4.11. surface-raised 배경 + 1.4s 셔머
+ * 소비처 규약: 표시 4s 초과 시 반드시 에러 상태로 전이 (F-5 — 타임아웃 없는 스켈레톤 금지) */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--bcl-surface-raised);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--bcl-border), transparent);
+  animation: bcl-skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes bcl-skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.text {
+  height: calc(15px * var(--bcl-font-scale));
+  width: 100%;
+  border-radius: var(--bcl-radius-sm);
+}
+
+.rect {
+  border-radius: var(--bcl-radius-md);
+}
+
+.circle {
+  border-radius: 999px;
+}
