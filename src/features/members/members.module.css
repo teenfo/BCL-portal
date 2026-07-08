@@ -1,0 +1,128 @@
+/* Admin 회원 목록 — 토큰만 사용 (02-admin §3.2) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: var(--bcl-space-1) 0 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 240px;
+}
+
+.filter {
+  min-width: 160px;
+}
+
+/* 승인 대기 섹션 */
+.pendingList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.pendingItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  flex-wrap: wrap;
+}
+
+.pendingInfo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+
+.pendingName {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  font-weight: 600;
+}
+
+.pendingMeta {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.pendingBadges {
+  display: flex;
+  gap: var(--bcl-space-2);
+  align-items: center;
+}
+
+.pendingActions {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+
+/* 테이블 셀 */
+.cellStack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cellSub {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.badgeRow {
+  display: flex;
+  gap: var(--bcl-space-1);
+  flex-wrap: wrap;
+}
+
+/* 등록 모달 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.errorText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
