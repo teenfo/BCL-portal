@@ -1,0 +1,24 @@
+/* 대시보드 스텁 공용 셸 — 리다이렉트 검증용 최소 스타일 (토큰만) */
+
+.page {
+  min-height: 100dvh;
+  padding: var(--bcl-pad-page);
+  background: var(--bcl-bg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.welcome {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  color: var(--bcl-text);
+}
+
+.meta {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}

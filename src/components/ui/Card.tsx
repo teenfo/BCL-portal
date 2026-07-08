@@ -7,7 +7,7 @@ import styles from './Card.module.css';
 
 export type CardVariant = 'default' | 'raised' | 'accent';
 
-export interface CardProps extends HTMLAttributes<HTMLElement> {
+export interface CardProps extends Omit<HTMLAttributes<HTMLElement>, 'title'> {
   variant?: CardVariant;
   /** header 슬롯 — 카드 제목 (h3) */
   title?: ReactNode;

@@ -26,45 +26,53 @@ export interface TextareaProps
   multiline: true;
 }
 
+const OWN_PROPS = ['label', 'error', 'helper', 'passwordToggle', 'multiline', 'id'] as const;
+
+function fieldProps(props: InputProps | TextareaProps): Record<string, unknown> {
+  const rest = { ...props } as Record<string, unknown>;
+  for (const key of OWN_PROPS) delete rest[key];
+  return rest;
+}
+
 export function Input(props: InputProps | TextareaProps) {
   const autoId = useId();
   const [revealed, setRevealed] = useState(false);
 
-  const { label, error, helper, passwordToggle = true, ...restAll } = props;
+  const { label, error, helper } = props;
   const id = props.id ?? autoId;
   const describedBy = error ? `${id}-error` : helper ? `${id}-helper` : undefined;
 
-  if ('multiline' in props && props.multiline) {
-    const { multiline: _m, id: _id, ...rest } = restAll as TextareaProps & { multiline?: true };
+  const meta = error ? (
+    <p className={styles.error} id={`${id}-error`} role="alert">
+      {error}
+    </p>
+  ) : helper ? (
+    <p className={styles.helper} id={`${id}-helper`}>
+      {helper}
+    </p>
+  ) : null;
+
+  if (props.multiline) {
     return (
       <div className={styles.root}>
         <label className={styles.label} htmlFor={id}>
           {label}
         </label>
         <textarea
-          {...rest}
+          {...(fieldProps(props) as TextareaHTMLAttributes<HTMLTextAreaElement>)}
           id={id}
           className={`${styles.field} ${styles.textarea}`}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
         />
-        {error ? (
-          <p className={styles.error} id={`${id}-error`} role="alert">
-            {error}
-          </p>
-        ) : helper ? (
-          <p className={styles.helper} id={`${id}-helper`}>
-            {helper}
-          </p>
-        ) : null}
+        {meta}
       </div>
     );
   }
 
-  const { multiline: _m, id: _id, type, ...rest } = restAll as InputProps & { multiline?: false };
-  const isPassword = type === 'password';
-  const withToggle = isPassword && passwordToggle;
-  const resolvedType = withToggle && revealed ? 'text' : type;
+  const isPassword = props.type === 'password';
+  const withToggle = isPassword && props.passwordToggle !== false;
+  const resolvedType = withToggle && revealed ? 'text' : props.type;
 
   return (
     <div className={styles.root}>
@@ -73,7 +81,7 @@ export function Input(props: InputProps | TextareaProps) {
       </label>
       <div className={styles.fieldWrap}>
         <input
-          {...rest}
+          {...(fieldProps(props) as InputHTMLAttributes<HTMLInputElement>)}
           id={id}
           type={resolvedType}
           className={`${styles.field}${withToggle ? ` ${styles.hasToggle}` : ''}`}
@@ -92,15 +100,7 @@ export function Input(props: InputProps | TextareaProps) {
           </button>
         ) : null}
       </div>
-      {error ? (
-        <p className={styles.error} id={`${id}-error`} role="alert">
-          {error}
-        </p>
-      ) : helper ? (
-        <p className={styles.helper} id={`${id}-helper`}>
-          {helper}
-        </p>
-      ) : null}
+      {meta}
     </div>
   );
 }
