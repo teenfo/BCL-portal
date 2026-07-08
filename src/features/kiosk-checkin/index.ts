@@ -1,0 +1,15 @@
+// 키오스크 체크인 프로토콜 배럴 (docs/06 §4·§5·§7)
+export { submitScan, resubmitPayload } from './checkin';
+export { parsePayload, isExpired, isFacilityMismatch } from './payload';
+export { useScanner } from './useScanner';
+export type { CameraState } from './useScanner';
+export { queueSize } from './offline-queue';
+export { setSuccessResult, takeSuccessResult } from './result-store';
+export type { SuccessResult } from './result-store';
+export {
+  KIOSK_ERROR_MESSAGE,
+  type QrPayload,
+  type KioskCheckinData,
+  type KioskErrorCode,
+  type ScanOutcome,
+} from './types';
