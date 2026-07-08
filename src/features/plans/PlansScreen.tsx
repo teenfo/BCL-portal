@@ -1,7 +1,8 @@
 'use client';
 
 // /admin/plans — 요금제 목록 + 편집 (02-admin §3.5)
-// 목록 Table + 필터(plan_kind·판매상태) + 편집 모달 + 파괴적 삭제(활성 구독 있으면 차단).
+// 목록 Table + 필터(plan_kind·판매상태) + 편집 모달 + 보관(숨김) (활성 구독 있으면 서버가 차단).
+// 보관은 물리 삭제가 아니라 fn_archive_membership_plan(is_active=false) — 감사 동반.
 import { useMemo, useState } from 'react';
 import {
   Card,
@@ -15,7 +16,7 @@ import {
 import type { TableColumn } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { PlanEditModal } from './PlanEditModal';
 import {
@@ -44,8 +45,8 @@ export function PlansScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<MembershipPlan | null>(null);
-  const [deleting, setDeleting] = useState<MembershipPlan | null>(null);
-  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [archiving, setArchiving] = useState<MembershipPlan | null>(null);
+  const [archiveBusy, setArchiveBusy] = useState(false);
 
   const plans = useQuery<MembershipPlan[]>(
     () =>
@@ -94,19 +95,25 @@ export function PlansScreen() {
     setEditOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!deleting) return;
-    setDeleteBusy(true);
-    const res = await query(getSupabaseBrowserClient(), 'membership_plans', (q) =>
-      q.delete().eq('id', deleting.id),
-    );
-    setDeleteBusy(false);
+  const confirmArchive = async () => {
+    if (!archiving) return;
+    setArchiveBusy(true);
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_archive_membership_plan', {
+      p_plan_id: archiving.id,
+    });
+    setArchiveBusy(false);
     if (!res.success) {
-      toast.error(res.error ?? '삭제에 실패했습니다.');
+      toast.error(
+        res.error === 'has_active_subscriptions'
+          ? '활성 구독이 있어 보관할 수 없습니다'
+          : res.error === 'forbidden'
+            ? '권한이 없습니다.'
+            : res.error ?? '보관에 실패했습니다.',
+      );
       return;
     }
-    toast.success('요금제를 삭제했습니다.');
-    setDeleting(null);
+    toast.success('요금제를 보관(숨김) 처리했습니다.');
+    setArchiving(null);
     reload();
   };
 
@@ -160,10 +167,10 @@ export function PlansScreen() {
                 variant="ghost"
                 size="sm"
                 disabled={activeSubs > 0}
-                title={activeSubs > 0 ? '활성 구독이 있어 삭제할 수 없습니다 (숨김만 가능)' : undefined}
-                onClick={() => setDeleting(p)}
+                title={activeSubs > 0 ? '활성 구독이 있어 보관할 수 없습니다' : undefined}
+                onClick={() => setArchiving(p)}
               >
-                삭제
+                보관
               </Button>
             ) : null}
           </div>
@@ -247,18 +254,19 @@ export function PlansScreen() {
       ) : null}
 
       <ConfirmModal
-        open={deleting != null}
-        title="요금제 삭제"
+        open={archiving != null}
+        title="요금제 보관(숨김)"
         message={
           <>
-            <strong>{deleting?.name}</strong> 요금제를 삭제합니다. 되돌릴 수 없습니다.
+            <strong>{archiving?.name}</strong> 요금제를 보관 처리합니다. 판매 목록에서 숨겨지며,
+            기존 판매분은 유지됩니다. (물리 삭제 아님)
           </>
         }
-        confirmLabel="삭제"
+        confirmLabel="보관"
         variant="danger"
-        loading={deleteBusy}
-        onConfirm={confirmDelete}
-        onClose={() => setDeleting(null)}
+        loading={archiveBusy}
+        onConfirm={confirmArchive}
+        onClose={() => setArchiving(null)}
       />
     </div>
   );

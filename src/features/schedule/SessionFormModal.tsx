@@ -1,15 +1,15 @@
 'use client';
 
 // 세션 생성/편집 모달 (02-admin §3.6 캘린더)
-// sessions / session_coaches 직접 쓰기 — admin RLS FOR ALL(단일 도메인), query() 경유.
-// ⏳ audit_logs 클라 INSERT 생략: audit_logs는 RLS로 서버(SECURITY DEFINER)만 INSERT 가능 →
-//    감사 동반 세션 CRUD는 fn 신설 후 이관(범위 외).
+// 쓰기 경로: fn_upsert_session(p_payload) 단일 원자 호출 — sessions upsert + session_coaches 원자 교체 + audit.
+//   (직접 sessions INSERT/UPDATE·session_coaches delete-all→insert 비원자 경로 제거)
+// 주 단위 반복 생성 = 세션별 fn_upsert_session 반복 호출(각각 원자).
+// C-1(§3.6): 편집·시간(date/start/end) 변경·활성 예약(confirmed+waitlisted)>0이면 저장 전 ConfirmModal 경유.
 // ⏳ DnD 생성/이동은 과설계 위험 → 본 Modal 폼으로 대체(주 단위 반복 옵션 제공).
-// 시간 이동(예약자 존재) 파괴적 확인은 부모(SessionPanel)에서 gate.
 import { useEffect, useMemo, useState } from 'react';
-import { Modal, Button, Input, Select, Checkbox, Card } from '@/components/ui';
+import { Modal, Button, Input, Select, Checkbox, Card, ConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { AssignmentRole, CoachOption, ScheduleSession } from './types';
 import styles from './schedule.module.css';
@@ -57,6 +57,8 @@ export function SessionFormModal({ open, session, defaultDate, coaches, onClose,
   const [weeks, setWeeks] = useState('4');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [checking, setChecking] = useState(false); // C-1 영향 인원 조회 중
+  const [moveConfirm, setMoveConfirm] = useState<number | null>(null); // C-1 확인 대기(영향 인원)
 
   // 시설 목록 — 신규 세션의 facility_id 필수(NOT NULL). 편집은 기존 값 유지.
   const [facilities, setFacilities] = useState<FacilityRow[]>([]);
@@ -118,23 +120,86 @@ export function SessionFormModal({ open, session, defaultDate, coaches, onClose,
     return out;
   };
 
-  const writeCoaches = async (sessionId: string) => {
-    const client = getSupabaseBrowserClient();
-    // 편집: 기존 배정 초기화 후 재삽입 (admin RLS FOR ALL)
-    if (isEdit) {
-      await query(client, 'session_coaches', (q) => q.delete().eq('session_id', sessionId));
-    }
-    const rows = assigns
+  // payload.coaches — 행 순서 = display_order (fn_upsert_session이 delete-all→insert 원자 교체)
+  const coachesPayload = () =>
+    assigns
       .filter((a) => a.coach_id)
-      .map((a, idx) => ({
-        session_id: sessionId,
-        coach_id: a.coach_id,
-        assignment_role: a.role,
-        display_order: idx,
-      }));
-    if (rows.length > 0) {
-      await query(client, 'session_coaches', (q) => q.insert(rows));
+      .map((a, idx) => ({ coach_id: a.coach_id, assignment_role: a.role, display_order: idx }));
+
+  // 편집 시 시간(일자/시작/종료) 변경 여부 — C-1 게이트 판단
+  const timeChanged =
+    isEdit &&
+    session != null &&
+    (date !== session.session_date ||
+      startTime !== session.start_time.slice(0, 5) ||
+      endTime !== session.end_time.slice(0, 5));
+
+  // 실제 저장 — fn_upsert_session 단일 원자 호출(신규는 반복 주 수만큼 반복)
+  const performSave = async () => {
+    setSaving(true);
+    setError(null);
+    const client = getSupabaseBrowserClient();
+    const coaches = coachesPayload();
+
+    if (isEdit && session) {
+      const res = await rpc<{ session_id: string; time_changed?: boolean; affected_count?: number }>(
+        client,
+        'fn_upsert_session',
+        {
+          p_payload: {
+            id: session.id,
+            title: title.trim(),
+            session_date: date,
+            start_time: `${startTime}:00`,
+            end_time: `${endTime}:00`,
+            capacity: Number(capacity),
+            coaches,
+          },
+        },
+      );
+      if (!res.success || !res.data) {
+        setSaving(false);
+        setError(res.error ?? '저장에 실패했습니다.');
+        return;
+      }
+      setSaving(false);
+      const affected = res.data.affected_count ?? 0;
+      toast.success(
+        res.data.time_changed && affected > 0
+          ? `세션을 수정했습니다. 예약자 ${affected}명이 영향을 받았습니다.`
+          : '세션을 수정했습니다.',
+      );
+      onSaved();
+      return;
     }
+
+    // 신규 — 반복이면 다건(각 세션별 원자 호출)
+    const dates = buildDates();
+    let created = 0;
+    for (const d of dates) {
+      const res = await rpc<{ session_id: string }>(client, 'fn_upsert_session', {
+        p_payload: {
+          facility_id: facilityId,
+          title: title.trim(),
+          session_date: d,
+          start_time: `${startTime}:00`,
+          end_time: `${endTime}:00`,
+          capacity: Number(capacity),
+          status: 'scheduled',
+          coaches,
+        },
+      });
+      if (!res.success) {
+        setSaving(false);
+        setError(res.error ?? '세션 생성에 실패했습니다.');
+        if (created > 0) onSaved(); // 부분 생성분 반영
+        return;
+      }
+      created += 1;
+    }
+    setSaving(false);
+    toast.success(created > 1 ? `${created}개 세션을 생성했습니다.` : '세션을 생성했습니다.');
+    onSaved();
   };
 
   const doSave = async () => {
@@ -143,65 +208,29 @@ export function SessionFormModal({ open, session, defaultDate, coaches, onClose,
       setError(v);
       return;
     }
-    setSaving(true);
-    setError(null);
-    const client = getSupabaseBrowserClient();
-
-    if (isEdit && session) {
-      const res = await query<ScheduleSession>(client, 'sessions', (q) =>
-        q
-          .update({
-            title: title.trim(),
-            session_date: date,
-            start_time: `${startTime}:00`,
-            end_time: `${endTime}:00`,
-            capacity: Number(capacity),
-          })
-          .eq('id', session.id)
-          .select()
-          .single(),
+    // C-1 — 편집·시간 이동·활성 예약>0이면 저장 전 확인(confirm 없이 저장 금지)
+    if (timeChanged && session) {
+      setChecking(true);
+      setError(null);
+      const res = await query<{ id: string }[]>(getSupabaseBrowserClient(), 'bookings', (q) =>
+        q.select('id').eq('session_id', session.id).in('status', ['confirmed', 'waitlisted']),
       );
+      setChecking(false);
       if (!res.success) {
-        setSaving(false);
-        setError(res.error ?? '저장에 실패했습니다.');
+        setError(res.error ?? '예약 현황을 확인하지 못했습니다.');
         return;
       }
-      await writeCoaches(session.id);
-      setSaving(false);
-      toast.success('세션을 수정했습니다.');
-      onSaved();
-      return;
+      const affected = res.data?.length ?? 0;
+      if (affected > 0) {
+        setMoveConfirm(affected);
+        return;
+      }
     }
-
-    // 신규 — 반복이면 다건 생성
-    const dates = buildDates();
-    const payload = dates.map((d) => ({
-      facility_id: facilityId,
-      title: title.trim(),
-      session_date: d,
-      start_time: `${startTime}:00`,
-      end_time: `${endTime}:00`,
-      capacity: Number(capacity),
-      status: 'scheduled',
-    }));
-    const res = await query<{ id: string }[]>(client, 'sessions', (q) =>
-      q.insert(payload).select('id'),
-    );
-    if (!res.success || !res.data) {
-      setSaving(false);
-      setError(res.error ?? '세션 생성에 실패했습니다.');
-      return;
-    }
-    // 각 세션에 동일 코치 배정
-    for (const row of res.data) {
-      await writeCoaches(row.id);
-    }
-    setSaving(false);
-    toast.success(dates.length > 1 ? `${dates.length}개 세션을 생성했습니다.` : '세션을 생성했습니다.');
-    onSaved();
+    await performSave();
   };
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -209,10 +238,10 @@ export function SessionFormModal({ open, session, defaultDate, coaches, onClose,
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>
+          <Button variant="ghost" onClick={onClose} disabled={saving || checking}>
             취소
           </Button>
-          <Button variant="primary" onClick={doSave} loading={saving}>
+          <Button variant="primary" onClick={doSave} loading={saving || checking}>
             저장
           </Button>
         </>
@@ -316,5 +345,25 @@ export function SessionFormModal({ open, session, defaultDate, coaches, onClose,
         ) : null}
       </div>
     </Modal>
+
+    {/* C-1 — 예약자 있는 세션의 시간 변경 확인(경유 없이는 저장 안 됨) */}
+    <ConfirmModal
+      open={moveConfirm != null}
+      title="세션 시간 변경"
+      message={
+        <>
+          확정·대기 <strong>{moveConfirm}명</strong>이 영향을 받습니다. 세션 시간을 변경하시겠습니까?
+        </>
+      }
+      confirmLabel="시간 변경"
+      variant="danger"
+      loading={saving}
+      onConfirm={() => {
+        setMoveConfirm(null);
+        void performSave();
+      }}
+      onClose={() => setMoveConfirm(null)}
+    />
+    </>
   );
 }

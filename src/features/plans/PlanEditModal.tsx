@@ -1,17 +1,21 @@
 'use client';
 
 // 요금제 생성/편집 모달 (02-admin §3.5)
-// membership_plans 직접 쓰기(admin RLS FOR ALL) — query() 경유.
-// ⏳ audit_logs 적재: audit_logs는 서버(SECURITY DEFINER)만 INSERT 가능(RLS INSERT 정책 부재) →
-//    클라이언트 직접 감사 기록 불가. 감사 동반 쓰기는 fn_upsert_membership_plan RPC 신설 시 이관(범위 외).
+// 생성/수정은 fn_upsert_membership_plan(p_payload) RPC 경유 — 감사(audit_logs) 동반 원자 처리.
 // 가격 변경 시 "신규 판매분부터 적용" 인라인 확인 단계(스냅샷 원칙).
 import { useState } from 'react';
 import { Modal, Button, Input, Select, Card, Checkbox } from '@/components/ui';
 import { useToast } from '@/components/ui';
-import { query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { MembershipPlan, PlanType, PlanKind, RefundTier } from './types';
 import styles from './plans.module.css';
+
+// fn_upsert_membership_plan 서버 error 코드 → 한글 메시지
+const PLAN_SAVE_ERROR: Record<string, string> = {
+  forbidden: '권한이 없습니다.',
+  plan_not_found: '요금제를 찾을 수 없습니다.',
+};
 
 interface Props {
   open: boolean;
@@ -108,7 +112,9 @@ export function PlanEditModal({ open, plan, onClose, onSaved }: Props) {
 
   const doSave = async () => {
     const client = getSupabaseBrowserClient();
+    // id를 함께 담아 upsert RPC로 위임 (있으면 update, 없으면 insert). 감사 기록은 서버에서 동반.
     const payload = {
+      ...(plan ? { id: plan.id } : {}),
       name: form.name.trim(),
       type: form.type,
       plan_kind: form.plan_kind,
@@ -128,16 +134,14 @@ export function PlanEditModal({ open, plan, onClose, onSaved }: Props) {
     };
     setSaving(true);
     setError(null);
-    const res = plan
-      ? await query<MembershipPlan>(client, 'membership_plans', (q) =>
-          q.update(payload).eq('id', plan.id).select().single(),
-        )
-      : await query<MembershipPlan>(client, 'membership_plans', (q) =>
-          q.insert(payload).select().single(),
-        );
+    const res = await rpc<{ plan_id: string; created: boolean }>(
+      client,
+      'fn_upsert_membership_plan',
+      { p_payload: payload },
+    );
     setSaving(false);
     if (!res.success) {
-      setError(res.error ?? '저장에 실패했습니다.');
+      setError(PLAN_SAVE_ERROR[res.error ?? ''] ?? res.error ?? '저장에 실패했습니다.');
       return;
     }
     toast.success(plan ? '요금제를 수정했습니다.' : '요금제를 생성했습니다.');

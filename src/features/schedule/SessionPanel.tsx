@@ -79,11 +79,12 @@ export function SessionPanel({ session, coaches, canEdit, canDelete, onClose, on
     [session.session_coaches],
   );
 
+  // 세션 상태 변경 — fn_upsert_session(status만 payload)로 이관(audit 확보)
   const changeStatus = async (next: string) => {
     setBusy(true);
-    const res = await query(getSupabaseBrowserClient(), 'sessions', (q) =>
-      q.update({ status: next }).eq('id', session.id),
-    );
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_upsert_session', {
+      p_payload: { id: session.id, status: next },
+    });
     setBusy(false);
     if (!res.success) {
       toast.error(res.error ?? '상태 변경에 실패했습니다.');
@@ -93,34 +94,33 @@ export function SessionPanel({ session, coaches, canEdit, canDelete, onClose, on
     onChanged();
   };
 
-  // 세션 취소 — 예약자 전원 크레딧 복구(fn_cancel_booking_with_credit 반복) 후 status=cancelled
+  // 세션 취소 — fn_cancel_session 단일 원자 호출(크레딧 복구 + bookings/sessions cancelled + audit)
   const cancelSession = async () => {
     setBusy(true);
-    const client = getSupabaseBrowserClient();
-    const list = bookings.data ?? [];
-    let restored = 0;
-    for (const b of list) {
-      const res = await rpc<{ credit_refunded: boolean }>(client, 'fn_cancel_booking_with_credit', {
-        p_booking_id: b.id,
-        p_reason: '세션 취소',
-      });
-      if (res.success && res.data?.credit_refunded) restored += 1;
-    }
-    const res = await query(client, 'sessions', (q) =>
-      q.update({ status: 'cancelled' }).eq('id', session.id),
-    );
+    const res = await rpc<{
+      refunded_count: number;
+      credit_restored_count: number;
+      cancelled_booking_count: number;
+    }>(getSupabaseBrowserClient(), 'fn_cancel_session', {
+      p_session_id: session.id,
+      p_reason: '세션 취소',
+    });
     setBusy(false);
     if (!res.success) {
       toast.error(res.error ?? '세션 취소에 실패했습니다.');
       return;
     }
-    toast.success(`세션을 취소했습니다. (크레딧 복구 ${restored}건)`);
+    const cancelled = res.data?.cancelled_booking_count ?? 0;
+    const restored = res.data?.credit_restored_count ?? 0;
+    toast.success(`세션을 취소했습니다. (예약 ${cancelled}건 취소 · 크레딧 복구 ${restored}건)`);
     setCancelOpen(false);
     onChanged();
     onClose();
   };
 
   // 세션 삭제 — 예약자 존재 시 차단(버튼 비활성). 예약 0건일 때만.
+  // ⏳ 삭제는 sessions 직접 DELETE 유지(fn_upsert_session에 삭제 분기 없음, 비파괴 대안=취소).
+  //    예약자 있는 세션은 삭제 대신 "세션 취소"가 기본 경로.
   const deleteSession = async () => {
     setBusy(true);
     const res = await query(getSupabaseBrowserClient(), 'sessions', (q) =>

@@ -183,6 +183,10 @@ export const RPC_ERROR_LABEL: Record<string, string> = {
   source_not_transferable: '양도할 수 없는 멤버십입니다 (활성/홀딩만 가능).',
   same_member: '동일 회원에게는 양도할 수 없습니다.',
   missing_required_fields: '필수 항목이 누락되었습니다.',
+  // 가입 승인/거부 (fn_admin_review_signup)
+  not_pending: '이미 처리된 가입 신청입니다.',
+  invalid_decision: '잘못된 승인/거부 요청입니다.',
+  user_not_found: '사용자를 찾을 수 없습니다.',
 };
 
 export function rpcError(code: string | null): string {

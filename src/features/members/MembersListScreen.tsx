@@ -20,7 +20,7 @@ import {
 import type { TableColumn } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { MemberRegisterModal } from './MemberRegisterModal';
 import {
@@ -30,6 +30,7 @@ import {
   MEMBERSHIP_STATUS_LABEL,
   daysUntil,
   primaryMembership,
+  rpcError,
 } from './types';
 import styles from './members.module.css';
 
@@ -159,14 +160,13 @@ export function MembersListScreen() {
   // ── 승인 처리 ──
   const doApprove = async (p: PendingProfile) => {
     setApproveBusy(true);
-    const res = await query(client, 'profiles', (q) =>
-      q
-        .update({ approval_status: 'approved', approved_at: new Date().toISOString() })
-        .eq('id', p.id),
-    );
+    const res = await rpc(client, 'fn_admin_review_signup', {
+      p_user_id: p.id,
+      p_decision: 'approved',
+    });
     setApproveBusy(false);
     if (!res.success) {
-      toast.error(res.error ?? '승인에 실패했습니다.');
+      toast.error(rpcError(res.error));
       return;
     }
     toast.success(`${p.name ?? p.email ?? '회원'} 가입을 승인했습니다.`);
@@ -189,14 +189,14 @@ export function MembersListScreen() {
     if (!rejecting) return;
     if (!rejectReason.trim()) return;
     setRejectBusy(true);
-    const res = await query(client, 'profiles', (q) =>
-      q
-        .update({ approval_status: 'rejected', rejected_reason: rejectReason.trim() })
-        .eq('id', rejecting.id),
-    );
+    const res = await rpc(client, 'fn_admin_review_signup', {
+      p_user_id: rejecting.id,
+      p_decision: 'rejected',
+      p_reason: rejectReason.trim(),
+    });
     setRejectBusy(false);
     if (!res.success) {
-      toast.error(res.error ?? '거부 처리에 실패했습니다.');
+      toast.error(rpcError(res.error));
       return;
     }
     toast.success('가입을 거부했습니다.');

@@ -125,17 +125,14 @@ export function OverviewTab({ memberId, member, loading, onMemberChanged }: Prop
     const turningOn = !member.is_blacklisted;
     if (turningOn && !blReason.trim()) return;
     setBlBusy(true);
-    const res = await query(client, 'members', (q) =>
-      q
-        .update({
-          is_blacklisted: turningOn,
-          blacklist_reason: turningOn ? blReason.trim() : null,
-        })
-        .eq('id', memberId),
-    );
+    const res = await rpc(client, 'fn_admin_set_blacklist', {
+      p_member_id: memberId,
+      p_on: turningOn,
+      p_reason: turningOn ? blReason.trim() : null,
+    });
     setBlBusy(false);
     if (!res.success) {
-      toast.error(res.error ?? '처리에 실패했습니다.');
+      toast.error(rpcError(res.error));
       return;
     }
     toast.success(turningOn ? '블랙리스트로 지정했습니다.' : '블랙리스트를 해제했습니다.');

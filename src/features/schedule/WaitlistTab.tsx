@@ -2,13 +2,13 @@
 
 // 세션 통합 패널 — waitlist 서브탭 (02-admin §3.6)
 // 대기열 순번(status=waitlisted) + 수동 승격 + 노쇼 통제 정책 표시(facilities.booking_policy — 하드코딩 금지).
-// ⏳ 승격은 bookings.status 직접 갱신(admin RLS FOR ALL) — 크레딧 재차감 없음(전용 승격 RPC 신설 시 이관).
+// 승격 = fn_promote_from_waitlist(p_booking_id): 정원·크레딧 서버 최종 판정 + audit(직접 bookings UPDATE 제거).
 //    빈자리 자동 승격은 trg_notify_waitlist_on_vacancy(서버 트리거)와 병행.
 import { useMemo, useState } from 'react';
 import { Table, Button, Card, ConfirmModal, useToast } from '@/components/ui';
 import type { TableColumn } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { type RosterBooking, type BookingPolicy } from './types';
 import styles from './schedule.module.css';
@@ -55,12 +55,18 @@ export function WaitlistTab({ sessionId, facilityId, canEdit, onChanged }: Props
   const promote = async () => {
     if (!promoteTarget) return;
     setBusy(true);
-    const res = await query(getSupabaseBrowserClient(), 'bookings', (q) =>
-      q.update({ status: 'confirmed', waitlist_promoted_at: new Date().toISOString() }).eq('id', promoteTarget.id),
-    );
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_promote_from_waitlist', {
+      p_booking_id: promoteTarget.id,
+    });
     setBusy(false);
     if (!res.success) {
-      toast.error(res.error ?? '승격에 실패했습니다.');
+      const msg =
+        res.error === 'session_full'
+          ? '정원이 가득 차 승격할 수 없습니다.'
+          : res.error === 'not_waitlisted'
+            ? '이미 대기 상태가 아닙니다.'
+            : (res.error ?? '승격에 실패했습니다.');
+      toast.error(msg);
       return;
     }
     toast.success('대기자를 확정으로 승격했습니다.');
