@@ -1,0 +1,49 @@
+/* EmptyState — docs/12 §4.10. 아이콘 + 제목 + 설명 + CTA */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-8) var(--bcl-space-6);
+}
+
+.icon {
+  width: 48px;
+  height: 48px;
+  color: var(--bcl-text-muted);
+}
+.iconError {
+  width: 48px;
+  height: 48px;
+  color: var(--bcl-danger);
+}
+
+.title {
+  /* type-h3 17/24 600 */
+  margin: 0;
+  font-size: calc(17px * var(--bcl-font-scale));
+  line-height: calc(24 / 17);
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.description {
+  /* type-caption 13/18 */
+  margin: 0;
+  max-width: 36ch;
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-2);
+  margin-top: var(--bcl-space-2);
+}

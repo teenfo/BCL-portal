@@ -1,0 +1,12 @@
+/* ConfirmModal — Modal 기반. 메시지/타이핑 확인 필드 레이아웃만 담당 */
+
+.message {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  color: var(--bcl-text);
+}
+
+.typing {
+  margin-top: var(--bcl-space-4);
+}

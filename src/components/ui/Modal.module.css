@@ -1,0 +1,86 @@
+/* Modal — docs/12 §4.3. overlay + surface-raised 패널(radius-lg) */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bcl-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--bcl-space-4);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100vh - var(--bcl-space-8));
+  background: var(--bcl-surface-raised);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: var(--bcl-shadow-md);
+  color: var(--bcl-text);
+  outline: none;
+}
+
+/* variant — 폭 (docs/12 §4.3) */
+.sm {
+  max-width: 400px;
+}
+.md {
+  max-width: 560px;
+}
+.lg {
+  max-width: 760px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-pad-card);
+  border-bottom: 1px solid var(--bcl-border);
+}
+
+.title {
+  /* type-h2 20/28 600 (docs/12 §2.4) */
+  margin: 0;
+  font-size: calc(20px * var(--bcl-font-scale));
+  line-height: calc(28 / 20);
+  font-weight: 600;
+}
+
+.close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bcl-control-h-sm);
+  height: var(--bcl-control-h-sm);
+  min-width: var(--bcl-hit-min);
+  min-height: var(--bcl-hit-min);
+  border-radius: var(--bcl-radius-sm);
+  color: var(--bcl-text-muted);
+}
+.close:hover {
+  background: var(--bcl-surface);
+  color: var(--bcl-text);
+}
+
+/* body — 스크롤 (docs/12 §4.3) */
+.body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--bcl-pad-card);
+}
+
+/* footer — 버튼 우측 정렬 */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-pad-card);
+  border-top: 1px solid var(--bcl-border);
+}

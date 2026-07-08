@@ -11,8 +11,9 @@ export default function AdminDashboardPage() {
   const { profile } = useAuth();
   const role = (profile as { role?: string } | null)?.role ?? '—';
 
+  // Phase 2 기반 스텁 — 실제 KPI 대시보드는 screen 단계에서 교체 (셸의 <main> 내부이므로 div)
   return (
-    <main className={styles.page}>
+    <div className={styles.page}>
       <Card
         title="관리자 대시보드"
         action={
@@ -24,6 +25,6 @@ export default function AdminDashboardPage() {
         <p className={styles.welcome}>환영합니다. BCL Portal 관리자 화면입니다.</p>
         <p className={styles.meta}>현재 역할: {role}</p>
       </Card>
-    </main>
+    </div>
   );
 }
