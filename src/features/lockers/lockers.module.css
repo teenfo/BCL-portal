@@ -1,0 +1,110 @@
+/* Admin 락커 — 토큰만 사용 (02-admin §3.10) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--bcl-space-3);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.filter {
+  min-width: 160px;
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--bcl-space-1);
+  justify-content: flex-end;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.errorText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.note {
+  color: var(--bcl-text-muted);
+  font-size: calc(12px * var(--bcl-font-scale));
+  margin: 0;
+}
+
+/* 회원 검색 결과 */
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.searchItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-surface);
+  color: var(--bcl-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.searchItemActive {
+  border-color: var(--bcl-accent-border);
+  background: var(--bcl-accent-soft);
+}
+
+.hint {
+  color: var(--bcl-text-muted);
+  font-size: calc(12px * var(--bcl-font-scale));
+}
