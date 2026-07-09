@@ -33,6 +33,12 @@
   font-size: calc(14px * var(--bcl-font-scale));
 }
 
+.editActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--bcl-space-2);
+}
+
 .infoRow > span {
   color: var(--bcl-text-muted);
 }

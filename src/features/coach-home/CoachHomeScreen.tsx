@@ -10,7 +10,7 @@ import { Card, StatCard, Badge, Button, EmptyState, Skeleton, useToast } from '@
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { hhmm, followupTypeLabel } from '@/features/coach-home/format';
+import { hhmm, followupTypeLabel, flagTypeLabel } from '@/features/coach-home/format';
 import styles from './coach-home.module.css';
 
 interface TodaySession {
@@ -59,6 +59,13 @@ interface Kpis {
   payable_session_count: number;
 }
 
+interface MemberAlerts {
+  flags: { member_id: string; member_name: string; flag_type: string; severity: string }[];
+  expiring: { member_id: string; member_name: string; end_date: string | null; remaining_credits: number | null }[];
+  absent: { member_id: string; member_name: string; last_checkin: string | null }[];
+  total: number;
+}
+
 const num = (n: number | null | undefined) => (n ?? 0).toLocaleString('ko-KR');
 
 export function CoachHomeScreen() {
@@ -79,6 +86,10 @@ export function CoachHomeScreen() {
       rpc<{ kpis: Kpis }>(supabase, 'fn_get_coach_monthly_report', {
         p_sections: ['kpis'],
       }),
+    [],
+  );
+  const alerts = useQuery<MemberAlerts>(
+    () => rpc<MemberAlerts>(supabase, 'fn_get_coach_member_alerts'),
     [],
   );
 
@@ -192,27 +203,64 @@ export function CoachHomeScreen() {
         </section>
       ) : null}
 
-      {/* 3. 회원 경고 진입 (집계 RPC 부재 — 플래그 필터 딥링크) */}
+      {/* 3. 회원 경고 — 담당 회원 flags/만료임박/장기미출석 집계 */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}>회원 경고</h2>
-        <div className={styles.flagRow}>
-          {[
-            { key: 'injury', label: '부상' },
-            { key: 'renewal_due', label: '만기 임박' },
-            { key: 'trial', label: '체험' },
-            { key: 'returning_after_absence', label: '복귀' },
-            { key: 'vip_attention', label: 'VIP' },
-          ].map((f) => (
-            <Button
-              key={f.key}
-              variant="soft"
-              size="sm"
-              onClick={() => router.push(`/coach/members?flag=${f.key}`)}
-            >
-              {f.label}
-            </Button>
-          ))}
-        </div>
+        <h2 className={styles.sectionTitle}>
+          회원 경고{alerts.data && alerts.data.total > 0 ? ` (${alerts.data.total})` : ''}
+        </h2>
+        {alerts.error ? (
+          <Card>
+            <EmptyState variant="error" title="경고 집계를 불러오지 못했습니다" description={alerts.error} onRetry={alerts.refetch} />
+          </Card>
+        ) : alerts.loading ? (
+          <Skeleton variant="rect" height={64} />
+        ) : !alerts.data || alerts.data.total === 0 ? (
+          <Card>
+            <EmptyState title="주의 필요 회원 없음" description="담당 회원 중 주의가 필요한 회원이 없습니다." />
+          </Card>
+        ) : (
+          <div className={styles.alertList}>
+            {alerts.data.flags.map((a, i) => (
+              <button
+                key={`flag-${a.member_id}-${i}`}
+                type="button"
+                className={styles.alertRow}
+                onClick={() => router.push(`/coach/members?member_id=${a.member_id}`)}
+              >
+                <span className={styles.alertName}>{a.member_name}</span>
+                <Badge variant={a.severity === 'critical' ? 'danger' : 'warning'} size="sm">
+                  {flagTypeLabel(a.flag_type)}
+                </Badge>
+              </button>
+            ))}
+            {alerts.data.expiring.map((a, i) => (
+              <button
+                key={`exp-${a.member_id}-${i}`}
+                type="button"
+                className={styles.alertRow}
+                onClick={() => router.push(`/coach/members?member_id=${a.member_id}`)}
+              >
+                <span className={styles.alertName}>{a.member_name}</span>
+                <Badge variant="warning" size="sm">
+                  {a.remaining_credits != null ? `잔여 ${a.remaining_credits}회` : a.end_date ? `만료 ${a.end_date.slice(0, 10)}` : '만기 임박'}
+                </Badge>
+              </button>
+            ))}
+            {alerts.data.absent.map((a, i) => (
+              <button
+                key={`abs-${a.member_id}-${i}`}
+                type="button"
+                className={styles.alertRow}
+                onClick={() => router.push(`/coach/members?member_id=${a.member_id}`)}
+              >
+                <span className={styles.alertName}>{a.member_name}</span>
+                <Badge variant="neutral" size="sm">
+                  {a.last_checkin ? `${a.last_checkin.slice(0, 10)} 이후 미출석` : '장기 미출석'}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* 4. 미완료 후속조치 */}

@@ -1,16 +1,15 @@
 'use client';
 
 // Race 허브 — /coach/race (docs/04 §3.4)
-// 3탭: Live(진행/예정) · History(완료+리더보드) · Devices(PM5 상태).
+// 3탭: Live(진행/예정) · History(완료+이벤트별 리더보드) · Devices(PM5 상태).
 // 상세 설계(BLE·파이프라인·연출·상태머신)는 15-race-system.md 정본. 여기선 코치 UX 계약만.
 //
-// ⚠ FLAG(RPC 갭): 코치용 race_events 목록/종료/세션 미연동 수동 생성, pm5_devices 조회,
-// 이벤트별 리더보드 RPC가 sql/09에 없음. 표준 진입은 세션 보드 → "Race 수업 시작"(원칙 ①).
-// 목록은 race_events query()(RLS 전제)로, 리더보드는 fn_get_class_leaderboard(시설 단위)로 대체.
+// 목록: fn_list_coach_race_events(live/history) · 생성: fn_create_coach_race_event(세션 비연동 단독)
+// 종료: fn_finish_race_event · 이벤트별 결과: fn_get_race_event_result.
+// Devices 는 조회 전용 RPC 부재 → pm5_devices query(RLS 전제) 유지(등록/삭제는 Admin 전용).
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tabs, Card, Badge, Button, EmptyState, Skeleton } from '@/components/ui';
-import { useAuth } from '@/features/auth';
+import { Tabs, Card, Badge, Button, Input, Select, Modal, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc, query } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -20,19 +19,26 @@ interface RaceEvent {
   id: string;
   name: string;
   event_date: string;
+  event_type: string;
   race_format: string;
   status: string;
   lobby_status: string;
+  target_distance_m: number | null;
+  duration_minutes: number | null;
   session_id: string | null;
-  facility_id: string | null;
+  created_at: string;
+  record_count: number;
 }
 
-interface LeaderRow {
-  rank: number;
-  member_name: string;
-  total_distance_m: number | null;
-  race_count: number;
-  pr_count: number;
+interface EventResultRow {
+  finish_rank: number | null;
+  member_name: string | null;
+  lane_number: number | null;
+  result_distance: number | null;
+  result_time_sec: number | null;
+  avg_watts: number | null;
+  avg_spm: number | null;
+  is_pr: boolean;
 }
 
 const TABS = [
@@ -49,63 +55,107 @@ const LOBBY_VARIANT: Record<string, 'neutral' | 'info' | 'warning' | 'success'> 
   finished: 'neutral',
 };
 
+const FORMAT_OPTS = [
+  { value: 'individual', label: '개인' },
+  { value: 'team', label: '팀' },
+  { value: 'group', label: '그룹' },
+  { value: 'relay', label: '릴레이' },
+];
+const TYPE_OPTS = [
+  { value: 'rowing', label: '로잉' },
+  { value: 'skierg', label: '스키에르그' },
+  { value: 'bikeerg', label: '바이크에르그' },
+];
+
 export function CoachRaceHub() {
   const router = useRouter();
-  const { profile } = useAuth();
+  const toast = useToast();
   const supabase = getSupabaseBrowserClient();
   const [tab, setTab] = useState('live');
 
-  const events = useQuery<RaceEvent[]>(
-    () =>
-      query<RaceEvent[]>(supabase, 'race_events', (q) =>
-        q
-          .select('id,name,event_date,race_format,status,lobby_status,session_id,facility_id')
-          .order('event_date', { ascending: false })
-          .limit(40),
-      ),
+  const live = useQuery<{ events: RaceEvent[] }>(
+    () => rpc<{ events: RaceEvent[] }>(supabase, 'fn_list_coach_race_events', { p_scope: 'live' }),
     [],
   );
-
-  const facilityId = (profile as { facility_id?: string } | null)?.facility_id ?? null;
-  const leaderboard = useQuery<LeaderRow[]>(
-    () =>
-      facilityId
-        ? rpc<LeaderRow[]>(supabase, 'fn_get_class_leaderboard', { p_facility_id: facilityId, p_scope: 'month' })
-        : Promise.resolve({ success: true, data: [], error: null }),
-    [facilityId, tab === 'history'],
+  const history = useQuery<{ events: RaceEvent[] }>(
+    () => rpc<{ events: RaceEvent[] }>(supabase, 'fn_list_coach_race_events', { p_scope: 'history' }),
+    [tab === 'history'],
   );
-
   const devices = useQuery<Record<string, unknown>[]>(
     () => query<Record<string, unknown>[]>(supabase, 'pm5_devices', (q) => q.select('*').limit(50)),
     [tab === 'devices'],
   );
 
-  const all = events.data ?? [];
-  const live = all.filter((e) => e.status !== 'completed' && e.status !== 'cancelled');
-  const history = all.filter((e) => e.status === 'completed');
+  // 이벤트별 결과(History 인라인)
+  const [openResult, setOpenResult] = useState<string | null>(null);
+  const result = useQuery<{ name: string; status: string; results: EventResultRow[] }>(
+    () =>
+      openResult
+        ? rpc<{ name: string; status: string; results: EventResultRow[] }>(supabase, 'fn_get_race_event_result', { p_event_id: openResult })
+        : Promise.resolve({ success: true, data: null, error: null }),
+    [openResult],
+  );
+
+  // 세션 비연동 단독 Race 생성
+  const [createOpen, setCreateOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ name: '', race_format: 'individual', event_type: 'rowing', target_distance_m: '', duration_minutes: '' });
+
+  const createEvent = async () => {
+    if (!form.name.trim()) { toast.error('이벤트 이름을 입력하세요.'); return; }
+    setBusy(true);
+    const res = await rpc<{ event_id: string }>(supabase, 'fn_create_coach_race_event', {
+      p_payload: {
+        name: form.name.trim(),
+        race_format: form.race_format,
+        event_type: form.event_type,
+        target_distance_m: form.target_distance_m || null,
+        duration_minutes: form.duration_minutes || null,
+      },
+    });
+    setBusy(false);
+    if (!res.success) { toast.error(res.error ?? '이벤트 생성 실패'); return; }
+    toast.success('레이스 이벤트를 생성했습니다.');
+    setCreateOpen(false);
+    setForm({ name: '', race_format: 'individual', event_type: 'rowing', target_distance_m: '', duration_minutes: '' });
+    live.refetch();
+    if (res.data?.event_id) router.push(`/coach/race/control?event_id=${res.data.event_id}`);
+  };
+
+  const finishEvent = async (eventId: string) => {
+    const res = await rpc(supabase, 'fn_finish_race_event', { p_event_id: eventId });
+    if (!res.success) { toast.error(res.error ?? '종료 처리 실패'); return; }
+    toast.success('이벤트를 종료했습니다.');
+    live.refetch();
+    history.refetch();
+  };
+
+  const liveEvents = live.data?.events ?? [];
+  const historyEvents = history.data?.events ?? [];
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>레이스</h1>
+        <Button variant="soft" size="sm" onClick={() => setCreateOpen(true)}>새 레이스</Button>
       </header>
 
       <p className={styles.notice}>
-        표준 진입은 세션 보드 → &quot;Race 수업 시작&quot;입니다. 허브는 조회·진입 전용.
+        표준 진입은 세션 보드 → &quot;Race 수업 시작&quot;입니다. 세션 비연동 단독 이벤트는 &quot;새 레이스&quot;로 생성합니다.
       </p>
 
       <Tabs syncUrl={false} tabs={TABS} value={tab} onChange={setTab} variant="segmented" aria-label="레이스 탭" />
 
       {tab === 'live' ? (
-        events.loading ? (
+        live.loading ? (
           <Skeleton variant="rect" height={100} />
-        ) : events.error ? (
-          <Card><EmptyState variant="error" title="이벤트 로드 실패" description={events.error} onRetry={events.refetch} /></Card>
-        ) : live.length === 0 ? (
-          <Card><EmptyState title="진행/예정 이벤트 없음" description="세션 보드에서 Race 수업을 시작하세요." /></Card>
+        ) : live.error ? (
+          <Card><EmptyState variant="error" title="이벤트 로드 실패" description={live.error} onRetry={live.refetch} /></Card>
+        ) : liveEvents.length === 0 ? (
+          <Card><EmptyState title="진행/예정 이벤트 없음" description="세션 보드에서 Race 수업을 시작하거나 새 레이스를 생성하세요." /></Card>
         ) : (
           <div className={styles.list}>
-            {live.map((e) => (
+            {liveEvents.map((e) => (
               <Card key={e.id}>
                 <div className={styles.eventRow}>
                   <div className={styles.eventInfo}>
@@ -114,11 +164,15 @@ export function CoachRaceHub() {
                       <Badge variant={LOBBY_VARIANT[e.lobby_status] ?? 'neutral'} size="sm">{e.lobby_status}</Badge>
                       <Badge variant="accent" size="sm">{e.race_format}</Badge>
                       {e.session_id ? <Badge variant="info" size="sm">세션 연동</Badge> : null}
+                      {e.record_count > 0 ? <Badge variant="neutral" size="sm">{e.record_count}건</Badge> : null}
                     </div>
                   </div>
-                  <Button variant="soft" size="sm" onClick={() => router.push(`/coach/race/control?event_id=${e.id}`)}>
-                    컨트롤 룸
-                  </Button>
+                  <div className={styles.eventActions}>
+                    <Button variant="soft" size="sm" onClick={() => router.push(`/coach/race/control?event_id=${e.id}`)}>
+                      컨트롤 룸
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => finishEvent(e.id)}>종료</Button>
+                  </div>
                 </div>
               </Card>
             ))}
@@ -127,43 +181,64 @@ export function CoachRaceHub() {
       ) : null}
 
       {tab === 'history' ? (
-        <div className={styles.list}>
-          <p className={styles.notice}>이벤트별 리더보드 RPC 부재 — 시설 월간 리더보드로 대체 표시(FLAG).</p>
-          {leaderboard.loading ? (
-            <Skeleton variant="rect" height={120} />
-          ) : leaderboard.error ? (
-            <Card><EmptyState variant="error" title="리더보드 로드 실패" description={leaderboard.error} onRetry={leaderboard.refetch} /></Card>
-          ) : (leaderboard.data ?? []).length === 0 ? (
-            <Card><EmptyState title="기록 없음" description="완료된 레이스 기록이 없습니다." /></Card>
-          ) : (
-            <Card title="시설 월간 리더보드">
-              {(leaderboard.data ?? []).map((r) => (
-                <div key={r.rank} className={styles.leaderRow}>
-                  <span className={styles.leaderRank}>{r.rank}</span>
-                  <span className={styles.leaderName}>{r.member_name}</span>
-                  <b>{r.total_distance_m ? `${Math.round(r.total_distance_m)}m` : '—'}</b>
-                </div>
-              ))}
-            </Card>
-          )}
-          {history.length > 0 ? (
-            <Card title="완료 이벤트">
-              {history.map((e) => (
-                <div key={e.id} className={styles.leaderRow}>
-                  <span className={styles.leaderName}>{e.name}</span>
-                  <span className={styles.muted}>{e.event_date}</span>
-                </div>
-              ))}
-            </Card>
-          ) : null}
-        </div>
+        history.loading ? (
+          <Skeleton variant="rect" height={120} />
+        ) : history.error ? (
+          <Card><EmptyState variant="error" title="기록 로드 실패" description={history.error} onRetry={history.refetch} /></Card>
+        ) : historyEvents.length === 0 ? (
+          <Card><EmptyState title="기록 없음" description="완료된 레이스 이벤트가 없습니다." /></Card>
+        ) : (
+          <div className={styles.list}>
+            {historyEvents.map((e) => (
+              <Card key={e.id}>
+                <button
+                  type="button"
+                  className={styles.eventRow}
+                  onClick={() => setOpenResult((cur) => (cur === e.id ? null : e.id))}
+                >
+                  <div className={styles.eventInfo}>
+                    <span className={styles.eventName}>{e.name}</span>
+                    <div className={styles.eventBadges}>
+                      <Badge variant="accent" size="sm">{e.race_format}</Badge>
+                      <span className={styles.muted}>{e.event_date}</span>
+                    </div>
+                  </div>
+                  <Badge variant="neutral" size="sm">{openResult === e.id ? '접기' : '결과'}</Badge>
+                </button>
+                {openResult === e.id ? (
+                  result.loading ? (
+                    <Skeleton variant="rect" height={80} />
+                  ) : result.error ? (
+                    <EmptyState variant="error" title="결과 로드 실패" description={result.error} onRetry={result.refetch} />
+                  ) : (result.data?.results ?? []).length === 0 ? (
+                    <p className={styles.muted}>기록된 결과가 없습니다.</p>
+                  ) : (
+                    <div className={styles.leaderList}>
+                      {(result.data?.results ?? []).map((r, i) => (
+                        <div key={i} className={styles.leaderRow}>
+                          <span className={styles.leaderRank}>{r.finish_rank ?? '-'}</span>
+                          <span className={styles.leaderName}>{r.member_name ?? `레인 ${r.lane_number ?? '?'}`}</span>
+                          <b>
+                            {r.result_distance ? `${Math.round(r.result_distance)}m` : ''}
+                            {r.result_time_sec ? ` · ${Math.round(r.result_time_sec)}s` : ''}
+                            {r.is_pr ? ' · PR' : ''}
+                          </b>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                ) : null}
+              </Card>
+            ))}
+          </div>
+        )
       ) : null}
 
       {tab === 'devices' ? (
         devices.loading ? (
           <Skeleton variant="rect" height={100} />
         ) : devices.error ? (
-          <Card><EmptyState variant="error" title="장비 조회 실패" description={`${devices.error} (전용 RPC 부재 — FLAG)`} onRetry={devices.refetch} /></Card>
+          <Card><EmptyState variant="error" title="장비 조회 실패" description={devices.error} onRetry={devices.refetch} /></Card>
         ) : (devices.data ?? []).length === 0 ? (
           <Card><EmptyState title="등록된 장비 없음" description="기기 등록/삭제는 Admin 전용입니다." /></Card>
         ) : (
@@ -184,6 +259,20 @@ export function CoachRaceHub() {
           </div>
         )
       ) : null}
+
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="새 레이스 이벤트" size="sm">
+        <div className={styles.createForm}>
+          <Input label="이벤트 이름" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+          <Select label="포맷" native value={form.race_format} onChange={(v) => setForm((f) => ({ ...f, race_format: v }))} options={FORMAT_OPTS} />
+          <Select label="종목" native value={form.event_type} onChange={(v) => setForm((f) => ({ ...f, event_type: v }))} options={TYPE_OPTS} />
+          <Input label="목표 거리(m, 선택)" type="number" value={form.target_distance_m} onChange={(e) => setForm((f) => ({ ...f, target_distance_m: e.target.value }))} />
+          <Input label="제한 시간(분, 선택)" type="number" value={form.duration_minutes} onChange={(e) => setForm((f) => ({ ...f, duration_minutes: e.target.value }))} />
+          <div className={styles.createActions}>
+            <Button variant="ghost" size="sm" onClick={() => setCreateOpen(false)}>취소</Button>
+            <Button variant="primary" size="sm" loading={busy} onClick={createEvent}>생성</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

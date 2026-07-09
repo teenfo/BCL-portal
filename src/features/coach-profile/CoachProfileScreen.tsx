@@ -4,11 +4,10 @@
 // 모든 코치 상태에서 접근 가능한 유일한 운영 화면. 상태 배지 + 코치 정보(read-only) +
 // 월간 리포트(basis/kpis/retention 3섹션 lazy) + 로그아웃. 급여 쓰기 UI 없음(§1.2).
 //
-// ⚠ FLAG(RPC 갭): 코치 자기정보 수정 RPC 부재 — fn_update_coach_profile은 is_admin() 게이트라
-// 코치 self-edit 불가. specialties/bio/아바타 수정은 Admin 경유만 → 여기선 read-only 표시.
-// 알림 수신 설정 RPC(notification_preferences)도 부재 → 미노출.
+// 자기정보 수정: fn_update_my_coach_profile(p_patch) — name/phone/bio/specialties/profile_image_url만
+// 화이트리스트(급여·status 서버측 제외). 알림 수신 설정 RPC는 부재 → 미노출.
 import { useState } from 'react';
-import { Card, Tabs, Badge, Button, StatCard, EmptyState, Skeleton } from '@/components/ui';
+import { Card, Tabs, Badge, Button, Input, StatCard, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth';
 import { useCoachContext } from '@/features/coach-context';
 import { useQuery } from '@/lib/data/useQuery';
@@ -74,9 +73,13 @@ export function CoachProfileScreen() {
   const { user, signOut } = useAuth();
   const coachCtx = useCoachContext();
   const supabase = getSupabaseBrowserClient();
+  const toast = useToast();
 
   const [section, setSection] = useState('basis');
   const [ym] = useState(ymNow());
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({ name: '', phone: '', bio: '', specialties: '', profile_image_url: '' });
 
   const coach = useQuery<CoachRow>(
     () =>
@@ -105,6 +108,36 @@ export function CoachProfileScreen() {
   const copy = STATUS_COPY[status];
   const c = coach.data;
 
+  const startEdit = () => {
+    if (!c) return;
+    setForm({
+      name: c.name ?? '',
+      phone: c.phone ?? '',
+      bio: c.bio ?? '',
+      specialties: (c.specialties ?? []).join(', '),
+      profile_image_url: c.profile_image_url ?? '',
+    });
+    setEditing(true);
+  };
+
+  const saveProfile = async () => {
+    if (!form.name.trim()) { toast.error('이름을 입력하세요.'); return; }
+    const patch: Record<string, unknown> = {
+      name: form.name.trim(),
+      phone: form.phone.trim() || null,
+      bio: form.bio.trim() || null,
+      specialties: form.specialties.split(',').map((s) => s.trim()).filter(Boolean),
+      profile_image_url: form.profile_image_url.trim() || null,
+    };
+    setBusy(true);
+    const res = await rpc(supabase, 'fn_update_my_coach_profile', { p_patch: patch });
+    setBusy(false);
+    if (!res.success) { toast.error(res.error ?? '프로필 저장 실패'); return; }
+    toast.success('프로필을 저장했습니다.');
+    setEditing(false);
+    coach.refetch();
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -112,7 +145,7 @@ export function CoachProfileScreen() {
         <Badge variant={copy.variant}>{copy.label}</Badge>
       </header>
 
-      {/* 코치 정보 (read-only) */}
+      {/* 코치 정보 — 자기정보 편집(급여·status 제외) */}
       <Card title="코치 정보">
         {coach.loading ? (
           <Skeleton variant="rect" height={100} />
@@ -120,6 +153,19 @@ export function CoachProfileScreen() {
           <EmptyState variant="error" title="정보 로드 실패" description={coach.error} onRetry={coach.refetch} />
         ) : !c ? (
           <EmptyState title="연결된 코치 정보 없음" description="관리자에게 계정 연결을 요청하세요." />
+        ) : editing ? (
+          <div className={styles.infoCol}>
+            <Input label="이름" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+            <Input label="연락처" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            <Input label="전문분야(쉼표로 구분)" value={form.specialties} onChange={(e) => setForm((f) => ({ ...f, specialties: e.target.value }))} />
+            <Input label="프로필 이미지 URL" value={form.profile_image_url} onChange={(e) => setForm((f) => ({ ...f, profile_image_url: e.target.value }))} />
+            <Input label="소개" multiline rows={3} value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} />
+            <div className={styles.editActions}>
+              <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>취소</Button>
+              <Button variant="primary" size="sm" loading={busy} onClick={saveProfile}>저장</Button>
+            </div>
+            <p className={styles.muted}>급여·계약 정보는 관리자 전용입니다(편집 불가).</p>
+          </div>
         ) : (
           <div className={styles.infoCol}>
             <div className={styles.infoRow}><span>이름</span><b>{c.name}</b></div>
@@ -134,7 +180,7 @@ export function CoachProfileScreen() {
               </div>
             ) : null}
             {c.bio ? <p className={styles.bio}>{c.bio}</p> : null}
-            <p className={styles.muted}>정보 수정은 관리자에게 요청하세요(코치 self-edit RPC 미제공).</p>
+            <Button variant="soft" size="sm" onClick={startEdit}>정보 수정</Button>
           </div>
         )}
       </Card>

@@ -1,52 +1,65 @@
 'use client';
 
 // Race Control — /coach/race/control?event_id= (docs/04 §3.4)
-// 코치 UX 계약: 표준 진입 = 세션 보드 → "Race 수업 시작". 이벤트 정보/상태 표시.
+// 코치 UX 계약: 표준 진입 = 세션 보드 → "Race 수업 시작". 이벤트 결과/상태 표시 + 종료 처리.
 //
-// ⚠ FLAG(도메인 위임): 레인 배정/카운트다운→GO→종료/BLE 모니터의 실제 제어 프로토콜은
-// 15-race-system.md(정본) + Class Broadcast 계약(05 §4.1)이 소유. 코치용 제어 RPC/채널이
-// 확정되면 이 화면의 제어부를 연결한다. 현재는 이벤트 컨텍스트 조회 + 진입점만 제공.
+// 결과/리더보드: fn_get_race_event_result · 종료: fn_finish_race_event(finish_rank 서버 계산).
+// ⚠ FLAG(도메인 위임): 레인 배정/카운트다운→GO/BLE 모니터의 실제 제어 프로토콜은
+// 15-race-system.md(정본) + Class Broadcast 계약(05 §4.1)이 소유. 여기선 결과·종료 제어만.
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Card, Badge, Button, EmptyState, Skeleton } from '@/components/ui';
+import { Card, Badge, Button, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useState } from 'react';
 import styles from './coach-race.module.css';
 
-interface RaceEventDetail {
-  id: string;
+interface EventResultRow {
+  finish_rank: number | null;
+  member_name: string | null;
+  lane_number: number | null;
+  result_distance: number | null;
+  result_time_sec: number | null;
+  avg_watts: number | null;
+  avg_spm: number | null;
+  is_pr: boolean;
+}
+
+interface EventResult {
+  event_id: string;
   name: string;
-  event_date: string;
-  race_format: string;
   status: string;
-  lobby_status: string;
-  session_id: string | null;
-  target_distance_m: number | null;
-  duration_minutes: number | null;
-  group_target_m: number | null;
-  heat_no: number;
+  results: EventResultRow[];
 }
 
 export function RaceControl() {
   const router = useRouter();
   const params = useSearchParams();
   const supabase = getSupabaseBrowserClient();
+  const toast = useToast();
   const eventId = params.get('event_id');
+  const [finishing, setFinishing] = useState(false);
 
-  const ev = useQuery<RaceEventDetail>(
+  const ev = useQuery<EventResult>(
     () =>
       eventId
-        ? query<RaceEventDetail>(supabase, 'race_events', (q) =>
-            q
-              .select('id,name,event_date,race_format,status,lobby_status,session_id,target_distance_m,duration_minutes,group_target_m,heat_no')
-              .eq('id', eventId)
-              .maybeSingle(),
-          )
+        ? rpc<EventResult>(supabase, 'fn_get_race_event_result', { p_event_id: eventId })
         : Promise.resolve({ success: false, data: null, error: 'event_id 누락' }),
     [eventId],
   );
 
   const e = ev.data;
+  const isCompleted = e?.status === 'completed';
+
+  const finish = async () => {
+    if (!eventId) return;
+    setFinishing(true);
+    const res = await rpc(supabase, 'fn_finish_race_event', { p_event_id: eventId });
+    setFinishing(false);
+    if (!res.success) { toast.error(res.error ?? '종료 처리 실패'); return; }
+    toast.success('이벤트를 종료했습니다. 순위를 계산했습니다.');
+    ev.refetch();
+  };
 
   return (
     <div className={styles.page}>
@@ -65,34 +78,38 @@ export function RaceControl() {
         <>
           <Card title={e.name}>
             <div className={styles.controlMeta}>
-              <Badge variant="accent" size="sm">{e.race_format}</Badge>
-              <Badge variant="info" size="sm">{e.lobby_status}</Badge>
-              <Badge variant="neutral" size="sm">{e.status}</Badge>
-              {e.heat_no > 1 ? <Badge variant="warning" size="sm">Heat {e.heat_no}</Badge> : null}
+              <Badge variant={isCompleted ? 'neutral' : 'success'} size="sm">{e.status}</Badge>
+              <Badge variant="info" size="sm">{e.results.length}건 기록</Badge>
             </div>
-            <div className={styles.controlGrid}>
-              {e.target_distance_m ? <div><span>목표 거리</span><b>{e.target_distance_m}m</b></div> : null}
-              {e.duration_minutes ? <div><span>제한 시간</span><b>{e.duration_minutes}분</b></div> : null}
-              {e.group_target_m ? <div><span>공동 목표</span><b>{e.group_target_m}m</b></div> : null}
-              {e.session_id ? <div><span>연동</span><b>세션</b></div> : <div><span>연동</span><b>미연동</b></div>}
+            <div className={styles.controlActions}>
+              <Button variant="danger" loading={finishing} disabled={isCompleted} onClick={finish}>
+                {isCompleted ? '종료됨' : '레이스 종료'}
+              </Button>
             </div>
+            <p className={styles.muted}>
+              레인 배정 · 카운트다운→GO · BLE 모니터의 실시간 제어는 Race 시스템(15) / Class Broadcast(05 §4.1)이
+              소유합니다. 이 화면은 결과 확인 및 종료 처리를 담당합니다.
+            </p>
           </Card>
 
-          <Card title="레이스 제어">
-            <p className={styles.muted}>
-              레인 배정 · 카운트다운→GO→종료 · BLE 모니터의 실제 제어는 Race 시스템(15) /
-              Class Broadcast 계약(05 §4.1)에서 확정됩니다. 코치 제어부는 계약 확정 후 연결됩니다.
-            </p>
-            <div className={styles.controlActions}>
-              <Button variant="soft" disabled>레인 자동 배정</Button>
-              <Button variant="primary" disabled>카운트다운 시작</Button>
-              <Button variant="danger" disabled>레이스 종료</Button>
-            </div>
-            {e.session_id ? (
-              <Button variant="ghost" onClick={() => router.push(`/coach/schedule?session_id=${e.session_id}`)}>
-                연동 세션 보드로
-              </Button>
-            ) : null}
+          <Card title="결과">
+            {e.results.length === 0 ? (
+              <EmptyState title="기록 없음" description="아직 기록된 결과가 없습니다." />
+            ) : (
+              <div className={styles.leaderList}>
+                {e.results.map((r, i) => (
+                  <div key={i} className={styles.leaderRow}>
+                    <span className={styles.leaderRank}>{r.finish_rank ?? '-'}</span>
+                    <span className={styles.leaderName}>{r.member_name ?? `레인 ${r.lane_number ?? '?'}`}</span>
+                    <b>
+                      {r.result_distance ? `${Math.round(r.result_distance)}m` : ''}
+                      {r.result_time_sec ? ` · ${Math.round(r.result_time_sec)}s` : ''}
+                      {r.is_pr ? ' · PR' : ''}
+                    </b>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </>
       )}

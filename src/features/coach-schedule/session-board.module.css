@@ -425,3 +425,16 @@
   flex-direction: column;
   gap: var(--bcl-space-3);
 }
+
+/* 대리 입력 모달 폼 */
+.proxyForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.proxyActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--bcl-space-2);
+}

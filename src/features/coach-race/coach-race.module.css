@@ -125,3 +125,38 @@
   gap: var(--bcl-space-2);
   margin: var(--bcl-space-3) 0;
 }
+
+/* 이벤트 액션 · 인라인 결과 · 생성 폼 */
+.eventActions {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-1);
+  flex-shrink: 0;
+}
+
+button.eventRow {
+  width: 100%;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--bcl-hit-min);
+}
+
+.leaderList {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--bcl-space-2);
+}
+
+.createForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.createActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--bcl-space-2);
+}

@@ -3,10 +3,10 @@
 // Circuit Console — /coach/schedule/rotation (docs/04 §3.2-1)
 // 체크인 회원 기반 팀 편성(4인×최대6팀) + TV Rotation HUD 리모컨(START/PAUSE/RESET/ROTATE).
 //
-// ⚠ FLAG(RPC 갭): session_rotation_states UPSERT/조회 RPC가 sql/09에 없음. DB 쓰기는 query()/rpc()
-// 경유만 허용(supabase-js 직접 호출 금지)인데 rotation 상태용 RPC가 부재 → 리모컨 지속/Realtime
-// 반영 구현 불가. 팀 편성 UI는 in-memory로 제공하고, 상태 영속은 RPC 추가 후 연결 필요.
-import { useMemo, useState } from 'react';
+// 상태 지속화: fn_get_session_rotation_state(로드) + fn_upsert_session_rotation_state(저장, 배정코치/admin).
+// team_assignments/is_running/current_round 를 DB에 영속하고, Realtime(postgres_changes)로 교차 기기 동기화.
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Envelope } from '@/lib/supabase/query';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, Button, Badge, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
@@ -17,6 +17,14 @@ import styles from './circuit.module.css';
 
 const TEAM_COUNT = 6;
 const PER_TEAM = 4;
+
+interface RotationState {
+  current_round: number | null;
+  total_rounds: number | null;
+  seconds_per_round: number | null;
+  is_running: boolean | null;
+  team_assignments: Record<string, number> | null;
+}
 
 export function CircuitConsole() {
   const router = useRouter();
@@ -33,9 +41,59 @@ export function CircuitConsole() {
     [sessionId],
   );
 
-  // 팀 배정: teamIndex[member_id] = 팀번호(0..5)
-  const [assign, setAssign] = useState<Record<string, number>>({});
-  const [running, setRunning] = useState(false);
+  // 지속 상태 로드 — session_rotation_states (useQuery 로 setState-in-effect 회피, reloadKey 로 재조회)
+  const [reloadKey, setReloadKey] = useState(0);
+  const rot = useQuery<RotationState | null>(
+    () =>
+      sessionId
+        ? rpc<RotationState | null>(supabase, 'fn_get_session_rotation_state', { p_session_id: sessionId })
+        : Promise.resolve({ success: true, data: null, error: null } as Envelope<RotationState | null>),
+    [sessionId, reloadKey],
+  );
+
+  // 로컬 낙관 오버라이드 — 유저 조작 시 즉시 반영, 서버 변경(Realtime) 시 null 로 리셋해 서버값 채택
+  const [override, setOverride] = useState<RotationState | null>(null);
+  const effective: RotationState = override ??
+    rot.data ?? { current_round: 1, total_rounds: null, seconds_per_round: null, is_running: false, team_assignments: {} };
+
+  const assign = effective.team_assignments ?? {};
+  const running = Boolean(effective.is_running);
+  const round = effective.current_round ?? 1;
+  const hydrated = !rot.loading;
+
+  // Realtime 교차 기기 동기화 — 다른 코치/TV 변경 시 오버라이드 해제 + 재조회(구독 콜백 내 setState 는 허용)
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`coach:rotation:${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'session_rotation_states', filter: `session_id=eq.${sessionId}` },
+        () => {
+          setOverride(null);
+          setReloadKey((k) => k + 1);
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionId, supabase]);
+
+  // 지속화 — 부분 패치를 서버 upsert로 저장(배정코치/admin 게이트). 실패해도 로컬은 유지.
+  const persist = useCallback(
+    async (patch: Record<string, unknown>) => {
+      if (!sessionId) return;
+      const res = await rpc(supabase, 'fn_upsert_session_rotation_state', {
+        p_session_id: sessionId,
+        p_state: patch,
+      });
+      if (!res.success) {
+        toast.warning('상태 저장에 실패했습니다(로컬만 반영).');
+      }
+    },
+    [sessionId, supabase, toast],
+  );
 
   const checkedIn = useMemo(
     () =>
@@ -45,25 +103,40 @@ export function CircuitConsole() {
     [board.data],
   );
 
+  const patchLocal = (patch: Partial<RotationState>) =>
+    setOverride((prev) => ({ ...effective, ...(prev ?? {}), ...patch }));
+
   const autoForm = () => {
     const next: Record<string, number> = {};
     checkedIn.forEach((a, i) => {
       next[a.member_id] = Math.floor(i / PER_TEAM) % TEAM_COUNT;
     });
-    setAssign(next);
+    patchLocal({ team_assignments: next });
+    void persist({ team_assignments: next });
     toast.info('자동 편성했습니다.');
   };
 
   const move = (memberId: string, team: number) => {
-    setAssign((prev) => ({ ...prev, [memberId]: team }));
+    const next = { ...assign, [memberId]: team };
+    patchLocal({ team_assignments: next });
+    void persist({ team_assignments: next });
   };
 
   const remote = (cmd: 'start' | 'pause' | 'reset' | 'rotate') => {
-    // FLAG: session_rotation_states RPC 부재 — 상태 영속/HUD 반영 미구현
-    if (cmd === 'start') setRunning(true);
-    if (cmd === 'pause') setRunning(false);
-    if (cmd === 'reset') setRunning(false);
-    toast.warning('리모컨 상태 영속 RPC 미구현 — HUD 동기화는 추후 연결(FLAG).');
+    if (cmd === 'start') {
+      patchLocal({ is_running: true });
+      void persist({ is_running: true, timer_started_at: new Date().toISOString() });
+    } else if (cmd === 'pause') {
+      patchLocal({ is_running: false });
+      void persist({ is_running: false });
+    } else if (cmd === 'reset') {
+      patchLocal({ is_running: false, current_round: 1 });
+      void persist({ is_running: false, current_round: 1, timer_started_at: '' });
+    } else if (cmd === 'rotate') {
+      const nextRound = round + 1;
+      patchLocal({ current_round: nextRound });
+      void persist({ current_round: nextRound });
+    }
   };
 
   if (!sessionId) {
@@ -81,7 +154,7 @@ export function CircuitConsole() {
         <h1 className={styles.title}>서킷 콘솔</h1>
       </header>
 
-      {board.loading ? (
+      {board.loading || !hydrated ? (
         <Skeleton variant="rect" height={200} />
       ) : board.error || !board.data ? (
         <Card>
@@ -91,6 +164,7 @@ export function CircuitConsole() {
         <>
           <div className={styles.remoteBar}>
             <Badge variant={running ? 'success' : 'neutral'}>{running ? '진행 중' : '정지'}</Badge>
+            <Badge variant="info">라운드 {round}</Badge>
             <Button variant="primary" size="sm" onClick={() => remote('start')}>START</Button>
             <Button variant="soft" size="sm" onClick={() => remote('pause')}>PAUSE</Button>
             <Button variant="ghost" size="sm" onClick={() => remote('reset')}>RESET</Button>

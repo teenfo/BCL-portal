@@ -3,8 +3,7 @@
 // 회원 상세 (docs/04 §3.3) — 컨텍스트/노트/후속조치/퍼포먼스 4탭.
 // fn_get_member_context_panel + fn_get_member_performance_profile.
 // 플래그 추가/해소 fn_upsert_member_alert_flag, 벤치마크 입력 fn_record_member_benchmark_result(PR 서버 판정).
-//
-// ⚠ FLAG(RPC 갭): member_notes 작성 RPC가 sql/09에 없음 → 노트는 read-only 타임라인만.
+// 노트 작성/수정 fn_upsert_member_note(코치/admin) — Admin 상담로그와 통합 타임라인.
 import { useState } from 'react';
 import { Card, Tabs, Badge, Button, Input, Select, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
@@ -91,7 +90,7 @@ export function MemberDetailPanel({ memberId, onBack }: { memberId: string; onBa
 
       <div className={styles.detailBody}>
         {tab === 'context' ? <ContextTab ctx={ctx} memberId={memberId} /> : null}
-        {tab === 'notes' ? <NotesTab ctx={ctx} /> : null}
+        {tab === 'notes' ? <NotesTab ctx={ctx} memberId={memberId} /> : null}
         {tab === 'followups' ? <FollowupsTab memberId={memberId} /> : null}
         {tab === 'performance' ? <PerformanceTab perf={perf} memberId={memberId} /> : null}
       </div>
@@ -186,7 +185,37 @@ function ContextTab({ ctx, memberId }: { ctx: ReturnType<typeof useQuery<Context
   );
 }
 
-function NotesTab({ ctx }: { ctx: ReturnType<typeof useQuery<ContextPanel>> }) {
+const NOTE_TYPES = [
+  { value: 'general', label: '일반' },
+  { value: 'progress', label: '진척' },
+  { value: 'caution', label: '주의' },
+  { value: 'injury', label: '부상' },
+  { value: 'counseling', label: '상담' },
+];
+
+function NotesTab({ ctx, memberId }: { ctx: ReturnType<typeof useQuery<ContextPanel>>; memberId: string }) {
+  const toast = useToast();
+  const supabase = getSupabaseBrowserClient();
+  const [noteType, setNoteType] = useState('general');
+  const [body, setBody] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (!body.trim()) { toast.error('노트 내용을 입력하세요.'); return; }
+    setBusy(true);
+    const res = await rpc(supabase, 'fn_upsert_member_note', {
+      p_member_id: memberId,
+      p_note_id: null,
+      p_body: body.trim(),
+      p_note_type: noteType,
+    });
+    setBusy(false);
+    if (!res.success) { toast.error(res.error ?? '노트 저장 실패'); return; }
+    toast.success('노트를 저장했습니다.');
+    setBody('');
+    ctx.refetch();
+  };
+
   if (ctx.loading) return <Skeleton variant="rect" height={160} />;
   if (ctx.error || !ctx.data) {
     return <EmptyState variant="error" title="노트 로드 실패" description={ctx.error ?? ''} onRetry={ctx.refetch} />;
@@ -194,7 +223,13 @@ function NotesTab({ ctx }: { ctx: ReturnType<typeof useQuery<ContextPanel>> }) {
   const notes = ctx.data.recent_notes;
   return (
     <div className={styles.tabCol}>
-      <p className={styles.muted}>노트 작성 RPC 미구현(read-only). Admin 상담로그와 통합 타임라인.</p>
+      <Card title="노트 작성">
+        <div className={styles.formCol}>
+          <Select label="유형" native value={noteType} onChange={setNoteType} options={NOTE_TYPES} />
+          <Input label="내용" multiline value={body} onChange={(e) => setBody(e.target.value)} rows={3} />
+          <Button variant="primary" size="sm" loading={busy} onClick={save}>노트 저장</Button>
+        </div>
+      </Card>
       {notes.length === 0 ? (
         <EmptyState title="노트 없음" description="작성된 노트가 없습니다." />
       ) : (

@@ -4,11 +4,10 @@
 // fn_get_session_wod_whiteboard: Rx+→Rx→Scaled 계층 + score_type 방향 정렬(서버 계산).
 // 미기록 인원(체크인 대비)은 하단 별도 그룹. 코치 화면에는 note까지 표시(공개 표면 전달은 Class RPC 경유만).
 //
-// ⚠ FLAG(RPC 갭): docs §3.2(b-2)는 코치가 회원 대신 입력 시 fn_record_session_wod_result에
-// 대상 member_id를 지정한다고 명세하나, 실제 RPC(sql/09 I2.1)는 current_member_id() 기반이라
-// p_member_id 파라미터가 없다 → 코치 대리 입력(S-24) 구현 불가. 대리 입력 CTA는 비활성 처리.
-import { useMemo } from 'react';
-import { Card, Badge, Button, EmptyState, Skeleton } from '@/components/ui';
+// 코치 대리 입력(S-24): fn_record_session_wod_result(p_member_id) — 배정 코치/admin 게이트로 서버 검증.
+// 미기록 체크인 인원에 대해 코치가 점수를 대신 입력한다(published WOD + 참가자 서버 재검증).
+import { useMemo, useState } from 'react';
+import { Card, Badge, Button, Input, Select, Modal, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -34,6 +33,20 @@ interface Whiteboard {
 
 const RX_LABEL: Record<string, string> = { rx_plus: 'Rx+', rx: 'Rx', scaled: 'Scaled' };
 
+const SCORE_TYPE_OPTS = [
+  { value: 'time', label: '시간(초)' },
+  { value: 'reps', label: '횟수' },
+  { value: 'rounds_reps', label: '라운드+횟수' },
+  { value: 'weight', label: '중량' },
+  { value: 'distance', label: '거리' },
+  { value: 'calories', label: '칼로리' },
+];
+const RX_OPTS = [
+  { value: 'rx_plus', label: 'Rx+' },
+  { value: 'rx', label: 'Rx' },
+  { value: 'scaled', label: 'Scaled' },
+];
+
 function fmtScore(score: number, type: string): string {
   if (type === 'time') {
     const m = Math.floor(score / 60);
@@ -51,11 +64,20 @@ export function WhiteboardPanel({
   attendees: BoardAttendee[];
 }) {
   const supabase = getSupabaseBrowserClient();
+  const toast = useToast();
   const board = useQuery<Whiteboard>(
     () => rpc<Whiteboard>(supabase, 'fn_get_session_wod_whiteboard', { p_session_id: sessionId }),
     [sessionId],
   );
   const wb = board.data;
+
+  // 대리 입력 대상(미기록 체크인 인원)
+  const [proxyTarget, setProxyTarget] = useState<BoardAttendee | null>(null);
+  const [scoreType, setScoreType] = useState('time');
+  const [score, setScore] = useState('');
+  const [rx, setRx] = useState('rx');
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const missing = useMemo(() => {
     if (!wb) return [];
@@ -64,6 +86,40 @@ export function WhiteboardPanel({
       .filter((a) => a.checked_in || a.attendance_outcome === 'walk_in')
       .filter((a) => !recorded.has(a.member_id));
   }, [wb, attendees]);
+
+  const openProxy = (a: BoardAttendee) => {
+    setProxyTarget(a);
+    setScoreType('time');
+    setScore('');
+    setRx('rx');
+    setNote('');
+  };
+
+  const submitProxy = async () => {
+    if (!proxyTarget) return;
+    const numeric = Number(score);
+    if (!score || Number.isNaN(numeric) || numeric <= 0) {
+      toast.error('유효한 점수를 입력하세요.');
+      return;
+    }
+    setBusy(true);
+    const res = await rpc(supabase, 'fn_record_session_wod_result', {
+      p_session_id: sessionId,
+      p_score: numeric,
+      p_score_type: scoreType,
+      p_rx_status: rx,
+      p_note: note || null,
+      p_member_id: proxyTarget.member_id,
+    });
+    setBusy(false);
+    if (!res.success) {
+      toast.error(res.error ?? '대리 입력에 실패했습니다.');
+      return;
+    }
+    toast.success(`${proxyTarget.member_name} 기록을 입력했습니다.`);
+    setProxyTarget(null);
+    board.refetch();
+  };
 
   if (board.loading) return <Skeleton variant="rect" height={160} />;
   if (board.error || !wb) {
@@ -108,26 +164,47 @@ export function WhiteboardPanel({
         </div>
       )}
 
-      {/* 미기록 인원 */}
+      {/* 미기록 인원 — 코치 대리 입력 */}
       {missing.length > 0 ? (
         <section className={styles.attendeeSection}>
           <h3 className={styles.groupTitle}>미기록 인원 ({missing.length})</h3>
-          <p className={styles.hint}>
-            코치 대리 입력은 현재 RPC 미지원(fn_record_session_wod_result에 대상 member_id 파라미터 없음).
-            회원 본인 앱에서 입력해야 합니다.
-          </p>
+          <p className={styles.hint}>체크인했지만 아직 점수가 없는 회원입니다. 코치가 대신 입력할 수 있습니다.</p>
           <div className={styles.missingList}>
             {missing.map((a) => (
               <div key={a.member_id} className={styles.missingRow}>
                 <span className={styles.attendeeName}>{a.member_name}</span>
-                <Button variant="ghost" size="sm" disabled>
-                  대리 입력(미지원)
+                <Button variant="soft" size="sm" onClick={() => openProxy(a)}>
+                  대리 입력
                 </Button>
               </div>
             ))}
           </div>
         </section>
       ) : null}
+
+      <Modal
+        open={proxyTarget !== null}
+        onClose={() => setProxyTarget(null)}
+        title={proxyTarget ? `${proxyTarget.member_name} 대리 입력` : '대리 입력'}
+        size="sm"
+      >
+        <div className={styles.proxyForm}>
+          <Select label="점수 유형" native value={scoreType} onChange={setScoreType} options={SCORE_TYPE_OPTS} />
+          <Input
+            label="점수"
+            type="number"
+            value={score}
+            onChange={(e) => setScore(e.target.value)}
+            helper="시간형은 초 단위로 입력"
+          />
+          <Select label="Rx 구분" native value={rx} onChange={setRx} options={RX_OPTS} />
+          <Input label="메모(선택)" value={note} onChange={(e) => setNote(e.target.value)} />
+          <div className={styles.proxyActions}>
+            <Button variant="ghost" size="sm" onClick={() => setProxyTarget(null)}>취소</Button>
+            <Button variant="primary" size="sm" loading={busy} onClick={submitProxy}>기록 저장</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
