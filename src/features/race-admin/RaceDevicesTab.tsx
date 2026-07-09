@@ -1,14 +1,14 @@
 'use client';
 
 // PM5 기기 목록/상태 모니터 (02-admin §3.9 devices)
-// 시리얼넘버=주 식별자. 전용 RPC 부재 → pm5_devices 직접 쓰기(admin RLS). ⏳ audit 미기록.
-// Web BT 등록(현장/코치 경로)은 ⏳ — 여기선 레지스트리 관리·상태 모니터.
+// 시리얼넘버=주 식별자. 조회/삭제는 전용 RPC(fn_list_pm5_devices / fn_admin_delete_pm5_device,
+// is_admin 게이트 + audit) 경유. Web BT 등록(현장/코치)은 ⏳.
 import { useState } from 'react';
 import { Button, Table, Badge, StatCard, ConfirmModal, useToast } from '@/components/ui';
 import type { TableColumn, BadgeVariant } from '@/components/ui';
 import { useMyPermissions } from '@/features/permissions';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { Pm5DeviceEditModal } from './Pm5DeviceEditModal';
 import {
@@ -40,10 +40,16 @@ export function RaceDevicesTab() {
   const [busy, setBusy] = useState(false);
 
   const devices = useQuery<Pm5Device[]>(
-    () =>
-      query<Pm5Device[]>(getSupabaseBrowserClient(), 'pm5_devices', (q) =>
-        q.select('*').order('serial_number'),
-      ),
+    async () => {
+      const res = await rpc<{ devices: Pm5Device[] }>(
+        getSupabaseBrowserClient(),
+        'fn_list_pm5_devices',
+        {},
+      );
+      return res.success
+        ? { success: true, data: res.data?.devices ?? [], error: null }
+        : { success: false, data: null, error: res.error };
+    },
     [],
   );
 
@@ -64,9 +70,9 @@ export function RaceDevicesTab() {
   const confirmDelete = async () => {
     if (!deleting) return;
     setBusy(true);
-    const res = await query(getSupabaseBrowserClient(), 'pm5_devices', (q) =>
-      q.delete().eq('id', deleting.id),
-    );
+    const res = await rpc(getSupabaseBrowserClient(), 'fn_admin_delete_pm5_device', {
+      p_id: deleting.id,
+    });
     setBusy(false);
     if (!res.success) {
       toast.error(writeError(res.error));

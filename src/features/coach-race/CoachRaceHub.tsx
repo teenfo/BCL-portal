@@ -11,7 +11,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Tabs, Card, Badge, Button, Input, Select, Modal, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { rpc, query } from '@/lib/supabase/query';
+import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import styles from './coach-race.module.css';
 
@@ -82,7 +82,16 @@ export function CoachRaceHub() {
     [tab === 'history'],
   );
   const devices = useQuery<Record<string, unknown>[]>(
-    () => query<Record<string, unknown>[]>(supabase, 'pm5_devices', (q) => q.select('*').limit(50)),
+    async () => {
+      const res = await rpc<{ devices: Record<string, unknown>[] }>(
+        supabase,
+        'fn_list_pm5_devices',
+        {},
+      );
+      return res.success
+        ? { success: true, data: res.data?.devices ?? [], error: null }
+        : { success: false, data: null, error: res.error };
+    },
     [tab === 'devices'],
   );
 

@@ -5972,5 +5972,14 @@ BEGIN
 END $$;
 
 -- ============================================================================
+-- [S] PM5 기기관리 (mig 20260709060000_device_admin_rpc.sql 미러)
+--   fn_admin_upsert_pm5_device(p_payload jsonb) — is_admin, enum 서버검증 + serial UNIQUE + audit
+--     payload: {id?, serial_number(필수), facility_id, device_type, status, current_mode,
+--               ble_name, mac_address, qr_identifier, firmware_version}. id 유무로 insert/update.
+--   fn_admin_delete_pm5_device(p_id uuid) — is_admin, racing 중 차단 + audit
+--   fn_list_pm5_devices(p_facility_id uuid DEFAULT NULL) — is_admin_or_coach, {devices:[...]}
+-- ============================================================================
+
+-- ============================================================================
 -- 09_rpc.sql 끝 — 전체 스키마 적용 완료
 -- ============================================================================

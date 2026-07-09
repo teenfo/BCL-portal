@@ -35,6 +35,7 @@ export interface Pm5Device {
   serial_number: string;
   mac_address: string | null;
   ble_name: string | null;
+  qr_identifier: string | null;
   device_type: DeviceType;
   status: DeviceStatus;
   current_mode: DeviceMode;
@@ -113,9 +114,21 @@ export const DEVICE_MODE_LABEL: Record<DeviceMode, string> = {
   personal_recording: '개인 기록',
 };
 
-// 직접 쓰기(admin RLS) 실패 코드 → 한글. RLS 위반은 supabase가 문자열 메시지로 반환.
+// 기기 RPC 엔벨로프 에러코드 → 한글.
+const RPC_ERROR_LABEL: Record<string, string> = {
+  forbidden: '권한이 없습니다.',
+  serial_required: '시리얼 넘버를 입력하세요.',
+  serial_duplicate: '이미 존재하는 시리얼 넘버입니다.',
+  device_not_found: '기기를 찾을 수 없습니다.',
+  device_racing: '레이싱 중에는 삭제할 수 없습니다.',
+  invalid_device_type: '기기 종류 값이 올바르지 않습니다.',
+  invalid_status: '상태 값이 올바르지 않습니다.',
+  invalid_current_mode: '모드 값이 올바르지 않습니다.',
+};
+
 export function writeError(code: string | null): string {
   if (!code) return '요청에 실패했습니다.';
+  if (RPC_ERROR_LABEL[code]) return RPC_ERROR_LABEL[code];
   if (/duplicate|unique/i.test(code)) return '이미 존재하는 값입니다 (중복).';
   if (/row-level security|permission|policy/i.test(code)) return '권한이 없습니다.';
   return code;

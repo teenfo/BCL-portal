@@ -1,11 +1,11 @@
 'use client';
 
 // PM5 기기 등록/편집 모달 (02-admin §3.9 devices)
-// 전용 RPC 부재 → pm5_devices 직접 insert/update(admin RLS). ⏳ audit 미기록.
+// 저장 = fn_admin_upsert_pm5_device(is_admin 게이트 + enum 서버검증 + serial UNIQUE + audit).
 import { useEffect, useState } from 'react';
 import { Modal, Button, Input, Select, Card } from '@/components/ui';
 import { useToast } from '@/components/ui';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import {
   type Pm5Device,
@@ -39,6 +39,7 @@ export function Pm5DeviceEditModal({ device, onClose, onSaved }: Props) {
   const [mode, setMode] = useState<DeviceMode>(device?.current_mode ?? 'idle');
   const [bleName, setBleName] = useState(device?.ble_name ?? '');
   const [macAddress, setMacAddress] = useState(device?.mac_address ?? '');
+  const [qrId, setQrId] = useState(device?.qr_identifier ?? '');
   const [firmware, setFirmware] = useState(device?.firmware_version ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -63,7 +64,7 @@ export function Pm5DeviceEditModal({ device, onClose, onSaved }: Props) {
       setError('시리얼 넘버를 입력하세요.');
       return;
     }
-    const payload = {
+    const payload: Record<string, unknown> = {
       serial_number: serial.trim(),
       facility_id: facilityId,
       device_type: deviceType,
@@ -71,13 +72,13 @@ export function Pm5DeviceEditModal({ device, onClose, onSaved }: Props) {
       current_mode: mode,
       ble_name: bleName.trim() || null,
       mac_address: macAddress.trim() || null,
+      qr_identifier: qrId.trim() || null,
       firmware_version: firmware.trim() || null,
     };
+    if (isEdit) payload.id = device.id; // id 유무로 insert/update 판정(서버)
     setSaving(true);
     setError(null);
-    const res = isEdit
-      ? await query(client, 'pm5_devices', (q) => q.update(payload).eq('id', device.id))
-      : await query(client, 'pm5_devices', (q) => q.insert(payload));
+    const res = await rpc(client, 'fn_admin_upsert_pm5_device', { p_payload: payload });
     setSaving(false);
     if (!res.success) {
       setError(writeError(res.error));
@@ -172,11 +173,14 @@ export function Pm5DeviceEditModal({ device, onClose, onSaved }: Props) {
           />
         </div>
 
-        <Input
-          label="펌웨어 버전 (선택)"
-          value={firmware}
-          onChange={(e) => setFirmware(e.target.value)}
-        />
+        <div className={styles.formRow}>
+          <Input label="QR 식별자 (선택)" value={qrId} onChange={(e) => setQrId(e.target.value)} />
+          <Input
+            label="펌웨어 버전 (선택)"
+            value={firmware}
+            onChange={(e) => setFirmware(e.target.value)}
+          />
+        </div>
       </div>
     </Modal>
   );
