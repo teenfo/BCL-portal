@@ -36,7 +36,7 @@ export const STALE_CMD_MS = 5_000;
 
 // ── 명령 페이로드 계약 ──────────────────────────────────────────────────────
 
-export type ConsoleMode = 'wod' | 'live' | 'timer' | 'screen';
+export type ConsoleMode = 'wod' | 'live' | 'timer' | 'screen' | 'split';
 
 export type TimerMode = 'countdown' | 'countup' | 'emom' | 'tabata';
 
@@ -57,7 +57,7 @@ export interface TimerCommand {
   totalSets?: number;
 }
 
-export type ConsoleCmd = 'set_mode' | 'timer' | 'refresh' | 'identify';
+export type ConsoleCmd = 'set_mode' | 'timer' | 'refresh' | 'identify' | 'open_race';
 
 export interface ConsoleCommandPayload {
   cmd: ConsoleCmd;
@@ -67,6 +67,8 @@ export interface ConsoleCommandPayload {
   mode?: ConsoleMode;
   /** cmd=timer */
   timer?: TimerCommand;
+  /** cmd=open_race — 관전할 race_events.id (콘솔이 관전 화면으로 전환) */
+  event_id?: string;
   /** 발행 시각(ms epoch) — 스테일 판정 기준 */
   ts: number;
   /** 발행 주체(감사·표시용) */

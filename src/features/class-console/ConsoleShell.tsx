@@ -15,13 +15,15 @@ import {
   useConsoleId,
   useFacilityContext,
 } from '@/features/class-common';
+import { RaceView } from '@/features/class-race';
 import { WodMode } from './modes/WodMode';
 import { LiveMode } from './modes/LiveMode';
 import { ScreenMode } from './modes/ScreenMode';
+import { SplitMode } from './modes/SplitMode';
 import { TimerMode, type TimerModeHandle } from './modes/TimerMode';
 import styles from './console.module.css';
 
-const VALID_MODES: ConsoleMode[] = ['wod', 'live', 'timer', 'screen'];
+const VALID_MODES: ConsoleMode[] = ['wod', 'live', 'timer', 'screen', 'split'];
 
 export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: ConsoleMode }) {
   const facilityId = useFacilityContext();
@@ -29,22 +31,32 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
   const [mode, setMode] = useState<ConsoleMode>(initialMode);
   const [identify, setIdentify] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // open_race 명령으로 진입하는 관전 화면. null이면 모드 스택 표시(§4b).
+  const [raceEventId, setRaceEventId] = useState<string | null>(null);
 
   const timerRef = useRef<TimerModeHandle>(null);
-  // timer 명령이 mode 전환보다 먼저 오면 마운트 후 재적용하기 위해 버퍼
+  // timer 명령이 마운트보다 먼저 오면 마운트 후 재적용하기 위해 버퍼
   const pendingTimerRef = useRef<ConsoleCommandPayload['timer'] | null>(null);
 
   const onCommand = useCallback((payload: ConsoleCommandPayload) => {
     switch (payload.cmd) {
       case 'set_mode':
-        if (payload.mode && VALID_MODES.includes(payload.mode)) setMode(payload.mode);
+        if (payload.mode && VALID_MODES.includes(payload.mode)) {
+          setRaceEventId(null); // 모드 전환 시 관전 화면 이탈
+          setMode(payload.mode);
+        }
         break;
       case 'timer':
         if (payload.timer) {
           if (timerRef.current) timerRef.current.apply(payload.timer);
-          else pendingTimerRef.current = payload.timer; // TimerMode 미마운트 시 보류
-          setMode('timer');
+          else pendingTimerRef.current = payload.timer; // ref 준비 전 보류
+          setRaceEventId(null);
+          // split 중이면 우측 타이머만 갱신하고 2분할 유지, 아니면 타이머 전체화면
+          setMode((m) => (m === 'split' ? m : 'timer'));
         }
+        break;
+      case 'open_race':
+        if (payload.event_id) setRaceEventId(payload.event_id);
         break;
       case 'refresh':
         setRefreshKey((k) => k + 1);
@@ -58,9 +70,9 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
 
   const realtime = useConsoleChannel({ facilityId, consoleId, onCommand });
 
-  // TimerMode 마운트 직후 보류 명령 적용
+  // TimerMode 표시(전체/2분할) 직후 보류 명령 적용
   useEffect(() => {
-    if (mode === 'timer' && pendingTimerRef.current && timerRef.current) {
+    if ((mode === 'timer' || mode === 'split') && pendingTimerRef.current && timerRef.current) {
       timerRef.current.apply(pendingTimerRef.current);
       pendingTimerRef.current = null;
     }
@@ -89,11 +101,26 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
         <ModeLayer active={mode === 'screen'}>
           {mode === 'screen' ? <ScreenMode facilityId={facilityId} /> : null}
         </ModeLayer>
-        <ModeLayer active={mode === 'timer'}>
-          {/* TimerMode는 상시 마운트(rAF 엔진 연속성) */}
-          <TimerMode ref={timerRef} />
+        {/* split 모드: 좌측 = WOD 보드(+레이스 배정 패널). 우측은 아래 timerSlot이 채운다 */}
+        <ModeLayer active={mode === 'split'}>
+          {mode === 'split' ? <SplitMode facilityId={facilityId} /> : null}
         </ModeLayer>
+
+        {/*
+          TimerMode는 단일 인스턴스로 상시 마운트(rAF 엔진 연속성).
+          timer=전체화면, split=우측 페인, 그 외=숨김 — DOM 재마운트 없이 위치만 전환.
+        */}
+        <div
+          className={styles.timerSlot}
+          data-slot={mode === 'timer' ? 'full' : mode === 'split' ? 'split' : 'hidden'}
+          aria-hidden={mode !== 'timer' && mode !== 'split'}
+        >
+          <TimerMode ref={timerRef} />
+        </div>
       </div>
+
+      {/* open_race: 관전 화면으로 전환(full-bleed, anon·쓰기 없음) */}
+      {raceEventId ? <RaceView eventId={raceEventId} /> : null}
 
       {identify ? <IdentifyOverlay consoleId={consoleId} /> : null}
     </div>

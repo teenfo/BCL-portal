@@ -273,6 +273,83 @@
   letter-spacing: 0.01em;
 }
 
+/* ── SPLIT 모드 (수업 2분할) ── */
+/* 단일 TimerMode를 재마운트 없이 위치만 전환: full=전체, split=우측 페인, hidden=숨김 */
+.timerSlot {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 400ms ease,
+    left 300ms ease;
+}
+.timerSlot[data-slot='full'] {
+  inset: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+.timerSlot[data-slot='split'] {
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  right: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+/* split 우측 페인의 타이머는 반쪽 폭에 맞춰 축소 */
+.timerSlot[data-slot='split'] .timerTime {
+  font-size: 200px;
+}
+.timerSlot[data-slot='split'] .timerLabel {
+  font-size: 52px;
+}
+
+/* 좌측 페인 — WOD 보드 + 하단 레이스 배정 패널 */
+.splitLeft {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid var(--bcl-border);
+}
+.splitWodPane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--bcl-space-6) var(--bcl-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+.splitRacePanel {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-5) var(--bcl-space-8);
+  background: var(--bcl-accent-soft);
+  border-top: 4px solid var(--bcl-accent);
+}
+.splitRaceTag {
+  align-self: flex-start;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bcl-accent);
+}
+.splitRaceName {
+  font-size: 48px;
+  font-weight: 800;
+}
+.splitRaceHint {
+  font-size: 28px;
+  color: var(--bcl-text-muted);
+}
+
 /* ── SCREEN 모드 ── */
 .screenGrid {
   position: absolute;

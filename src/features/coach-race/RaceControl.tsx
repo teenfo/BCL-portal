@@ -139,7 +139,10 @@ export function RaceControl() {
             />
           ) : null}
           {!meta.loading ? (
-            <ScreenControlPanel facilityId={meta.data?.facility_id ?? null} />
+            <ScreenControlPanel
+              facilityId={meta.data?.facility_id ?? null}
+              raceEventId={eventId ?? undefined}
+            />
           ) : null}
         </>
       )}

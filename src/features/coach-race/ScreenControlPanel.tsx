@@ -17,13 +17,27 @@ const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
   { value: 'live', label: 'Live' },
   { value: 'timer', label: '타이머' },
   { value: 'screen', label: '스크린' },
+  { value: 'split', label: '수업(2분할)' },
 ];
 
 /**
  * 시설 콘솔(TV) 원격제어 발행 UI. facilityId가 없으면 안내만 표시.
  * 발행은 인증 클라이언트(코치)에서만 — 계약 §4.1 송신 주체 규칙.
  */
-export function ScreenControlPanel({ facilityId }: { facilityId: string | null }) {
+/**
+ * @param facilityId  콘솔 제어 채널 대상 시설
+ * @param raceEventId 현재 세션에 배정된 레이스 이벤트 id — 있으면 "레이스 시작"(open_race) 노출
+ * @param sessionId   (참고용) 배정 레이스가 속한 세션 — 표시/디버그용
+ */
+export function ScreenControlPanel({
+  facilityId,
+  raceEventId = null,
+  sessionId = null,
+}: {
+  facilityId: string | null;
+  raceEventId?: string | null;
+  sessionId?: string | null;
+}) {
   const pubRef = useRef<ConsolePublisher | null>(null);
   const [active, setActive] = useState<ConsoleMode | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -59,6 +73,11 @@ export function ScreenControlPanel({ facilityId }: { facilityId: string | null }
     await pubRef.current.identify();
     notify('화면 식별 명령을 보냈습니다.');
   };
+  const openRace = async () => {
+    if (!pubRef.current || !raceEventId) return;
+    await pubRef.current.openRace(raceEventId);
+    notify('레이스 관전 화면을 열었습니다.');
+  };
 
   return (
     <Card title="스크린 제어">
@@ -83,6 +102,18 @@ export function ScreenControlPanel({ facilityId }: { facilityId: string | null }
               </Button>
             ))}
           </div>
+          {raceEventId ? (
+            <div className={styles.controlActions}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={openRace}
+                title={sessionId ? `세션 ${sessionId}` : undefined}
+              >
+                레이스 시작
+              </Button>
+            </div>
+          ) : null}
           <div className={styles.controlActions}>
             <Button variant="ghost" size="sm" onClick={refresh}>
               화면 새로고침
