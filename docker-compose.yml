@@ -1,0 +1,29 @@
+# BCL Portal 배포 구성 (docs/11 §2 표준 토폴로지)
+#   portal       : 호스트 3001 → 컨테이너 3000 (127.0.0.1 바인딩, nginx만 경유)
+#   race-service : 호스트 8001 → 컨테이너 8001 (privileged BLE, 운영 호스트만) — profile로 분리
+# portal은 race 없이도 기동(장애 격리) → depends_on 없음. race는 `--profile race`로만 기동.
+services:
+  portal:
+    image: bcl-portal:latest
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_RACE_SERVICE_URL: ${NEXT_PUBLIC_RACE_SERVICE_URL:-}
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "127.0.0.1:${PORTAL_HOST_PORT:-3001}:3000"
+
+  race-service:
+    image: bcl-race-server:latest
+    build:
+      context: ./race-service
+    restart: unless-stopped
+    env_file: .env
+    # 실시간 BLE(PM5) 접근 — 운영 호스트 전용. staging 시뮬레이터는 privileged 불필요(별도 override).
+    privileged: true
+    ports:
+      - "${RACE_HOST_PORT:-8001}:8001"
+    profiles: ["race"]

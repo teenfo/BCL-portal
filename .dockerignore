@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.github
+docs
+docs-legacy
+supabase
+race-service
+tests
+*.md
+.env*
+!.env.example
+npm-debug.log*
+.DS_Store
+coverage
+playwright-report
+test-results
