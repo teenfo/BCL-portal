@@ -5,6 +5,7 @@
 // custom: role=listbox / aria-expanded / 키보드 ↑↓·Enter·ESC·타이핑 점프
 // Input과 동일 셸 + 우측 셰브론
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './Select.module.css';
 
 export interface SelectOption {
@@ -131,7 +132,36 @@ function CustomSelect(
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const listId = `${id}-list`;
+
+  // 포털 플로팅 위치 — 뷰포트 기준 fixed. 아래 공간 부족 시 위로 플립.
+  const [menuPos, setMenuPos] = useState<{
+    left: number;
+    top: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
+  const positionMenu = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    const rect = trigger.getBoundingClientRect();
+    const gap = 4; // 트리거와 메뉴 간격(px)
+    const margin = 8; // 뷰포트 가장자리 여백(px)
+    const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const spaceBelow = vh - rect.bottom - margin;
+    const spaceAbove = rect.top - margin - gap;
+    const desired = 280; // 선호 최대 높이(px)
+    // 아래 공간이 충분하거나 위보다 넓으면 아래로, 아니면 위로 플립
+    const openDown = spaceBelow >= Math.min(desired, spaceAbove) || spaceBelow >= 200;
+    const maxHeight = Math.max(120, openDown ? spaceBelow : spaceAbove);
+    const top = openDown ? rect.bottom + gap : Math.max(margin, rect.top - gap - maxHeight);
+    const left = Math.max(margin, Math.min(rect.left, vw - rect.width - margin));
+    setMenuPos({ left, top, width: rect.width, maxHeight });
+  }, []);
 
   const selectedValues = useMemo<string[]>(() => {
     if (multiple) return (props.value as string[]) ?? [];
@@ -159,15 +189,35 @@ function CustomSelect(
     [multiple, props.value, props.onChange],
   );
 
-  // 외부 클릭 닫기
+  // 외부 클릭 닫기 — 포털 메뉴는 root 밖이므로 menuRef도 함께 검사
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (rootRef.current?.contains(t) || menuRef.current?.contains(t)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
+
+  // 열려 있는 동안 조상 스크롤(capture)·리사이즈에 맞춰 재배치
+  useEffect(() => {
+    if (!open) return;
+    const onReflow = () => positionMenu();
+    window.addEventListener('scroll', onReflow, true);
+    window.addEventListener('resize', onReflow);
+    return () => {
+      window.removeEventListener('scroll', onReflow, true);
+      window.removeEventListener('resize', onReflow);
+    };
+  }, [open, positionMenu]);
+
+  // 트리거로 열기 — 즉시 위치 계산 후 오픈(effect 내 setState 금지 규약 → 이벤트 핸들러에서 배치)
+  const openMenu = useCallback(() => {
+    positionMenu();
+    setOpen(true);
+  }, [positionMenu]);
 
   // 타이핑 점프 (검색 비활성 시)
   const jumpRef = useRef('');
@@ -180,7 +230,7 @@ function CustomSelect(
     }
     if (!open && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
-      setOpen(true);
+      openMenu();
       return;
     }
     if (!open) return;
@@ -223,6 +273,7 @@ function CustomSelect(
       <button
         type="button"
         id={id}
+        ref={triggerRef}
         className={[styles.shell, styles.trigger, error ? styles.invalid : null]
           .filter(Boolean)
           .join(' ')}
@@ -231,7 +282,7 @@ function CustomSelect(
         aria-controls={open ? listId : undefined}
         aria-describedby={describedBy}
         disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         onKeyDown={onKeyDown}
       >
         <span
@@ -244,61 +295,74 @@ function CustomSelect(
         <Chevron open={open} />
       </button>
 
-      {open ? (
-        <div className={styles.menu}>
-          {searchable ? (
-            <input
-              className={styles.search}
-              type="text"
-              value={query}
-              placeholder="검색"
-              autoFocus
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setActiveIndex(0);
+      {open && menuPos && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              ref={menuRef}
+              className={styles.menu}
+              style={{
+                position: 'fixed',
+                left: menuPos.left,
+                top: menuPos.top,
+                width: menuPos.width,
+                maxHeight: menuPos.maxHeight,
               }}
-              onKeyDown={onKeyDown}
-            />
-          ) : null}
-          <ul className={styles.list} role="listbox" id={listId} aria-multiselectable={multiple}>
-            {filtered.length === 0 ? (
-              <li className={styles.noResult}>결과 없음</li>
-            ) : (
-              filtered.map((o, i) => {
-                const isSelected = selectedValues.includes(o.value);
-                return (
-                  <li
-                    key={o.value}
-                    role="option"
-                    aria-selected={isSelected}
-                    aria-disabled={o.disabled || undefined}
-                    className={[
-                      styles.option,
-                      i === activeIndex ? styles.active : null,
-                      isSelected ? styles.optionSelected : null,
-                      o.disabled ? styles.optionDisabled : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      if (!o.disabled) commit(o.value);
-                    }}
-                  >
-                    {multiple ? (
-                      <span className={styles.check} aria-hidden="true">
-                        {isSelected ? '✓' : ''}
-                      </span>
-                    ) : null}
-                    {o.label}
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </div>
-      ) : null}
+            >
+              {searchable ? (
+                <input
+                  className={styles.search}
+                  type="text"
+                  value={query}
+                  placeholder="검색"
+                  autoFocus
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    setActiveIndex(0);
+                  }}
+                  onKeyDown={onKeyDown}
+                />
+              ) : null}
+              <ul className={styles.list} role="listbox" id={listId} aria-multiselectable={multiple}>
+                {filtered.length === 0 ? (
+                  <li className={styles.noResult}>결과 없음</li>
+                ) : (
+                  filtered.map((o, i) => {
+                    const isSelected = selectedValues.includes(o.value);
+                    return (
+                      <li
+                        key={o.value}
+                        role="option"
+                        aria-selected={isSelected}
+                        aria-disabled={o.disabled || undefined}
+                        className={[
+                          styles.option,
+                          i === activeIndex ? styles.active : null,
+                          isSelected ? styles.optionSelected : null,
+                          o.disabled ? styles.optionDisabled : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' ')}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          if (!o.disabled) commit(o.value);
+                        }}
+                      >
+                        {multiple ? (
+                          <span className={styles.check} aria-hidden="true">
+                            {isSelected ? '✓' : ''}
+                          </span>
+                        ) : null}
+                        {o.label}
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
+            </div>,
+            document.body,
+          )
+        : null}
       {meta}
     </div>
   );

@@ -81,13 +81,12 @@
   transform: rotate(180deg);
 }
 
-/* custom 메뉴 — surface-raised + shadow-md */
+/* custom 메뉴 — document.body 포털 + 뷰포트 fixed 플로팅(위치는 인라인 style).
+   모달(overlay z 1000) 위로 뜨도록 z 1100. 컨테이너 maxHeight 안에서 리스트 스크롤. */
 .menu {
-  position: absolute;
-  top: calc(var(--bcl-control-h) + var(--bcl-space-5) + var(--bcl-space-1));
-  left: 0;
-  right: 0;
-  z-index: 50;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
   background: var(--bcl-surface-raised);
   border: 1px solid var(--bcl-border);
   border-radius: var(--bcl-radius-md);
@@ -97,6 +96,7 @@
 }
 
 .search {
+  flex: none;
   width: 100%;
   height: var(--bcl-control-h-sm);
   background: var(--bcl-surface);
@@ -118,6 +118,8 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  flex: 0 1 auto;
+  min-height: 0;
   max-height: calc(var(--bcl-control-h-sm) * 6);
   overflow-y: auto;
 }
