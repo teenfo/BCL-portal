@@ -6047,5 +6047,29 @@ END $$;
 -- ============================================================================
 
 -- ============================================================================
+-- [X] 레이스 회원(레인) 배정 (mig 20260709170000_race_lane_assignment.sql 미러)
+--   fn_get_assignable_roster(p_event_id uuid) → jsonb  (is_admin_or_coach + 소유, authenticated)
+--     data = {event_id, lobby_status, members:[{member_id,name,source:'roster'|'facility'}],
+--             devices:[{device_id,serial_number,device_type,status}],
+--             current:[{device_id,lane_number,member_id,team_id}]}
+--     members = 세션 명단(confirmed 예약∪체크인) ∪ 지점 활성 회원(roster 우선). 에러 forbidden/not_assigned 등.
+--   fn_set_race_lanes(p_event_id uuid, p_lanes jsonb) → jsonb  (is_admin_or_coach + 소유, authenticated)
+--     p_lanes = [{device_id, lane_number, member_id?, team_id?}]. lobby_status IN (setup,lobby) 만 허용
+--       (그 외 error 'race_in_progress'). race_live_state ON CONFLICT(event_id,device_id) 업서트 +
+--       미포함 기기 삭제(풀-리플레이스), device.facility=event.facility 검증. data={event_id, lane_count}.
+-- ============================================================================
+
+-- ============================================================================
+-- [Y] WOD 회원 공개 (mig 20260709160000_wod_member_visible.sql 미러)
+--   wod_templates += is_member_visible boolean NOT NULL DEFAULT false (회원앱 공개 토글).
+--   fn_upsert_wod_template: p_payload.is_member_visible 저장(COALESCE, 나머지 로직 불변).
+--     읽기(fn_get_wod_template/fn_list_wod_templates)는 to_jsonb(wt)로 자동 노출 — 별도 변경 불필요.
+--   fn_list_member_wods() → jsonb  (authenticated, anon revoke). 게시(published_at NOT NULL) +
+--     is_member_visible=true 템플릿만. Display-Safe(public_notes만 notes, 코치노트/정산 제외).
+--     data.wods = [{id,title,format,rounds,time_cap_minutes,notes,
+--                   movements:[{name,target,reps,rx_male,rx_female}]}].
+-- ============================================================================
+
+-- ============================================================================
 -- 09_rpc.sql 끝 — 전체 스키마 적용 완료
 -- ============================================================================

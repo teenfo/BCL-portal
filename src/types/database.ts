@@ -3210,6 +3210,7 @@ export type Database = {
           format_type: string | null
           id: string
           is_benchmark: boolean
+          is_member_visible: boolean
           is_shared: boolean
           public_notes: string | null
           published_at: string | null
@@ -3229,6 +3230,7 @@ export type Database = {
           format_type?: string | null
           id?: string
           is_benchmark?: boolean
+          is_member_visible?: boolean
           is_shared?: boolean
           public_notes?: string | null
           published_at?: string | null
@@ -3248,6 +3250,7 @@ export type Database = {
           format_type?: string | null
           id?: string
           is_benchmark?: boolean
+          is_member_visible?: boolean
           is_shared?: boolean
           public_notes?: string | null
           published_at?: string | null
@@ -3393,6 +3396,7 @@ export type Database = {
         Returns: Json
       }
       fn_finish_race_event: { Args: { p_event_id: string }; Returns: Json }
+      fn_get_assignable_roster: { Args: { p_event_id: string }; Returns: Json }
       fn_get_benchmark_leaderboard: {
         Args: { p_benchmark: string; p_scope?: string }
         Returns: Json
@@ -3499,6 +3503,7 @@ export type Database = {
         Returns: Json
       }
       fn_list_coach_race_events: { Args: { p_scope?: string }; Returns: Json }
+      fn_list_member_wods: { Args: never; Returns: Json }
       fn_list_movement_library: {
         Args: {
           p_category?: string
@@ -3606,6 +3611,10 @@ export type Database = {
       fn_send_class_reminders: { Args: never; Returns: undefined }
       fn_send_membership_expiry_reminders: { Args: never; Returns: undefined }
       fn_set_payment_mode: { Args: { p_mode: string }; Returns: Json }
+      fn_set_race_lanes: {
+        Args: { p_event_id: string; p_lanes: Json }
+        Returns: Json
+      }
       fn_set_race_pacer: {
         Args: { p_event_id: string; p_pacer: Json }
         Returns: Json
