@@ -15,6 +15,7 @@ import { useState } from 'react';
 import type { PacerConfig } from '@/features/class-race';
 import { ScreenControlPanel } from './ScreenControlPanel';
 import { PacerPanel } from './PacerPanel';
+import { LaneAssignPanel } from './LaneAssignPanel';
 import styles from './coach-race.module.css';
 
 interface EventResultRow {
@@ -103,10 +104,12 @@ export function RaceControl() {
               </Button>
             </div>
             <p className={styles.muted}>
-              레인 배정 · 카운트다운→GO · BLE 모니터의 실시간 제어는 Race 시스템(15) / Class Broadcast(05 §4.1)이
-              소유합니다. 이 화면은 결과 확인 및 종료 처리를 담당합니다.
+              카운트다운→GO · BLE 모니터의 실시간 제어는 Race 시스템(15) / Class Broadcast(05 §4.1)이
+              소유합니다. 레인 배정은 아래에서, 결과 확인·종료 처리는 이 화면에서 담당합니다.
             </p>
           </Card>
+
+          {eventId ? <LaneAssignPanel eventId={eventId} /> : null}
 
           <Card title="결과">
             {e.results.length === 0 ? (

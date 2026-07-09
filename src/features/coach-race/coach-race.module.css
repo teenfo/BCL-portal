@@ -179,3 +179,38 @@ button.eventRow {
   flex-direction: column;
   gap: var(--bcl-space-3);
 }
+
+/* 레인 배정 그리드 */
+.laneGrid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  margin: var(--bcl-space-3) 0;
+}
+
+.laneRow {
+  display: grid;
+  grid-template-columns: minmax(120px, 1.4fr) auto 88px minmax(160px, 2fr);
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) 0;
+  border-bottom: 1px solid var(--bcl-border);
+}
+
+.laneNum {
+  width: 88px;
+}
+
+.laneMember {
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .laneRow {
+    grid-template-columns: 1fr 1fr;
+    row-gap: var(--bcl-space-1);
+  }
+  .laneMember {
+    grid-column: 1 / -1;
+  }
+}
