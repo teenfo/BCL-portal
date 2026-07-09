@@ -21,7 +21,6 @@ export const ADMIN_NAV: NavGroup[] = [
     items: [
       { href: '/admin/members', label: '회원', group: 'members' },
       { href: '/admin/attendance', label: '출석', group: 'attendance' },
-      { href: '/admin/schedule', label: '스케줄', group: 'schedule' },
       { href: '/admin/coaches', label: '코치', group: 'coaches' },
     ],
   },
@@ -35,6 +34,7 @@ export const ADMIN_NAV: NavGroup[] = [
   {
     header: '프로그램',
     items: [
+      { href: '/admin/schedule', label: '스케줄', group: 'schedule' },
       { href: '/admin/wod-studio', label: 'WOD 스튜디오', group: 'wod_studio' },
       { href: '/admin/race', label: 'Race', group: 'race' },
       { href: '/admin/badges', label: '배지', group: 'badges' },
