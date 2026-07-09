@@ -42,3 +42,35 @@
   font-size: calc(11px * var(--bcl-font-scale));
   margin-top: 2px;
 }
+
+/* ── 알림 설정(NotificationPreferences) ─────────────────────────────── */
+.prefGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.prefGroupTitle {
+  font-weight: 600;
+  color: var(--bcl-text);
+  font-size: calc(14px * var(--bcl-font-scale));
+}
+.prefGroupHint {
+  color: var(--bcl-text-muted);
+  font-size: calc(12px * var(--bcl-font-scale));
+  line-height: calc(17 / 12);
+}
+.prefRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) 0;
+}
+.prefTimes {
+  display: flex;
+  gap: var(--bcl-space-3);
+}
+.prefTimes > * {
+  flex: 1;
+  min-width: 0;
+}
