@@ -64,11 +64,12 @@ export function CoachManageTab() {
     [],
   );
 
-  // 계정 연결 후보: 승인된 member 계정 (이미 코치인 계정 제외는 promote가 already_coach로 처리)
+  // 계정 연결 후보: 승인된 member/admin 계정. admin 은 연결 시 강등되지 않고 코치 레코드만 부여
+  // (오너-운영자). 이미 코치인 계정은 아래 linkedUserIds 로 제외.
   const linkable = useQuery<LinkableProfile[]>(
     () =>
       query<LinkableProfile[]>(client, 'profiles', (q) =>
-        q.select('id,email,name').eq('role', 'member').eq('approval_status', 'approved'),
+        q.select('id,email,name').in('role', ['member', 'admin']).eq('approval_status', 'approved'),
       ),
     [],
   );
