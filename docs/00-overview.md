@@ -45,23 +45,27 @@ BCL Portal은 크로스핏/피트니스 박스의 통합 운영 시스템 — �
 | 15 | [15-race-system.md](./15-race-system.md) | **Race 전용 설계** — PM5 BLE·3경로·모드 3종·2.5D 카트레이싱·기기 테마(R-11)·페이스보트·에셋 매니페스트 | 도메인 |
 | 16 | [16-benchmark-gap-analysis.md](./16-benchmark-gap-analysis.md) | 벤치마킹 최종 검수 — 유사 솔루션 4카테고리 대비 갭 판정(P1 반영 완료) | 검수 |
 | — | [`_source/`](./_source/) | as-is 원자료(화면/백엔드/비기능 인벤토리) + 벤치마킹 리서치 원문 4건 | 근거 |
-| — | [`screens/`](./screens/) | **라우트 1:1 화면 명세**(13 §4) — 구현 화면을 route별로 분화. 현재: apps/{purchase,profile} · admin/{payments,race} · kiosk/scan · coach/race | 화면 |
+| — | [`screens/`](./screens/) | **라우트 1:1 화면 명세**(13 §4) — 구현 화면을 route별로 분화. 현재: apps/{home,schedule,checkin,purchase,profile} · admin/{dashboard,members,schedule,plans,payments,race} · coach/{dashboard,members,schedule,race} · class/{screen-console,leaderboard,rotation-hud} · kiosk/{idle,scan} (§6 미분화 라우트 목록) | 화면 |
 
 ## 3. 표기 규약 (전 문서 공통)
 
 ✅ 운영 중 · 🟡 코드완료(검증 대기) · 🧪 mock/시뮬레이션 · ⏳ 미구현(신규 설계) · 🔄 to-be에서 변경/통합
 — ⏳/🔄 항목은 근거를 병기한다(예: "(G-4, 16 문서)").
 
-## 4. 통합 IA (to-be 요약 — 상세는 계약 §5)
+## 4. 통합 IA (구현 반영 — 상세는 계약 §5)
+
+> 아래는 실제 `src/app` 구현 라우트 기준. `→` 는 as-is 호환 리다이렉트 shim(표준 화면으로 통합).
 
 ```
 Auth(7):  login · signup(+웨이버 서명) · reset-password · callback · pending-approval · rejected · logout
-Admin(14): dashboard · members · attendance · payments · plans · schedule · coaches
+Admin(14화면): dashboard · members(+[id] 상세) · attendance · payments · plans · schedule · coaches
            · wod-studio · race · lockers · badges · feedback · crm · settings
 User(5탭): home · schedule · checkin · performance(기록+랭킹+배지+오늘의WOD) · profile
-Coach(5탭): home · schedule(중앙) · members · race · profile
-Class:     screen-console(wod|live|timer|screen) · race(view|run|result) · rotation-hud · leaderboard
-Kiosk(3):  idle · scan · success
+           + purchase(+success|fail) · feedback · notifications
+           리다이렉트: /apps·/apps/dashboard·/apps/facilities→home · /apps/records|leaderboard|badges→performance?tab= · /apps/coaches→schedule
+Coach(5탭): dashboard(홈) · schedule(중앙, +schedule/rotation) · members · race(+race/control) · profile   (/coach→dashboard)
+Class:     screen-console(wod|live|timer|screen) · race(view|run|result) · rotation-hud · leaderboard   (/class→screen-console)
+Kiosk(3):  idle(/kiosk) · scan · success
 ```
 
 ## 5. 불변 원칙 인덱스 (위반 = 교차검수 반려)
@@ -77,11 +81,13 @@ Kiosk(3):  idle · scan · success
 | 디자인 | `--bcl-*` 1세트 · UA 리셋 필수 · 표준 컴포넌트 외 인라인 재구현 금지 | 12, 계약 §6 |
 | 화면 | Display-Safe(부상/메모/정산 비노출) — Class/Kiosk 공개 표면 | 05 §6, 계약 §3 |
 
-## 6. 교차검수 결과 (2026-07-07 — 설계 마감 기준)
+## 6. 교차검수 결과 (설계 마감 2026-07-07 · 구현 대조 2026-07-09)
 
 | 검수 | 방법 | 결과 |
 |---|---|---|
-| 라우트 커버리지 | `find src/app -name page.tsx` 81경로 전수 ↔ 문서 등장 | **81/81 통과** |
+| 라우트 커버리지(설계 목표) | as-is 감사 81경로 ↔ 문서 등장 | **81/81 통과** (통폐합 대상 인벤토리 — to-be에서 축소) |
+| 라우트 커버리지(구현) | `find src/app -name page.tsx` 실측 | **58 파일** — 화면 48 + 리다이렉트 shim 10(각 앱 index + root→login). 앱별: root 1(리다이렉트) · auth 7 · admin 15(14화면+members/[id]) · apps 17(화면 10 + 리다이렉트 7) · class 7(화면 6 + 리다이렉트 1) · coach 8(화면 7 + 리다이렉트 1) · kiosk 3 |
+| 화면 명세 커버리지 | 라우트 ↔ `docs/screens/**` 대조 | **20종 분화**(§2·§4). 미분화 라우트: auth 7 · admin/{attendance,coaches,wod-studio,lockers,badges,feedback,crm,settings} · apps/{performance,feedback,notifications} · coach/profile · class/{race/view,race/run,race/result}(→15-race) · 각 앱 index 리다이렉트 |
 | RPC 커버리지(as-is) | migrations grep 51종 ↔ 07 §10 대조표 | **전수 등재** (폐지 7종은 폐지 목록에 명시) |
 | RPC 정합(to-be) | contract §4 ↔ sql/09 함수 53개 | **일치** — 검수 중 `fn_calculate_refund` 누락 1건 발견·구현·검증 완료 |
 | 표준 명칭 | 구명(check_ins/reservations)·구 토큰(--app-*) grep | **위반 0** (대조표·폐지 컨텍스트만 존재) |
