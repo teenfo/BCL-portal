@@ -2496,6 +2496,7 @@ export type Database = {
           timer_started_at: string | null
           total_rounds: number
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           current_round?: number
@@ -2508,6 +2509,7 @@ export type Database = {
           timer_started_at?: string | null
           total_rounds?: number
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           current_round?: number
@@ -2520,6 +2522,7 @@ export type Database = {
           timer_started_at?: string | null
           total_rounds?: number
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -3265,9 +3268,19 @@ export type Database = {
         Args: { p_followup_id: string; p_status?: string }
         Returns: Json
       }
+      fn_create_coach_race_event: { Args: { p_payload: Json }; Returns: Json }
       fn_create_followup: { Args: { p_payload: Json }; Returns: Json }
+      fn_create_support_ticket: {
+        Args: { p_category?: string; p_content: string; p_subject: string }
+        Returns: Json
+      }
       fn_evaluate_badges: {
         Args: { p_member_id: string; p_trigger?: string }
+        Returns: Json
+      }
+      fn_finish_race_event: { Args: { p_event_id: string }; Returns: Json }
+      fn_get_benchmark_leaderboard: {
+        Args: { p_benchmark: string; p_scope?: string }
         Returns: Json
       }
       fn_get_class_display_wod: {
@@ -3282,12 +3295,20 @@ export type Database = {
         Args: { p_facility_id: string }
         Returns: Json
       }
+      fn_get_class_race_result: { Args: { p_event_id: string }; Returns: Json }
       fn_get_class_screen_prs: {
         Args: { p_days?: number; p_facility_id: string }
         Returns: Json
       }
+      fn_get_class_wod_board: { Args: { p_session_id: string }; Returns: Json }
+      fn_get_coach_member_alerts: { Args: never; Returns: Json }
+      fn_get_coach_members: { Args: { p_search?: string }; Returns: Json }
       fn_get_coach_monthly_report: {
-        Args: { p_sections?: string[]; p_year_month?: string }
+        Args: {
+          p_coach_id?: string
+          p_sections?: string[]
+          p_year_month?: string
+        }
         Returns: Json
       }
       fn_get_coach_performance_stats: { Args: never; Returns: Json }
@@ -3300,12 +3321,17 @@ export type Database = {
         Returns: Json
       }
       fn_get_dashboard_kpis: { Args: never; Returns: Json }
+      fn_get_kiosk_notices: { Args: { p_facility_id: string }; Returns: Json }
       fn_get_member_context_panel: {
         Args: { p_member_id: string }
         Returns: Json
       }
       fn_get_member_performance_profile: {
         Args: { p_member_id: string }
+        Returns: Json
+      }
+      fn_get_member_schedule: {
+        Args: { p_from: string; p_to: string }
         Returns: Json
       }
       fn_get_my_badges: { Args: never; Returns: Json }
@@ -3316,8 +3342,14 @@ export type Database = {
         Returns: Json
       }
       fn_get_my_wod_prep: { Args: { p_session_id: string }; Returns: Json }
+      fn_get_race_event_result: { Args: { p_event_id: string }; Returns: Json }
+      fn_get_race_lanes: { Args: { p_event_id: string }; Returns: Json }
       fn_get_revenue_stats: {
         Args: { p_end_date?: string; p_start_date?: string }
+        Returns: Json
+      }
+      fn_get_session_rotation_state: {
+        Args: { p_session_id: string }
         Returns: Json
       }
       fn_get_session_runbook: { Args: { p_session_id: string }; Returns: Json }
@@ -3327,11 +3359,23 @@ export type Database = {
         Returns: Json
       }
       fn_get_wod_template: { Args: { p_template_id: string }; Returns: Json }
-      fn_kiosk_checkin: { Args: { p_payload: Json }; Returns: Json }
+      fn_kiosk_checkin: {
+        Args: { p_device_id?: string; p_payload: Json; p_scanned_at?: string }
+        Returns: Json
+      }
+      fn_kiosk_heartbeat: {
+        Args: { p_device_id: string; p_status?: string }
+        Returns: Json
+      }
+      fn_kiosk_lookup_member: {
+        Args: { p_facility_id: string; p_phone_last4: string }
+        Returns: Json
+      }
       fn_list_benchmark_definitions: {
         Args: { p_include_inactive?: boolean }
         Returns: Json
       }
+      fn_list_coach_race_events: { Args: { p_scope?: string }; Returns: Json }
       fn_list_movement_library: {
         Args: {
           p_category?: string
@@ -3384,8 +3428,19 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_record_my_benchmark_result: {
+        Args: {
+          p_benchmark_id: string
+          p_result_meta?: Json
+          p_result_value: number
+          p_rx_status?: string
+          p_session_id?: string
+        }
+        Returns: Json
+      }
       fn_record_session_wod_result: {
         Args: {
+          p_member_id?: string
           p_note?: string
           p_rx_status?: string
           p_score: number
@@ -3423,13 +3478,27 @@ export type Database = {
         Args: { p_coach_id: string; p_patch: Json }
         Returns: Json
       }
+      fn_update_my_coach_profile: { Args: { p_patch: Json }; Returns: Json }
       fn_upsert_member_alert_flag: {
         Args: { p_member_id: string; p_payload: Json }
+        Returns: Json
+      }
+      fn_upsert_member_note: {
+        Args: {
+          p_body?: string
+          p_member_id: string
+          p_note_id?: string
+          p_note_type?: string
+        }
         Returns: Json
       }
       fn_upsert_membership_plan: { Args: { p_payload: Json }; Returns: Json }
       fn_upsert_runbook_template: { Args: { p_payload: Json }; Returns: Json }
       fn_upsert_session: { Args: { p_payload: Json }; Returns: Json }
+      fn_upsert_session_rotation_state: {
+        Args: { p_session_id: string; p_state: Json }
+        Returns: Json
+      }
       fn_upsert_session_runbook: {
         Args: { p_payload: Json; p_session_id: string }
         Returns: Json
