@@ -1,0 +1,6 @@
+/* PermissionGate 로딩 스켈레톤 레이아웃 — 색/토큰 재구현 아님(치수·간격만) */
+.loading {
+  display: grid;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-6);
+}

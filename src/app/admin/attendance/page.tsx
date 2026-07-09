@@ -2,7 +2,12 @@
 
 // /admin/attendance — 출석 (02-admin §3.3). 진입 가드·권한은 admin/layout에서 처리.
 import { AttendanceScreen } from '@/features/attendance/AttendanceScreen';
+import { PermissionGate } from '@/features/permissions';
 
 export default function AdminAttendancePage() {
-  return <AttendanceScreen />;
+  return (
+    <PermissionGate group="attendance">
+      <AttendanceScreen />
+    </PermissionGate>
+  );
 }
