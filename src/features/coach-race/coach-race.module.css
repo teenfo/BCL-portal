@@ -160,3 +160,22 @@ button.eventRow {
   justify-content: flex-end;
   gap: var(--bcl-space-2);
 }
+
+/* 스크린 제어 · 페이서 설정 패널 */
+.screenControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.modeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+
+.pacerForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}

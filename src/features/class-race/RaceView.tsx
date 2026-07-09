@@ -22,11 +22,32 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   const theme = themeForEvent(event.data?.event_type);
   const target = event.data?.target_distance_m ?? null;
 
+  // 버추얼 페이서(§4b.5) — split_500m 있고 enabled일 때만 페이스 라인 렌더(렌더 전용).
+  const pacerCfg = event.data?.pacer_config ?? null;
+  const pacerLive =
+    pacerCfg?.enabled && pacerCfg.split_500m && pacerCfg.split_500m > 0
+      ? { split500: pacerCfg.split_500m, startedAt: rt.startedAt, label: pacerCfg.label }
+      : null;
+
   const [ranks, setRanks] = useState<RankRow[]>([]);
   const animator = useRaceAnimator(rt.samplesRef, {
     targetDistance: target,
     onRankChange: setRanks,
+    pacer: pacerLive,
   });
+
+  // 페이서 라인/미니맵 도트/라벨 DOM 등록 — 애니메이터가 rAF로 직접 이동(React 리렌더 우회)
+  const pacerLineRef = useRef<HTMLDivElement>(null);
+  const pacerLabelRef = useRef<HTMLSpanElement>(null);
+  const pacerDotRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    animator.registerPacer({
+      line: pacerLineRef.current,
+      minimapDot: pacerDotRef.current,
+      label: pacerLabelRef.current,
+    });
+    return () => animator.registerPacer(null);
+  }, [animator]);
 
   const lanes = rt.lanes;
   const laneBySerial = useMemo(() => {
@@ -93,6 +114,12 @@ export function RaceView({ eventId }: { eventId: string | null }) {
                 />
               );
             })}
+            {/* 버추얼 페이서 라인(§4b.5) — 목표 페이스 기준선. data-active로 표시 토글 */}
+            <div ref={pacerLineRef} className={styles.pacerLine} data-active="false" aria-hidden>
+              <span ref={pacerLabelRef} className={styles.pacerLabel}>
+                PACER
+              </span>
+            </div>
           </div>
           <div className={styles.finishLine} aria-hidden />
         </div>
@@ -101,6 +128,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       {/* 미니맵 */}
       <div className={styles.minimap}>
         <div className={styles.minimapTrack}>
+          <span ref={pacerDotRef} className={styles.pacerMinimapDot} data-active="false" aria-hidden />
           {ranks.map((r) => (
             <span
               key={r.serial}

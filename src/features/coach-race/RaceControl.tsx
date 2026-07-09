@@ -9,9 +9,12 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, Badge, Button, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { rpc } from '@/lib/supabase/query';
+import { rpc, query } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useState } from 'react';
+import type { PacerConfig } from '@/features/class-race';
+import { ScreenControlPanel } from './ScreenControlPanel';
+import { PacerPanel } from './PacerPanel';
 import styles from './coach-race.module.css';
 
 interface EventResultRow {
@@ -45,6 +48,19 @@ export function RaceControl() {
       eventId
         ? rpc<EventResult>(supabase, 'fn_get_race_event_result', { p_event_id: eventId })
         : Promise.resolve({ success: false, data: null, error: 'event_id 누락' }),
+    [eventId],
+  );
+
+  // 이벤트 메타(지점 — 스크린 제어 채널 · 페이서 설정) — race_events anon/RLS SELECT
+  const meta = useQuery<{ facility_id: string | null; pacer_config: PacerConfig | null } | null>(
+    () =>
+      eventId
+        ? query<{ facility_id: string | null; pacer_config: PacerConfig | null }>(
+            supabase,
+            'race_events',
+            (q) => q.select('facility_id,pacer_config').eq('id', eventId).maybeSingle(),
+          )
+        : Promise.resolve({ success: true, data: null, error: null }),
     [eventId],
   );
 
@@ -111,6 +127,20 @@ export function RaceControl() {
               </div>
             )}
           </Card>
+
+          {/* 페이서 설정(§4b.5) + 스크린 원격제어(05 §4) — 이벤트 관리 중 사용 */}
+          {/* meta 로드 완료 후 렌더 — PacerPanel 초기 상태를 저장된 config로 초기화(key 재마운트) */}
+          {eventId && !meta.loading ? (
+            <PacerPanel
+              key={`${eventId}:${meta.data?.pacer_config?.enabled ? 'on' : 'off'}:${meta.data?.pacer_config?.split_500m ?? ''}`}
+              eventId={eventId}
+              initial={meta.data?.pacer_config ?? null}
+              onSaved={meta.refetch}
+            />
+          ) : null}
+          {!meta.loading ? (
+            <ScreenControlPanel facilityId={meta.data?.facility_id ?? null} />
+          ) : null}
         </>
       )}
     </div>

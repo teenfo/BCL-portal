@@ -14,4 +14,5 @@ export {
 } from './device-theme';
 export type { RaceTheme } from './device-theme';
 export { raceChannelName } from './contract';
-export type { ErgUpdate, LaneAssign } from './contract';
+export type { ErgUpdate, LaneAssign, PacerConfig, PacerSource, PacerLive } from './contract';
+export type { RaceEventWithPacer } from './useRaceEvent';

@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react';
 import { animationDurationSec } from './device-theme';
 import type { DeviceType } from '@/features/race-admin/types';
 import type { RawSample } from './useRaceRealtime';
+import type { PacerLive } from './contract';
 
 const LERP_X = 0.08;
 const LERP_P = 0.15;
@@ -49,11 +50,29 @@ interface AnimatorOptions {
   targetDistance?: number | null;
   /** 순위 변동 시 저빈도 콜백(순위 스택 갱신용) */
   onRankChange?: (rows: RankRow[]) => void;
+  /**
+   * 버추얼 페이서(G-10, §4b.5) — 렌더 전용 목표 페이스 라인.
+   * startedAt(race_start) 기준 등속 전진: dist = (500/split500) * 경과초.
+   * null=페이서 없음(라인 숨김). 순위·집계·karts DOM에는 일절 영향 없음.
+   */
+  pacer?: PacerLive | null;
+}
+
+/** 페이서 라인 DOM 등록(트랙 라인 + 미니맵 도트 + 라벨). RaceView가 ref로 주입 */
+export interface PacerRegistration {
+  /** 트랙 위 수직 페이스 라인 — left% 직접 조작 */
+  line?: HTMLElement | null;
+  /** 미니맵 페이서 도트 — left% 직접 조작 */
+  minimapDot?: HTMLElement | null;
+  /** 페이서 거리 라벨(textContent 갱신) */
+  label?: HTMLElement | null;
 }
 
 export interface Animator {
   registerKart: (serial: string, reg: KartRegistration) => void;
   unregister: (serial: string) => void;
+  /** 페이서 라인 DOM 등록/해제(null=해제). 렌더 전용, karts와 독립 */
+  registerPacer: (reg: PacerRegistration | null) => void;
   /** HUD 포커스 게이지 등 즉시 조회용 스냅샷 */
   getLane: (serial: string) => AnimatedLane | undefined;
 }
@@ -72,6 +91,7 @@ export function useRaceAnimator(
 ): Animator {
   const animatedRef = useRef<Map<string, AnimatedLane>>(new Map());
   const regRef = useRef<Map<string, KartRegistration>>(new Map());
+  const pacerRegRef = useRef<PacerRegistration | null>(null);
   const lastOrderRef = useRef<string>('');
   const optRef = useRef(options);
   useEffect(() => {
@@ -166,6 +186,30 @@ export function useRaceAnimator(
         }
       }
 
+      // 4b) 버추얼 페이서 라인(§4b.5, 렌더 전용 — 순위·집계 미영향)
+      const preg = pacerRegRef.current;
+      if (preg) {
+        const pacer = optRef.current.pacer;
+        if (pacer && pacer.split500 > 0 && pacer.startedAt != null) {
+          const pElapsed = Math.max(0, (now - pacer.startedAt) / 1000);
+          const pDist = (500 / pacer.split500) * pElapsed;
+          const pPct = Math.min(100, (pDist / maxD) * 100);
+          if (preg.line) {
+            // 카트 지오메트리(lane 내 left:4% width:92%)와 정렬 — 절대 left%로 환산
+            preg.line.style.left = `${(4 + pPct * 0.92).toFixed(2)}%`;
+            preg.line.setAttribute('data-active', 'true');
+          }
+          if (preg.minimapDot) {
+            preg.minimapDot.style.left = `${pPct.toFixed(2)}%`;
+            preg.minimapDot.setAttribute('data-active', 'true');
+          }
+          if (preg.label) preg.label.textContent = `PACER ${Math.round(pDist)}m`;
+        } else {
+          preg.line?.setAttribute('data-active', 'false');
+          preg.minimapDot?.setAttribute('data-active', 'false');
+        }
+      }
+
       // 5) 순위 변동 시에만 콜백(저빈도 setState)
       const orderKey = ranked.map((a) => a.serial).join(',');
       if (orderKey !== lastOrderRef.current) {
@@ -184,6 +228,9 @@ export function useRaceAnimator(
   return {
     registerKart: (serial, reg) => regRef.current.set(serial, reg),
     unregister: (serial) => regRef.current.delete(serial),
+    registerPacer: (reg) => {
+      pacerRegRef.current = reg;
+    },
     getLane: (serial) => animatedRef.current.get(serial),
   };
 }

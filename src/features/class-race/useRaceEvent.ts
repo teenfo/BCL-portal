@@ -5,12 +5,16 @@ import { usePolling } from '@/features/class-common';
 import { query, type Envelope } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { RaceEvent } from '@/features/race-admin/types';
+import type { PacerConfig } from './contract';
 
-function fetchEvent(eventId: string): Promise<Envelope<RaceEvent | null>> {
-  return query<RaceEvent | null>(getSupabaseBrowserClient(), 'race_events', (q) =>
+/** race_events 행 + pacer_config(§4b.5). RaceEvent(race-admin)에 페이서 필드 확장 */
+export type RaceEventWithPacer = RaceEvent & { pacer_config: PacerConfig | null };
+
+function fetchEvent(eventId: string): Promise<Envelope<RaceEventWithPacer | null>> {
+  return query<RaceEventWithPacer | null>(getSupabaseBrowserClient(), 'race_events', (q) =>
     q
       .select(
-        'id,facility_id,session_id,coach_id,name,event_date,event_type,race_format,target_distance_m,duration_minutes,group_target_m,heat_no,description,status,lobby_status,created_at',
+        'id,facility_id,session_id,coach_id,name,event_date,event_type,race_format,target_distance_m,duration_minutes,group_target_m,heat_no,description,status,lobby_status,created_at,pacer_config',
       )
       .eq('id', eventId)
       .maybeSingle(),
@@ -18,7 +22,7 @@ function fetchEvent(eventId: string): Promise<Envelope<RaceEvent | null>> {
 }
 
 export function useRaceEvent(eventId: string | null) {
-  return usePolling<RaceEvent | null>(
+  return usePolling<RaceEventWithPacer | null>(
     () =>
       eventId
         ? fetchEvent(eventId)

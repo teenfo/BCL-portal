@@ -172,6 +172,55 @@
 .kart[data-rank='1'] .kartName {
   color: var(--bcl-accent-ink);
 }
+/* ── 버추얼 페이서 라인(§4b.5, 렌더 전용 — 중립 회백 톤) ── */
+.pacerLine {
+  position: absolute;
+  top: var(--bcl-space-2);
+  bottom: var(--bcl-space-2);
+  left: 4%;
+  width: 4px;
+  border-radius: var(--bcl-radius-sm);
+  background: repeating-linear-gradient(
+    var(--bcl-text-muted) 0 10px,
+    transparent 10px 20px
+  );
+  opacity: 0.6;
+  z-index: 5;
+  pointer-events: none;
+  will-change: left;
+}
+.pacerLine[data-active='false'] {
+  display: none;
+}
+.pacerLabel {
+  position: absolute;
+  top: -1.6em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--bcl-text-muted);
+  background: var(--bcl-overlay);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  white-space: nowrap;
+}
+.pacerMinimapDot {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 70%;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-text-muted);
+  transform: translate(-50%, -50%);
+  opacity: 0.7;
+  transition: left 300ms linear;
+}
+.pacerMinimapDot[data-active='false'] {
+  display: none;
+}
+
 .finishLine {
   position: absolute;
   top: 12%;
