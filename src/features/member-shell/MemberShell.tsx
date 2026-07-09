@@ -8,6 +8,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth';
 import { BottomNav, MEMBER_TABS } from './BottomNav';
+import { BrandHeader } from './BrandHeader';
 import styles from './MemberShell.module.css';
 
 export function MemberShell({ children }: { children: ReactNode }) {
@@ -56,6 +57,7 @@ export function MemberShell({ children }: { children: ReactNode }) {
 
   return (
     <div className={styles.shell}>
+      {isTab ? <BrandHeader /> : null}
       <main className={`${styles.main} ${isTab ? styles.withNav : ''}`}>{children}</main>
       {isTab ? <BottomNav /> : null}
     </div>

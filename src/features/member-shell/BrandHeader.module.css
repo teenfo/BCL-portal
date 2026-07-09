@@ -1,0 +1,40 @@
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bcl-surface);
+  border-bottom: 1px solid var(--bcl-border);
+}
+.inner {
+  max-width: 560px;
+  margin: 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: 0 var(--bcl-space-4);
+}
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  color: var(--bcl-accent-ink);
+}
+.mark {
+  width: 26px;
+  height: 26px;
+}
+.wordmark {
+  font-weight: 800;
+  font-size: calc(20px * var(--bcl-font-scale));
+  letter-spacing: 0.02em;
+  color: var(--bcl-accent-ink);
+}
+.tagline {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
