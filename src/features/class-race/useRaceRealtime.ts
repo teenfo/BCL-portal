@@ -216,12 +216,31 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
       .on('broadcast', { event: 'lane_assign' }, (m) => {
         const a = m.payload as LaneAssign;
         setLanes((prev) => {
-          const next = prev.map((l) =>
-            l.lane === a.lane
-              ? { ...l, member_id: a.member_id ?? l.member_id, member_name: a.member_name ?? l.member_name, team_id: a.team_id ?? l.team_id }
-              : l,
-          );
-          return next;
+          const exists = prev.some((l) => l.lane === a.lane);
+          if (exists) {
+            return prev.map((l) =>
+              l.lane === a.lane
+                ? { ...l, member_id: a.member_id ?? l.member_id, member_name: a.member_name ?? l.member_name, team_id: a.team_id ?? l.team_id }
+                : l,
+            );
+          }
+          // 스냅샷(race_live_state)에 없는 레인 — Broadcast만으로 편성.
+          //   실기기 없이 시뮬레이션하거나, 스냅샷 장애 시에도 화면이 레인을 그리게 한다.
+          //   serial 은 erg_update.device_serial 과 일치해야 애니메이터가 카트를 매칭한다
+          //   → device_id 우선, 없으면 `lane:{n}` (시뮬레이터가 동일 규칙으로 프레임 발행).
+          const serial = a.device_id ?? `lane:${a.lane}`;
+          const meta = laneMetaByNumberRef.current.get(a.lane);
+          const added: LaneMeta = {
+            lane: a.lane,
+            serial,
+            device_id: a.device_id ?? null,
+            member_id: a.member_id ?? null,
+            member_name: a.member_name ?? meta?.member_name ?? null,
+            team_id: a.team_id ?? null,
+            virtual: false,
+            device_type: meta?.device_type ?? null,
+          };
+          return [...prev, added].sort((x, y) => x.lane - y.lane);
         });
       })
       .on('broadcast', { event: 'race_start' }, () => {

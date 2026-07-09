@@ -85,3 +85,18 @@
   font-size: calc(12px * var(--bcl-font-scale));
   margin: 0;
 }
+
+/* 시뮬레이션 탭 */
+.simConfig {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.simActions {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}

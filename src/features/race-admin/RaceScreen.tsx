@@ -9,11 +9,12 @@ import { useMyPermissions } from '@/features/permissions';
 import { RaceEventsTab } from './RaceEventsTab';
 import { RaceDevicesTab } from './RaceDevicesTab';
 import { RaceRecordsTab } from './RaceRecordsTab';
+import { RaceSimulatorTab } from './RaceSimulatorTab';
 import styles from './race-admin.module.css';
 
-type TabKey = 'events' | 'devices' | 'records';
+type TabKey = 'events' | 'devices' | 'records' | 'simulate';
 
-const TABS: TabKey[] = ['events', 'devices', 'records'];
+const TABS: TabKey[] = ['events', 'devices', 'records', 'simulate'];
 
 export function RaceScreen() {
   const { can } = useMyPermissions();
@@ -43,6 +44,7 @@ export function RaceScreen() {
           { key: 'events', label: '이벤트' },
           { key: 'devices', label: 'PM5 기기' },
           { key: 'records', label: '기록 통계' },
+          { key: 'simulate', label: '시뮬레이션' },
         ]}
         value={tab}
         onChange={(k) => setTab(k as TabKey)}
@@ -52,6 +54,7 @@ export function RaceScreen() {
       {tab === 'events' ? <RaceEventsTab /> : null}
       {tab === 'devices' ? <RaceDevicesTab /> : null}
       {tab === 'records' ? <RaceRecordsTab /> : null}
+      {tab === 'simulate' ? <RaceSimulatorTab /> : null}
     </div>
   );
 }
