@@ -72,6 +72,28 @@ WOD: 피트니스 레벨·약점 레이더(BTWB) / 챌린지·커스텀 리더�
 운영: 리테일 POS·재고 / 24/7 도어 액세스(무인 운영 결정 시 재검토 — fn_kiosk_checkin 응답에 개방 신호 확장점만 문서화) / 가족 계정(키즈 클래스 시 P2) / 회원 정기 자동 예약(크레딧·노쇼 정책과 충돌, 부적합 판정) / 마케팅 드립·평판 스위트 / 네이버 플레이스 연동 / 락커 요금 상품화(경량이라 P2 승격 여지).
 Race: Elimination/Chase 포맷 / 칼로리 목표(저비용 우선 후보)·인터벌 레이스 / 원격 관전·방송 오버레이(?overlay=1) / 지점 간 원격 대항전(다지점 확장 시) / 스트릭트 스타트 옵션(start_mode 플래그만 예약) / 회원용 리플레이(JSONL Storage 아카이빙 전제).
 
+## 3.5 구현 반영 현황 (재검수 2026-07-09)
+
+> §1~2는 설계 마감(2026-07-07) 시점의 벤치마킹 판정이다. 이후 P1 권고가 스키마·RPC·화면으로 반영된 상태를 아래에 재대조한다.
+> 판정: ✅ 반영(스키마+RPC+화면 배선) · 🟡 스키마/RPC 반영, 화면 배선 부분 · ⏳ 미착수. 근거는 마이그레이션/소스 경로 병기.
+
+| # | 기능 | 현 상태 | 근거 |
+|---|---|---|---|
+| G-1 | 일일 WOD 점수 로깅 | ✅ | `session_wod_results`(20260708004000) + `fn_record_session_wod_result`/`fn_get_session_wod_whiteboard`(009000/080000) + UI(member-performance `RecordsTab`·`WodRecordSheet`, coach-schedule `WhiteboardPanel`) |
+| G-2 | RX/Scaled 계층 리더보드 | ✅ | `fn_get_session_wod_whiteboard` Rx+→Rx→Scaled 계층 정렬 |
+| G-4 | 예약 정책 엔진 | 🟡 | `facilities.booking_policy` JSONB(20260708001000: booking_open_days/cancel_deadline_hours/weekly_booking_cap) 단일 소스. 집행은 `fn_book_with_credit`·`fn_cancel_booking_with_credit` 내부. Admin settings 편집 UI 확인 필요 |
+| G-5 | 노쇼·지각취소 페널티 | 🟡 | `booking_policy.noshow_penalty`(credit_forfeit/monthly_threshold/restrict_days) JSONB 저장. 자동 집행 트리거 배선은 확인 필요 |
+| G-6 | 전자 동의서·웨이버 서명 | 🟡 | `member_agreements`(20260708001000: terms/privacy/refund_policy/health_waiver). 가입 승인 전 서명 단계 UI 배선 확인 필요 |
+| G-7 | 드롭인·체험권 상품 | 🟡 | `membership_plans.plan_kind`(standard/drop_in/trial) + 샘플 시드(20260709040000) + 키오스크 plan_kind 인식 체크인. **비회원(게스트) 온보딩 흐름은 진행 중**(kiosk provisioning/guest-checkin in-flight) |
+| G-8 | 환불 위약금 10% 상한 | ✅ | `fn_calculate_refund`(009000, 10% 캡) + 결제 구매 3단계(member-purchase) + 관리자 환불 2단계(payments/RefundModal, `fn_request_refund`/`fn_process_refund`, 20260709030000) |
+| G-9 | 현금영수증 발급 관리 | 🟡 | `transactions.cash_receipt_status`(20260708002000: not_required/pending/issued/failed) 컬럼. 미발급 경고 리포트·Toss 현금영수증 API 배선은 ⏳ |
+| G-10 | Race 페이스보트/버추얼 페이서 | ⏳ | `virtual_lane`/페이서 미구현 — race pacer + broadcast publisher는 진행 중(다른 에이전트) |
+
+**추가 반영(§1~2 미등재)**: PM5 기기 관리(`fn_admin_upsert_pm5_device`/`fn_admin_delete_pm5_device`/`fn_list_pm5_devices`, 20260709060000 — admin/coach race 장비 UI) · 회원 아바타 업로드(`avatars` Storage 버킷, 20260709050000) · 셀프 홀딩 관련 서버측 조정은 admin `fn_admin_adjust_membership`(hold/resume, 20260708040000)로 존재하나 **회원 셀프서비스 홀딩(G-17)은 여전히 ⏳**.
+
+**여전히 열림(P1)**: G-4/G-5 집행·설정 UI 검증 · G-6 서명 단계 UI · G-7 게스트 온보딩 · G-9 발급 리포트/API · G-10 페이서.
+**P2/P3**: §2·§3 로드맵 유지(G-11~G-26 미착수 — 10-gaps-and-debt.md 로드맵 참조).
+
 ## 4. 검수 결론
 
 1. **설계 결함 1건**: G-8(환불 위약금 기본값)은 법규 리스크로 반영 여부 판단 대상이 아닌 **교정 대상**.

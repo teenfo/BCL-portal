@@ -45,6 +45,7 @@ BCL Portal은 크로스핏/피트니스 박스의 통합 운영 시스템 — �
 | 15 | [15-race-system.md](./15-race-system.md) | **Race 전용 설계** — PM5 BLE·3경로·모드 3종·2.5D 카트레이싱·기기 테마(R-11)·페이스보트·에셋 매니페스트 | 도메인 |
 | 16 | [16-benchmark-gap-analysis.md](./16-benchmark-gap-analysis.md) | 벤치마킹 최종 검수 — 유사 솔루션 4카테고리 대비 갭 판정(P1 반영 완료) | 검수 |
 | — | [`_source/`](./_source/) | as-is 원자료(화면/백엔드/비기능 인벤토리) + 벤치마킹 리서치 원문 4건 | 근거 |
+| — | [`screens/`](./screens/) | **라우트 1:1 화면 명세**(13 §4) — 구현 화면을 route별로 분화. 현재: apps/{purchase,profile} · admin/{payments,race} · kiosk/scan · coach/race | 화면 |
 
 ## 3. 표기 규약 (전 문서 공통)
 

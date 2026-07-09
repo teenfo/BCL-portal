@@ -5981,5 +5981,64 @@ END $$;
 -- ============================================================================
 
 -- ============================================================================
+-- [T] 알림 실연동 (mig 20260709070000_notification_automation.sql 미러)
+--   fn_dispatch_notification(p_user_id uuid, p_title text, p_content text,
+--       p_category text DEFAULT 'system', p_type text DEFAULT 'info',
+--       p_action_url text DEFAULT NULL, p_metadata jsonb DEFAULT '{}'::jsonb) → jsonb
+--     SECURITY DEFINER. 내부 auth.uid() 가드: 본인 타깃은 누구나, 타 사용자 타깃은 is_admin() 필요
+--     (클라이언트가 임의 user_id 주입 불가). category/type 는 notifications CHECK 집합 검증.
+--     members.user_id 로 member 해석 → channel='in_app' insert → trg_notifications_side_effects
+--     가 push/외부 채널 팬아웃. envelope {success, data:{notification_id}, error}. authenticated·service_role.
+--   자동화(설계 06 SSOT, 재확인): cron bcl-class-reminders(*/10) · bcl-membership-expiry-reminders(0 0 * * *),
+--     trigger trg_notifications_side_effects · trg_notify_waitlist_on_vacancy.
+-- ============================================================================
+
+-- ============================================================================
+-- [U] 서버측 세부권한 게이트 (mig 20260709080000_permission_enforcement.sql 미러)
+--   fn_has_permission(p_group text, p_action text) → boolean
+--     SECURITY DEFINER STABLE. 판정 순서:
+--       1) auth.uid() NULL → false
+--       2) super_admin: admin_user_roles→admin_roles.permissions 에 '*' 존재 → true
+--       3) bootstrap: is_admin(role=admin·approved) AND admin_user_roles 매핑 0건 → true
+--          (admin@bcl.com 무매핑 부트스트랩 — 잠금 방지, fn_my_permissions 계약과 동일)
+--       4) 그 외: 그룹별 병합 permissions 배열에 action 또는 'all' 포함 → true
+--   가산 게이트(17종, 각 함수 기존 is_admin() 블록 직후 삽입, 나머지 바이트 불변):
+--     fn_admin_create_membership(members.create) · fn_admin_adjust_membership(members.edit)
+--     · fn_admin_transfer_membership(members.delete) · fn_admin_book_session(schedule.create)
+--     · fn_admin_add_walkin(schedule.edit) · fn_admin_set_blacklist(members.delete)
+--     · fn_admin_review_signup(members.edit) · fn_upsert_membership_plan(plans.edit)
+--     · fn_archive_membership_plan(plans.delete) · fn_upsert_session(schedule.edit)
+--     · fn_cancel_session(schedule.delete) · fn_promote_from_waitlist(schedule.edit)
+--     · fn_set_payment_mode(payments.manage) · fn_update_coach_profile(coaches.edit)
+--     · fn_reply_support_ticket(crm.edit) · fn_admin_upsert_pm5_device(race.edit)
+--     · fn_admin_delete_pm5_device(race.delete). 권한 없으면 {success:false,error:'forbidden'} envelope.
+-- ============================================================================
+
+-- ============================================================================
+-- [V] Kiosk 프로비저닝 + 게스트 체크인 (mig 20260709090000_kiosk_provisioning.sql 미러)
+--   kiosk_devices += device_token(UNIQUE)·token_issued_at·provisioned_at
+--   guest_checkin_codes (신규, RLS admin-only FOR ALL): 6자리 1회용 코드, 당일 만료·단회 소멸.
+--   fn_admin_issue_kiosk_token(p_device_id uuid) — is_admin, 토큰 발급/회전, data.token 1회 노출, audit.
+--   fn_kiosk_provision(p_token text) — ANON, 토큰→{device_id,facility_id,device_name,status} 좁은 해석.
+--   fn_admin_issue_guest_code(p_payload jsonb) — is_admin, {member_id(필수),membership_id?,facility_id?,
+--     expires_at?}, 6자리 코드 발권(당일 만료), data.code 1회 노출, audit.
+--   fn_kiosk_guest_checkin(p_code text, p_device_id uuid DEFAULT NULL, p_scanned_at timestamptz DEFAULT NULL)
+--     — ANON, 코드 잠금상환 → fn_kiosk_checkin 동일 판정(회원·±30분 예약·멤버십 크레딧 원자차감) →
+--       체크인 기록 + 코드 consumed(단일 트랜잭션). envelope = fn_kiosk_checkin data + guest:true.
+--   GRANT: fn_kiosk_provision·fn_kiosk_guest_checkin → anon+authenticated; issue 2종 → authenticated(anon revoke).
+-- ============================================================================
+
+-- ============================================================================
+-- [W] Race 페이서 (mig 20260709100000_race_pacer.sql 미러)
+--   race_events += pacer_config jsonb (nullable). 렌더 전용 — 랭킹/집계/race_records 제외(docs/15 §4b.5).
+--   fn_set_race_pacer(p_event_id uuid, p_pacer jsonb) → jsonb
+--     SECURITY DEFINER. 내부 is_admin_or_coach() + 소유(admin || event.coach_id=본인 || session_coaches).
+--     p_pacer = {enabled bool, source 'coach_split'|'member_pr'|'club_record', split_500m? sec,
+--       member_id? uuid, label? text}. enabled=false → pacer_config=NULL. coach_split 은 split_500m>0 필수,
+--       split 0<x<=3600 clamp. jsonb_strip_nulls 저장. envelope {success, data:{event_id, pacer_config}, error}.
+--     GRANT authenticated(anon revoke).
+-- ============================================================================
+
+-- ============================================================================
 -- 09_rpc.sql 끝 — 전체 스키마 적용 완료
 -- ============================================================================

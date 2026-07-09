@@ -798,38 +798,118 @@ export type Database = {
         }
         Relationships: []
       }
+      guest_checkin_codes: {
+        Row: {
+          code: string
+          consumed_at: string | null
+          consumed_checkin_id: string | null
+          created_at: string
+          created_by: string | null
+          expires_at: string
+          facility_id: string | null
+          id: string
+          member_id: string
+          membership_id: string | null
+          status: string
+        }
+        Insert: {
+          code: string
+          consumed_at?: string | null
+          consumed_checkin_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at: string
+          facility_id?: string | null
+          id?: string
+          member_id: string
+          membership_id?: string | null
+          status?: string
+        }
+        Update: {
+          code?: string
+          consumed_at?: string | null
+          consumed_checkin_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string
+          facility_id?: string | null
+          id?: string
+          member_id?: string
+          membership_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "guest_checkin_codes_consumed_checkin_id_fkey"
+            columns: ["consumed_checkin_id"]
+            isOneToOne: false
+            referencedRelation: "checkins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_checkin_codes_facility_id_fkey"
+            columns: ["facility_id"]
+            isOneToOne: false
+            referencedRelation: "facilities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_checkin_codes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "guest_checkin_codes_membership_id_fkey"
+            columns: ["membership_id"]
+            isOneToOne: false
+            referencedRelation: "memberships"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kiosk_devices: {
         Row: {
           created_at: string
           device_ip: string | null
           device_name: string
+          device_token: string | null
           display_message: string | null
           facility_id: string | null
           id: string
           last_heartbeat: string | null
+          provisioned_at: string | null
           status: string
+          token_issued_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           device_ip?: string | null
           device_name: string
+          device_token?: string | null
           display_message?: string | null
           facility_id?: string | null
           id?: string
           last_heartbeat?: string | null
+          provisioned_at?: string | null
           status?: string
+          token_issued_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           device_ip?: string | null
           device_name?: string
+          device_token?: string | null
           display_message?: string | null
           facility_id?: string | null
           id?: string
           last_heartbeat?: string | null
+          provisioned_at?: string | null
           status?: string
+          token_issued_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1971,6 +2051,7 @@ export type Database = {
           id: string
           lobby_status: string
           name: string
+          pacer_config: Json | null
           parent_event_id: string | null
           race_format: string
           session_id: string | null
@@ -1992,6 +2073,7 @@ export type Database = {
           id?: string
           lobby_status?: string
           name: string
+          pacer_config?: Json | null
           parent_event_id?: string | null
           race_format?: string
           session_id?: string | null
@@ -2013,6 +2095,7 @@ export type Database = {
           id?: string
           lobby_status?: string
           name?: string
+          pacer_config?: Json | null
           parent_event_id?: string | null
           race_format?: string
           session_id?: string | null
@@ -3226,6 +3309,12 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_admin_delete_pm5_device: { Args: { p_id: string }; Returns: Json }
+      fn_admin_issue_guest_code: { Args: { p_payload: Json }; Returns: Json }
+      fn_admin_issue_kiosk_token: {
+        Args: { p_device_id: string }
+        Returns: Json
+      }
       fn_admin_review_signup: {
         Args: { p_decision: string; p_reason?: string; p_user_id: string }
         Returns: Json
@@ -3242,6 +3331,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_admin_upsert_pm5_device: { Args: { p_payload: Json }; Returns: Json }
       fn_archive_membership_plan: { Args: { p_plan_id: string }; Returns: Json }
       fn_assign_admin_role: {
         Args: { p_facility_id?: string; p_role_id: string; p_user_id: string }
@@ -3268,10 +3358,34 @@ export type Database = {
         Args: { p_followup_id: string; p_status?: string }
         Returns: Json
       }
+      fn_confirm_payment_order: {
+        Args: {
+          p_amount: number
+          p_mode?: string
+          p_order_id: string
+          p_payment_key: string
+          p_receipt_url?: string
+          p_toss_status?: string
+        }
+        Returns: Json
+      }
       fn_create_coach_race_event: { Args: { p_payload: Json }; Returns: Json }
       fn_create_followup: { Args: { p_payload: Json }; Returns: Json }
+      fn_create_payment_order: { Args: { p_plan_id: string }; Returns: Json }
       fn_create_support_ticket: {
         Args: { p_category?: string; p_content: string; p_subject: string }
+        Returns: Json
+      }
+      fn_dispatch_notification: {
+        Args: {
+          p_action_url?: string
+          p_category?: string
+          p_content: string
+          p_metadata?: Json
+          p_title: string
+          p_type?: string
+          p_user_id: string
+        }
         Returns: Json
       }
       fn_evaluate_badges: {
@@ -3359,8 +3473,16 @@ export type Database = {
         Returns: Json
       }
       fn_get_wod_template: { Args: { p_template_id: string }; Returns: Json }
+      fn_has_permission: {
+        Args: { p_action: string; p_group: string }
+        Returns: boolean
+      }
       fn_kiosk_checkin: {
         Args: { p_device_id?: string; p_payload: Json; p_scanned_at?: string }
+        Returns: Json
+      }
+      fn_kiosk_guest_checkin: {
+        Args: { p_code: string; p_device_id?: string; p_scanned_at?: string }
         Returns: Json
       }
       fn_kiosk_heartbeat: {
@@ -3371,6 +3493,7 @@ export type Database = {
         Args: { p_facility_id: string; p_phone_last4: string }
         Returns: Json
       }
+      fn_kiosk_provision: { Args: { p_token: string }; Returns: Json }
       fn_list_benchmark_definitions: {
         Args: { p_include_inactive?: boolean }
         Returns: Json
@@ -3386,6 +3509,7 @@ export type Database = {
         }
         Returns: Json
       }
+      fn_list_pm5_devices: { Args: { p_facility_id?: string }; Returns: Json }
       fn_list_runbook_templates: {
         Args: { p_class_type?: string; p_facility_id?: string }
         Returns: Json
@@ -3405,6 +3529,14 @@ export type Database = {
       fn_my_permissions: { Args: never; Returns: Json }
       fn_prepare_race_session: {
         Args: { p_options?: Json; p_race_format?: string; p_session_id: string }
+        Returns: Json
+      }
+      fn_process_refund: {
+        Args: {
+          p_mode?: string
+          p_refund_id: string
+          p_toss_cancel_key?: string
+        }
         Returns: Json
       }
       fn_promote_from_waitlist: {
@@ -3453,6 +3585,14 @@ export type Database = {
         Args: { p_reply: string; p_status?: string; p_ticket_id: string }
         Returns: Json
       }
+      fn_request_refund: {
+        Args: {
+          p_membership_id: string
+          p_reason: string
+          p_transaction_id: string
+        }
+        Returns: Json
+      }
       fn_revoke_admin_role: { Args: { p_assignment_id: string }; Returns: Json }
       fn_search_wod_movements: {
         Args: {
@@ -3466,6 +3606,10 @@ export type Database = {
       fn_send_class_reminders: { Args: never; Returns: undefined }
       fn_send_membership_expiry_reminders: { Args: never; Returns: undefined }
       fn_set_payment_mode: { Args: { p_mode: string }; Returns: Json }
+      fn_set_race_pacer: {
+        Args: { p_event_id: string; p_pacer: Json }
+        Returns: Json
+      }
       fn_set_role_permissions: {
         Args: { p_permissions: Json; p_role_id: string }
         Returns: Json
