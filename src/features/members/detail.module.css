@@ -249,6 +249,25 @@
   font-size: calc(13px * var(--bcl-font-scale));
 }
 
+/* 게스트 코드 1회 표시 */
+.guestCodeBox {
+  padding: var(--bcl-space-4);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  display: flex;
+  justify-content: center;
+}
+
+.guestCode {
+  font-family: var(--bcl-font-mono, monospace);
+  font-size: calc(40px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--bcl-text);
+  user-select: all;
+}
+
 .hint {
   font-size: calc(12px * var(--bcl-font-scale));
   color: var(--bcl-text-muted);

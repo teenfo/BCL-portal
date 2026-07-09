@@ -161,6 +161,23 @@
   word-break: break-all;
 }
 
+/* 1회 표시 시크릿(등록 토큰) */
+.secretBox {
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  overflow-x: auto;
+}
+
+.secretCode {
+  font-family: var(--bcl-font-mono, monospace);
+  font-size: calc(15px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  word-break: break-all;
+  user-select: all;
+}
+
 .kvList {
   display: flex;
   flex-direction: column;

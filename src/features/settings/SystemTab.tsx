@@ -26,6 +26,13 @@ import styles from './settings.module.css';
 
 const HEARTBEAT_OFFLINE_MS = 60_000;
 
+interface IssuedKioskToken {
+  device_id: string;
+  device_name: string;
+  facility_id: string | null;
+  token: string;
+}
+
 function kioskEffectiveStatus(d: KioskDevice): { label: string; variant: 'success' | 'warning' | 'neutral' } {
   if (d.status === 'maintenance') return { label: '점검', variant: 'neutral' };
   const hb = d.last_heartbeat ? new Date(d.last_heartbeat).getTime() : 0;
@@ -94,6 +101,35 @@ export function SystemTab() {
   const [deletingKiosk, setDeletingKiosk] = useState<KioskDevice | null>(null);
   const [kioskBusy, setKioskBusy] = useState(false);
 
+  // 키오스크 등록 토큰 발급/회전 (fn_admin_issue_kiosk_token — 토큰은 1회만 표시, 재발급 시 회전)
+  const [tokenTarget, setTokenTarget] = useState<KioskDevice | null>(null);
+  const [tokenBusy, setTokenBusy] = useState(false);
+  const [issuedToken, setIssuedToken] = useState<IssuedKioskToken | null>(null);
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('클립보드에 복사했습니다.');
+    } catch {
+      toast.error('복사에 실패했습니다. 값을 직접 선택해 복사하세요.');
+    }
+  };
+
+  const issueKioskToken = async () => {
+    if (!tokenTarget) return;
+    setTokenBusy(true);
+    const res = await rpc<IssuedKioskToken>(client, 'fn_admin_issue_kiosk_token', {
+      p_device_id: tokenTarget.id,
+    });
+    setTokenBusy(false);
+    if (!res.success || !res.data) {
+      toast.error(res.error ?? '등록 토큰 발급에 실패했습니다.');
+      return;
+    }
+    setTokenTarget(null);
+    setIssuedToken(res.data);
+  };
+
   const deleteKiosk = async () => {
     if (!deletingKiosk) return;
     setKioskBusy(true);
@@ -157,6 +193,9 @@ export function SystemTab() {
       render: (d) =>
         canEdit ? (
           <div className={styles.rowActions}>
+            <Button variant="ghost" size="sm" onClick={() => setTokenTarget(d)}>
+              등록 토큰
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setKioskModal(d)}>
               편집
             </Button>
@@ -301,6 +340,59 @@ export function SystemTab() {
           }}
         />
       ) : null}
+
+      {/* 등록 토큰 발급/회전 confirm — 재발급 시 기존 토큰 무효화 */}
+      <ConfirmModal
+        open={tokenTarget != null}
+        title="키오스크 등록 토큰 발급"
+        variant="primary"
+        confirmLabel="토큰 발급"
+        loading={tokenBusy}
+        message={
+          <>
+            <strong>{tokenTarget?.device_name}</strong> 기기의 등록 토큰을 발급합니다. 이미 발급된
+            토큰이 있으면 <strong>즉시 무효화(회전)</strong>되어 기존 단말은 재등록이 필요합니다.
+            발급된 토큰은 <strong>이번 한 번만</strong> 표시됩니다.
+          </>
+        }
+        onConfirm={issueKioskToken}
+        onClose={() => setTokenTarget(null)}
+      />
+
+      {/* 발급된 토큰 1회 표시 */}
+      <Modal
+        open={issuedToken != null}
+        onClose={() => setIssuedToken(null)}
+        title="키오스크 등록 토큰"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="soft"
+              onClick={() => issuedToken && copyToClipboard(issuedToken.token)}
+            >
+              토큰 복사
+            </Button>
+            <Button variant="primary" onClick={() => setIssuedToken(null)}>
+              확인
+            </Button>
+          </>
+        }
+      >
+        {issuedToken ? (
+          <div className={styles.form}>
+            <p className={styles.note}>
+              <strong>{issuedToken.device_name}</strong> 기기에 아래 토큰을 입력해 단말을 등록하세요.
+            </p>
+            <div className={styles.secretBox}>
+              <code className={styles.secretCode}>{issuedToken.token}</code>
+            </div>
+            <p className={styles.errorText}>
+              이 토큰은 다시 표시되지 않습니다. 지금 복사해 안전하게 전달하세요.
+            </p>
+          </div>
+        ) : null}
+      </Modal>
 
       <ConfirmModal
         open={deletingKiosk != null}

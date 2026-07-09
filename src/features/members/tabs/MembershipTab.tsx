@@ -22,6 +22,7 @@ import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { MembershipCreateModal, type PlanOption } from '../membership/MembershipCreateModal';
 import { MembershipAdjustModal, type AdjustAction } from '../membership/MembershipAdjustModal';
 import { MembershipTransferModal } from '../membership/MembershipTransferModal';
+import { GuestCodeModal } from '../membership/GuestCodeModal';
 import {
   type Membership,
   type MembershipHistoryRow,
@@ -99,6 +100,7 @@ export function MembershipTab({ memberId, memberName }: Props) {
   const [transfer, setTransfer] = useState<Membership | null>(null);
   const [cancelling, setCancelling] = useState<Membership | null>(null);
   const [cancelBusy, setCancelBusy] = useState(false);
+  const [guestCodeOpen, setGuestCodeOpen] = useState(false);
 
   const history = bundle.data?.history ?? [];
 
@@ -244,6 +246,23 @@ export function MembershipTab({ memberId, memberName }: Props) {
         )}
       </Card>
 
+      {/* 게스트(드롭인/체험) 체크인 코드 */}
+      {canEdit ? (
+        <Card
+          title="게스트 체크인 코드"
+          action={
+            <Button variant="soft" size="sm" onClick={() => setGuestCodeOpen(true)}>
+              게스트 코드 발권
+            </Button>
+          }
+        >
+          <p className={styles.hint}>
+            드롭인/체험 방문 시 데스크에서 6자리 코드를 발급합니다. 코드는 발급 후 한 번만 표시되며
+            당일 자정에 만료됩니다.
+          </p>
+        </Card>
+      ) : null}
+
       {/* 이력 타임라인 */}
       <Card title="변경 이력">
         {bundle.loading ? (
@@ -294,6 +313,15 @@ export function MembershipTab({ memberId, memberName }: Props) {
           sourceMemberName={memberName}
           onClose={() => setTransfer(null)}
           onDone={onDone}
+        />
+      ) : null}
+
+      {guestCodeOpen ? (
+        <GuestCodeModal
+          memberId={memberId}
+          memberName={memberName}
+          memberships={current}
+          onClose={() => setGuestCodeOpen(false)}
         />
       ) : null}
 
