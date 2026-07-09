@@ -41,6 +41,7 @@ interface LineState {
   load_female_rx: string;
   rx_notes: string;
   scaling_notes: string;
+  superset_group: string;
 }
 
 interface FormState {
@@ -70,6 +71,7 @@ const emptyLine = (): LineState => ({
   load_female_rx: '',
   rx_notes: '',
   scaling_notes: '',
+  superset_group: '',
 });
 
 const s = (v: number | null | undefined) => (v != null ? String(v) : '');
@@ -99,6 +101,7 @@ function fromTemplate(t: WodTemplate): FormState {
       load_female_rx: m.load_female_rx ?? '',
       rx_notes: m.rx_notes ?? '',
       scaling_notes: m.scaling_notes ?? '',
+      superset_group: m.superset_group ?? '',
     })),
   };
 }
@@ -187,6 +190,7 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
         load_female_rx: l.load_female_rx.trim() || null,
         rx_notes: l.rx_notes.trim() || null,
         scaling_notes: l.scaling_notes.trim() || null,
+        superset_group: l.superset_group.trim() || null,
       })),
     };
     setSaving(true);
@@ -317,10 +321,21 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
             </Button>
           </div>
 
-          {form.lines.map((l, i) => (
-            <div key={i} className={styles.line}>
+          {form.lines.map((l, i) => {
+            const g = l.superset_group.trim();
+            const prevG = form.lines[i - 1]?.superset_group.trim() ?? '';
+            const nextG = form.lines[i + 1]?.superset_group.trim() ?? '';
+            const grouped = !!g && (g === prevG || g === nextG);
+            return (
+            <div
+              key={i}
+              className={grouped ? `${styles.line} ${styles.lineGrouped}` : styles.line}
+            >
               <div className={styles.lineHead}>
-                <span className={styles.lineIndex}>#{i + 1}</span>
+                <span className={styles.lineIndex}>
+                  #{i + 1}
+                  {grouped ? <span className={styles.groupTag}>세트 {g}</span> : null}
+                </span>
                 <div className={styles.lineControls}>
                   <Button
                     variant="ghost"
@@ -356,6 +371,13 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
                 label="직접 입력 (custom_label — 라이브러리 미선택 시)"
                 value={l.custom_label}
                 onChange={(e) => updateLine(i, { custom_label: e.target.value })}
+              />
+
+              <Input
+                label="세트 그룹 (선택 · 같은 값끼리 컴파운드)"
+                value={l.superset_group}
+                placeholder="예: A"
+                onChange={(e) => updateLine(i, { superset_group: e.target.value })}
               />
 
               <div className={styles.lineGrid3}>
@@ -411,7 +433,8 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
                 />
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </Modal>

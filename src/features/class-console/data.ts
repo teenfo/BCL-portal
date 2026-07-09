@@ -30,6 +30,8 @@ export interface WodMovement {
   target?: string | null;
   rx_male?: string | null;
   rx_female?: string | null;
+  /** 컴파운드 세트 그룹 태그. 연속 동일 값 = 한 세트로 묶어 표시. null/부재 = 단독. */
+  superset_group?: string | null;
   [k: string]: unknown;
 }
 

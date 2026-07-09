@@ -19,6 +19,7 @@ interface MovementLine {
   load_male_rx?: string;
   load_female_rx?: string;
   notes?: string;
+  superset_group?: string | null;
 }
 
 interface SessionWod {
@@ -49,6 +50,7 @@ interface WodTemplate {
     target_unit?: string | null;
     load_male_rx?: string | null;
     load_female_rx?: string | null;
+    superset_group?: string | null;
   }[];
 }
 
@@ -153,6 +155,7 @@ function WodEditor({
         target_unit: m.target_unit ?? '',
         load_male_rx: m.load_male_rx ?? '',
         load_female_rx: m.load_female_rx ?? '',
+        superset_group: m.superset_group ?? '',
       })),
     );
     toast.info('템플릿을 불러왔습니다. 저장 전까지 반영되지 않습니다.');
@@ -167,7 +170,7 @@ function WodEditor({
   };
 
   const addMovement = (name: string) => {
-    setMovements((prev) => [...prev, { name, target_value: '', target_unit: '', load_male_rx: '', load_female_rx: '' }]);
+    setMovements((prev) => [...prev, { name, target_value: '', target_unit: '', load_male_rx: '', load_female_rx: '', superset_group: '' }]);
   };
 
   const updateMovement = (i: number, patch: Partial<MovementLine>) => {
@@ -184,7 +187,10 @@ function WodEditor({
     format_override: format || null,
     time_cap_override: timeCap ? Number(timeCap) : null,
     description_override: description || null,
-    movements_snapshot: movements,
+    movements_snapshot: movements.map((m) => ({
+      ...m,
+      superset_group: m.superset_group?.trim() || null,
+    })),
     coach_notes: coachNotes || null,
     class_display_notes: displayNotes || null,
   });
@@ -283,6 +289,7 @@ function WodEditor({
                   <Input label="단위" value={m.target_unit ?? ''} onChange={(e) => updateMovement(i, { target_unit: e.target.value })} />
                   <Input label="♂ RX" value={m.load_male_rx ?? ''} onChange={(e) => updateMovement(i, { load_male_rx: e.target.value })} />
                   <Input label="♀ RX" value={m.load_female_rx ?? ''} onChange={(e) => updateMovement(i, { load_female_rx: e.target.value })} />
+                  <Input label="세트 그룹" placeholder="예: A" value={m.superset_group ?? ''} onChange={(e) => updateMovement(i, { superset_group: e.target.value })} />
                 </div>
               </Card>
             ))}

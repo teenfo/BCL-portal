@@ -32,6 +32,26 @@ function movementLine(m: WodMovement): { name: string; detail: string; rx: strin
   return { name, detail, rx };
 }
 
+/** 연속 동일 superset_group 을 하나의 세그먼트로 묶는다. null 그룹은 단독 세그먼트. */
+interface Segment {
+  group: string | null;
+  items: WodMovement[];
+}
+function segmentMovements(movements: WodMovement[]): Segment[] {
+  const segs: Segment[] = [];
+  for (const m of movements) {
+    const raw = typeof m.superset_group === 'string' ? m.superset_group.trim() : '';
+    const group = raw || null;
+    const last = segs[segs.length - 1];
+    if (group && last && last.group === group) {
+      last.items.push(m);
+    } else {
+      segs.push({ group, items: [m] });
+    }
+  }
+  return segs;
+}
+
 /** WOD 보드 마크업. className으로 컨테이너 배치 제어(전체화면 vs 좌측 페인) */
 export function WodBoard({ data, className }: { data: DisplayWod; className?: string }) {
   const movements = Array.isArray(data.movements_snapshot) ? data.movements_snapshot : [];
@@ -50,13 +70,32 @@ export function WodBoard({ data, className }: { data: DisplayWod; className?: st
       {data.description ? <p className={styles.wodDesc}>{data.description}</p> : null}
 
       <ol className={styles.wodList}>
-        {movements.map((m, i) => {
-          const line = movementLine(m);
+        {segmentMovements(movements).map((seg, si) => {
+          if (seg.group == null) {
+            const line = movementLine(seg.items[0]);
+            return (
+              <li key={si} className={styles.wodItem}>
+                <span className={styles.wodItemName}>{line.name}</span>
+                {line.detail ? <span className={styles.wodItemDetail}>{line.detail}</span> : null}
+                {line.rx ? <span className={styles.wodItemRx}>{line.rx}</span> : null}
+              </li>
+            );
+          }
           return (
-            <li key={i} className={styles.wodItem}>
-              <span className={styles.wodItemName}>{line.name}</span>
-              {line.detail ? <span className={styles.wodItemDetail}>{line.detail}</span> : null}
-              {line.rx ? <span className={styles.wodItemRx}>{line.rx}</span> : null}
+            <li key={si} className={styles.wodGroup}>
+              <span className={styles.wodGroupTag}>세트 {seg.group}</span>
+              <div className={styles.wodGroupItems}>
+                {seg.items.map((m, mi) => {
+                  const line = movementLine(m);
+                  return (
+                    <div key={mi} className={styles.wodItem}>
+                      <span className={styles.wodItemName}>{line.name}</span>
+                      {line.detail ? <span className={styles.wodItemDetail}>{line.detail}</span> : null}
+                      {line.rx ? <span className={styles.wodItemRx}>{line.rx}</span> : null}
+                    </div>
+                  );
+                })}
+              </div>
             </li>
           );
         })}

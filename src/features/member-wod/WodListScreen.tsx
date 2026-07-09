@@ -16,6 +16,7 @@ interface WodMovement {
   reps: number | string | null;
   rx_male: string | null;
   rx_female: string | null;
+  superset_group?: string | null;
 }
 interface MemberWod {
   id: string;
@@ -47,6 +48,26 @@ function movementLine(m: WodMovement): string {
     .filter(Boolean)
     .join(' · ');
   return extra ? `${head} — ${extra}` : head;
+}
+
+/** 연속 동일 superset_group 을 한 컴파운드 세트로 묶는다(TV 그룹핑 미러). */
+interface WodSegment {
+  group: string | null;
+  items: WodMovement[];
+}
+function segmentMovements(movements: WodMovement[]): WodSegment[] {
+  const segs: WodSegment[] = [];
+  for (const m of movements) {
+    const raw = typeof m.superset_group === 'string' ? m.superset_group.trim() : '';
+    const group = raw || null;
+    const last = segs[segs.length - 1];
+    if (group && last && last.group === group) {
+      last.items.push(m);
+    } else {
+      segs.push({ group, items: [m] });
+    }
+  }
+  return segs;
 }
 
 export function WodListScreen() {
@@ -89,11 +110,24 @@ export function WodListScreen() {
               </div>
               {w.movements.length > 0 ? (
                 <ol className={styles.moveList}>
-                  {w.movements.map((m, i) => (
-                    <li key={i} className={styles.moveItem}>
-                      {movementLine(m)}
-                    </li>
-                  ))}
+                  {segmentMovements(w.movements).map((seg, si) =>
+                    seg.group == null ? (
+                      <li key={si} className={styles.moveItem}>
+                        {movementLine(seg.items[0])}
+                      </li>
+                    ) : (
+                      <li key={si} className={styles.moveGroup}>
+                        <span className={styles.moveGroupTag}>세트 {seg.group}</span>
+                        <ul className={styles.moveGroupItems}>
+                          {seg.items.map((m, mi) => (
+                            <li key={mi} className={styles.moveItem}>
+                              {movementLine(m)}
+                            </li>
+                          ))}
+                        </ul>
+                      </li>
+                    ),
+                  )}
                 </ol>
               ) : null}
               {w.notes ? <p className={styles.notes}>{w.notes}</p> : null}

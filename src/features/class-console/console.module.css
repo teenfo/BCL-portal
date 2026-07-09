@@ -101,6 +101,32 @@
   font-weight: 600;
   color: var(--bcl-accent-ink);
 }
+/* ── 컴파운드 세트(동작 그룹) 블록 ── */
+.wodGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3) var(--bcl-space-5);
+  border-left: 8px solid var(--bcl-accent);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-accent-soft);
+}
+.wodGroupTag {
+  align-self: flex-start;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bcl-accent);
+}
+.wodGroupItems {
+  display: flex;
+  flex-direction: column;
+}
+/* 그룹 내부 아이템: 마지막 라인은 하단 경계선 제거(박스 안이라 불필요) */
+.wodGroupItems .wodItem:last-child {
+  border-bottom: none;
+}
+
 .wodNotes {
   margin-top: auto;
   font-size: 32px;

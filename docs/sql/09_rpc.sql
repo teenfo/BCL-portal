@@ -6067,7 +6067,16 @@ END $$;
 --   fn_list_member_wods() → jsonb  (authenticated, anon revoke). 게시(published_at NOT NULL) +
 --     is_member_visible=true 템플릿만. Display-Safe(public_notes만 notes, 코치노트/정산 제외).
 --     data.wods = [{id,title,format,rounds,time_cap_minutes,notes,
---                   movements:[{name,target,reps,rx_male,rx_female}]}].
+--                   movements:[{name,target,reps,rx_male,rx_female,superset_group}]}].
+-- ============================================================================
+
+-- ============================================================================
+-- [Z] WOD 컴파운드 세트 (mig 20260709180000_wod_compound_set.sql 미러)
+--   wod_template_movements += superset_group text (nullable). 연속 동일 값 = 한 컴파운드 세트,
+--     null = 단독 라인(기존 flat 하위호환). session_wods.movements_snapshot 은 jsonb passthrough로
+--     superset_group 을 그대로 보관 → TV(fn_get_class_display_wod)·회원앱 그룹 렌더.
+--   fn_upsert_wod_template: movements[].superset_group 저장(시그니처 불변).
+--   fn_list_member_wods: movement 객체에 superset_group 포함(시그니처 불변).
 -- ============================================================================
 
 -- ============================================================================

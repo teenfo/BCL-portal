@@ -3147,6 +3147,7 @@ export type Database = {
           rx_notes: string | null
           scaling_notes: string | null
           sort_order: number
+          superset_group: string | null
           target_unit: string | null
           target_value: number | null
           wod_template_id: string
@@ -3163,6 +3164,7 @@ export type Database = {
           rx_notes?: string | null
           scaling_notes?: string | null
           sort_order?: number
+          superset_group?: string | null
           target_unit?: string | null
           target_value?: number | null
           wod_template_id: string
@@ -3179,6 +3181,7 @@ export type Database = {
           rx_notes?: string | null
           scaling_notes?: string | null
           sort_order?: number
+          superset_group?: string | null
           target_unit?: string | null
           target_value?: number | null
           wod_template_id?: string

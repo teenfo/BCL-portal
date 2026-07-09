@@ -112,6 +112,21 @@
   background: var(--bcl-surface-raised);
 }
 
+/* 컴파운드 세트: 연속 동일 그룹 라인에 좌측 액센트 바 */
+.lineGrouped {
+  border-left: 3px solid var(--bcl-accent);
+}
+
+.groupTag {
+  margin-left: var(--bcl-space-2);
+  padding: 0 var(--bcl-space-2);
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-accent);
+  background: var(--bcl-accent-soft);
+  border-radius: var(--bcl-radius-sm);
+}
+
 .lineHead {
   display: flex;
   align-items: center;

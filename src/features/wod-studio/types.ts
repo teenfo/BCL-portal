@@ -33,6 +33,8 @@ export interface TemplateMovement {
   load_female_rx: string | null;
   rx_notes: string | null;
   scaling_notes: string | null;
+  /** 컴파운드 세트 그룹 태그(짧은 라벨 "A"/"B"). 연속 동일 값 = 한 세트. null = 단독 라인. */
+  superset_group: string | null;
 }
 
 /** wod_templates + movements (목록·상세 공통) */
