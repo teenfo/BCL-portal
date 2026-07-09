@@ -5,6 +5,7 @@
 // Heartbeat·원격명령은 KioskProvider(앱 셸)가 상시 발신/수신.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui';
 import { useKiosk } from '@/features/kiosk-shell';
 import { useNotices } from '@/features/kiosk-shell/useNotices';
 import styles from './kiosk.module.css';
@@ -42,7 +43,7 @@ export default function KioskIdlePage() {
   const notice = notices[slide];
 
   return (
-    <button type="button" className={styles.idle} onClick={() => router.push('/kiosk/scan')} aria-label="체크인 시작">
+    <div className={styles.idleWrap}>
       <div className={styles.statusRow}>
         <span className={[styles.badge, online ? styles.badgeOnline : styles.badgeOffline].join(' ')}>
           {online ? '온라인' : '오프라인'}
@@ -50,27 +51,37 @@ export default function KioskIdlePage() {
         {queued > 0 ? <span className={[styles.badge, styles.badgeQueued].join(' ')}>동기화 대기 {queued}</span> : null}
       </div>
 
-      <div className={styles.clockBlock}>
-        <div className={styles.clock}>
-          {hh}
-          <span className={styles.colon}>:</span>
-          {mm}
+      {/* 전면 터치 = 회원 QR 체크인 (docs/06 §3.1 ③) */}
+      <button type="button" className={styles.idle} onClick={() => router.push('/kiosk/scan')} aria-label="체크인 시작">
+        <div className={styles.clockBlock}>
+          <div className={styles.clock}>
+            {hh}
+            <span className={styles.colon}>:</span>
+            {mm}
+          </div>
+          <div className={styles.date}>{dateLabel}</div>
         </div>
-        <div className={styles.date}>{dateLabel}</div>
-      </div>
 
-      {notice ? (
-        <div className={styles.notice} aria-live="polite">
-          <span className={styles.noticeTitle}>{notice.title}</span>
-          <span className={styles.noticeBody}>{notice.content}</span>
+        {notice ? (
+          <div className={styles.notice} aria-live="polite">
+            <span className={styles.noticeTitle}>{notice.title}</span>
+            <span className={styles.noticeBody}>{notice.content}</span>
+          </div>
+        ) : (
+          <div className={styles.noticeSpacer} aria-hidden="true" />
+        )}
+
+        <div className={styles.cta}>
+          <span className={styles.ctaText}>화면을 터치해 체크인을 시작하세요</span>
         </div>
-      ) : (
-        <div className={styles.noticeSpacer} aria-hidden="true" />
-      )}
+      </button>
 
-      <div className={styles.cta}>
-        <span className={styles.ctaText}>화면을 터치해 체크인을 시작하세요</span>
+      {/* 게스트/드롭인 경로 (docs/06 §4.6 G-7) — 발권 코드 상환 */}
+      <div className={styles.idleFooter}>
+        <Button variant="ghost" onClick={() => router.push('/kiosk/scan#guest')}>
+          게스트 · 드롭인 체크인
+        </Button>
       </div>
-    </button>
+    </div>
   );
 }

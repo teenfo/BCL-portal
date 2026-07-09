@@ -103,7 +103,11 @@ export default function KioskSuccessPage() {
   const planLabel = PLAN_LABEL[data.membership_plan_kind] ?? data.membership_plan_name ?? undefined;
 
   return (
-    <ResultShell tone="success" title={`${data.member_name}님`} subtitle="체크인 완료">
+    <ResultShell
+      tone="success"
+      title={`${data.member_name}님`}
+      subtitle={data.guest ? '게스트 체크인 완료' : '체크인 완료'}
+    >
       {isSession ? (
         <div className={styles.successDetail}>
           <span className={styles.successBadge}>수업 체크인</span>
@@ -120,6 +124,7 @@ export default function KioskSuccessPage() {
         remainingCredits={data.remaining_credits}
         membershipDday={data.membership_dday}
       />
+      {data.guest ? <p className={styles.successNote}>당일 유효 · 오늘 이용해주세요.</p> : null}
     </ResultShell>
   );
 }

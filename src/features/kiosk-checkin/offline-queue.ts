@@ -70,6 +70,41 @@ export async function removeFromQueue(id: number): Promise<void> {
   db.close();
 }
 
+/**
+ * 보존 기한(24h) 초과분 폐기 (docs §7 "초과분 폐기").
+ * readQueue 는 만료분을 표시에서 제외만 하므로, 복구 드레인 시 실제 삭제해 무한 적재를 막는다.
+ * 실패해도 무해(다음 드레인에서 재시도) — 폐기 건수를 반환한다.
+ */
+export async function purgeExpired(): Promise<number> {
+  let db: IDBDatabase;
+  try {
+    db = await openDb();
+  } catch {
+    return 0;
+  }
+  const now = Date.now();
+  const removed = await new Promise<number>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite');
+    const store = tx.objectStore(STORE);
+    let count = 0;
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const item = cursor.value as QueuedCheckin;
+      if (now - item.scanned_at > MAX_AGE_MS) {
+        cursor.delete();
+        count += 1;
+      }
+      cursor.continue();
+    };
+    tx.oncomplete = () => resolve(count);
+    tx.onerror = () => reject(tx.error);
+  }).catch(() => 0);
+  db.close();
+  return removed;
+}
+
 export async function queueSize(): Promise<number> {
   try {
     return (await readQueue()).length;

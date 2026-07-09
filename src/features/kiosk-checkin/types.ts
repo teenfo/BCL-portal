@@ -33,6 +33,8 @@ export interface KioskCheckinData {
   /** 예약 감지되어 수업에 연결됐는지 — true=수업 체크인, false=시설(자유) 체크인 */
   linked_booking: boolean;
   checkin_time: string;
+  /** 게스트(드롭인/체험) 코드 상환 경로 여부 — success 화면 라벨용(§4.6 G-7) */
+  guest?: boolean;
 }
 
 /**
@@ -64,6 +66,8 @@ export type KioskErrorCode =
   | 'duplicate_checkin'
   | 'facility_mismatch' // 클라이언트 선검증 (서버 미강제 — FLAG)
   | 'unsupported_version' // 클라이언트 선검증
+  | 'invalid_code' // 게스트 코드: 오타·이미 사용·존재하지 않음(§4.6)
+  | 'code_expired' // 게스트 코드: 당일 만료
   | 'network_error';
 
 /** 스캔 결과 — 성공(데이터) / 중복(성공 화면 경유, 회원명·시각) / 오류(토스트) / 오프라인 접수 */
@@ -83,6 +87,8 @@ export const KIOSK_ERROR_MESSAGE: Record<KioskErrorCode, string> = {
   member_not_active: '데스크에 문의해주세요.',
   no_active_membership: '데스크에 문의해주세요.',
   duplicate_checkin: '이미 체크인되었습니다.',
+  invalid_code: '코드가 올바르지 않거나 이미 사용되었습니다.',
+  code_expired: '코드가 만료되었습니다. 데스크에 문의해주세요.',
   network_error: '네트워크 오류입니다. 잠시 후 다시 시도해주세요.',
 };
 

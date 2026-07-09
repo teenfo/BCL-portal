@@ -41,20 +41,12 @@ const KNOWN_CODES: KioskErrorCode[] = [
   'member_not_active',
   'no_active_membership',
   'facility_mismatch',
+  'invalid_code',
+  'code_expired',
 ];
 
-/** RPC 1회 — p_device_id/p_scanned_at 전달, envelope→ScanOutcome. duplicated=성공화면 경유 */
-async function callRpc(
-  payload: QrPayload,
-  deviceId: string | null,
-  scannedAtMs: number,
-): Promise<ScanOutcome> {
-  const client = getSupabaseBrowserClient();
-  const res = await rpc<RawCheckinData>(client, 'fn_kiosk_checkin', {
-    p_payload: payload,
-    p_device_id: deviceId,
-    p_scanned_at: new Date(scannedAtMs).toISOString(),
-  });
+/** envelope(성공 data | 오류 문자열) → ScanOutcome. QR·게스트 공통 매핑. duplicated=성공화면 경유 */
+function mapEnvelope(res: { success: boolean; data: RawCheckinData | null; error: string | null }): ScanOutcome {
   if (res.success && res.data) {
     const d = res.data;
     if (d.duplicated) {
@@ -73,6 +65,21 @@ async function callRpc(
   }
   const code = (res.error ?? 'network_error') as KioskErrorCode;
   return { kind: 'error', code: KNOWN_CODES.includes(code) ? code : 'network_error' };
+}
+
+/** RPC 1회 — p_device_id/p_scanned_at 전달, envelope→ScanOutcome */
+async function callRpc(
+  payload: QrPayload,
+  deviceId: string | null,
+  scannedAtMs: number,
+): Promise<ScanOutcome> {
+  const client = getSupabaseBrowserClient();
+  const res = await rpc<RawCheckinData>(client, 'fn_kiosk_checkin', {
+    p_payload: payload,
+    p_device_id: deviceId,
+    p_scanned_at: new Date(scannedAtMs).toISOString(),
+  });
+  return mapEnvelope(res);
 }
 
 /** 파싱 완료된 페이로드 공통 제출: 선검증 → (오프라인 큐잉 | 온라인 RPC), 실패 시 큐 폴백 */
@@ -147,6 +154,28 @@ export async function lookupMembers(
     return res.success && Array.isArray(res.data) ? res.data : [];
   } catch {
     return [];
+  }
+}
+
+/**
+ * 게스트/드롭인 체크인(§4.6 G-7) — 데스크 발권 6자리 1회용 코드 상환.
+ * 폰(앱 세션) 없는 게스트용. 코드 검증·크레딧 차감은 서버(fn_kiosk_guest_checkin) 전담.
+ * 코드 상환은 서버 검증이 필수라 오프라인 큐잉하지 않는다 — 오프라인이면 network_error 안내.
+ */
+export async function submitGuestCheckin(code: string, ctx: SubmitContext): Promise<ScanOutcome> {
+  const clean = code.replace(/\D/g, '');
+  if (clean.length < 4) return { kind: 'error', code: 'invalid_code' };
+  if (ctx.offline) return { kind: 'error', code: 'network_error' };
+  try {
+    const client = getSupabaseBrowserClient();
+    const res = await rpc<RawCheckinData>(client, 'fn_kiosk_guest_checkin', {
+      p_code: clean,
+      p_device_id: ctx.deviceId,
+      p_scanned_at: new Date().toISOString(),
+    });
+    return mapEnvelope(res);
+  } catch {
+    return { kind: 'error', code: 'network_error' };
   }
 }
 

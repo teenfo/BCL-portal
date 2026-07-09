@@ -1,19 +1,35 @@
 /* Kiosk 화면 — docs/12 토큰만 (HEX·인라인 재구현 금지). dark/mobile + 대형 터치 타깃 */
 
 /* ===== idle (docs/06 §3.1) ===== */
+.idleWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+}
 .idle {
   position: relative;
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
-  min-height: 100vh;
   gap: var(--bcl-space-8);
   padding: var(--bcl-pad-page);
-  background: var(--bcl-bg);
-  color: var(--bcl-text);
+  background: transparent;
+  color: inherit;
   text-align: center;
+  border: none;
+  cursor: pointer;
+}
+.idleFooter {
+  display: flex;
+  justify-content: center;
+  padding: var(--bcl-space-4) var(--bcl-pad-page) var(--bcl-space-8);
 }
 
 .statusRow {
@@ -221,6 +237,7 @@
 .scanFooter {
   display: flex;
   justify-content: center;
+  gap: var(--bcl-space-3);
   padding: var(--bcl-space-4) var(--bcl-pad-page) var(--bcl-space-6);
 }
 .manual {
@@ -231,6 +248,13 @@
   max-width: 480px;
   margin: 0 auto;
   width: 100%;
+}
+.guestHint {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  color: var(--bcl-text-muted);
+  text-align: center;
 }
 .candidateList {
   display: flex;
