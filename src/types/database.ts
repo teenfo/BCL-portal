@@ -869,6 +869,27 @@ export type Database = {
           },
         ]
       }
+      integration_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string | null
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
       kiosk_devices: {
         Row: {
           created_at: string
@@ -3316,6 +3337,7 @@ export type Database = {
         Returns: Json
       }
       fn_admin_delete_pm5_device: { Args: { p_id: string }; Returns: Json }
+      fn_admin_get_integration_status: { Args: never; Returns: Json }
       fn_admin_issue_guest_code: { Args: { p_payload: Json }; Returns: Json }
       fn_admin_issue_kiosk_token: {
         Args: { p_device_id: string }
@@ -3327,6 +3349,10 @@ export type Database = {
       }
       fn_admin_set_blacklist: {
         Args: { p_member_id: string; p_on: boolean; p_reason?: string }
+        Returns: Json
+      }
+      fn_admin_set_integration: {
+        Args: { p_config?: Json; p_secrets?: Json }
         Returns: Json
       }
       fn_admin_transfer_membership: {
@@ -3380,6 +3406,10 @@ export type Database = {
       fn_create_payment_order: { Args: { p_plan_id: string }; Returns: Json }
       fn_create_support_ticket: {
         Args: { p_category?: string; p_content: string; p_subject: string }
+        Returns: Json
+      }
+      fn_delete_push_subscription: {
+        Args: { p_endpoint: string }
         Returns: Json
       }
       fn_dispatch_notification: {
@@ -3463,6 +3493,7 @@ export type Database = {
         Returns: Json
       }
       fn_get_my_wod_prep: { Args: { p_session_id: string }; Returns: Json }
+      fn_get_public_integration: { Args: never; Returns: Json }
       fn_get_race_event_result: { Args: { p_event_id: string }; Returns: Json }
       fn_get_race_lanes: { Args: { p_event_id: string }; Returns: Json }
       fn_get_revenue_stats: {
@@ -3602,6 +3633,16 @@ export type Database = {
         Returns: Json
       }
       fn_revoke_admin_role: { Args: { p_assignment_id: string }; Returns: Json }
+      fn_save_push_subscription: {
+        Args: {
+          p_auth: string
+          p_device_type?: string
+          p_endpoint: string
+          p_p256dh: string
+          p_user_agent?: string
+        }
+        Returns: Json
+      }
       fn_search_wod_movements: {
         Args: {
           p_category?: string
@@ -3613,6 +3654,10 @@ export type Database = {
       }
       fn_send_class_reminders: { Args: never; Returns: undefined }
       fn_send_membership_expiry_reminders: { Args: never; Returns: undefined }
+      fn_service_get_config: {
+        Args: { p_config_names?: string[]; p_secret_names?: string[] }
+        Returns: Json
+      }
       fn_set_payment_mode: { Args: { p_mode: string }; Returns: Json }
       fn_set_race_lanes: {
         Args: { p_event_id: string; p_lanes: Json }

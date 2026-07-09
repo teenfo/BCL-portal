@@ -4,13 +4,22 @@
 // 카테고리 on/off + 채널(push/kakao/sms) opt-in + 방해금지 시간대.
 // RLS "notification_preferences own manage"(user_id = auth.uid()) 하에 query() upsert 로 저장.
 // 유료 채널(kakao/sms)은 명시 동의 opt-in — 기본 false(§2.5). email 은 v1 예약(비활성 노출).
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Button, Checkbox, Input, Skeleton, EmptyState, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
 import { query } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useAuth } from '@/features/auth';
+import { isPushSupported, currentPushSubscribed, enablePush, disablePush } from './push';
 import styles from './notifications.module.css';
+
+const PUSH_ERROR_LABEL: Record<string, string> = {
+  unsupported: '이 브라우저는 웹푸시를 지원하지 않습니다.',
+  vapid_missing: '서버 푸시 설정이 아직 완료되지 않았습니다.',
+  permission_denied: '알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요.',
+  subscription_invalid: '구독 정보를 만들지 못했습니다. 다시 시도해 주세요.',
+  save_failed: '구독 저장에 실패했습니다.',
+};
 
 interface Prefs {
   class_reminder: boolean;
@@ -66,6 +75,52 @@ export function NotificationPreferences({ onSaved }: { onSaved?: () => void } = 
   const [local, setLocal] = useState<Prefs | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // 이 기기 웹푸시 구독 상태 — 브라우저 구독이 소스. 켜기=구독+push_enabled true 즉시 반영.
+  const [pushSupported] = useState(() => isPushSupported());
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+
+  // 마운트 시 현재 구독 상태 감지(비동기 콜백에서만 setState — effect 본문 setState 금지 규약 준수)
+  useEffect(() => {
+    let alive = true;
+    void currentPushSubscribed().then((s) => {
+      if (alive) setPushSubscribed(s);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const persistPushEnabled = async (value: boolean) => {
+    if (!user) return;
+    await query(getSupabaseBrowserClient(), 'notification_preferences', (q) =>
+      q.upsert({ user_id: user.id, push_enabled: value }, { onConflict: 'user_id' }),
+    );
+  };
+
+  const togglePush = async (checked: boolean) => {
+    setPushBusy(true);
+    if (checked) {
+      const res = await enablePush();
+      if (!res.ok) {
+        toast.error(PUSH_ERROR_LABEL[res.error ?? ''] ?? '푸시 구독에 실패했습니다.');
+        setPushBusy(false);
+        return;
+      }
+      setPushSubscribed(true);
+      setLocal((prev) => (prev ? { ...prev, push_enabled: true } : prev));
+      await persistPushEnabled(true);
+      toast.success('이 기기에서 푸시 알림을 받습니다.');
+    } else {
+      await disablePush();
+      setPushSubscribed(false);
+      setLocal((prev) => (prev ? { ...prev, push_enabled: false } : prev));
+      await persistPushEnabled(false);
+      toast.success('이 기기의 푸시 구독을 해지했습니다.');
+    }
+    setPushBusy(false);
+  };
+
   const data = useQuery<Prefs>(
     () =>
       query<Prefs>(getSupabaseBrowserClient(), 'notification_preferences', (q) =>
@@ -80,11 +135,14 @@ export function NotificationPreferences({ onSaved }: { onSaved?: () => void } = 
   const save = async () => {
     if (!user) return;
     setBusy(true);
+    // push_enabled 는 위 "이 기기" 토글이 즉시 반영하므로 배치 저장에서 제외(브라우저 구독 상태가 소스)
+    const batch: Partial<Prefs> = { ...prefs };
+    delete batch.push_enabled;
     const res = await query(getSupabaseBrowserClient(), 'notification_preferences', (q) =>
       q.upsert(
         {
           user_id: user.id,
-          ...prefs,
+          ...batch,
           quiet_hours_start: prefs.quiet_hours_start,
           quiet_hours_end: prefs.quiet_hours_end,
         },
@@ -136,11 +194,19 @@ export function NotificationPreferences({ onSaved }: { onSaved?: () => void } = 
           </span>
           <div className={styles.prefRow}>
             <Checkbox
-              label="푸시 알림 (PWA)"
-              checked={prefs.push_enabled}
-              onChange={(e) => set('push_enabled', e.target.checked)}
+              label="푸시 알림 (이 기기)"
+              checked={pushSubscribed}
+              disabled={!pushSupported || pushBusy}
+              onChange={(e) => togglePush(e.target.checked)}
             />
           </div>
+          {!pushSupported ? (
+            <span className={styles.prefGroupHint}>이 브라우저는 웹푸시를 지원하지 않습니다.</span>
+          ) : pushSubscribed ? (
+            <span className={styles.prefGroupHint}>이 기기에서 푸시 알림을 받는 중입니다.</span>
+          ) : (
+            <span className={styles.prefGroupHint}>켜면 알림 권한을 요청하고 이 기기를 구독합니다.</span>
+          )}
           <div className={styles.prefRow}>
             <Checkbox
               label="카카오 알림톡 (동의)"

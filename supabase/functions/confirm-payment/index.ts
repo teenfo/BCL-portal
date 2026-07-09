@@ -75,12 +75,43 @@ Deno.serve(async (req) => {
   const mode = serverEnv === 'prod' && adminMode === 'live' ? 'live' : 'simulation';
 
   let tossStatus = 'DONE';
-  const receiptUrl: string | null = null;
+  let receiptUrl: string | null = null;
 
   if (mode === 'live') {
-    // 라이브 실거래: 라이브 키 로드 + Toss /v1/payments/confirm 호출은 sync-pg-settings(Stage 4) 이후 활성.
-    // 키 미구성 상태에서의 실결제는 절대 금지(Fail-to-NOT-charge, §1.7).
-    return json({ success: false, data: null, error: 'live_not_configured' }, 400);
+    // 라이브 실거래 — Toss /v1/payments/confirm. 라이브 시크릿키는 Vault 에서만 로드(번들/응답 비노출).
+    // 키 미구성 시 실결제 절대 금지(Fail-to-NOT-charge, §1.7) → live_not_configured 차단.
+    if (!paymentKey) return json({ success: false, data: null, error: 'missing_payment_key' }, 400);
+    const { data: cfg } = await admin.rpc('fn_service_get_config', {
+      p_config_names: [],
+      p_secret_names: ['toss_live_secret_key'],
+    });
+    const liveSecret = (cfg as { data?: { secrets?: Record<string, string> } })?.data?.secrets?.['toss_live_secret_key'];
+    if (!liveSecret) return json({ success: false, data: null, error: 'live_not_configured' }, 400);
+
+    // Basic 인증 = base64(secretKey + ':'). 서버가 보관한 금액(=RPC 재검증 대상)과 동일 값 전달.
+    const basic = btoa(`${liveSecret}:`);
+    let tossRes: Response;
+    try {
+      tossRes = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+        method: 'POST',
+        headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+      });
+    } catch {
+      return json({ success: false, data: null, error: 'toss_network_error' }, 502);
+    }
+    const tossBody = (await tossRes.json().catch(() => ({}))) as {
+      status?: string;
+      receipt?: { url?: string };
+      message?: string;
+      code?: string;
+    };
+    if (!tossRes.ok || (tossBody.status !== 'DONE' && tossBody.status !== 'CANCELED')) {
+      // 승인 실패 = DB 확정 안 함(미과금 표면화)
+      return json({ success: false, data: null, error: tossBody.code ?? `toss_declined:${tossRes.status}` }, 402);
+    }
+    tossStatus = tossBody.status ?? 'DONE';
+    receiptUrl = tossBody.receipt?.url ?? null;
   }
   // 시뮬레이션: 외부 호출 없이 성공 합성(과금 없음). 검증·DB 확정은 아래 RPC가 원자적으로 수행.
 

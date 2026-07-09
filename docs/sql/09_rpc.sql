@@ -6080,5 +6080,36 @@ END $$;
 -- ============================================================================
 
 -- ============================================================================
+-- [AA] 연동 설정/시크릿 (mig 20260709190000_integration_secrets.sql 미러)
+--   목적: 결제(Toss)·알림(웹푸시/SMS/Kakao) provider 자격증명 관리.
+--   저장 위치 이원화(핵심 보안 규약):
+--     · 비밀값(secret) = Supabase Vault(vault.secrets) 전용 — 클라이언트 번들/응답에 절대 비반환.
+--       toss_test_secret_key·toss_live_secret_key·toss_webhook_secret·vapid_private_key·
+--       msg_api_key·msg_api_secret + (인프라) edge_dispatch_token.
+--     · 비비밀 config = public.integration_settings kv(RLS on, 정책 미부여 → RPC/service_role 경유만).
+--       toss_test_client_key·toss_live_client_key(publishable)·vapid_public_key·vapid_subject·
+--       msg_provider(solapi)·sms_sender·kakao_pf_id·kakao_template_default.
+--   RPC(envelope):
+--     fn_admin_set_integration(p_config jsonb, p_secrets jsonb)  (is_admin) — config upsert + Vault upsert.
+--       빈 secret 값은 무시(기존 유지). 화이트리스트 외 키 무시.
+--     fn_admin_get_integration_status()  (is_admin) — {config, secrets:{name→configured bool}, payment_mode}.
+--       secret 값 자체는 절대 반환 안 함(존재여부만).
+--     fn_get_public_integration()  (authenticated) — {vapid_public_key, payment_mode, toss_client_key(모드별)}.
+--     fn_service_get_config(p_config_names[], p_secret_names[])  (service_role 전용, PUBLIC revoke) —
+--       EF에서 복호 secret + config 일괄 read. auth.jwt()->>'role'='service_role' 게이트.
+--     fn_save_push_subscription(endpoint,p256dh,auth,device_type,user_agent)  (authenticated) —
+--       push_subscriptions upsert(endpoint UNIQUE, is_active=true).
+--     fn_delete_push_subscription(endpoint)  (authenticated) — 본인 구독 is_active=false.
+--   Edge Function 연동(supabase/functions):
+--     send-push-notification (verify_jwt=false, edge_dispatch_token 게이트) — npm:web-push VAPID 발송,
+--       410/404 시 구독 비활성화. Vault(vapid_private_key JWK)에서 web-push privateKey(d) 추출.
+--     send-external-notification (verify_jwt=false, 토큰 게이트) — Solapi HMAC SMS/LMS + 알림톡(ATA) 발송.
+--     confirm-payment/cancel-payment — LIVE 모드 시 Vault(toss_live_secret_key)로 실 Toss API 호출
+--       (Fail-to-NOT-charge: 키 미구성/승인 실패 시 DB 확정 안 함).
+--   system_config: edge_base_url(프로젝트 URL) + edge_service_key(= edge_dispatch_token, 실 서비스키 아님).
+--   VAPID 키쌍 사전 적재: vapid_public_key(config, base64url 65B) + vapid_private_key(Vault, JWK pair).
+-- ============================================================================
+
+-- ============================================================================
 -- 09_rpc.sql 끝 — 전체 스키마 적용 완료
 -- ============================================================================

@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
   // (2) 승인된 환불 로드 + pg_settings
   const { data: refund } = await admin
     .from('refunds')
-    .select('id, status')
+    .select('id, status, amount, transaction_id')
     .eq('id', refundId)
     .maybeSingle();
   if (!refund) return json({ success: false, data: null, error: 'refund_not_found' }, 404);
@@ -68,11 +68,44 @@ Deno.serve(async (req) => {
 
   let tossCancelKey: string | null = null;
   if (mode === 'live') {
-    // 라이브: paymentKey 로드 + Toss /v1/payments/{paymentKey}/cancel — sync-pg-settings 이후 활성.
-    return json({ success: false, data: null, error: 'live_not_configured' }, 400);
+    // 라이브 실 취소 — Toss /v1/payments/{paymentKey}/cancel. 라이브 시크릿키는 Vault 로드(비노출).
+    // 원거래 paymentKey + 환불금액(refunds.amount, 서버계산 확정값)으로 부분취소.
+    const { data: tx } = await admin
+      .from('transactions')
+      .select('payment_key')
+      .eq('id', refund.transaction_id)
+      .maybeSingle();
+    const paymentKey = tx?.payment_key ?? null;
+    if (!paymentKey) return json({ success: false, data: null, error: 'payment_key_not_found' }, 400);
+
+    const { data: cfg } = await admin.rpc('fn_service_get_config', {
+      p_config_names: [],
+      p_secret_names: ['toss_live_secret_key'],
+    });
+    const liveSecret = (cfg as { data?: { secrets?: Record<string, string> } })?.data?.secrets?.['toss_live_secret_key'];
+    if (!liveSecret) return json({ success: false, data: null, error: 'live_not_configured' }, 400);
+
+    const basic = btoa(`${liveSecret}:`);
+    let cancelRes: Response;
+    try {
+      cancelRes = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cancelReason: '관리자 환불', cancelAmount: Number(refund.amount) }),
+      });
+    } catch {
+      return json({ success: false, data: null, error: 'toss_network_error' }, 502);
+    }
+    const cancelBody = (await cancelRes.json().catch(() => ({}))) as { status?: string; code?: string };
+    if (!cancelRes.ok) {
+      // 취소 실패 = 환불 확정 안 함(중복/오환불 방지)
+      return json({ success: false, data: null, error: cancelBody.code ?? `toss_cancel_failed:${cancelRes.status}` }, 402);
+    }
+    tossCancelKey = paymentKey;
+  } else {
+    // 시뮬레이션: 외부 취소 호출 없이 합성
+    tossCancelKey = `sim_cancel_${refundId}`;
   }
-  // 시뮬레이션: 외부 취소 호출 없이 합성
-  tossCancelKey = `sim_cancel_${refundId}`;
 
   // (4) 원자적 환불 확정 — fn_process_refund(승인만·멱등·audit)
   const { data, error } = await admin.rpc('fn_process_refund', {

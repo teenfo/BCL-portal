@@ -13,9 +13,10 @@ import { SystemTab } from './SystemTab';
 import { SiteTab } from './SiteTab';
 import { RolesTab } from './RolesTab';
 import { AuditTab } from './AuditTab';
+import { IntegrationsTab } from './IntegrationsTab';
 import styles from './settings.module.css';
 
-type TabKey = 'branch' | 'system' | 'site' | 'roles' | 'audit';
+type TabKey = 'branch' | 'system' | 'site' | 'integrations' | 'roles' | 'audit';
 
 export function SettingsScreen() {
   const { can } = useMyPermissions();
@@ -31,6 +32,7 @@ export function SettingsScreen() {
         { key: 'branch', label: '지점' },
         { key: 'system', label: '시스템' },
         { key: 'site', label: '사이트' },
+        { key: 'integrations', label: '연동' },
         { key: 'roles', label: '권한' },
       );
     }
@@ -78,6 +80,7 @@ export function SettingsScreen() {
       {activeTab === 'branch' && canSettings ? <BranchTab /> : null}
       {activeTab === 'system' && canSettings ? <SystemTab /> : null}
       {activeTab === 'site' && canSettings ? <SiteTab /> : null}
+      {activeTab === 'integrations' && canSettings ? <IntegrationsTab /> : null}
       {activeTab === 'roles' && canSettings ? <RolesTab /> : null}
       {activeTab === 'audit' && canAudit ? <AuditTab /> : null}
     </div>
