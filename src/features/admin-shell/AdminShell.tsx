@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMyPermissions } from '@/features/permissions';
 import { useAuth } from '@/features/auth';
-import { ADMIN_NAV } from './nav';
+import { ADMIN_NAV, APP_LINKS } from './nav';
 import { NavIcon } from './icons';
 import styles from './AdminShell.module.css';
 
@@ -90,6 +90,23 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+
+        <div className={styles.appLinks}>
+          <span className={styles.appLinksLabel}>앱 바로가기</span>
+          {APP_LINKS.map((app) => (
+            <a
+              key={app.href}
+              href={app.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.appLink}
+            >
+              <NavIcon name={app.icon} className={styles.navIcon} />
+              <span className={styles.navLabel}>{app.label}</span>
+              <NavIcon name="external" width={13} height={13} className={styles.appLinkExt} />
+            </a>
+          ))}
+        </div>
 
         <UserMenu />
       </aside>

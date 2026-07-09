@@ -143,6 +143,52 @@
   opacity: 1;
 }
 
+/* ── 앱 바로가기 (다른 앱 표면 새 탭) ─────────────────── */
+.appLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--bcl-space-2);
+  border-top: 1px solid var(--bcl-border);
+}
+
+.appLinksLabel {
+  padding: var(--bcl-space-1) var(--bcl-space-3);
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bcl-text-muted);
+  opacity: 0.7;
+}
+
+.appLink {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+  text-decoration: none;
+  font-size: calc(14px * var(--bcl-font-scale));
+  line-height: 1.4;
+  min-height: var(--bcl-hit-min);
+}
+
+.appLink:hover {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text);
+}
+
+.appLink:hover .navIcon {
+  opacity: 1;
+}
+
+.appLinkExt {
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
 /* ── 하단 유저 드롭다운 ─────────────────────────────── */
 .userMenu {
   position: relative;

@@ -50,3 +50,18 @@ export const ADMIN_NAV: NavGroup[] = [
   { header: '시설', items: [{ href: '/admin/lockers', label: '락커', group: 'lockers' }] },
   { header: null, items: [{ href: '/admin/settings', label: '설정', group: 'settings' }] },
 ];
+
+/** 앱 바로가기 — Admin이 제공하는 다른 앱 표면으로 새 탭 이동 (ROLE_PREFIXES상 admin 전체 접근). */
+export interface AppLink {
+  href: string;
+  label: string;
+  /** NavIcon 키 */
+  icon: string;
+}
+
+export const APP_LINKS: AppLink[] = [
+  { href: '/apps/home', label: '회원 앱', icon: 'smartphone' },
+  { href: '/coach/dashboard', label: '코치 앱', icon: 'coaches' },
+  { href: '/class/screen-console', label: 'Class (TV)', icon: 'monitor' },
+  { href: '/kiosk', label: '키오스크', icon: 'tablet' },
+];
