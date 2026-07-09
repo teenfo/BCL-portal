@@ -159,6 +159,10 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
       }
       nextLanes.sort((a, b) => a.lane - b.lane);
       setLanes(nextLanes);
+      // 스냅샷에 이미 전진 기록이 있으면 진행 중 레이스 — 대기실 오버레이 대신 racing 복원
+      if (res.data.some((r) => (Number(r.distance_m) || 0) > 0)) {
+        setLobbyStatus((s) => (s === 'lobby' ? 'racing' : s));
+      }
     });
     return () => {
       cancelled = true;
@@ -207,11 +211,25 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
     const client = getSupabaseBrowserClient();
     const channel = client.channel(raceChannelName(eventId));
 
+    // race_start는 1회성 방송 — 이미 시작된 레이스에 늦게 접속하면 놓친다.
+    //   실제 전진(거리>0) 프레임이 오면 lobby→racing 으로 전이해 "참가자 대기중" 오버레이를 해제한다
+    //   (거리 0 유휴 프레임은 무시 → GO 전 대기실 오인 방지). 시뮬·실기기 공통 복원력.
+    const markRacingIfMoving = (moving: boolean) => {
+      if (moving) setLobbyStatus((s) => (s === 'lobby' ? 'racing' : s));
+    };
+
     channel
-      .on('broadcast', { event: 'erg_update' }, (m) => upsertSample(m.payload as ErgUpdate))
+      .on('broadcast', { event: 'erg_update' }, (m) => {
+        const u = m.payload as ErgUpdate;
+        upsertSample(u);
+        markRacingIfMoving((u.d ?? 0) > 0);
+      })
       .on('broadcast', { event: 'state_snapshot' }, (m) => {
         const arr = (m.payload as { lanes?: ErgUpdate[] })?.lanes;
-        if (Array.isArray(arr)) arr.forEach(upsertSample);
+        if (Array.isArray(arr)) {
+          arr.forEach(upsertSample);
+          markRacingIfMoving(arr.some((u) => (u.d ?? 0) > 0));
+        }
       })
       .on('broadcast', { event: 'lane_assign' }, (m) => {
         const a = m.payload as LaneAssign;
