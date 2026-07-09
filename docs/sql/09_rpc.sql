@@ -6035,8 +6035,15 @@ END $$;
 --     SECURITY DEFINER. 내부 is_admin_or_coach() + 소유(admin || event.coach_id=본인 || session_coaches).
 --     p_pacer = {enabled bool, source 'coach_split'|'member_pr'|'club_record', split_500m? sec,
 --       member_id? uuid, label? text}. enabled=false → pacer_config=NULL. coach_split 은 split_500m>0 필수,
---       split 0<x<=3600 clamp. jsonb_strip_nulls 저장. envelope {success, data:{event_id, pacer_config}, error}.
+--       split 0<x<=3600 clamp. jsonb_strip_nulls 저장.
+--       envelope {success, data:{event_id, pacer_config, resolved bool}, error}.
 --     GRANT authenticated(anon revoke).
+--   서버측 스플릿 해석 (mig 20260709110000_pacer_split_resolution.sql 추가):
+--     split_500m 미지정 시 member_pr/club_record 를 서버에서 해석(명시 split_500m > 해석값).
+--     소스: member_benchmark_results ⨝ benchmark_definitions(metric_type='time', name ~* 'row')
+--       → 500m 환산 result_value*500/거리(name 파싱) ; race_records.avg_pace(초/500m). 둘 중 MIN(최속).
+--     member_pr = 해당 member_id(→ member_required 신규 에러) ; club_record = event.facility_id 범위.
+--     기록 없으면 split 없이 저장(graceful, 무에러 — UI '기록 없음'). data.resolved = split 존재 여부.
 -- ============================================================================
 
 -- ============================================================================
