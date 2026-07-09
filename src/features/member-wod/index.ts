@@ -1,0 +1,1 @@
+export { WodListScreen } from './WodListScreen';

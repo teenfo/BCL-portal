@@ -146,12 +146,16 @@ export function TemplatesTab() {
     {
       key: 'state',
       header: '상태',
-      render: (t) =>
-        t.published_at ? (
-          <Badge variant="success">게시</Badge>
-        ) : (
-          <Badge variant="warning">초안</Badge>
-        ),
+      render: (t) => (
+        <div className={styles.rowActions}>
+          {t.published_at ? (
+            <Badge variant="success">게시</Badge>
+          ) : (
+            <Badge variant="warning">초안</Badge>
+          )}
+          {t.is_member_visible ? <Badge variant="info">회원공개</Badge> : null}
+        </div>
+      ),
     },
     {
       key: 'actions',

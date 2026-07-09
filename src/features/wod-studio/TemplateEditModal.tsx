@@ -51,6 +51,7 @@ interface FormState {
   rounds: string;
   is_shared: boolean;
   is_benchmark: boolean;
+  is_member_visible: boolean;
   description: string;
   public_notes: string;
   coach_notes: string;
@@ -82,6 +83,7 @@ function fromTemplate(t: WodTemplate): FormState {
     rounds: s(t.rounds),
     is_shared: t.is_shared,
     is_benchmark: t.is_benchmark,
+    is_member_visible: t.is_member_visible ?? false,
     description: t.description ?? '',
     public_notes: t.public_notes ?? '',
     coach_notes: t.coach_notes ?? '',
@@ -109,6 +111,7 @@ const emptyForm: FormState = {
   rounds: '',
   is_shared: false,
   is_benchmark: false,
+  is_member_visible: false,
   description: '',
   public_notes: '',
   coach_notes: '',
@@ -172,6 +175,7 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
       coach_notes: form.coach_notes.trim() || null,
       is_shared: form.is_shared,
       is_benchmark: form.is_benchmark,
+      is_member_visible: form.is_member_visible,
       movements: form.lines.map((l) => ({
         movement_id: l.movement_id,
         custom_label: l.custom_label.trim() || null,
@@ -277,6 +281,11 @@ export function TemplateEditModal({ open, template, onClose, onSaved }: Props) {
             label="벤치마크 (is_benchmark)"
             checked={form.is_benchmark}
             onChange={(e) => set('is_benchmark', e.target.checked)}
+          />
+          <Checkbox
+            label="회원 앱에 공개"
+            checked={form.is_member_visible}
+            onChange={(e) => set('is_member_visible', e.target.checked)}
           />
         </div>
 

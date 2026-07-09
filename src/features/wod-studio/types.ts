@@ -49,6 +49,7 @@ export interface WodTemplate {
   coach_notes: string | null;
   is_shared: boolean;
   is_benchmark: boolean;
+  is_member_visible: boolean;
   published_at: string | null;
   created_at: string;
   updated_at: string;

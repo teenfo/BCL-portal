@@ -298,6 +298,18 @@ export function HomeScreen() {
             )}
           </section>
 
+          {/* 오늘의 WOD 바로가기 */}
+          <Card
+            title="오늘의 WOD"
+            action={
+              <Button variant="ghost" size="sm" onClick={() => router.push('/apps/wod')}>
+                전체 보기
+              </Button>
+            }
+          >
+            <p className={screen.muted}>코치가 공개한 오늘의 운동(WOD)을 확인하세요.</p>
+          </Card>
+
           {/* 최근 PR 하이라이트 */}
           {data.pr ? (
             <Card
