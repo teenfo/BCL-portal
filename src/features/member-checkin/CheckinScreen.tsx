@@ -187,7 +187,18 @@ export function CheckinScreen() {
       <Card>
         {member.error ? (
           <EmptyState variant="error" title="QR을 발급하지 못했습니다" description={member.error} onRetry={member.refetch} />
-        ) : member.loading || !payload ? (
+        ) : member.loading ? (
+          <div className={styles.qrWrap}>
+            <Skeleton variant="rect" width={240} height={240} />
+          </div>
+        ) : !facilityId ? (
+          // 지점 미배정 = QR fid 를 채울 수 없음. 무한 스피너 금지 — 원인·조치 표면화.
+          <EmptyState
+            title="체크인 QR을 발급할 수 없습니다"
+            description="회원님 계정에 지점이 지정되지 않았습니다. 관리자에게 지점 배정을 요청해주세요."
+            onRetry={member.refetch}
+          />
+        ) : !payload ? (
           <div className={styles.qrWrap}>
             <Skeleton variant="rect" width={240} height={240} />
           </div>
