@@ -1,0 +1,6 @@
+# race-service 런타임 의존성 (Python 3.12)
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+httpx==0.28.1
+# BLE — 실장비 모드에서만 필요(시뮬레이터는 미사용). BlueZ(Linux) 위에서 동작.
+bleak==0.22.3
