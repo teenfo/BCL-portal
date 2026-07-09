@@ -305,3 +305,100 @@
   padding: var(--bcl-pad-page);
   overflow-x: auto;
 }
+
+/* ── 모바일 상단바 + 오프캔버스 드로어 (데스크톱 숨김) ───────────── */
+.topbar {
+  display: none;
+}
+.backdrop {
+  display: none;
+}
+.drawerClose {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--bcl-space-2);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: var(--bcl-space-2) var(--bcl-space-3);
+    background: var(--bcl-surface);
+    border-bottom: 1px solid var(--bcl-border);
+  }
+  .hamburger {
+    display: grid;
+    place-items: center;
+    width: var(--bcl-hit-min);
+    height: var(--bcl-hit-min);
+    border: none;
+    background: transparent;
+    color: var(--bcl-text);
+    border-radius: var(--bcl-radius-md);
+    cursor: pointer;
+  }
+  .hamburger:hover {
+    background: var(--bcl-surface-raised);
+  }
+  .topbarBrand {
+    display: flex;
+    align-items: center;
+    gap: var(--bcl-space-2);
+    font-weight: 700;
+    font-size: calc(16px * var(--bcl-font-scale));
+    color: var(--bcl-text);
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    width: min(280px, 82vw);
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--bcl-shadow-md);
+  }
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: var(--bcl-overlay);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .backdropShow {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawerClose {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--bcl-text-muted);
+    border-radius: var(--bcl-radius-sm);
+    cursor: pointer;
+  }
+  .drawerClose:hover {
+    background: var(--bcl-surface-raised);
+    color: var(--bcl-text);
+  }
+  .content {
+    padding: var(--bcl-space-4);
+  }
+}

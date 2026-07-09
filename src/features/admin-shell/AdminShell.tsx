@@ -27,6 +27,19 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     [can, loading],
   );
 
+  // 모바일 드로어(오프캔버스) — 데스크톱은 상시 사이드바, ≤860px는 햄버거 토글.
+  //   네비 클릭 시 닫힘은 onClick(사용자 액션)으로 처리 — effect에서 setState 금지 규약.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  // 열림 상태에서 Escape로 닫기
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobileOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [mobileOpen]);
+
   // 아코디언 상태: 접힌 그룹 집합(기본 전체 펼침). 현재 경로가 속한 그룹은 항상 펼침.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (header: string) =>
@@ -39,10 +52,49 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar} aria-label="관리자 메뉴">
+      {/* 모바일 상단바 — 데스크톱 숨김(CSS). 햄버거로 드로어 열기 */}
+      <header className={styles.topbar}>
+        <button
+          type="button"
+          className={styles.hamburger}
+          onClick={() => setMobileOpen(true)}
+          aria-label="메뉴 열기"
+          aria-expanded={mobileOpen}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+        <div className={styles.topbarBrand}>
+          <NavIcon name="brand" className={styles.brandIcon} width={20} height={20} />
+          <span>BCL Admin</span>
+        </div>
+      </header>
+
+      {/* 드로어 백드롭 — 모바일 열림 시에만(CSS) */}
+      <div
+        className={`${styles.backdrop}${mobileOpen ? ` ${styles.backdropShow}` : ''}`}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside
+        className={`${styles.sidebar}${mobileOpen ? ` ${styles.sidebarOpen}` : ''}`}
+        aria-label="관리자 메뉴"
+      >
         <div className={styles.brand}>
           <NavIcon name="brand" className={styles.brandIcon} width={22} height={22} />
           <span>BCL Admin</span>
+          <button
+            type="button"
+            className={styles.drawerClose}
+            onClick={() => setMobileOpen(false)}
+            aria-label="메뉴 닫기"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
 
         <nav className={styles.nav}>
@@ -56,7 +108,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               return (
                 <div key={`top-${gi}`} className={styles.group}>
                   {group.items.map((it) => (
-                    <NavLink key={it.href} item={it} pathname={pathname} />
+                    <NavLink key={it.href} item={it} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
                   ))}
                 </div>
               );
@@ -82,7 +134,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 {isOpen ? (
                   <div className={styles.groupItems}>
                     {group.items.map((it) => (
-                      <NavLink key={it.href} item={it} pathname={pathname} />
+                      <NavLink key={it.href} item={it} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
                     ))}
                   </div>
                 ) : null}
@@ -118,9 +170,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
 function NavLink({
   item,
   pathname,
+  onNavigate,
 }: {
   item: { href: string; label: string; group: string };
   pathname: string;
+  onNavigate?: () => void;
 }) {
   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
   return (
@@ -128,6 +182,7 @@ function NavLink({
       href={item.href}
       className={`${styles.navItem}${active ? ` ${styles.navItemActive}` : ''}`}
       aria-current={active ? 'page' : undefined}
+      onClick={onNavigate}
     >
       <NavIcon name={item.group} className={styles.navIcon} />
       <span className={styles.navLabel}>{item.label}</span>
