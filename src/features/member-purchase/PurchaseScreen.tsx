@@ -1,13 +1,14 @@
 'use client';
 
 // 비탭 purchase (/apps/purchase) — docs/03 §3.6
-// 요금제 선택 → 3단계 확인 → (결제 확정). 결제 불변식: 클라이언트가 금액을 절대 보내지 않는다 —
-// 서버가 membership_plans.price로 확정. 자동결제/빌링키/재시도 금지.
-// FLAG: 회원 결제 RPC 부재(fn_create_payment_order / fn_confirm_payment). 결제 확정 단계는 서버 RPC 대기.
+// 요금제 선택 → 3단계 확인 → 서버 주문 생성 → 승인(success 페이지의 confirm-payment EF).
+// 결제 불변식: 클라이언트는 금액을 신뢰 근거로 쓰지 않는다 — 서버(fn_create_payment_order)가
+// membership_plans 가격으로 주문 금액을 확정하고, 승인 시 서버가 재대조한다. 자동결제/빌링키/재시도 금지.
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, Button, Badge, Checkbox, EmptyState, Skeleton } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { query } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { StackHeader, BottomSheet, krw } from '@/features/member-shell';
 import screen from '@/features/member-shell/screen.module.css';
@@ -28,10 +29,34 @@ interface Plan {
 const KIND_LABEL: Record<string, string> = { standard: '정기권', drop_in: '일일권', trial: '체험권' };
 
 export function PurchaseScreen() {
+  const router = useRouter();
   const [selected, setSelected] = useState<Plan | null>(null);
   const [step, setStep] = useState(1);
   const [agreeRefund, setAgreeRefund] = useState(false);
   const [agreePay, setAgreePay] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  // 서버 주문 생성(가격 확정) → 승인 라우트(success)로 이동. 승인은 success 페이지의 confirm-payment EF.
+  const doPay = async () => {
+    if (!selected) return;
+    setPaying(true);
+    setPayError(null);
+    const order = await rpc<{ order_id: string; amount: number }>(
+      getSupabaseBrowserClient(),
+      'fn_create_payment_order',
+      { p_plan_id: selected.id },
+    );
+    if (!order.success || !order.data) {
+      setPaying(false);
+      setPayError(order.error ?? '주문 생성에 실패했습니다.');
+      return;
+    }
+    // 라이브: 이 지점에서 Toss 결제위젯을 열고 successUrl로 paymentKey가 붙어 리다이렉트된다.
+    // 시뮬레이션: 서버가 주문 확정금액을 재대조하므로 위젯 없이 승인 라우트로 이동.
+    const { order_id, amount } = order.data;
+    router.push(`/apps/purchase/success?orderId=${encodeURIComponent(order_id)}&amount=${amount}`);
+  };
 
   const plans = useQuery<Plan[]>(
     () =>
@@ -117,7 +142,7 @@ export function PurchaseScreen() {
                 다음
               </Button>
             ) : (
-              <Button variant="primary" block disabled={!agreePay}>
+              <Button variant="primary" block disabled={!agreePay || paying} loading={paying} onClick={doPay}>
                 결제하기
               </Button>
             )
@@ -163,9 +188,10 @@ export function PurchaseScreen() {
                 onChange={(e) => setAgreePay(e.target.checked)}
               />
               <p className={styles.noteBox}>
-                결제 서버(Toss) 연동은 서버 RPC로 처리됩니다. 클라이언트는 금액을 전송하지 않으며,
-                서버가 요금제 가격을 재조회해 승인합니다.
+                결제 서버(Toss) 연동은 서버 RPC/Edge Function으로 처리됩니다. 서버가 요금제 가격으로
+                주문 금액을 확정하고, 승인 시 재대조합니다.
               </p>
+              {payError ? <p className={styles.payError}>{payError}</p> : null}
             </div>
           ) : null}
         </BottomSheet>
