@@ -32,7 +32,7 @@ export function BrandHeader() {
           <BclMark />
           <span className={styles.wordmark}>BCL</span>
         </span>
-        <span className={styles.tagline}>CrossFit · Rowing</span>
+        <span className={styles.tagline}>CrossFit · Hyrox</span>
       </div>
     </header>
   );
