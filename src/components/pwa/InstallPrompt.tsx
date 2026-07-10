@@ -1,10 +1,11 @@
 'use client';
 
-// 회원 앱 PWA 설치 유도 배너 (docs/03) — 하단탭 위 고정.
+// PWA 설치 유도 배너 — 회원/관리자/코치 앱 공용(각 앱은 자기 매니페스트 스코프로 설치됨).
 //   Android/Chrome: beforeinstallprompt 캡처 → "설치" 버튼(네이티브 프롬프트).
-//   iOS Safari: beforeinstallprompt 미지원 → "공유 → 홈 화면에 추가" 안내.
-//   이미 설치(standalone) 또는 사용자가 닫으면 미노출(localStorage 기억).
-//   상태는 useState 초기화(동기 감지) + 이벤트 콜백에서만 갱신 — effect 본문 setState 금지 규약 준수.
+//   iOS Safari: 미지원 → "공유 → 홈 화면에 추가" 안내.
+//   이미 설치(standalone)/사용자 닫음(localStorage) 시 미노출. 서비스워커도 여기서 1회 등록.
+//   상태는 useState 초기화(동기 감지) + 이벤트 콜백만 갱신 — effect 본문 setState 금지 규약 준수.
+//   navOffset: 하단탭(56px) 있는 셸(회원/코치)에서 true — 배너를 탭 위로 띄운다.
 import { useEffect, useState } from 'react';
 import styles from './InstallPrompt.module.css';
 
@@ -13,7 +14,9 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_KEY = 'bcl_pwa_install_dismissed';
+// 앱별 배너 문구 + 닫음 기억 키(앱마다 독립 — 한 앱 닫아도 다른 앱은 유도).
+export type PwaApp = 'apps' | 'admin' | 'coach';
+const LABEL: Record<PwaApp, string> = { apps: 'BCL 앱', admin: 'BCL 관리자', coach: 'BCL 코치' };
 
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;
@@ -31,22 +34,27 @@ function isIosSafari(): boolean {
   return iOS && !otherBrowser;
 }
 
-function dismissedBefore(): boolean {
+function dismissedBefore(key: string): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    return window.localStorage.getItem(DISMISS_KEY) === '1';
+    return window.localStorage.getItem(key) === '1';
   } catch {
     return false;
   }
 }
 
-export function InstallPrompt() {
+export function InstallPrompt({ app, navOffset = false }: { app: PwaApp; navOffset?: boolean }) {
+  const dismissKey = `bcl_pwa_dismissed_${app}`;
   const [standalone] = useState(() => isStandalone());
   const [iosHint] = useState(() => isIosSafari());
-  const [dismissed, setDismissed] = useState(() => dismissedBefore());
+  const [dismissed, setDismissed] = useState(() => dismissedBefore(dismissKey));
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
+    // 서비스워커 등록(설치 가능 조건). 스코프 '/' 로 전 앱 공용, 멱등.
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    }
     const onBip = (e: Event) => {
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
@@ -63,7 +71,7 @@ export function InstallPrompt() {
   const close = () => {
     setDismissed(true);
     try {
-      window.localStorage.setItem(DISMISS_KEY, '1');
+      window.localStorage.setItem(dismissKey, '1');
     } catch {
       /* noop */
     }
@@ -83,9 +91,8 @@ export function InstallPrompt() {
   if (!showAndroid && !showIos) return null;
 
   return (
-    <div className={styles.banner} role="dialog" aria-label="앱 설치 안내">
+    <div className={`${styles.banner} ${navOffset ? styles.withNav : ''}`} role="dialog" aria-label="앱 설치 안내">
       <span className={styles.icon} aria-hidden="true">
-        {/* 바벨 마크(브랜드) */}
         <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
           <line x1="7" y1="16" x2="25" y2="16" />
           <line x1="7" y1="11" x2="7" y2="21" />
@@ -95,7 +102,7 @@ export function InstallPrompt() {
         </svg>
       </span>
       <div className={styles.text}>
-        <span className={styles.title}>BCL 앱 설치</span>
+        <span className={styles.title}>{LABEL[app]} 설치</span>
         {showAndroid ? (
           <span className={styles.desc}>홈 화면에 추가해 앱처럼 빠르게 여세요.</span>
         ) : (

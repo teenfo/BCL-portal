@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMyPermissions } from '@/features/permissions';
 import { useAuth } from '@/features/auth';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { ADMIN_NAV, APP_LINKS } from './nav';
 import { NavIcon } from './icons';
 import styles from './AdminShell.module.css';
@@ -163,6 +164,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <UserMenu />
       </aside>
       <main className={styles.content}>{children}</main>
+      <InstallPrompt app="admin" />
     </div>
   );
 }

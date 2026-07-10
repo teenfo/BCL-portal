@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { COACH_TABS } from './nav';
 import styles from './CoachShell.module.css';
 
@@ -17,6 +18,7 @@ export function CoachShell({ children }: { children: ReactNode }) {
   return (
     <div className={styles.shell}>
       <main className={styles.content}>{children}</main>
+      <InstallPrompt app="coach" navOffset />
       <nav className={styles.tabbar} aria-label="코치 메뉴">
         {COACH_TABS.map((tab) => {
           const active = isActive(tab.href);

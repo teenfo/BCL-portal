@@ -1,9 +1,9 @@
-/* PWA 설치 배너 — 하단탭(56px + safe-area) 위 고정. 토큰만 사용. */
+/* PWA 설치 배너 — 하단 고정. .withNav 는 하단탭(56px) 위로 띄움. 토큰만 사용. */
 .banner {
   position: fixed;
   left: var(--bcl-space-3);
   right: var(--bcl-space-3);
-  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--bcl-space-2));
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bcl-space-3));
   z-index: 45;
   display: flex;
   align-items: center;
@@ -15,6 +15,9 @@
   border: 1px solid var(--bcl-border);
   border-radius: var(--bcl-radius-lg);
   box-shadow: var(--bcl-shadow-md);
+}
+.withNav {
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--bcl-space-2));
 }
 
 .icon {

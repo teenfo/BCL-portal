@@ -5,9 +5,10 @@ import { AuthGuard } from '@/features/auth';
 import { ToastProvider } from '@/components/ui';
 import { MemberShell } from '@/features/member-shell';
 
-// PWA — iOS 홈화면 설치 메타(매니페스트는 app/manifest.ts). 회원 앱 스코프에만 적용.
+// PWA — 회원 앱 전용 매니페스트(scope /apps) + iOS 홈화면 메타. 앱별 독립 설치.
 export const metadata: Metadata = {
   applicationName: 'BCL',
+  manifest: '/apps.webmanifest',
   appleWebApp: { capable: true, title: 'BCL', statusBarStyle: 'default' },
   icons: { apple: '/icons/apple-touch-icon.png' },
 };

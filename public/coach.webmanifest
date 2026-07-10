@@ -1,0 +1,18 @@
+{
+  "name": "BCL 코치",
+  "short_name": "BCL 코치",
+  "description": "BCL 짐 코치 앱 — 세션·출석·퍼포먼스·레이스",
+  "id": "/coach",
+  "start_url": "/coach",
+  "scope": "/coach",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f7f5",
+  "theme_color": "#ff6a00",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icons/coach-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/coach-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/coach-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

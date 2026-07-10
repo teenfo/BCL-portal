@@ -7,9 +7,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useToast } from '@/components/ui';
 import { useAuth } from '@/features/auth';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { BottomNav, MEMBER_TABS } from './BottomNav';
 import { BrandHeader } from './BrandHeader';
-import { InstallPrompt } from './InstallPrompt';
 import styles from './MemberShell.module.css';
 
 export function MemberShell({ children }: { children: ReactNode }) {
@@ -25,12 +25,6 @@ export function MemberShell({ children }: { children: ReactNode }) {
   const isTab = MEMBER_TABS.some(
     (t) => pathname === t.href || pathname.startsWith(`${t.href}/`),
   );
-
-  // PWA 서비스워커 등록(설치 가능 조건). 푸시 구독과 무관하게 회원 앱 진입 시 1회 등록(멱등).
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
-    void navigator.serviceWorker.register('/sw.js').catch(() => undefined);
-  }, []);
 
   // 전역 Realtime — notifications INSERT(본인) → 토스트. action_url 있으면 이동 액션 제공.
   useEffect(() => {
@@ -66,7 +60,7 @@ export function MemberShell({ children }: { children: ReactNode }) {
     <div className={styles.shell}>
       {isTab ? <BrandHeader /> : null}
       <main className={`${styles.main} ${isTab ? styles.withNav : ''}`}>{children}</main>
-      {isTab ? <InstallPrompt /> : null}
+      {isTab ? <InstallPrompt app="apps" navOffset /> : null}
       {isTab ? <BottomNav /> : null}
     </div>
   );
