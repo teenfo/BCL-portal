@@ -14,7 +14,7 @@ import {
   type BadgeMetricType,
   writeError,
 } from './types';
-import { BADGE_ICON_OPTIONS, badgeGlyph } from './glyph';
+import { BADGE_EMOJI_SUGGESTIONS, badgeGlyph } from './glyph';
 import styles from './badges.module.css';
 
 interface Props {
@@ -129,14 +129,27 @@ export function BadgeDefEditModal({ badge, onClose, onSaved }: Props) {
               { value: 'special', label: '특별' },
             ]}
           />
-          <Select
-            label="아이콘 (선택)"
-            value={icon || null}
-            onChange={(v) => setIcon(v)}
-            searchable
-            options={BADGE_ICON_OPTIONS}
-            helper={icon ? `미리보기 ${badgeGlyph(icon)}` : '배지 그리드에 표시할 아이콘'}
+          <Input
+            label="아이콘 이모지 (선택)"
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+            placeholder="예: 🔥"
+            helper={icon ? `표시: ${badgeGlyph(icon)}` : '이모지를 붙여넣거나 아래에서 선택'}
           />
+        </div>
+
+        <div className={styles.emojiPicker} role="group" aria-label="아이콘 이모지 빠른 선택">
+          {BADGE_EMOJI_SUGGESTIONS.map((e) => (
+            <button
+              type="button"
+              key={e}
+              className={`${styles.emojiChip}${icon === e ? ` ${styles.emojiChipActive}` : ''}`}
+              onClick={() => setIcon(e)}
+              aria-label={`아이콘 ${e}`}
+            >
+              {e}
+            </button>
+          ))}
         </div>
 
         <div className={styles.formRow}>

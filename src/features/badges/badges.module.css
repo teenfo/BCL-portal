@@ -107,3 +107,29 @@
   color: var(--bcl-text-muted);
   font-size: calc(12px * var(--bcl-font-scale));
 }
+
+/* 배지 아이콘 이모지 빠른 선택 팔레트 */
+.emojiPicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+.emojiChip {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  cursor: pointer;
+}
+.emojiChip:hover {
+  background: var(--bcl-surface-raised);
+}
+.emojiChipActive {
+  border-color: var(--bcl-accent-border);
+  background: var(--bcl-accent-soft);
+}

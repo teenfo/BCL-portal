@@ -25,13 +25,19 @@ const BADGE_GLYPH: Record<string, string> = {
 
 const DEFAULT_GLYPH = '🏅';
 
+// 저장값 처리:
+//   · 빈값 → 기본 메달(🏅)
+//   · 알려진 아이콘 키('flame' 등) → 매핑 글리프 (기존 시드 데이터 하위호환)
+//   · 그 외(관리자가 직접 입력한 이모지 등) → 입력값 그대로 렌더
 export function badgeGlyph(key: string | null | undefined): string {
   if (!key) return DEFAULT_GLYPH;
-  return BADGE_GLYPH[key.trim().toLowerCase()] ?? DEFAULT_GLYPH;
+  const k = key.trim();
+  if (!k) return DEFAULT_GLYPH;
+  return BADGE_GLYPH[k.toLowerCase()] ?? k;
 }
 
-/** 관리자 배지 정의 편집용 아이콘 선택지(키 + 글리프 미리보기). */
-export const BADGE_ICON_OPTIONS: { value: string; label: string }[] = Object.entries(BADGE_GLYPH)
-  // 동일 글리프 중복 키(fire=flame 등)는 대표 키만 노출
-  .filter(([key]) => !['fire', 'calendar-check', 'kettlebell'].includes(key))
-  .map(([key, glyph]) => ({ value: key, label: `${glyph}  ${key}` }));
+/** 관리자 배지 편집 — 빠른 선택용 이모지 팔레트. 직접 입력도 가능. */
+export const BADGE_EMOJI_SUGGESTIONS = [
+  '🏅', '🥇', '🥈', '🥉', '🔥', '👑', '🏆', '🎖️', '🛡️', '⭐',
+  '💪', '🏋️', '🤸', '🏃', '🚣', '⚡', '🎯', '🚀', '💎', '❤️', '👣', '📅',
+];
