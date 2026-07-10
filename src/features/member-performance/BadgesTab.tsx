@@ -5,6 +5,7 @@ import { Card, Badge, EmptyState, Skeleton } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { badgeGlyph } from '@/features/badges/glyph';
 import screen from '@/features/member-shell/screen.module.css';
 import styles from './performance.module.css';
 
@@ -55,7 +56,7 @@ export function BadgesTab() {
               return (
                 <div key={b.id} className={styles.badgeCell}>
                   <span className={`${styles.badgeIcon} ${b.earned ? '' : styles.badgeLocked}`}>
-                    {b.icon ?? '🏅'}
+                    {badgeGlyph(b.icon)}
                   </span>
                   <span className={styles.badgeName}>{b.name}</span>
                   {b.earned ? (

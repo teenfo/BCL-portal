@@ -14,6 +14,7 @@ import {
   type BadgeMetricType,
   writeError,
 } from './types';
+import { BADGE_ICON_OPTIONS, badgeGlyph } from './glyph';
 import styles from './badges.module.css';
 
 interface Props {
@@ -128,11 +129,13 @@ export function BadgeDefEditModal({ badge, onClose, onSaved }: Props) {
               { value: 'special', label: '특별' },
             ]}
           />
-          <Input
-            label="아이콘 키 (선택)"
-            value={icon}
-            onChange={(e) => setIcon(e.target.value)}
-            helper="디자인 시스템 아이콘 키 (예: flame)"
+          <Select
+            label="아이콘 (선택)"
+            value={icon || null}
+            onChange={(v) => setIcon(v)}
+            searchable
+            options={BADGE_ICON_OPTIONS}
+            helper={icon ? `미리보기 ${badgeGlyph(icon)}` : '배지 그리드에 표시할 아이콘'}
           />
         </div>
 
