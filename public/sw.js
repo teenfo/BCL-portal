@@ -9,6 +9,10 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// PWA 설치 가능 조건 충족용 fetch 핸들러(패스스루 — 오프라인 캐싱은 범위 밖).
+//   respondWith 미호출 = 브라우저 기본 네트워크 처리. 존재 자체가 installability 요건.
+self.addEventListener('fetch', () => {});
+
 self.addEventListener('push', (event) => {
   let payload = {};
   try {
