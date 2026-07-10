@@ -93,12 +93,9 @@ export function InstallPrompt({ app, navOffset = false }: { app: PwaApp; navOffs
   return (
     <div className={`${styles.banner} ${navOffset ? styles.withNav : ''}`} role="dialog" aria-label="앱 설치 안내">
       <span className={styles.icon} aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-          <line x1="7" y1="16" x2="25" y2="16" />
-          <line x1="7" y1="11" x2="7" y2="21" />
-          <line x1="25" y1="11" x2="25" y2="21" />
-          <line x1="3.5" y1="13" x2="3.5" y2="19" />
-          <line x1="28.5" y1="13" x2="28.5" y2="19" />
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M13 17.5 L13 12 Q13 8 16 8 Q19 8 19 12 L19 17.5" />
+          <circle cx="16" cy="20" r="5.5" />
         </svg>
       </span>
       <div className={styles.text}>

@@ -5,7 +5,7 @@
 //   로고는 인라인 SVG(currentColor) + 워드마크. 에셋/hex 없이 --bcl-* 토큰만.
 import styles from './BrandHeader.module.css';
 
-/** BCL 로고 마크 — 바벨 모티프(크로스핏/로잉 짐). currentColor로 accent 상속. */
+/** BCL 로고 마크 — 케틀벨 모티프(크로스핏 짐). currentColor로 accent 상속. */
 function BclMark() {
   return (
     <svg
@@ -13,15 +13,13 @@ function BclMark() {
       viewBox="0 0 32 32"
       fill="none"
       stroke="currentColor"
-      strokeWidth="3"
+      strokeWidth="2.4"
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <line x1="7" y1="16" x2="25" y2="16" />
-      <line x1="7" y1="11" x2="7" y2="21" />
-      <line x1="3.5" y1="13" x2="3.5" y2="19" />
-      <line x1="25" y1="11" x2="25" y2="21" />
-      <line x1="28.5" y1="13" x2="28.5" y2="19" />
+      <path d="M13 17.5 L13 12 Q13 8 16 8 Q19 8 19 12 L19 17.5" />
+      <circle cx="16" cy="20" r="5.5" />
     </svg>
   );
 }
