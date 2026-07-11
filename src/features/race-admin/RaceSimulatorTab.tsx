@@ -95,7 +95,7 @@ export function RaceSimulatorTab() {
 
   const targetDistance = Number(distance);
 
-  const onStart = () => {
+  const onStart = async () => {
     if (!eventId) {
       toast.error('시뮬레이션할 이벤트를 선택하세요.');
       return;
@@ -109,6 +109,19 @@ export function RaceSimulatorTab() {
     if (!Number.isFinite(base) || base <= 0) {
       toast.error('기준 스플릿(초)을 확인하세요.');
       return;
+    }
+    // 목표 거리 SSOT = race_events.target_distance_m — 관전 화면(useRaceEvent)이 이 값을 읽으므로
+    // 시뮬 입력값과 다르면 이벤트에 먼저 반영(불일치 시 표시 목표 ≠ 실제 종료 거리 사고 방지)
+    const ev = eventList.find((e) => e.id === eventId);
+    if (ev && Number(ev.target_distance_m) !== targetDistance) {
+      const res = await query(getSupabaseBrowserClient(), 'race_events', (q) =>
+        q.update({ target_distance_m: targetDistance }).eq('id', eventId),
+      );
+      if (!res.success) {
+        toast.error('이벤트 목표 거리 갱신에 실패했습니다. 이벤트 설정을 확인하세요.');
+        return;
+      }
+      events.refetch();
     }
     simRef.current?.close();
     const sim = createRaceSimulator(eventId, {

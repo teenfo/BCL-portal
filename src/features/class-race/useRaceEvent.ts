@@ -27,7 +27,8 @@ export function useRaceEvent(eventId: string | null) {
       eventId
         ? fetchEvent(eventId)
         : Promise.resolve({ success: true, data: null, error: null }),
-    30_000,
+    // 10s — 시뮬레이터/관리자가 목표 거리 등 메타를 바꾼 직후 표시 지연 최소화(단일 행 anon SELECT)
+    10_000,
     [eventId],
   );
 }
