@@ -17,12 +17,10 @@
   gap: var(--bcl-space-4);
 }
 
+/* 브랜드 엠블럼(케틀벨 + BCL) — 다크 셸이므로 흰 텍스트 버전. SVG 자산 배경. */
 .brand {
-  text-align: center;
-  /* type-h2 20/28 600 */
-  font-size: calc(20px * var(--bcl-font-scale));
-  line-height: calc(28 / 20);
-  font-weight: 600;
-  color: var(--bcl-accent-ink); /* 브랜드 accent 1곳(로고) */
-  margin: 0;
+  height: 128px;
+  aspect-ratio: 221.37 / 274.7;
+  margin: 0 auto var(--bcl-space-2);
+  background: url('/brand/bcl-emblem-white.svg') center / contain no-repeat;
 }

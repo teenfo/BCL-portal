@@ -7,7 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <ThemeScope theme="dark" density="mobile">
       <div className={styles.shell}>
         <div className={styles.inner}>
-          <p className={styles.brand}>BCL Portal</p>
+          <div className={styles.brand} role="img" aria-label="BCL" />
           {children}
         </div>
       </div>

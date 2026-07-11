@@ -44,6 +44,7 @@ export default function KioskIdlePage() {
 
   return (
     <div className={styles.idleWrap}>
+      <div className={styles.brandMark} role="img" aria-label="BCL" />
       <div className={styles.statusRow}>
         <span className={[styles.badge, online ? styles.badgeOnline : styles.badgeOffline].join(' ')}>
           {online ? '온라인' : '오프라인'}
