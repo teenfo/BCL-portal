@@ -63,6 +63,8 @@ export interface ProgressRegistration {
 interface AnimatorOptions {
   /** 목표 거리(m) — 진행률 정규화 기준. 없으면 현재 선두 거리 기준 동적 스케일 */
   targetDistance?: number | null;
+  /** race_start 시각(ms) — 평균 페이스(/500m) 산출 기준. 없으면 애니메이터 마운트 기준 폴백 */
+  startedAt?: number | null;
   /** 순위 변동 시 저빈도 콜백(순위 스택 갱신용) */
   onRankChange?: (rows: RankRow[]) => void;
   /**
@@ -177,8 +179,11 @@ export function useRaceAnimator(
       const target = optRef.current.targetDistance;
       const maxD = target && target > 0 ? target : Math.max(1, ...ranked.map((a) => a.d));
 
-      // 4) DOM 직접 조작
-      const elapsed = (performance.now() - startRef.current) / 1000;
+      // 4) DOM 직접 조작 — 페이스 경과시간은 race_start 기준(로비 대기 시간 미포함)
+      const startedAt = optRef.current.startedAt;
+      const elapsed = startedAt
+        ? Math.max(0, (now - startedAt) / 1000)
+        : (performance.now() - startRef.current) / 1000;
       for (const [serial, reg] of regRef.current) {
         const a = animated.get(serial);
         if (!a) continue;
@@ -219,7 +224,10 @@ export function useRaceAnimator(
           if (reg.text.p) reg.text.p.textContent = `${Math.round(a.p)}`;
           if (reg.text.spm) reg.text.spm.textContent = `${Math.round(a.spm)}`;
           if (reg.text.hr) reg.text.hr.textContent = a.hr != null ? `${a.hr}` : '--';
-          if (reg.text.pace) reg.text.pace.textContent = pace500(a.d, elapsed);
+          // 목표 도달 후엔 마지막 값 유지(경과시간 증가로 평균 페이스가 무는 것 방지)
+          if (reg.text.pace && !(target && a.d >= target)) {
+            reg.text.pace.textContent = pace500(a.d, elapsed);
+          }
         }
       }
 

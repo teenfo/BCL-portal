@@ -39,6 +39,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   const [ranks, setRanks] = useState<RankRow[]>([]);
   const animator = useRaceAnimator(rt.samplesRef, {
     targetDistance: target,
+    startedAt: rt.startedAt,
     onRankChange: setRanks,
     pacer: pacerLive,
   });

@@ -18,6 +18,7 @@ export function RaceRun({ eventId }: { eventId: string | null }) {
   const headerRateLabel = characterForDevice(defaultDeviceForTheme(theme)).rateLabel;
   const animator = useRaceAnimator(rt.samplesRef, {
     targetDistance: event.data?.target_distance_m ?? null,
+    startedAt: rt.startedAt,
   });
 
   return (
