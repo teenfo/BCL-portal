@@ -129,6 +129,39 @@
   border-radius: var(--bcl-radius-lg);
   box-shadow: 0 0 14px var(--bcl-accent);
 }
+/* 도착 등수 뱃지 — 도착 순서 고정 표시(1~3위 메달 톤). 도착 후엔 '1st' 라이브 배지 대체 */
+.hudPlace {
+  position: absolute;
+  top: -16px;
+  right: var(--bcl-space-2);
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  color: var(--bcl-bg);
+  padding: 0 var(--bcl-space-3);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-info);
+  box-shadow: 0 0 14px var(--bcl-info-soft);
+  z-index: 1;
+}
+.hudPlace[data-place='1'] {
+  background: var(--bcl-warning);
+  box-shadow: 0 0 14px var(--bcl-warning);
+}
+.hudPlace[data-place='2'] {
+  background: var(--bcl-text-muted);
+  box-shadow: 0 0 14px var(--bcl-text-muted);
+}
+.hudPlace[data-place='3'] {
+  background: var(--bcl-accent);
+  box-shadow: 0 0 14px var(--bcl-accent);
+}
+.hudCard[data-finished='true'][data-rank='1']::after {
+  display: none;
+}
+.hudCard[data-finished='true'] {
+  animation: none;
+}
 .hudCard[data-offline='true'] {
   opacity: 0.5;
   filter: grayscale(1);

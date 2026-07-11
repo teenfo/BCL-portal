@@ -72,6 +72,34 @@ export function RaceView({ eventId }: { eventId: string | null }) {
 
   const lanes = rt.lanes;
 
+  // 도착 순서(등수) — 원시 샘플 d ≥ target-1 최초 도달 순. 동시 도달은 d 내림차순.
+  //   리셋(로비 복귀) 시 초기화. setState는 interval 콜백에서만(규약).
+  const [finishOrder, setFinishOrder] = useState<string[]>([]);
+  useEffect(() => {
+    const t = setInterval(() => {
+      setFinishOrder((prev) => {
+        if (rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown') {
+          return prev.length ? [] : prev;
+        }
+        if (!target || lanes.length === 0) return prev;
+        const newly = lanes
+          .filter(
+            (l) =>
+              !prev.includes(l.serial) &&
+              (rt.samplesRef.current.get(l.serial)?.d ?? 0) >= target - 1,
+          )
+          .sort(
+            (a, b) =>
+              (rt.samplesRef.current.get(b.serial)?.d ?? 0) -
+              (rt.samplesRef.current.get(a.serial)?.d ?? 0),
+          )
+          .map((l) => l.serial);
+        return newly.length ? [...prev, ...newly] : prev;
+      });
+    }, 300);
+    return () => clearInterval(t);
+  }, [target, lanes, rt.lobbyStatus, rt.samplesRef]);
+
   return (
     <div className={styles.raceRoot} data-race-theme={theme}>
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
@@ -105,6 +133,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
             index={i}
             animator={animator}
             deviceType={l.device_type ?? defaultDeviceForTheme(theme)}
+            place={finishOrder.indexOf(l.serial) + 1 || null}
           />
         ))}
       </div>
@@ -119,6 +148,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           target={target}
           lobbyStatus={rt.lobbyStatus}
           defaultDevice={defaultDeviceForTheme(theme)}
+          finishOrder={finishOrder}
         />
         <div className={styles.badgeRail}>
           {lanes.map((l, i) => (
@@ -151,11 +181,14 @@ function HudCard({
   index,
   animator,
   deviceType,
+  place,
 }: {
   meta: LaneMeta;
   index: number;
   animator: Animator;
   deviceType: DeviceType;
+  /** 도착 등수(1~) — 미도착 null. 표시는 도착 순서 고정(현재 순위와 별개) */
+  place: number | null;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const dRef = useRef<HTMLElement>(null);
@@ -175,8 +208,14 @@ function HudCard({
     <div
       ref={cardRef}
       className={styles.hudCard}
+      data-finished={place != null ? 'true' : undefined}
       style={{ ['--team-color' as string]: teamColorVar(index) }}
     >
+      {place != null ? (
+        <span className={styles.hudPlace} data-place={Math.min(place, 4)}>
+          {place}위
+        </span>
+      ) : null}
       <div className={styles.hudHead}>
         <span className={styles.hudLane}>ERG {meta.lane}</span>
         <span className={styles.hudName}>{meta.member_name ?? `레인 ${meta.lane}`}</span>

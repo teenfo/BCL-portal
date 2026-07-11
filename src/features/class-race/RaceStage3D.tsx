@@ -31,6 +31,8 @@ interface Props {
   target: number | null;
   lobbyStatus: LobbyStatus;
   defaultDevice: DeviceType;
+  /** 도착 순서(serial 배열, RaceView 판정) — 인덱스+1 = 등수 */
+  finishOrder: string[];
 }
 
 /** CSS 변수 → 실색 (캔버스 텍스처는 var() 미해석) */
@@ -60,6 +62,37 @@ function makeChipTexture(name: string, teamColor: string): THREE.CanvasTexture {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(name, c.width / 2, 50, 440);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** 등수 배지("N위") — 1·2·3위 메달 톤, 이후 중립. 색은 토큰에서 해석 */
+function makePlaceTexture(place: number): THREE.CanvasTexture {
+  const medal =
+    place === 1
+      ? cssColor('--bcl-warning', '#f5a623')
+      : place === 2
+        ? cssColor('--bcl-text-muted', '#9e9e9e')
+        : place === 3
+          ? cssColor('--bcl-accent', '#ff6a00')
+          : cssColor('--bcl-info', '#4da3ff');
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = medal;
+  g.beginPath();
+  g.roundRect(28, 18, 200, 92, 24);
+  g.fill();
+  g.strokeStyle = 'rgba(255,255,255,0.85)';
+  g.lineWidth = 6;
+  g.stroke();
+  g.fillStyle = place <= 3 ? 'rgba(20,20,20,0.92)' : '#ffffff';
+  g.font = '800 60px Lexend, Pretendard, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(`${place}위`, 128, 66);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
@@ -132,14 +165,19 @@ interface Rig {
   texKey: string;
   d: number;
   spm: number;
+  place: THREE.Mesh;
+  placeMat: THREE.MeshBasicMaterial;
+  /** 표시 중 등수(0=비표시) + 팝인 시작 시각 */
+  placeNo: number;
+  placeAt: number;
 }
 
-export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice }: Props) {
+export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   // 렌더 루프가 최신 props를 읽도록 ref 경유(재초기화 없이 갱신)
-  const propsRef = useRef({ lanes, target, lobbyStatus, defaultDevice });
+  const propsRef = useRef({ lanes, target, lobbyStatus, defaultDevice, finishOrder });
   useEffect(() => {
-    propsRef.current = { lanes, target, lobbyStatus, defaultDevice };
+    propsRef.current = { lanes, target, lobbyStatus, defaultDevice, finishOrder };
   });
 
   useEffect(() => {
@@ -195,6 +233,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       ringTex.needsUpdate = true;
     }
     const streakTex = makeStreakTexture();
+    const placeTexCache = new Map<number, THREE.CanvasTexture>();
 
     // 앵커 = 하단 중앙(레인 접점) — 지오메트리를 +0.5y 이동
     const anchoredPlane = () => {
@@ -288,7 +327,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       });
       const chip = new THREE.Mesh(centerPlane, chipMat);
 
-      group.add(glow, ring, streak, char, chip);
+      const placeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0 });
+      const place = new THREE.Mesh(centerPlane, placeMat);
+
+      group.add(glow, ring, streak, char, chip, place);
       scene.add(group);
       return {
         serial: meta.serial,
@@ -299,6 +341,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         charMat,
         chip,
         chipName,
+        place,
+        placeMat,
+        placeNo: 0,
+        placeAt: 0,
         glow,
         streak,
         streakMat,
@@ -313,7 +359,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
 
     let raf = 0;
     const loop = () => {
-      const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev } = propsRef.current;
+      const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
       const now = Date.now();
       const t = performance.now();
       const samples = samplesRef.current;
@@ -420,6 +466,32 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const chipS = Math.max(0.72, scl) * charH;
         rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
         rig.chip.position.y = -chipS * 0.16;
+
+        // 도착 등수 배지 — 머리 위, 팝인(오버슈트) 애니메이션. 리셋 시 소멸
+        const placeNo = order.indexOf(meta.serial) + 1;
+        if (placeNo !== rig.placeNo) {
+          rig.placeNo = placeNo;
+          rig.placeAt = t;
+          if (placeNo > 0) {
+            let tex = placeTexCache.get(placeNo);
+            if (!tex) {
+              tex = makePlaceTexture(placeNo);
+              placeTexCache.set(placeNo, tex);
+            }
+            rig.placeMat.map = tex;
+            rig.placeMat.needsUpdate = true;
+          }
+        }
+        if (rig.placeNo > 0) {
+          const age = (t - rig.placeAt) / 1000;
+          const pop = age < 0.35 ? 1.25 - 0.25 * (age / 0.35) : 1 + 0.03 * Math.sin(t / 300);
+          const pw = charH * 0.62 * pop;
+          rig.place.scale.set(pw, pw * 0.5, 1);
+          rig.place.position.y = charH * 1.12;
+          rig.placeMat.opacity = Math.min(1, age / 0.2);
+        } else {
+          rig.placeMat.opacity = 0;
+        }
       });
 
       renderer.render(scene, camera);
@@ -439,6 +511,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         }
       });
       for (const { tex } of charTexCache.values()) tex.dispose();
+      for (const tex of placeTexCache.values()) tex.dispose();
       glowTex.dispose();
       ringTex.dispose();
       streakTex.dispose();
