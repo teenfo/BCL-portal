@@ -10,24 +10,21 @@ import { StatusStrip } from '@/features/class-common';
 import { useRaceEvent } from './useRaceEvent';
 import { useRaceRealtime, type LaneMeta } from './useRaceRealtime';
 import { useRaceAnimator, type RankRow, type Animator } from './useRaceAnimator';
-import {
-  themeForEvent,
-  characterForDevice,
-  defaultDeviceForTheme,
-  teamColorVar,
-  rowerCharSrc,
-  type RowerPose,
-  poolLaneX,
-  POOL,
-} from './device-theme';
+import { useDemoRace, DEMO_EVENT_ID } from './useDemoRace';
+import { RaceStage3D } from './RaceStage3D';
+import { themeForEvent, defaultDeviceForTheme, teamColorVar, poolLaneX } from './device-theme';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
 
 export function RaceView({ eventId }: { eventId: string | null }) {
-  const event = useRaceEvent(eventId);
-  const rt = useRaceRealtime(eventId);
-  const theme = themeForEvent(event.data?.event_type);
-  const target = event.data?.target_distance_m ?? null;
+  // 데모 모드(?event=demo) — Supabase 없이 로컬 드라이버로 구동(QA·쇼룸)
+  const isDemo = eventId === DEMO_EVENT_ID;
+  const event = useRaceEvent(isDemo ? null : eventId);
+  const realRt = useRaceRealtime(isDemo ? null : eventId);
+  const demo = useDemoRace(isDemo);
+  const rt = isDemo ? demo.rt : realRt;
+  const theme = isDemo ? 'water' : themeForEvent(event.data?.event_type);
+  const target = isDemo ? demo.target : (event.data?.target_distance_m ?? null);
 
   // 버추얼 페이서(§4b.5) — split_500m 있고 enabled일 때만 페이스 라인 렌더(렌더 전용).
   const pacerCfg = event.data?.pacer_config ?? null;
@@ -75,20 +72,6 @@ export function RaceView({ eventId }: { eventId: string | null }) {
 
   const lanes = rt.lanes;
 
-  // 피니시 도달 감지 — 원시 샘플(브로드캐스트 정확값) 기준, 1m 허용 오차.
-  //   애니메이터의 LERP 보간값은 목표에 점근만 하므로 판정에 쓰지 않는다.
-  const [finishedSerials, setFinishedSerials] = useState<string[]>([]);
-  useEffect(() => {
-    if (!target || lanes.length === 0) return;
-    const t = setInterval(() => {
-      const done = lanes
-        .filter((l) => (rt.samplesRef.current.get(l.serial)?.d ?? 0) >= target - 1)
-        .map((l) => l.serial);
-      setFinishedSerials((prev) => (prev.join(',') === done.join(',') ? prev : done));
-    }, 500);
-    return () => clearInterval(t);
-  }, [target, lanes, rt.samplesRef]);
-
   return (
     <div className={styles.raceRoot} data-race-theme={theme}>
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
@@ -101,7 +84,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           <i className={styles.light} />
           <i className={styles.light} />
         </span>
-        <div className={styles.topbarName}>{event.data?.name ?? 'RACE'}</div>
+        <div className={styles.topbarName}>{event.data?.name ?? (isDemo ? 'DEMO RACE' : 'RACE')}</div>
         <div className={styles.topbarMeta}>
           {event.data?.heat_no && event.data.heat_no > 1 ? (
             <span className={styles.heatBadge}>HEAT {event.data.heat_no}</span>
@@ -127,37 +110,21 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       </div>
 
       {/* 수영장 아레나 스테이지 — 상단(수면 시작) 출발 → 하단(데크) 피니시.
-          배경에 레인 표식이 없으므로 중앙 기준 균등 간격 배치(poolLaneX + POOL, rAF 이동) */}
+          캐릭터/이펙트는 three.js 캔버스(RaceStage3D)가 렌더 — 지오메트리는 poolLaneX/POOL 공유 */}
       <div className={styles.stage}>
         <div className={styles.stageCrowd} aria-hidden />
+        <RaceStage3D
+          lanes={lanes}
+          samplesRef={rt.samplesRef}
+          target={target}
+          lobbyStatus={rt.lobbyStatus}
+          defaultDevice={defaultDeviceForTheme(theme)}
+        />
         <div className={styles.badgeRail}>
           {lanes.map((l, i) => (
             <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
           ))}
         </div>
-        {lanes.map((l, i) => {
-          const deviceType = l.device_type ?? defaultDeviceForTheme(theme);
-          const character = characterForDevice(deviceType);
-          return (
-            <LaneRow
-              key={l.serial}
-              meta={l}
-              index={i}
-              glyph={character.glyph}
-              register={animator.registerKart}
-              unregister={animator.unregister}
-              deviceType={deviceType}
-              count={lanes.length}
-              pose={
-                rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown'
-                  ? 'wait'
-                  : finishedSerials.includes(l.serial)
-                    ? 'finish'
-                    : 'race'
-              }
-            />
-          );
-        })}
       </div>
 
       {/* 응원 관중 실루엣 */}
@@ -256,79 +223,6 @@ function RailBadge({
       <em>ERG {meta.lane}</em>
       <b ref={dRef}>0</b>m
     </span>
-  );
-}
-
-function LaneRow({
-  meta,
-  index,
-  glyph,
-  deviceType,
-  register,
-  unregister,
-  count,
-  pose,
-}: {
-  meta: LaneMeta;
-  index: number;
-  glyph: string;
-  deviceType: DeviceType;
-  register: Animator['registerKart'];
-  unregister: Animator['unregister'];
-  count: number;
-  /** wait=출발 대기(모션 정지) · race=로잉(SPM 펌프) · finish=세리머니(목표 도달) */
-  pose: RowerPose;
-}) {
-  const kartRef = useRef<HTMLDivElement>(null);
-  const spriteRef = useRef<HTMLDivElement>(null);
-  const lane = poolLaneX(index, count);
-
-  useEffect(() => {
-    register(meta.serial, {
-      kart: kartRef.current,
-      lanePath: poolLaneX(index, count),
-      sprite: spriteRef.current,
-      deviceType,
-    });
-    return () => unregister(meta.serial);
-  }, [meta.serial, index, count, deviceType, register, unregister]);
-
-  return (
-    <div
-      ref={kartRef}
-      className={styles.kart}
-      data-virtual={meta.virtual ? 'true' : 'false'}
-      style={{
-        ['--team-color' as string]: teamColorVar(index),
-        // 초기(로비/출발 전) 위치 = 출발선 — 첫 rAF 프레임 전 표시용
-        left: `${lane.xt}%`,
-        top: `${POOL.yTop}%`,
-        transform: `translate(-50%, -100%) scale(${POOL.sTop})`,
-      }}
-    >
-      {/* 밴드 회전 상쇄 — 스프라이트/이름은 화면 기준 수직 */}
-      <span className={styles.kartLift}>
-        {/* data-idle 초기값 true — 첫 샘플 전(출발 대기) 스트릭/물보라/로킹 정지, 이후 애니메이터가 갱신 */}
-        <div ref={spriteRef} className={styles.kartSprite} data-idle="true">
-          {deviceType === 'rower' ? (
-            // 레퍼런스 원화 컷아웃(레인 순환) — 포즈: 대기 → 로잉(SPM 펌프) → 세리머니
-            // eslint-disable-next-line @next/next/no-img-element -- rAF 스테이지 자산, next/image 불필요
-            <img
-              src={rowerCharSrc(index, pose)}
-              alt=""
-              className={styles.charImg}
-              data-pose={pose}
-              draggable={false}
-            />
-          ) : (
-            glyph
-          )}
-        </div>
-        <span className={styles.kartName}>
-          {meta.virtual ? 'PACER' : meta.member_name ?? `레인 ${index + 1}`}
-        </span>
-      </span>
-    </div>
   );
 }
 
