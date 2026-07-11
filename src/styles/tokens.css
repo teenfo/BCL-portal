@@ -163,12 +163,3 @@
   --bcl-race-neon-b: #ff3dbe;
 }
 
-/* 레이스 캐릭터 팔레트(SVG 스프라이트 — 컴포넌트는 var만 사용, hex는 여기만) */
-:root {
-  --bcl-race-char-skin: #f2c49b;
-  --bcl-race-char-skin-shade: #d9a877;
-  --bcl-race-char-dark: #232a38;
-  --bcl-race-char-metal: #3c4454;
-  --bcl-race-char-metal-hi: #5f6a82;
-  --bcl-race-char-light: #eaf6ff;
-}

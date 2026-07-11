@@ -196,7 +196,7 @@ export function useRaceAnimator(
         if (reg.sprite) {
           const dur = animationDurationSec(reg.deviceType, a.spm);
           reg.sprite.style.animationDuration = `${dur.toFixed(2)}s`;
-          // SVG 스프라이트 내부 파트(시트/상체/팔/체인/플라이휠)가 상속받는 스트로크 주기
+          // 캐릭터 컷아웃(.charImg) 스트로크 로킹이 상속받는 주기(실측 SPM)
           reg.sprite.style.setProperty('--stroke-dur', `${dur.toFixed(2)}s`);
           reg.sprite.setAttribute('data-idle', a.spm < 6 ? 'true' : 'false');
         }

@@ -71,6 +71,24 @@ export function animationDurationSec(
   }
 }
 
+/**
+ * 로워 캐릭터 컷아웃(public/race/chars — 레퍼런스 원화 분리 자산) 레인 순환 배정.
+ * bike/ski/run 컷아웃은 후속 — 현재는 rower만 이미지, 그 외 글리프 폴백(LaneRow).
+ */
+const ROWER_CHARS = [
+  'c1-bald-green',
+  'c2-whitecap',
+  'c3-leader',
+  'c4-yellow-pony',
+  'c5-blue',
+  'c6-beard-red',
+  'c7-red-pony-teal',
+] as const;
+
+export function rowerCharSrc(index: number): string {
+  return `/race/chars/${ROWER_CHARS[index % ROWER_CHARS.length]}.png`;
+}
+
 /** 팀 컬러 토큰 8색 순환 (--bcl-race-team-1..8) */
 export function teamColorVar(index: number): string {
   return `var(--bcl-race-team-${(index % 8) + 1})`;

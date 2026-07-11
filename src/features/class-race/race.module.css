@@ -323,117 +323,28 @@
   line-height: 1;
   filter: drop-shadow(0 0 14px var(--team-color, transparent));
 }
-/* ── 로워 SVG 스프라이트(레퍼런스 캐릭터) — 스트로크 사이클은 --stroke-dur(SPM) 동기 ──
-   높이는 레인 수(--lane-count, stage 인라인)에 맞춰 자동 스케일(겹침 방지) */
-.rower {
+/* ── 로워 캐릭터 컷아웃(public/race/chars — 레퍼런스 원화 분리 자산) ──
+   높이는 레인 수(--lane-count, stage 인라인)에 맞춰 자동 스케일(겹침 방지).
+   스트로크 로킹은 --stroke-dur(실측 SPM, 애니메이터 주입) 동기 — 드라이브/리커버리 리듬 */
+.charImg {
   display: block;
   height: min(26vh, 230px);
   width: auto;
-  overflow: visible;
+  user-select: none;
+  transform-origin: 50% 88%;
+  animation: charStroke var(--stroke-dur, 2.4s) ease-in-out infinite;
 }
-/* SVG 스프라이트 사용 시 이모지용 물결 링 제거(자체 물보라 보유) */
-.kartSprite:has(.rower)::after {
-  display: none;
-}
-/* 스트로크 축 = 레일 방향(뒤 우상 ↔ 앞 좌하). 0%=캐치(앞), 38%=피니시(뒤) */
-.rowSeat {
-  animation: rowSeat var(--stroke-dur, 2.4s) ease-in-out infinite;
-}
-@keyframes rowSeat {
+@keyframes charStroke {
   0%,
   100% {
-    transform: translate(-5px, 1px);
+    transform: rotate(-1.6deg) translateX(-3px); /* 캐치(앞) */
   }
   38% {
-    transform: translate(12px, -2px);
+    transform: rotate(2.2deg) translateX(4px); /* 피니시(뒤) */
   }
 }
-.rowBody {
-  transform-box: view-box;
-  transform-origin: 119px 86px;
-  animation: rowBody var(--stroke-dur, 2.4s) ease-in-out infinite;
-}
-@keyframes rowBody {
-  0%,
-  100% {
-    transform: rotate(-9deg);
-  }
-  38% {
-    transform: rotate(10deg);
-  }
-}
-.rowArm {
-  animation: rowArm var(--stroke-dur, 2.4s) ease-in-out infinite;
-}
-@keyframes rowArm {
-  0%,
-  100% {
-    transform: translate(-6px, 1.2px);
-  }
-  38% {
-    transform: translate(14px, -2.4px);
-  }
-}
-.rowChain {
-  transform-box: view-box;
-  transform-origin: 52px 89px;
-  animation: rowChain var(--stroke-dur, 2.4s) ease-in-out infinite;
-}
-@keyframes rowChain {
-  0%,
-  100% {
-    transform: scaleX(0.55);
-  }
-  38% {
-    transform: scaleX(1.35);
-  }
-}
-.rowFly {
-  transform-box: view-box;
-  transform-origin: 48px 90px;
-  animation: rowFly var(--stroke-dur, 2.4s) linear infinite;
-}
-@keyframes rowFly {
-  to {
-    transform: rotate(360deg);
-  }
-}
-/* 물보라 플러터(고정 주기 — SPM 무관) */
-.splashA,
-.splashB {
-  fill: var(--bcl-race-char-light);
-  opacity: 0.55;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: splashKf 0.55s ease-in-out infinite alternate;
-}
-.splashB {
-  animation-duration: 0.48s;
-  animation-delay: 0.18s;
-}
-@keyframes splashKf {
-  from {
-    transform: scale(0.8);
-    opacity: 0.35;
-  }
-  to {
-    transform: scale(1.12);
-    opacity: 0.65;
-  }
-}
-/* 리더 헬멧+고글 — data-rank=1에서만 */
-.helmet {
-  opacity: 0;
-}
-.kart[data-rank='1'] .helmet {
-  opacity: 1;
-}
-/* idle(스트로크 정지) 시 파트 애니메이션 일시정지 */
-.kartSprite[data-idle='true'] .rowSeat,
-.kartSprite[data-idle='true'] .rowBody,
-.kartSprite[data-idle='true'] .rowArm,
-.kartSprite[data-idle='true'] .rowChain,
-.kartSprite[data-idle='true'] .rowFly {
+/* idle(스트로크 정지) 시 로킹 일시정지 */
+.kartSprite[data-idle='true'] .charImg {
   animation-play-state: paused;
 }
 /* 스피드 스트릭 — 캐릭터 뒤로 흐르는 팀컬러 잔상 */

@@ -15,8 +15,8 @@ import {
   characterForDevice,
   defaultDeviceForTheme,
   teamColorVar,
+  rowerCharSrc,
 } from './device-theme';
-import { RowerSprite } from './RowerSprite';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
 
@@ -298,7 +298,13 @@ function LaneRow({
       {/* 밴드 회전 상쇄 — 스프라이트/이름은 화면 기준 수직 */}
       <span className={styles.kartLift}>
         <div ref={spriteRef} className={styles.kartSprite}>
-          {deviceType === 'rower' ? <RowerSprite /> : glyph}
+          {deviceType === 'rower' ? (
+            // 레퍼런스 원화 컷아웃(레인 순환) — 스트로크 로킹은 CSS(--stroke-dur=실측 SPM)
+            // eslint-disable-next-line @next/next/no-img-element -- rAF 스테이지 자산, next/image 불필요
+            <img src={rowerCharSrc(index)} alt="" className={styles.charImg} draggable={false} />
+          ) : (
+            glyph
+          )}
         </div>
         <span className={styles.kartName}>
           {meta.virtual ? 'PACER' : meta.member_name ?? `레인 ${index + 1}`}
