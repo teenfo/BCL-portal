@@ -234,11 +234,11 @@
   inset: 0;
   background: repeating-linear-gradient(
     115deg,
-    transparent 0 90px,
-    var(--bcl-race-trail, transparent) 90px 93px,
-    transparent 93px 210px
+    transparent 0 150px,
+    var(--bcl-race-trail, transparent) 150px 154px,
+    transparent 154px 320px
   );
-  opacity: 0.08;
+  opacity: 0.22;
   animation: shimmer 7s linear infinite;
   pointer-events: none;
 }
@@ -259,58 +259,63 @@
   filter: blur(3px);
   pointer-events: none;
 }
-.lane {
-  position: relative;
-  z-index: 1;
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-/* 마칭 레인 라인 — 우→좌 흐르며 스피드감 연출 */
-.lane::after {
-  content: '';
+/* 상단 ERG 배지 레일 — 레인별 고정 슬롯(레퍼런스: 수면 위 배지 행) */
+.badgeRail {
   position: absolute;
+  top: var(--bcl-space-4);
   left: 0;
   right: 0;
-  bottom: 0;
-  height: 3px;
-  background: repeating-linear-gradient(
-    90deg,
-    var(--bcl-race-trail, var(--bcl-border)) 0 26px,
-    transparent 26px 52px
-  );
-  opacity: 0.45;
-  animation: laneDash 0.5s linear infinite;
+  height: 40px;
+  z-index: 12;
+  pointer-events: none;
 }
-@keyframes laneDash {
-  to {
-    background-position: -52px 0;
-  }
-}
-.laneLabel {
+.railBadge {
   position: absolute;
-  left: var(--bcl-space-3);
-  font-size: 28px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+  font-size: 20px;
   font-weight: 800;
-  color: var(--bcl-race-trail, var(--bcl-text-muted));
-  opacity: 0.55;
+  background: var(--bcl-overlay);
+  border: 2px solid var(--team-color, var(--bcl-border));
+  border-radius: var(--bcl-radius-sm);
+  padding: 1px var(--bcl-space-2);
+  white-space: nowrap;
+}
+.railBadge em {
+  font-style: normal;
+  color: var(--team-color, var(--bcl-accent));
+}
+.railBadge b {
+  font-size: 22px;
+}
+/* 레인 고정 슬롯(레퍼런스 구도) — 거리 표기는 배지/HUD, 위치는 레인별 고정.
+   대각 레인 라인은 stage 전역 오버레이(::before)가 담당 */
+.laneSlot {
+  position: absolute;
+  transform: translateX(-50%);
 }
 .kart {
   position: relative;
-  left: 4%;
-  width: 92%;
   display: inline-flex;
-  flex-direction: row;
-  align-items: center;
-  gap: var(--bcl-space-2);
-  will-change: transform; /* translate3d only — 레이아웃 유발 금지(§5b.3) */
 }
-/* 배지+이름 정보 컬럼(스프라이트 좌측) — 레인 높이 침범 방지 */
-.kartInfo {
-  display: flex;
+/* 잔잔한 보빙 — 물 위 부유감 */
+.kartLift {
+  display: inline-flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 2px;
+  animation: bob 2.8s ease-in-out infinite;
+}
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
 }
 .kartSprite {
   position: relative;
@@ -322,7 +327,7 @@
    높이는 레인 수(--lane-count, stage 인라인)에 맞춰 자동 스케일(겹침 방지) */
 .rower {
   display: block;
-  height: min(calc(54vh / var(--lane-count, 6)), 116px);
+  height: min(26vh, 230px);
   width: auto;
   overflow: visible;
 }
@@ -330,30 +335,31 @@
 .kartSprite:has(.rower)::after {
   display: none;
 }
+/* 스트로크 축 = 레일 방향(뒤 우상 ↔ 앞 좌하). 0%=캐치(앞), 38%=피니시(뒤) */
 .rowSeat {
   animation: rowSeat var(--stroke-dur, 2.4s) ease-in-out infinite;
 }
 @keyframes rowSeat {
   0%,
   100% {
-    transform: translateX(6px);
+    transform: translate(-5px, 1px);
   }
   38% {
-    transform: translateX(-14px);
+    transform: translate(12px, -2px);
   }
 }
 .rowBody {
   transform-box: view-box;
-  transform-origin: 92px 70px;
+  transform-origin: 119px 86px;
   animation: rowBody var(--stroke-dur, 2.4s) ease-in-out infinite;
 }
 @keyframes rowBody {
   0%,
   100% {
-    transform: rotate(8deg);
+    transform: rotate(-9deg);
   }
   38% {
-    transform: rotate(-11deg);
+    transform: rotate(10deg);
   }
 }
 .rowArm {
@@ -362,29 +368,29 @@
 @keyframes rowArm {
   0%,
   100% {
-    transform: translateX(6px);
+    transform: translate(-6px, 1.2px);
   }
   38% {
-    transform: translateX(-18px);
+    transform: translate(14px, -2.4px);
   }
 }
 .rowChain {
   transform-box: view-box;
-  transform-origin: 148px 57px;
+  transform-origin: 52px 89px;
   animation: rowChain var(--stroke-dur, 2.4s) ease-in-out infinite;
 }
 @keyframes rowChain {
   0%,
   100% {
-    transform: scaleX(0.57);
+    transform: scaleX(0.55);
   }
   38% {
-    transform: scaleX(2.25);
+    transform: scaleX(1.35);
   }
 }
 .rowFly {
   transform-box: view-box;
-  transform-origin: 164px 59px;
+  transform-origin: 48px 90px;
   animation: rowFly var(--stroke-dur, 2.4s) linear infinite;
 }
 @keyframes rowFly {
@@ -429,26 +435,6 @@
 .kartSprite[data-idle='true'] .rowChain,
 .kartSprite[data-idle='true'] .rowFly {
   animation-play-state: paused;
-}
-/* 카트 ERG 배지 — 레인 번호 + 실시간 거리(rAF) */
-.kartBadge {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--bcl-space-1);
-  font-size: 19px;
-  font-weight: 800;
-  background: var(--bcl-overlay);
-  border: 2px solid var(--team-color, var(--bcl-border));
-  border-radius: var(--bcl-radius-sm);
-  padding: 0 var(--bcl-space-2);
-  white-space: nowrap;
-}
-.kartBadge em {
-  font-style: normal;
-  color: var(--team-color, var(--bcl-accent));
-}
-.kartBadge b {
-  font-size: 21px;
 }
 /* 스피드 스트릭 — 캐릭터 뒤로 흐르는 팀컬러 잔상 */
 .kartSprite::before {

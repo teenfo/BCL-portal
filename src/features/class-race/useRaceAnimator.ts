@@ -39,6 +39,8 @@ export interface RankRow {
 
 interface KartRegistration {
   kart?: HTMLElement | null;
+  /** true면 위치 이동 안 함(고정 슬롯 구도) — 어트리뷰트/스프라이트 주기만 갱신 */
+  fixedPos?: boolean;
   sprite?: HTMLElement | null;
   /** HUD 스탯 카드 — data-rank/-offline/-stale 어트리뷰트만 갱신(정적 위치) */
   card?: HTMLElement | null;
@@ -179,7 +181,7 @@ export function useRaceAnimator(
         if (!a) continue;
         const xPct = Math.min(100, (a.d / maxD) * 100);
         if (reg.kart) {
-          reg.kart.style.transform = `translate3d(${xPct}%, 0, 0)`;
+          if (!reg.fixedPos) reg.kart.style.transform = `translate3d(${xPct}%, 0, 0)`;
           reg.kart.setAttribute('data-rank', String(a.rank));
           if (a.offline) reg.kart.setAttribute('data-offline', 'true');
           else reg.kart.removeAttribute('data-offline');
@@ -261,9 +263,16 @@ export function useRaceAnimator(
   }, [samplesRef]);
 
   return {
-    // 병합 등록 — 카트(LaneRow)와 HUD 카드가 같은 serial에 각자 부분 등록
-    registerKart: (serial, reg) =>
-      regRef.current.set(serial, { ...regRef.current.get(serial), ...reg }),
+    // 병합 등록 — 카트(LaneRow)·HUD 카드·배지 레일이 같은 serial에 각자 부분 등록.
+    //   deviceType은 null 등록이 기존 값을 덮지 않도록 보존(등록 순서 무관).
+    registerKart: (serial, reg) => {
+      const prev = regRef.current.get(serial);
+      regRef.current.set(serial, {
+        ...prev,
+        ...reg,
+        deviceType: reg.deviceType ?? prev?.deviceType ?? null,
+      });
+    },
     unregister: (serial) => regRef.current.delete(serial),
     registerPacer: (reg) => {
       pacerRegRef.current = reg;
