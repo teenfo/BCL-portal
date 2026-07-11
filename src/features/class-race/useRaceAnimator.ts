@@ -40,9 +40,17 @@ export interface RankRow {
 interface KartRegistration {
   kart?: HTMLElement | null;
   sprite?: HTMLElement | null;
-  /** run 그리드 셀 텍스트 갱신용 */
+  /** HUD 스탯 카드 — data-rank/-offline/-stale 어트리뷰트만 갱신(정적 위치) */
+  card?: HTMLElement | null;
+  /** run 그리드 셀/HUD 카드 텍스트 갱신용 */
   text?: Partial<Record<'d' | 'p' | 'spm' | 'hr' | 'pace', HTMLElement | null>>;
   deviceType: DeviceType | null;
+}
+
+/** 진행바(REMAINING → GOAL) DOM 등록 — 선두 기준 fill/잔여거리 rAF 직접 갱신 */
+export interface ProgressRegistration {
+  fill?: HTMLElement | null;
+  remain?: HTMLElement | null;
 }
 
 interface AnimatorOptions {
@@ -69,10 +77,13 @@ export interface PacerRegistration {
 }
 
 export interface Animator {
+  /** 동일 serial 재호출 시 병합 — 카트(LaneRow)와 HUD 카드가 각자 부분 등록 가능 */
   registerKart: (serial: string, reg: KartRegistration) => void;
   unregister: (serial: string) => void;
   /** 페이서 라인 DOM 등록/해제(null=해제). 렌더 전용, karts와 독립 */
   registerPacer: (reg: PacerRegistration | null) => void;
+  /** 진행바 DOM 등록/해제(null=해제) — 선두 거리 기준 */
+  registerProgress: (reg: ProgressRegistration | null) => void;
   /** HUD 포커스 게이지 등 즉시 조회용 스냅샷 */
   getLane: (serial: string) => AnimatedLane | undefined;
 }
@@ -92,6 +103,7 @@ export function useRaceAnimator(
   const animatedRef = useRef<Map<string, AnimatedLane>>(new Map());
   const regRef = useRef<Map<string, KartRegistration>>(new Map());
   const pacerRegRef = useRef<PacerRegistration | null>(null);
+  const progressRegRef = useRef<ProgressRegistration | null>(null);
   const lastOrderRef = useRef<string>('');
   const optRef = useRef(options);
   useEffect(() => {
@@ -172,6 +184,11 @@ export function useRaceAnimator(
           if (a.stale) reg.kart.setAttribute('data-stale', 'true');
           else reg.kart.removeAttribute('data-stale');
         }
+        if (reg.card) {
+          reg.card.setAttribute('data-rank', String(a.rank));
+          if (a.offline) reg.card.setAttribute('data-offline', 'true');
+          else reg.card.removeAttribute('data-offline');
+        }
         if (reg.sprite) {
           const dur = animationDurationSec(reg.deviceType, a.spm);
           reg.sprite.style.animationDuration = `${dur.toFixed(2)}s`;
@@ -210,6 +227,19 @@ export function useRaceAnimator(
         }
       }
 
+      // 4c) 진행바(REMAINING → GOAL) — 선두 거리 기준 fill/잔여 직접 갱신
+      const progReg = progressRegRef.current;
+      if (progReg && ranked.length > 0) {
+        const lead = ranked[0].d;
+        const pct = Math.min(100, (lead / maxD) * 100);
+        if (progReg.fill) progReg.fill.style.width = `${pct.toFixed(2)}%`;
+        if (progReg.remain) {
+          progReg.remain.textContent = target && target > 0
+            ? `${Math.max(0, Math.round(target - lead))}`
+            : `${Math.round(lead)}`;
+        }
+      }
+
       // 5) 순위 변동 시에만 콜백(저빈도 setState)
       const orderKey = ranked.map((a) => a.serial).join(',');
       if (orderKey !== lastOrderRef.current) {
@@ -226,10 +256,15 @@ export function useRaceAnimator(
   }, [samplesRef]);
 
   return {
-    registerKart: (serial, reg) => regRef.current.set(serial, reg),
+    // 병합 등록 — 카트(LaneRow)와 HUD 카드가 같은 serial에 각자 부분 등록
+    registerKart: (serial, reg) =>
+      regRef.current.set(serial, { ...regRef.current.get(serial), ...reg }),
     unregister: (serial) => regRef.current.delete(serial),
     registerPacer: (reg) => {
       pacerRegRef.current = reg;
+    },
+    registerProgress: (reg) => {
+      progressRegRef.current = reg;
     },
     getLane: (serial) => animatedRef.current.get(serial),
   };

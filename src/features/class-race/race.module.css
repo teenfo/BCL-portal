@@ -1,4 +1,6 @@
-/* Race 화면 — 다크/tv, 토큰만. 테마 표면은 --bcl-race-surface/-trail/-bg-tint(data-race-theme). */
+/* Race 화면 — 다크/tv, 토큰만. 아케이드 게임쇼 룩(SuperPark 레퍼런스):
+   HUD 스탯 카드 + REMAINING→GOAL 진행바 + 사이드뷰 워터 스테이지 + 관중 실루엣.
+   테마 표면은 --bcl-race-*(data-race-theme) 토큰으로만 전환(R-11). */
 
 .raceRoot,
 .runRoot,
@@ -14,8 +16,9 @@
   flex-direction: column;
 }
 
-/* ── 톱바 ── */
+/* ── 톱바 — 스타디움 타이틀 + 네온 언더라인 + 경과 타이머 ── */
 .topbar {
+  position: relative;
   height: 8vh;
   display: flex;
   align-items: center;
@@ -23,9 +26,21 @@
   padding: 0 var(--bcl-space-8);
   background: var(--bcl-surface);
 }
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--bcl-race-neon-a), var(--bcl-accent), var(--bcl-race-neon-b));
+  filter: drop-shadow(0 0 8px var(--bcl-race-glow, var(--bcl-accent)));
+}
 .topbarName {
   font-size: 44px;
   font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
 }
 .topbarMeta {
   display: flex;
@@ -34,6 +49,12 @@
   color: var(--bcl-text-muted);
   align-items: center;
 }
+.topbarTimer {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--bcl-text);
+  text-shadow: 0 0 14px var(--bcl-race-glow, var(--bcl-accent));
+}
 .heatBadge {
   font-size: 28px;
   font-weight: 800;
@@ -41,91 +62,200 @@
   background: var(--bcl-accent);
   padding: 2px var(--bcl-space-4);
   border-radius: var(--bcl-radius-md);
+  box-shadow: 0 0 16px var(--bcl-accent-border);
 }
 
-/* ── 스테이지: 순위 스택 + 트랙 ── */
-.stage {
-  flex: 1;
+/* ── HUD 스탯 카드(레인별) — 팀컬러 탑 보더 + 1위 글로우 배지 ── */
+.hudRow {
   display: grid;
-  grid-template-columns: 22% 1fr;
-  min-height: 0;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-4) var(--bcl-space-6) var(--bcl-space-3);
+  background: var(--bcl-surface);
 }
-.rankStack {
+.hudCard {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--bcl-space-2);
-  padding: var(--bcl-space-4);
-  overflow: hidden;
-}
-.rankRow {
-  display: flex;
-  align-items: center;
-  gap: var(--bcl-space-3);
+  gap: 2px;
   padding: var(--bcl-space-2) var(--bcl-space-3);
-  background: var(--bcl-surface);
+  background: var(--bcl-surface-raised);
+  border-top: 6px solid var(--team-color, var(--bcl-border));
   border-radius: var(--bcl-radius-md);
-  transition: transform 300ms ease;
 }
-.rankRow[data-rank='1'] {
-  background: var(--bcl-accent-soft);
-  box-shadow: 0 0 0 2px var(--bcl-accent-border);
+.hudCard[data-rank='1'] {
+  animation: leadPulse 1.6s ease-in-out infinite;
 }
-.rankNum {
-  font-size: 40px;
+@keyframes leadPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--bcl-accent-border);
+  }
+  50% {
+    box-shadow: 0 0 22px var(--bcl-accent);
+  }
+}
+.hudCard[data-rank='1']::after {
+  content: '1st';
+  position: absolute;
+  top: -16px;
+  right: var(--bcl-space-2);
+  font-size: 22px;
   font-weight: 800;
-  width: 1.4em;
-  text-align: center;
+  font-style: italic;
+  color: var(--bcl-bg);
+  background: linear-gradient(90deg, var(--bcl-accent), var(--bcl-race-neon-b));
+  padding: 0 var(--bcl-space-3);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: 0 0 14px var(--bcl-accent);
 }
-.rankDot {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+.hudCard[data-offline='true'] {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.hudHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-2);
+  min-width: 0;
+}
+.hudLane {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--team-color, var(--bcl-accent));
   flex: 0 0 auto;
 }
-.rankName {
-  font-size: 32px;
+.hudName {
+  font-size: 24px;
   font-weight: 600;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rankGap {
-  font-size: 28px;
+.hudMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+}
+.hudMain b {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+}
+.hudUnit {
+  font-size: 22px;
   color: var(--bcl-text-muted);
 }
+.hudSub {
+  display: flex;
+  gap: var(--bcl-space-4);
+  font-size: 20px;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+}
+.hudSub b {
+  color: var(--bcl-text);
+  font-weight: 700;
+}
 
-/* ── 트랙(CSS3D) ── */
-.track {
-  position: relative;
+/* ── 진행바 — REMAINING → GOAL(네온 그라디언트 fill, rAF 직접 갱신) ── */
+.progressBar {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-2) var(--bcl-space-6);
+  background: var(--bcl-surface);
+  font-size: 24px;
+  color: var(--bcl-text-muted);
+}
+.progressLabel b {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--bcl-text);
+}
+.progressTrack {
+  flex: 1;
+  height: 18px;
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface-raised);
+  box-shadow: inset 0 0 0 1px var(--bcl-border);
   overflow: hidden;
-  perspective: 800px;
-  perspective-origin: 50% 30%;
-  background: var(--bcl-race-bg-tint, var(--bcl-surface));
 }
-.trackSky {
-  position: absolute;
-  inset: 0 0 40% 0;
-  background: linear-gradient(var(--bcl-bg), transparent);
-  opacity: 0.6;
+.progressFill {
+  width: 0%;
+  height: 100%;
+  border-radius: var(--bcl-radius-lg);
+  background: linear-gradient(90deg, var(--bcl-race-neon-a), var(--bcl-accent), var(--bcl-race-neon-b));
+  box-shadow: 0 0 14px var(--bcl-accent);
 }
-.trackSurface {
-  position: absolute;
-  inset: 12% 0 0 0;
-  transform: rotateX(25deg);
-  transform-origin: 50% 100%;
-  background: var(--bcl-race-surface, var(--bcl-surface-raised));
+.progressGoal {
+  font-weight: 800;
+  color: var(--bcl-text);
+}
+
+/* ── 사이드뷰 워터 스테이지 ── */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  padding: var(--bcl-space-4) 0;
+  padding: var(--bcl-space-5) 0 var(--bcl-space-3);
+  background: linear-gradient(
+    var(--bcl-race-sky-horizon, var(--bcl-surface)) -70%,
+    var(--bcl-race-surface, var(--bcl-surface-raised)) 34%,
+    var(--bcl-race-sky-top, var(--bcl-bg)) 140%
+  );
+  overflow: hidden;
+}
+/* 수면 반짝임 — 대각 광택 스트릭이 천천히 흐름 */
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    115deg,
+    transparent 0 90px,
+    var(--bcl-race-trail, transparent) 90px 93px,
+    transparent 93px 210px
+  );
+  opacity: 0.08;
+  animation: shimmer 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes shimmer {
+  to {
+    background-position: 420px 0;
+  }
 }
 .lane {
   position: relative;
-  height: 9%;
+  flex: 1;
   display: flex;
   align-items: center;
-  border-bottom: 2px dashed var(--bcl-race-trail, var(--bcl-border));
+}
+/* 마칭 레인 라인 — 우→좌 흐르며 스피드감 연출 */
+.lane::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--bcl-race-trail, var(--bcl-border)) 0 26px,
+    transparent 26px 52px
+  );
+  opacity: 0.45;
+  animation: laneDash 0.5s linear infinite;
+}
+@keyframes laneDash {
+  to {
+    background-position: -52px 0;
+  }
 }
 .laneLabel {
   position: absolute;
@@ -133,7 +263,7 @@
   font-size: 28px;
   font-weight: 800;
   color: var(--bcl-race-trail, var(--bcl-text-muted));
-  opacity: 0.6;
+  opacity: 0.55;
 }
 .kart {
   position: relative;
@@ -145,9 +275,65 @@
   will-change: transform; /* translate3d only — 레이아웃 유발 금지(§5b.3) */
 }
 .kartSprite {
-  font-size: 56px;
+  position: relative;
+  font-size: 72px;
   line-height: 1;
-  filter: drop-shadow(0 0 8px var(--team-color, transparent));
+  filter: drop-shadow(0 0 14px var(--team-color, transparent));
+}
+/* 스피드 스트릭 — 캐릭터 뒤로 흐르는 팀컬러 잔상 */
+.kartSprite::before {
+  content: '';
+  position: absolute;
+  right: 84%;
+  top: 28%;
+  width: 140px;
+  height: 44%;
+  background: linear-gradient(90deg, transparent, var(--team-color, transparent));
+  border-radius: var(--bcl-radius-sm);
+  opacity: 0.5;
+  filter: blur(3px);
+  animation: streak 0.42s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes streak {
+  from {
+    transform: scaleX(0.7);
+    opacity: 0.3;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 0.6;
+  }
+}
+/* 물보라 — 스프라이트 하단 스플래시 */
+.kartSprite::after {
+  content: '';
+  position: absolute;
+  left: -16%;
+  right: -16%;
+  bottom: -10px;
+  height: 18px;
+  background: radial-gradient(closest-side, var(--bcl-race-trail, transparent), transparent);
+  opacity: 0.55;
+  filter: blur(2px);
+  animation: splash 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes splash {
+  from {
+    transform: scaleX(0.85);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleX(1.05);
+    opacity: 0.6;
+  }
+}
+/* 리더 글로우 — 1위 캐릭터 하이라이트(레퍼런스: 흰 아우라) */
+.kart[data-rank='1'] .kartSprite {
+  filter: drop-shadow(0 0 20px var(--bcl-race-glow, var(--bcl-accent)))
+    drop-shadow(0 0 10px var(--team-color, transparent));
+  transform: scale(1.12);
 }
 .kartSprite[data-idle='true'] {
   opacity: 0.85;
@@ -162,16 +348,22 @@
 .kart[data-virtual='true'] {
   opacity: 0.45;
 }
+.kart[data-virtual='true'] .kartSprite::before,
+.kart[data-virtual='true'] .kartSprite::after {
+  display: none;
+}
 .kartName {
   font-size: 24px;
   font-weight: 700;
   background: var(--bcl-overlay);
   padding: 0 var(--bcl-space-2);
   border-radius: var(--bcl-radius-sm);
+  box-shadow: 0 0 0 1px var(--team-color, transparent);
 }
 .kart[data-rank='1'] .kartName {
   color: var(--bcl-accent-ink);
 }
+
 /* ── 버추얼 페이서 라인(§4b.5, 렌더 전용 — 중립 회백 톤) ── */
 .pacerLine {
   position: absolute;
@@ -206,24 +398,10 @@
   border-radius: var(--bcl-radius-sm);
   white-space: nowrap;
 }
-.pacerMinimapDot {
-  position: absolute;
-  top: 50%;
-  width: 6px;
-  height: 70%;
-  border-radius: var(--bcl-radius-sm);
-  background: var(--bcl-text-muted);
-  transform: translate(-50%, -50%);
-  opacity: 0.7;
-  transition: left 300ms linear;
-}
-.pacerMinimapDot[data-active='false'] {
-  display: none;
-}
 
 .finishLine {
   position: absolute;
-  top: 12%;
+  top: 0;
   bottom: 0;
   right: 4%;
   width: 12px;
@@ -232,28 +410,50 @@
     var(--bcl-text) 0 10px,
     var(--bcl-bg) 10px 20px
   );
+  box-shadow: 0 0 18px var(--bcl-race-glow, var(--bcl-accent));
 }
 
-/* ── 미니맵 ── */
-.minimap {
-  height: 8vh;
-  padding: var(--bcl-space-3) var(--bcl-space-8);
-  background: var(--bcl-surface);
+/* ── 응원 관중 실루엣(하단 전경) ── */
+.crowd {
+  height: 10vh;
+  flex: 0 0 auto;
+  background: url('/race/crowd.svg') repeat-x bottom / auto 100%;
+  animation: crowdBob 1.1s ease-in-out infinite alternate;
 }
-.minimapTrack {
-  position: relative;
-  height: 100%;
-  background: var(--bcl-surface-raised);
-  border-radius: var(--bcl-radius-lg);
+@keyframes crowdBob {
+  from {
+    background-position-y: 100%;
+  }
+  to {
+    background-position-y: 88%;
+  }
 }
-.minimapDot {
+
+/* ── FINAL STRETCH 배너 ── */
+.finalBanner {
   position: absolute;
-  top: 50%;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  transition: left 300ms linear;
+  top: 30%;
+  left: 50%;
+  z-index: 20;
+  font-size: 84px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: var(--bcl-bg);
+  background: linear-gradient(90deg, var(--bcl-accent), var(--bcl-race-neon-b));
+  padding: var(--bcl-space-2) var(--bcl-space-8);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: 0 0 44px var(--bcl-accent);
+  animation: bannerPulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes bannerPulse {
+  from {
+    transform: translateX(-50%) skew(-6deg) scale(1);
+  }
+  to {
+    transform: translateX(-50%) skew(-6deg) scale(1.06);
+  }
 }
 
 /* ── 상태 오버레이 ── */
@@ -274,6 +474,7 @@
   font-weight: 800;
   letter-spacing: 0.08em;
   color: var(--bcl-accent);
+  text-shadow: 0 0 40px var(--bcl-accent);
 }
 .stateSub {
   font-size: 40px;
@@ -283,13 +484,16 @@
   font-size: 260px;
   font-weight: 800;
   color: var(--bcl-danger);
+  text-shadow: 0 0 60px var(--bcl-danger);
 }
 .trafficLight[data-n='2'],
 .trafficLight[data-n='1'] {
   color: var(--bcl-warning);
+  text-shadow: 0 0 60px var(--bcl-warning);
 }
 .trafficLight[data-n='0'] {
   color: var(--bcl-success);
+  text-shadow: 0 0 60px var(--bcl-success);
 }
 
 /* ── ERG 그리드(run) ── */

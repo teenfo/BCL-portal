@@ -122,24 +122,43 @@
   --bcl-race-team-8: #ef4444;
 }
 
-/* 테마 토큰 3종 × 4테마 (R-11 — data-race-theme로만 전환, 컴포넌트 분기 금지) */
+/* 테마 토큰 × 4테마 (R-11 — data-race-theme로만 전환, 컴포넌트 분기 금지)
+   surface/trail/bg-tint + 아케이드 확장(sky-top/sky-horizon/glow — 네온 게임쇼 룩) */
 [data-race-theme='water'] {
   --bcl-race-surface: #0e3a5c;
   --bcl-race-trail: #cfe9ff;
   --bcl-race-bg-tint: rgba(14, 58, 92, 0.35);
+  --bcl-race-sky-top: #04102a;
+  --bcl-race-sky-horizon: #1e78c8;
+  --bcl-race-glow: #35d6ff;
 }
 [data-race-theme='road'] {
-  --bcl-race-surface: #3d3d42;
-  --bcl-race-trail: #e8b96a;
+  --bcl-race-surface: #33333a;
+  --bcl-race-trail: #ffd27a;
   --bcl-race-bg-tint: rgba(61, 61, 66, 0.35);
+  --bcl-race-sky-top: #150a26;
+  --bcl-race-sky-horizon: #ff7a3c;
+  --bcl-race-glow: #ffb03a;
 }
 [data-race-theme='snow'] {
   --bcl-race-surface: #dfeaf5;
   --bcl-race-trail: #ffffff;
   --bcl-race-bg-tint: rgba(122, 160, 199, 0.3);
+  --bcl-race-sky-top: #0a1c2e;
+  --bcl-race-sky-horizon: #a8d8f5;
+  --bcl-race-glow: #bfe8ff;
 }
 [data-race-theme='track'] {
-  --bcl-race-surface: #8a4a3b;
-  --bcl-race-trail: #e8b96a;
+  --bcl-race-surface: #7c4234;
+  --bcl-race-trail: #ffd27a;
   --bcl-race-bg-tint: rgba(138, 74, 59, 0.3);
+  --bcl-race-sky-top: #1c0b06;
+  --bcl-race-sky-horizon: #ff9a4d;
+  --bcl-race-glow: #ffb03a;
+}
+
+/* 네온 포인트 2색(테마 공통) — 미니맵 오벌/FINAL 배너 글로우 */
+:root {
+  --bcl-race-neon-a: #39ffb0;
+  --bcl-race-neon-b: #ff3dbe;
 }

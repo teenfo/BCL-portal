@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="120" viewBox="0 0 560 120">
+  <!-- 응원 관중 실루엣(전경) — 레이스 스테이지 하단 반복 타일 -->
+  <g fill="#0b0e16">
+    <rect y="78" width="560" height="42"/>
+    <!-- 사람 1: 양팔 번쩍 -->
+    <circle cx="40" cy="62" r="16"/>
+    <rect x="26" y="74" width="28" height="46" rx="8"/>
+    <rect x="6" y="26" width="10" height="42" rx="5" transform="rotate(-22 11 47)"/>
+    <rect x="62" y="24" width="10" height="44" rx="5" transform="rotate(24 67 46)"/>
+    <circle cx="6" cy="26" r="7"/><circle cx="72" cy="24" r="7"/>
+    <!-- 사람 2: 한팔 -->
+    <circle cx="118" cy="70" r="14"/>
+    <rect x="105" y="81" width="26" height="39" rx="8"/>
+    <rect x="132" y="36" width="9" height="40" rx="4.5" transform="rotate(28 136 56)"/>
+    <circle cx="143" cy="36" r="6"/>
+    <!-- 사람 3: 낮게 -->
+    <circle cx="185" cy="78" r="15"/>
+    <rect x="171" y="90" width="28" height="30" rx="8"/>
+    <!-- 사람 4: 양팔 V -->
+    <circle cx="252" cy="60" r="17"/>
+    <rect x="237" y="73" width="30" height="47" rx="9"/>
+    <rect x="216" y="22" width="10" height="46" rx="5" transform="rotate(-26 221 45)"/>
+    <rect x="276" y="22" width="10" height="46" rx="5" transform="rotate(26 281 45)"/>
+    <circle cx="215" cy="22" r="7"/><circle cx="287" cy="22" r="7"/>
+    <!-- 사람 5 -->
+    <circle cx="322" cy="74" r="13"/>
+    <rect x="310" y="85" width="24" height="35" rx="7"/>
+    <rect x="300" y="44" width="9" height="36" rx="4.5" transform="rotate(-30 304 62)"/>
+    <circle cx="298" cy="44" r="6"/>
+    <!-- 사람 6: 점프 -->
+    <circle cx="388" cy="56" r="16"/>
+    <rect x="374" y="68" width="28" height="52" rx="8"/>
+    <rect x="354" y="20" width="10" height="44" rx="5" transform="rotate(-24 359 42)"/>
+    <rect x="408" y="18" width="10" height="46" rx="5" transform="rotate(22 413 41)"/>
+    <circle cx="352" cy="20" r="7"/><circle cx="418" cy="18" r="7"/>
+    <!-- 사람 7 -->
+    <circle cx="452" cy="76" r="14"/>
+    <rect x="439" y="87" width="26" height="33" rx="8"/>
+    <!-- 사람 8: 한팔 -->
+    <circle cx="514" cy="66" r="15"/>
+    <rect x="500" y="78" width="28" height="42" rx="8"/>
+    <rect x="528" y="30" width="10" height="42" rx="5" transform="rotate(26 533 51)"/>
+    <circle cx="540" cy="30" r="7"/>
+  </g>
+</svg>
