@@ -8,6 +8,9 @@
 //   비-rower 기기는 글리프(이모지) 텍스처 폴백. WebGL 미지원 TV는 콘솔 경고 후 빈 스테이지(HUD는 동작).
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import {
   poolLaneX,
   POOL,
@@ -170,7 +173,31 @@ interface Rig {
   /** 표시 중 등수(0=비표시) + 팝인 시작 시각 */
   placeNo: number;
   placeAt: number;
+  /** 3D 로워 모델(rower.glb 클론) — 로드 완료 후 부착. 본 절차 애니메이션용 참조 포함 */
+  model: THREE.Group | null;
+  bones: {
+    inner: THREE.Group;
+    torso: THREE.Bone | null;
+    oarL: THREE.Bone | null;
+    oarR: THREE.Bone | null;
+    armR: THREE.Bone | null;
+    neck: THREE.Bone | null;
+    rest: Map<THREE.Bone, THREE.Euler>;
+  } | null;
 }
+
+/** rower.glb(UniRig) 본 매핑 — 월드 좌표 분석 기준(스크래치 bones2.json) */
+const BONE = {
+  torso: 'Bone_005', // 척추 중단 — 전후 스윙
+  oarL: 'Bone_017', // 좌측 오어락 피벗(팔+오어 스킨)
+  oarR: 'Bone_019', // 우측 오어락 피벗
+  armR: 'Bone_021', // 우측 어깨(보조)
+  neck: 'Bone_015',
+} as const;
+/** 모델 기본 자세 — 뱃머리(+z)가 화면 아래(시청자)를 향하도록 피치 */
+const MODEL_PITCH = 0.34;
+/** 모델 원본 높이(선체~머리, bbox y) — 화면 스케일 환산 기준 */
+const MODEL_H = 1.7;
 
 export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -195,7 +222,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     host.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    const camera = new THREE.OrthographicCamera(0, 1, 0, -1, -100, 100);
+    // near/far — 3D 모델(보트 길이×스케일) 깊이 수용
+    const camera = new THREE.OrthographicCamera(0, 1, 0, -1, -4000, 4000);
 
     let W = 1;
     let H = 1;
@@ -234,6 +262,24 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     }
     const streakTex = makeStreakTexture();
     const placeTexCache = new Map<number, THREE.CanvasTexture>();
+
+    // ── 3D 로워 모델(GLB, Draco) — 1회 로드 후 레인별 SkeletonUtils.clone ──
+    const draco = new DRACOLoader().setDecoderPath('/draco/');
+    const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
+    let modelTemplate: THREE.Group | null = null;
+    let modelOffset = new THREE.Vector3();
+    gltfLoader.load('/race/rower.glb', (g) => {
+      const box = new THREE.Box3().setFromObject(g.scene);
+      const c = box.getCenter(new THREE.Vector3());
+      // 하단 중앙(수면 접점) 원점 정렬 오프셋
+      modelOffset = new THREE.Vector3(-c.x, -box.min.y, -c.z);
+      modelTemplate = g.scene;
+    });
+    // 스킨 모델 라이팅(스탠다드 머티리얼)
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.15));
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    keyLight.position.set(0.4, 1, 0.8);
+    scene.add(keyLight);
 
     // 앵커 = 하단 중앙(레인 접점) — 지오메트리를 +0.5y 이동
     const anchoredPlane = () => {
@@ -293,30 +339,36 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         color: new THREE.Color(glowColor),
         transparent: true,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
         opacity: 0,
       });
       const glow = new THREE.Mesh(centerPlane, glowMat);
+      glow.renderOrder = 402;
 
       const streakMat = new THREE.MeshBasicMaterial({
         map: streakTex,
         color: new THREE.Color(teamColor),
         transparent: true,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
         opacity: 0,
       });
       const streak = new THREE.Mesh(anchoredPlane(), streakMat);
+      streak.renderOrder = 401;
 
       const ringMat = new THREE.MeshBasicMaterial({
         map: ringTex,
         color: new THREE.Color(cssColor('--bcl-race-trail', '#dff2ff')),
         transparent: true,
         depthWrite: false,
+        depthTest: false,
         blending: THREE.AdditiveBlending,
         opacity: 0,
       });
       const ring = new THREE.Mesh(centerPlane, ringMat);
+      ring.renderOrder = 400;
 
       const chipName = meta.member_name ?? `레인 ${meta.lane || index + 1}`;
       const chipTex = makeChipTexture(chipName, teamColor);
@@ -324,11 +376,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         map: chipTex,
         transparent: true,
         depthWrite: false,
+        depthTest: false,
       });
       const chip = new THREE.Mesh(centerPlane, chipMat);
+      chip.renderOrder = 500;
 
-      const placeMat = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, opacity: 0 });
+      const placeMat = new THREE.MeshBasicMaterial({
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        opacity: 0,
+      });
       const place = new THREE.Mesh(centerPlane, placeMat);
+      place.renderOrder = 501;
 
       group.add(glow, ring, streak, char, chip, place);
       scene.add(group);
@@ -345,6 +405,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         placeMat,
         placeNo: 0,
         placeAt: 0,
+        model: null,
+        bones: null,
         glow,
         streak,
         streakMat,
@@ -405,7 +467,34 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const finished = !!tgt && rawD >= tgt - 1;
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
         if (deviceType === 'rower') {
-          ensureCharTexture(rig, `${index % 7}:${pose}`, rowerCharSrc(index, pose), '');
+          // 3D 모델 경로 — 템플릿 로드 전에는 2D 컷아웃 폴백(로드 완료 시 교체)
+          if (!rig.model && modelTemplate) {
+            const model = cloneSkinned(modelTemplate) as THREE.Group;
+            const inner = new THREE.Group();
+            model.position.copy(modelOffset);
+            inner.add(model);
+            inner.rotation.x = MODEL_PITCH;
+            const find = (n: string) => (model.getObjectByName(n) as THREE.Bone | undefined) ?? null;
+            const bones = {
+              inner,
+              torso: find(BONE.torso),
+              oarL: find(BONE.oarL),
+              oarR: find(BONE.oarR),
+              armR: find(BONE.armR),
+              neck: find(BONE.neck),
+              rest: new Map<THREE.Bone, THREE.Euler>(),
+            };
+            for (const b of [bones.torso, bones.oarL, bones.oarR, bones.armR, bones.neck]) {
+              if (b) bones.rest.set(b, b.rotation.clone());
+            }
+            rig.model = inner;
+            rig.bones = bones;
+            rig.group.add(inner);
+            rig.char.visible = false;
+          }
+          if (!rig.model) {
+            ensureCharTexture(rig, `${index % 7}:${pose}`, rowerCharSrc(index, pose), '');
+          }
         } else {
           const glyph = characterForDevice(deviceType).glyph;
           ensureCharTexture(rig, `glyph:${glyph}`, null, glyph);
@@ -424,15 +513,43 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         rig.group.renderOrder = Math.round(prog * 100);
 
         const charH = Math.min(0.26 * H, 230) * scl;
-        rig.char.scale.set(charH * rig.aspect, charH, 1);
-        // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지
-        if (pose === 'race' && !idle) {
+        if (rig.model && rig.bones) {
+          // 3D 모델 — 화면 높이 환산 스케일 + 본 절차 스트로크(SPM 동기)
+          const ms = (charH / MODEL_H) * 0.58;
+          rig.model.scale.set(ms, ms, ms);
+          const b = rig.bones;
+          const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
-          rig.char.rotation.z = Math.sin((t / dur) * TAU) * 0.04;
-          rig.char.position.y = Math.abs(Math.sin((t / dur) * TAU)) * -charH * 0.015;
+          const ph = (t / dur) * TAU;
+          const drive = stroke ? Math.sin(ph) : 0; // +드라이브 / -리커버리
+          const dip = stroke ? Math.sin(ph - 1.1) : 0;
+          const setD = (bone: THREE.Bone | null, ax: 'x' | 'y' | 'z', delta: number) => {
+            if (!bone) return;
+            const rest = b.rest.get(bone);
+            if (rest) bone.rotation[ax] = rest[ax] + delta;
+          };
+          // 상체 전후 스윙 + 목 보정
+          setD(b.torso, 'x', pose === 'finish' ? -0.22 : 0.2 * drive);
+          setD(b.neck, 'x', pose === 'finish' ? -0.1 : -0.08 * drive);
+          // 오어 스윕(오어락 피벗, 좌우 미러) + 블레이드 딥
+          setD(b.oarL, 'y', 0.32 * drive);
+          setD(b.oarR, 'y', -0.32 * drive);
+          setD(b.oarL, 'x', 0.12 * dip);
+          setD(b.oarR, 'x', 0.12 * dip);
+          setD(b.armR, 'y', -0.15 * drive);
+          // 선체 피치 서지(드라이브 반동)
+          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.02 * Math.sin(ph - 0.7) : 0);
         } else {
-          rig.char.rotation.z = 0;
-          rig.char.position.y = 0;
+          rig.char.scale.set(charH * rig.aspect, charH, 1);
+          // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지
+          if (pose === 'race' && !idle) {
+            const dur = animationDurationSec(deviceType, rig.spm) * 1000;
+            rig.char.rotation.z = Math.sin((t / dur) * TAU) * 0.04;
+            rig.char.position.y = Math.abs(Math.sin((t / dur) * TAU)) * -charH * 0.015;
+          } else {
+            rig.char.rotation.z = 0;
+            rig.char.position.y = 0;
+          }
         }
 
         // 이펙트 — 전진 중에만(대기·피니시·idle 제외)
@@ -442,9 +559,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         rig.ring.position.y = charH * 0.02;
         rig.ringMat.opacity = moving ? 0.22 + pulse * 0.18 : 0;
         // 스트릭 — 캐릭터 위(진행 반대 방향)로 페이드(텍스처 자체가 상단 투명)
-        rig.streak.scale.set(charH * 0.34, charH * (0.55 + pulse * 0.25), 1);
+        rig.streak.scale.set(charH * 0.26, charH * (0.5 + pulse * 0.22), 1);
         rig.streak.position.y = charH * 0.55;
-        rig.streakMat.opacity = moving ? 0.28 : 0;
+        rig.streakMat.opacity = moving ? 0.14 : 0;
 
         // 리더 글로우(흰-시안 아우라)
         const isLead = meta.serial === leadSerial && status !== 'lobby' && status !== 'countdown' && leadD > 0;
@@ -465,7 +582,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         }
         const chipS = Math.max(0.72, scl) * charH;
         rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
-        rig.chip.position.y = -chipS * 0.16;
+        // 3D 모델은 뱃머리가 원점 아래로 나옴 — 칩을 그 아래로
+        rig.chip.position.y = rig.model ? -chipS * 0.38 : -chipS * 0.16;
 
         // 도착 등수 배지 — 머리 위, 팝인(오버슈트) 애니메이션. 리셋 시 소멸
         const placeNo = order.indexOf(meta.serial) + 1;
