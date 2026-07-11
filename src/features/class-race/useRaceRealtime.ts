@@ -214,8 +214,12 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
     // race_start는 1회성 방송 — 이미 시작된 레이스에 늦게 접속하면 놓친다.
     //   실제 전진(거리>0) 프레임이 오면 lobby→racing 으로 전이해 "참가자 대기중" 오버레이를 해제한다
     //   (거리 0 유휴 프레임은 무시 → GO 전 대기실 오인 방지). 시뮬·실기기 공통 복원력.
+    //   startedAt도 미수신이면 최초 전진 감지 시각으로 근사(타이머/페이스 0:00 고착 방지).
     const markRacingIfMoving = (moving: boolean) => {
-      if (moving) setLobbyStatus((s) => (s === 'lobby' ? 'racing' : s));
+      if (moving) {
+        setLobbyStatus((s) => (s === 'lobby' ? 'racing' : s));
+        setStartedAt((t) => t ?? Date.now());
+      }
     };
 
     channel
@@ -279,6 +283,42 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
     return () => {
       void client.removeChannel(channel);
     };
+  }, [eventId]);
+
+  // ── 2b) 샘플 기반 레인 생성 폴백 ──
+  //   스냅샷이 비어 있고 lane_assign 방송을 놓친 경우(예: 배정 후 디스플레이 접속·시뮬레이션)에도
+  //   erg_update 샘플이 흐르면 레인을 만들어 HUD/캐릭터가 반드시 그려지게 한다.
+  //   이름/기기타입은 fn_get_race_lanes(1b)·lane_assign 수신 시 병합. 저빈도(1s) 폴링, 변경시에만 setState.
+  useEffect(() => {
+    if (!eventId) return;
+    const id = setInterval(() => {
+      const samples = samplesRef.current;
+      if (samples.size === 0) return;
+      setLanes((prev) => {
+        const knownSerial = new Set(prev.map((l) => l.serial));
+        const knownLane = new Set(prev.map((l) => l.lane));
+        const missing: LaneMeta[] = [];
+        for (const s of samples.values()) {
+          if (s.virtual) continue; // 가상 페이서는 렌더 전용 — 레인 편성 제외(§4b.5)
+          if (knownSerial.has(s.serial)) continue;
+          if (s.lane >= 1 && knownLane.has(s.lane)) continue; // 스냅샷 dev: 키와 중복 방지
+          const meta = laneMetaByNumberRef.current.get(s.lane);
+          missing.push({
+            lane: s.lane,
+            serial: s.serial,
+            device_id: null,
+            member_id: null,
+            member_name: meta?.member_name ?? null,
+            team_id: null,
+            virtual: false,
+            device_type: meta?.device_type ?? null,
+          });
+        }
+        if (missing.length === 0) return prev;
+        return [...prev, ...missing].sort((a, b) => a.lane - b.lane);
+      });
+    }, 1000);
+    return () => clearInterval(id);
   }, [eventId]);
 
   // ── 3) 폴백 폴링(경로1 장애 시, 서비스 URL 있을 때만) ──

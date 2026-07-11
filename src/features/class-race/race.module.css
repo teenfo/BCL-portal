@@ -62,6 +62,8 @@
 .topbarMeta {
   display: flex;
   gap: var(--bcl-space-5);
+  /* 우상단 상태 스트립(class-common, absolute)과 타이머 겹침 방지 */
+  margin-right: 120px;
   font-size: 32px;
   color: var(--bcl-text-muted);
   align-items: center;
