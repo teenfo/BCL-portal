@@ -16,6 +16,7 @@ import {
   defaultDeviceForTheme,
   teamColorVar,
   rowerCharSrc,
+  type RowerPose,
   poolLaneX,
   POOL,
 } from './device-theme';
@@ -83,6 +84,19 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   }, [rt.lobbyStatus, target, ranks, animator]);
 
   const lanes = rt.lanes;
+
+  // 피니시 도달 감지 — 목표 거리 이상이면 세리머니 포즈(저빈도 폴링, setState는 콜백에서만)
+  const [finishedSerials, setFinishedSerials] = useState<string[]>([]);
+  useEffect(() => {
+    if (!target || lanes.length === 0) return;
+    const t = setInterval(() => {
+      const done = lanes
+        .filter((l) => (animator.getLane(l.serial)?.d ?? 0) >= target)
+        .map((l) => l.serial);
+      setFinishedSerials((prev) => (prev.join(',') === done.join(',') ? prev : done));
+    }, 500);
+    return () => clearInterval(t);
+  }, [target, lanes, animator]);
 
   return (
     <div className={styles.raceRoot} data-race-theme={theme}>
@@ -156,7 +170,13 @@ export function RaceView({ eventId }: { eventId: string | null }) {
               unregister={animator.unregister}
               deviceType={deviceType}
               count={lanes.length}
-              waiting={rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown'}
+              pose={
+                rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown'
+                  ? 'wait'
+                  : finishedSerials.includes(l.serial)
+                    ? 'finish'
+                    : 'race'
+              }
             />
           );
         })}
@@ -269,7 +289,7 @@ function LaneRow({
   register,
   unregister,
   count,
-  waiting,
+  pose,
 }: {
   meta: LaneMeta;
   index: number;
@@ -278,8 +298,8 @@ function LaneRow({
   register: Animator['registerKart'];
   unregister: Animator['unregister'];
   count: number;
-  /** 출발 대기(로비·카운트다운) — 정면 대기 스프라이트 + 모션 연출 정지 */
-  waiting: boolean;
+  /** wait=출발 대기(모션 정지) · race=로잉(SPM 펌프) · finish=세리머니(목표 도달) */
+  pose: RowerPose;
 }) {
   const kartRef = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLDivElement>(null);
@@ -313,13 +333,13 @@ function LaneRow({
         {/* data-idle 초기값 true — 첫 샘플 전(출발 대기) 스트릭/물보라/로킹 정지, 이후 애니메이터가 갱신 */}
         <div ref={spriteRef} className={styles.kartSprite} data-idle="true">
           {deviceType === 'rower' ? (
-            // 레퍼런스 원화 컷아웃(레인 순환) — 대기=정면 뷰, 레이스=3/4 로잉 뷰(SPM 로킹)
+            // 레퍼런스 원화 컷아웃(레인 순환) — 포즈: 대기 → 로잉(SPM 펌프) → 세리머니
             // eslint-disable-next-line @next/next/no-img-element -- rAF 스테이지 자산, next/image 불필요
             <img
-              src={rowerCharSrc(index, waiting ? 'wait' : 'race')}
+              src={rowerCharSrc(index, pose)}
               alt=""
               className={styles.charImg}
-              data-wait={waiting ? 'true' : 'false'}
+              data-pose={pose}
               draggable={false}
             />
           ) : (

@@ -338,17 +338,19 @@
   transform-origin: 50% 88%;
   animation: charStroke var(--stroke-dur, 2.4s) ease-in-out infinite;
 }
+/* 정면 뷰 전후 펌프 — 드라이브(뒤로 기울며 살짝 낮아짐) ↔ 리커버리 */
 @keyframes charStroke {
   0%,
   100% {
-    transform: rotate(-1.6deg) translateX(-3px); /* 캐치(앞) */
+    transform: translateY(0) scale(1, 1); /* 캐치(앞) */
   }
   38% {
-    transform: rotate(2.2deg) translateX(4px); /* 피니시(뒤) */
+    transform: translateY(3px) scale(1.03, 0.96); /* 드라이브 피니시 */
   }
 }
-/* 출발 대기(정면 뷰) — 스트로크 로킹 없음 */
-.charImg[data-wait='true'] {
+/* 출발 대기·피니시 세리머니 — 스트로크 펌프 없음(정지 포즈) */
+.charImg[data-pose='wait'],
+.charImg[data-pose='finish'] {
   animation: none;
 }
 /* idle(스트로크 정지) 시 로킹 일시정지 + 모션 연출(스트릭·물보라) 비표시 */

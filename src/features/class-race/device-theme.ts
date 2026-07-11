@@ -85,10 +85,12 @@ const ROWER_CHARS = [
   'c7-red-pony-teal',
 ] as const;
 
-/** variant: race=3/4 로잉 뷰, wait=정면 출발 대기 뷰(로비·카운트다운) */
-export function rowerCharSrc(index: number, variant: 'race' | 'wait' = 'race'): string {
+/** 레인 포즈: wait=출발 대기(로비·카운트다운) → race=로잉(레이스 중) → finish=세리머니(목표 도달) */
+export type RowerPose = 'wait' | 'race' | 'finish';
+
+export function rowerCharSrc(index: number, pose: RowerPose = 'race'): string {
   const name = ROWER_CHARS[index % ROWER_CHARS.length];
-  return `/race/chars/${name}${variant === 'wait' ? '-wait' : ''}.png`;
+  return `/race/chars/${name}${pose === 'race' ? '' : `-${pose}`}.png`;
 }
 
 /**
