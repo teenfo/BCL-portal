@@ -36,11 +36,28 @@
   background: linear-gradient(90deg, var(--bcl-race-neon-a), var(--bcl-accent), var(--bcl-race-neon-b));
   filter: drop-shadow(0 0 8px var(--bcl-race-glow, var(--bcl-accent)));
 }
+/* 타이틀 중앙(레퍼런스 구도) + 좌측 스타디움 라이트 도트 */
 .topbarName {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   font-size: 44px;
   font-weight: 800;
   font-style: italic;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.lights {
+  display: flex;
+  gap: var(--bcl-space-3);
+}
+.light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bcl-warning);
+  box-shadow: 0 0 10px var(--bcl-warning);
+  opacity: 0.85;
 }
 .topbarMeta {
   display: flex;
@@ -230,8 +247,21 @@
     background-position: 420px 0;
   }
 }
+/* 배경 관중 밴드(수면 뒤, 흐릿) — 레퍼런스 상단 스타디움 관중 */
+.stageCrowd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 15%;
+  background: url('/race/crowd.svg') repeat-x bottom / auto 100%;
+  opacity: 0.3;
+  filter: blur(3px);
+  pointer-events: none;
+}
 .lane {
   position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   align-items: center;
@@ -270,15 +300,155 @@
   left: 4%;
   width: 92%;
   display: inline-flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
+  gap: var(--bcl-space-2);
   will-change: transform; /* translate3d only — 레이아웃 유발 금지(§5b.3) */
+}
+/* 배지+이름 정보 컬럼(스프라이트 좌측) — 레인 높이 침범 방지 */
+.kartInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
 }
 .kartSprite {
   position: relative;
   font-size: 72px;
   line-height: 1;
   filter: drop-shadow(0 0 14px var(--team-color, transparent));
+}
+/* ── 로워 SVG 스프라이트(레퍼런스 캐릭터) — 스트로크 사이클은 --stroke-dur(SPM) 동기 ──
+   높이는 레인 수(--lane-count, stage 인라인)에 맞춰 자동 스케일(겹침 방지) */
+.rower {
+  display: block;
+  height: min(calc(54vh / var(--lane-count, 6)), 116px);
+  width: auto;
+  overflow: visible;
+}
+/* SVG 스프라이트 사용 시 이모지용 물결 링 제거(자체 물보라 보유) */
+.kartSprite:has(.rower)::after {
+  display: none;
+}
+.rowSeat {
+  animation: rowSeat var(--stroke-dur, 2.4s) ease-in-out infinite;
+}
+@keyframes rowSeat {
+  0%,
+  100% {
+    transform: translateX(6px);
+  }
+  38% {
+    transform: translateX(-14px);
+  }
+}
+.rowBody {
+  transform-box: view-box;
+  transform-origin: 92px 70px;
+  animation: rowBody var(--stroke-dur, 2.4s) ease-in-out infinite;
+}
+@keyframes rowBody {
+  0%,
+  100% {
+    transform: rotate(8deg);
+  }
+  38% {
+    transform: rotate(-11deg);
+  }
+}
+.rowArm {
+  animation: rowArm var(--stroke-dur, 2.4s) ease-in-out infinite;
+}
+@keyframes rowArm {
+  0%,
+  100% {
+    transform: translateX(6px);
+  }
+  38% {
+    transform: translateX(-18px);
+  }
+}
+.rowChain {
+  transform-box: view-box;
+  transform-origin: 148px 57px;
+  animation: rowChain var(--stroke-dur, 2.4s) ease-in-out infinite;
+}
+@keyframes rowChain {
+  0%,
+  100% {
+    transform: scaleX(0.57);
+  }
+  38% {
+    transform: scaleX(2.25);
+  }
+}
+.rowFly {
+  transform-box: view-box;
+  transform-origin: 164px 59px;
+  animation: rowFly var(--stroke-dur, 2.4s) linear infinite;
+}
+@keyframes rowFly {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 물보라 플러터(고정 주기 — SPM 무관) */
+.splashA,
+.splashB {
+  fill: var(--bcl-race-char-light);
+  opacity: 0.55;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: splashKf 0.55s ease-in-out infinite alternate;
+}
+.splashB {
+  animation-duration: 0.48s;
+  animation-delay: 0.18s;
+}
+@keyframes splashKf {
+  from {
+    transform: scale(0.8);
+    opacity: 0.35;
+  }
+  to {
+    transform: scale(1.12);
+    opacity: 0.65;
+  }
+}
+/* 리더 헬멧+고글 — data-rank=1에서만 */
+.helmet {
+  opacity: 0;
+}
+.kart[data-rank='1'] .helmet {
+  opacity: 1;
+}
+/* idle(스트로크 정지) 시 파트 애니메이션 일시정지 */
+.kartSprite[data-idle='true'] .rowSeat,
+.kartSprite[data-idle='true'] .rowBody,
+.kartSprite[data-idle='true'] .rowArm,
+.kartSprite[data-idle='true'] .rowChain,
+.kartSprite[data-idle='true'] .rowFly {
+  animation-play-state: paused;
+}
+/* 카트 ERG 배지 — 레인 번호 + 실시간 거리(rAF) */
+.kartBadge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+  font-size: 19px;
+  font-weight: 800;
+  background: var(--bcl-overlay);
+  border: 2px solid var(--team-color, var(--bcl-border));
+  border-radius: var(--bcl-radius-sm);
+  padding: 0 var(--bcl-space-2);
+  white-space: nowrap;
+}
+.kartBadge em {
+  font-style: normal;
+  color: var(--team-color, var(--bcl-accent));
+}
+.kartBadge b {
+  font-size: 21px;
 }
 /* 스피드 스트릭 — 캐릭터 뒤로 흐르는 팀컬러 잔상 */
 .kartSprite::before {
@@ -353,12 +523,13 @@
   display: none;
 }
 .kartName {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 700;
   background: var(--bcl-overlay);
   padding: 0 var(--bcl-space-2);
   border-radius: var(--bcl-radius-sm);
   box-shadow: 0 0 0 1px var(--team-color, transparent);
+  white-space: nowrap;
 }
 .kart[data-rank='1'] .kartName {
   color: var(--bcl-accent-ink);

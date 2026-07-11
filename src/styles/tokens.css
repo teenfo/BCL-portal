@@ -125,11 +125,11 @@
 /* 테마 토큰 × 4테마 (R-11 — data-race-theme로만 전환, 컴포넌트 분기 금지)
    surface/trail/bg-tint + 아케이드 확장(sky-top/sky-horizon/glow — 네온 게임쇼 룩) */
 [data-race-theme='water'] {
-  --bcl-race-surface: #0e3a5c;
-  --bcl-race-trail: #cfe9ff;
+  --bcl-race-surface: #135a97;
+  --bcl-race-trail: #dff2ff;
   --bcl-race-bg-tint: rgba(14, 58, 92, 0.35);
   --bcl-race-sky-top: #04102a;
-  --bcl-race-sky-horizon: #1e78c8;
+  --bcl-race-sky-horizon: #2f8fd8;
   --bcl-race-glow: #35d6ff;
 }
 [data-race-theme='road'] {
@@ -161,4 +161,14 @@
 :root {
   --bcl-race-neon-a: #39ffb0;
   --bcl-race-neon-b: #ff3dbe;
+}
+
+/* 레이스 캐릭터 팔레트(SVG 스프라이트 — 컴포넌트는 var만 사용, hex는 여기만) */
+:root {
+  --bcl-race-char-skin: #f2c49b;
+  --bcl-race-char-skin-shade: #d9a877;
+  --bcl-race-char-dark: #232a38;
+  --bcl-race-char-metal: #3c4454;
+  --bcl-race-char-metal-hi: #5f6a82;
+  --bcl-race-char-light: #eaf6ff;
 }

@@ -16,6 +16,7 @@ import {
   defaultDeviceForTheme,
   teamColorVar,
 } from './device-theme';
+import { RowerSprite } from './RowerSprite';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
 
@@ -93,8 +94,14 @@ export function RaceView({ eventId }: { eventId: string | null }) {
     <div className={styles.raceRoot} data-race-theme={theme}>
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
 
-      {/* 톱바 — 스타디움 타이틀 + 경과 타이머 */}
+      {/* 톱바 — 스타디움 라이트 + 중앙 타이틀 + 경과 타이머 */}
       <header className={styles.topbar}>
+        <span className={styles.lights} aria-hidden="true">
+          <i className={styles.light} />
+          <i className={styles.light} />
+          <i className={styles.light} />
+          <i className={styles.light} />
+        </span>
         <div className={styles.topbarName}>{event.data?.name ?? 'RACE'}</div>
         <div className={styles.topbarMeta}>
           {event.data?.heat_no && event.data.heat_no > 1 ? (
@@ -133,8 +140,9 @@ export function RaceView({ eventId }: { eventId: string | null }) {
         </div>
       ) : null}
 
-      {/* 사이드뷰 워터 스테이지 */}
-      <div className={styles.stage}>
+      {/* 사이드뷰 워터 스테이지 — 레인 수를 CSS로 전달(스프라이트 스케일) */}
+      <div className={styles.stage} style={{ ['--lane-count' as string]: Math.max(1, lanes.length) }}>
+        <div className={styles.stageCrowd} aria-hidden />
         {lanes.map((l, i) => {
           const deviceType = l.device_type ?? defaultDeviceForTheme(theme);
           const character = characterForDevice(deviceType);
@@ -246,9 +254,15 @@ function LaneRow({
 }) {
   const kartRef = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLDivElement>(null);
+  const kartDRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    register(meta.serial, { kart: kartRef.current, sprite: spriteRef.current, deviceType });
+    register(meta.serial, {
+      kart: kartRef.current,
+      sprite: spriteRef.current,
+      kartD: kartDRef.current,
+      deviceType,
+    });
     return () => unregister(meta.serial);
   }, [meta.serial, deviceType, register, unregister]);
 
@@ -261,12 +275,21 @@ function LaneRow({
         data-virtual={meta.virtual ? 'true' : 'false'}
         style={{ ['--team-color' as string]: teamColorVar(index) }}
       >
-        <div ref={spriteRef} className={styles.kartSprite}>
-          {glyph}
-        </div>
-        <span className={styles.kartName}>
-          {meta.virtual ? 'PACER' : meta.member_name ?? `레인 ${index + 1}`}
+        {/* 좌측 정보 컬럼 — ERG 배지(실시간 거리, rAF) + 이름 */}
+        <span className={styles.kartInfo}>
+          {!meta.virtual ? (
+            <span className={styles.kartBadge}>
+              <em>ERG {meta.lane}</em>
+              <b ref={kartDRef}>0</b>m
+            </span>
+          ) : null}
+          <span className={styles.kartName}>
+            {meta.virtual ? 'PACER' : meta.member_name ?? `레인 ${index + 1}`}
+          </span>
         </span>
+        <div ref={spriteRef} className={styles.kartSprite}>
+          {deviceType === 'rower' ? <RowerSprite /> : glyph}
+        </div>
       </div>
     </div>
   );

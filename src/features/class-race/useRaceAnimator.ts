@@ -42,6 +42,8 @@ interface KartRegistration {
   sprite?: HTMLElement | null;
   /** HUD 스탯 카드 — data-rank/-offline/-stale 어트리뷰트만 갱신(정적 위치) */
   card?: HTMLElement | null;
+  /** 카트 머리 위 ERG 배지의 거리 숫자(textContent 갱신) */
+  kartD?: HTMLElement | null;
   /** run 그리드 셀/HUD 카드 텍스트 갱신용 */
   text?: Partial<Record<'d' | 'p' | 'spm' | 'hr' | 'pace', HTMLElement | null>>;
   deviceType: DeviceType | null;
@@ -192,8 +194,11 @@ export function useRaceAnimator(
         if (reg.sprite) {
           const dur = animationDurationSec(reg.deviceType, a.spm);
           reg.sprite.style.animationDuration = `${dur.toFixed(2)}s`;
+          // SVG 스프라이트 내부 파트(시트/상체/팔/체인/플라이휠)가 상속받는 스트로크 주기
+          reg.sprite.style.setProperty('--stroke-dur', `${dur.toFixed(2)}s`);
           reg.sprite.setAttribute('data-idle', a.spm < 6 ? 'true' : 'false');
         }
+        if (reg.kartD) reg.kartD.textContent = `${Math.round(a.d)}`;
         if (reg.text) {
           if (reg.text.d) reg.text.d.textContent = `${Math.round(a.d)}`;
           if (reg.text.p) reg.text.p.textContent = `${Math.round(a.p)}`;
