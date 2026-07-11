@@ -7,6 +7,7 @@
 //   상태는 useState 초기화(동기 감지) + 이벤트 콜백만 갱신 — effect 본문 setState 금지 규약 준수.
 //   navOffset: 하단탭(56px) 있는 셸(회원/코치)에서 true — 배너를 탭 위로 띄운다.
 import { useEffect, useState } from 'react';
+import { BclLogo } from '@/components/brand/BclLogo';
 import styles from './InstallPrompt.module.css';
 
 interface BeforeInstallPromptEvent extends Event {
@@ -92,12 +93,7 @@ export function InstallPrompt({ app, navOffset = false }: { app: PwaApp; navOffs
 
   return (
     <div className={`${styles.banner} ${navOffset ? styles.withNav : ''}`} role="dialog" aria-label="앱 설치 안내">
-      <span className={styles.icon} aria-hidden="true">
-        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M13 17.5 L13 12 Q13 8 16 8 Q19 8 19 12 L19 17.5" />
-          <circle cx="16" cy="20" r="5.5" />
-        </svg>
-      </span>
+      <BclLogo className={styles.icon} />
       <div className={styles.text}>
         <span className={styles.title}>{LABEL[app]} 설치</span>
         {showAndroid ? (

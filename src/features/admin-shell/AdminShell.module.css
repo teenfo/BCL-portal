@@ -406,3 +406,17 @@
     padding: var(--bcl-space-4);
   }
 }
+
+/* BCL 워드마크 로고 + 역할 접미사(Admin) — 사이드바/모바일 상단바 공용 */
+.brandLogo {
+  height: 20px;
+  width: auto;
+  color: var(--bcl-accent);
+  flex-shrink: 0;
+}
+.brandSuffix {
+  font-weight: 700;
+  font-size: calc(15px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  letter-spacing: 0.02em;
+}

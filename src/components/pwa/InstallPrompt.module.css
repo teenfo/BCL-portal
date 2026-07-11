@@ -21,18 +21,10 @@
 }
 
 .icon {
-  display: grid;
-  place-items: center;
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--bcl-radius-md);
-  background: var(--bcl-accent-soft);
+  height: 22px;
+  width: auto;
   color: var(--bcl-accent);
-}
-.icon svg {
-  width: 26px;
-  height: 26px;
 }
 
 .text {

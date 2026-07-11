@@ -15,21 +15,12 @@
   gap: var(--bcl-space-3);
   padding: 0 var(--bcl-space-4);
 }
+/* BCL 워드마크 로고 — 높이 지정, 폭은 종횡비 자동. accent 색 상속 */
 .logo {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--bcl-space-2);
-  color: var(--bcl-accent-ink);
-}
-.mark {
-  width: 26px;
-  height: 26px;
-}
-.wordmark {
-  font-weight: 800;
-  font-size: calc(20px * var(--bcl-font-scale));
-  letter-spacing: 0.02em;
-  color: var(--bcl-accent-ink);
+  height: 22px;
+  width: auto;
+  display: block;
+  color: var(--bcl-accent);
 }
 .tagline {
   font-size: calc(11px * var(--bcl-font-scale));

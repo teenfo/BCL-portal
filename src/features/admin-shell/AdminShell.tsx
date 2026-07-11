@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation';
 import { useMyPermissions } from '@/features/permissions';
 import { useAuth } from '@/features/auth';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
+import { BclLogo } from '@/components/brand/BclLogo';
 import { ADMIN_NAV, APP_LINKS } from './nav';
 import { NavIcon } from './icons';
 import styles from './AdminShell.module.css';
@@ -67,8 +68,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </svg>
         </button>
         <div className={styles.topbarBrand}>
-          <NavIcon name="brand" className={styles.brandIcon} width={20} height={20} />
-          <span>BCL Admin</span>
+          <BclLogo className={styles.brandLogo} />
+          <span className={styles.brandSuffix}>Admin</span>
         </div>
       </header>
 
@@ -84,8 +85,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         aria-label="관리자 메뉴"
       >
         <div className={styles.brand}>
-          <NavIcon name="brand" className={styles.brandIcon} width={22} height={22} />
-          <span>BCL Admin</span>
+          <BclLogo className={styles.brandLogo} />
+          <span className={styles.brandSuffix}>Admin</span>
           <button
             type="button"
             className={styles.drawerClose}
