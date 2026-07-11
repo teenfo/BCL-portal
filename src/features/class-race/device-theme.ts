@@ -85,8 +85,10 @@ const ROWER_CHARS = [
   'c7-red-pony-teal',
 ] as const;
 
-export function rowerCharSrc(index: number): string {
-  return `/race/chars/${ROWER_CHARS[index % ROWER_CHARS.length]}.png`;
+/** variant: race=3/4 로잉 뷰, wait=정면 출발 대기 뷰(로비·카운트다운) */
+export function rowerCharSrc(index: number, variant: 'race' | 'wait' = 'race'): string {
+  const name = ROWER_CHARS[index % ROWER_CHARS.length];
+  return `/race/chars/${name}${variant === 'wait' ? '-wait' : ''}.png`;
 }
 
 /**

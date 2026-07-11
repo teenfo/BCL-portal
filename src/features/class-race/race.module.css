@@ -347,9 +347,17 @@
     transform: rotate(2.2deg) translateX(4px); /* 피니시(뒤) */
   }
 }
-/* idle(스트로크 정지) 시 로킹 일시정지 */
+/* 출발 대기(정면 뷰) — 스트로크 로킹 없음 */
+.charImg[data-wait='true'] {
+  animation: none;
+}
+/* idle(스트로크 정지) 시 로킹 일시정지 + 모션 연출(스트릭·물보라) 비표시 */
 .kartSprite[data-idle='true'] .charImg {
   animation-play-state: paused;
+}
+.kartSprite[data-idle='true']::before,
+.kartSprite[data-idle='true']::after {
+  display: none;
 }
 /* 스피드 스트릭 — 캐릭터 뒤로 흐르는 팀컬러 잔상 */
 .kartSprite::before {

@@ -155,6 +155,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
               register={animator.registerKart}
               unregister={animator.unregister}
               deviceType={deviceType}
+              waiting={rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown'}
             />
           );
         })}
@@ -264,6 +265,7 @@ function LaneRow({
   deviceType,
   register,
   unregister,
+  waiting,
 }: {
   meta: LaneMeta;
   index: number;
@@ -271,6 +273,8 @@ function LaneRow({
   deviceType: DeviceType;
   register: Animator['registerKart'];
   unregister: Animator['unregister'];
+  /** 출발 대기(로비·카운트다운) — 정면 대기 스프라이트 + 모션 연출 정지 */
+  waiting: boolean;
 }) {
   const kartRef = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLDivElement>(null);
@@ -301,11 +305,18 @@ function LaneRow({
     >
       {/* 밴드 회전 상쇄 — 스프라이트/이름은 화면 기준 수직 */}
       <span className={styles.kartLift}>
-        <div ref={spriteRef} className={styles.kartSprite}>
+        {/* data-idle 초기값 true — 첫 샘플 전(출발 대기) 스트릭/물보라/로킹 정지, 이후 애니메이터가 갱신 */}
+        <div ref={spriteRef} className={styles.kartSprite} data-idle="true">
           {deviceType === 'rower' ? (
-            // 레퍼런스 원화 컷아웃(레인 순환) — 스트로크 로킹은 CSS(--stroke-dur=실측 SPM)
+            // 레퍼런스 원화 컷아웃(레인 순환) — 대기=정면 뷰, 레이스=3/4 로잉 뷰(SPM 로킹)
             // eslint-disable-next-line @next/next/no-img-element -- rAF 스테이지 자산, next/image 불필요
-            <img src={rowerCharSrc(index)} alt="" className={styles.charImg} draggable={false} />
+            <img
+              src={rowerCharSrc(index, waiting ? 'wait' : 'race')}
+              alt=""
+              className={styles.charImg}
+              data-wait={waiting ? 'true' : 'false'}
+              draggable={false}
+            />
           ) : (
             glyph
           )}
