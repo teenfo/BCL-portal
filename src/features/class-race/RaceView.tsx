@@ -16,6 +16,8 @@ import {
   defaultDeviceForTheme,
   teamColorVar,
   rowerCharSrc,
+  poolLaneX,
+  POOL,
 } from './device-theme';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
@@ -132,36 +134,28 @@ export function RaceView({ eventId }: { eventId: string | null }) {
         </div>
       ) : null}
 
-      {/* 2.5D 워터 스테이지(레퍼런스 구도) — 레인별 고정 슬롯 + 상단 ERG 배지 레일.
-          거리·순위는 배지/HUD/진행바가 전달(슬롯 위치는 레인 고정) */}
-      <div className={styles.stage} style={{ ['--lane-count' as string]: Math.max(1, lanes.length) }}>
+      {/* 수영장 아레나 스테이지 — 상단(수면 시작) 출발 → 하단(데크 레인번호) 피니시.
+          레인 = 배경 도장 번호 1~9 라인, 위치는 실거리 비례(poolLaneX + POOL, rAF 이동) */}
+      <div className={styles.stage}>
         <div className={styles.stageCrowd} aria-hidden />
         <div className={styles.badgeRail}>
           {lanes.map((l, i) => (
-            <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
+            <RailBadge key={l.serial} meta={l} index={i} animator={animator} />
           ))}
         </div>
         {lanes.map((l, i) => {
           const deviceType = l.device_type ?? defaultDeviceForTheme(theme);
           const character = characterForDevice(deviceType);
-          const n = Math.max(1, lanes.length);
-          const slotX = ((i + 0.5) * 100) / n; // 배지 레일과 동일 정렬
-          const slotY = 30 + i * 4 + (i % 2 === 1 ? 3 : 0); // 완만한 우하향 + 지그재그(레퍼런스)
           return (
-            <div
+            <LaneRow
               key={l.serial}
-              className={styles.laneSlot}
-              style={{ left: `${slotX}%`, top: `${slotY}%`, zIndex: i + 1 }}
-            >
-              <LaneRow
-                meta={l}
-                index={i}
-                glyph={character.glyph}
-                register={animator.registerKart}
-                unregister={animator.unregister}
-                deviceType={deviceType}
-              />
-            </div>
+              meta={l}
+              index={i}
+              glyph={character.glyph}
+              register={animator.registerKart}
+              unregister={animator.unregister}
+              deviceType={deviceType}
+            />
           );
         })}
       </div>
@@ -236,16 +230,14 @@ function HudCard({
   );
 }
 
-// 상단 배지 레일 슬롯 — 애니메이터에 kartD(거리)만 부분 등록(카트·HUD와 병합)
+// 상단 배지 레일 슬롯 — 출발선(레인 라인 상단 x)에 정렬, kartD(거리)만 부분 등록
 function RailBadge({
   meta,
   index,
-  count,
   animator,
 }: {
   meta: LaneMeta;
   index: number;
-  count: number;
   animator: Animator;
 }) {
   const dRef = useRef<HTMLElement>(null);
@@ -253,11 +245,11 @@ function RailBadge({
     animator.registerKart(meta.serial, { kartD: dRef.current, deviceType: null });
   }, [meta.serial, animator]);
   if (meta.virtual) return null;
-  const leftPct = ((index + 0.5) * 100) / Math.max(1, count);
+  const { xt } = poolLaneX(meta.lane ?? index + 1);
   return (
     <span
       className={styles.railBadge}
-      style={{ left: `${leftPct}%`, ['--team-color' as string]: teamColorVar(index) }}
+      style={{ left: `${xt}%`, ['--team-color' as string]: teamColorVar(index) }}
     >
       <em>ERG {meta.lane}</em>
       <b ref={dRef}>0</b>m
@@ -282,18 +274,30 @@ function LaneRow({
 }) {
   const kartRef = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLDivElement>(null);
+  const lane = poolLaneX(meta.lane ?? index + 1);
 
   useEffect(() => {
-    register(meta.serial, { kart: kartRef.current, fixedPos: true, sprite: spriteRef.current, deviceType });
+    register(meta.serial, {
+      kart: kartRef.current,
+      lanePath: poolLaneX(meta.lane ?? index + 1),
+      sprite: spriteRef.current,
+      deviceType,
+    });
     return () => unregister(meta.serial);
-  }, [meta.serial, deviceType, register, unregister]);
+  }, [meta.serial, meta.lane, index, deviceType, register, unregister]);
 
   return (
     <div
       ref={kartRef}
       className={styles.kart}
       data-virtual={meta.virtual ? 'true' : 'false'}
-      style={{ ['--team-color' as string]: teamColorVar(index) }}
+      style={{
+        ['--team-color' as string]: teamColorVar(index),
+        // 초기(로비/출발 전) 위치 = 출발선 — 첫 rAF 프레임 전 표시용
+        left: `${lane.xt}%`,
+        top: `${POOL.yTop}%`,
+        transform: `translate(-50%, -100%) scale(${POOL.sTop})`,
+      }}
     >
       {/* 밴드 회전 상쇄 — 스프라이트/이름은 화면 기준 수직 */}
       <span className={styles.kartLift}>

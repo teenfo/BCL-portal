@@ -5,7 +5,7 @@
 // 직접 조작으로 React 리렌더 우회. 순위 변동 등 저빈도 UI만 콜백으로 setState 유도.
 // 러버밴딩 없음(R-3): 위치는 항상 실거리 비례 — LERP는 지연 보정일 뿐 거리 왜곡 없음.
 import { useEffect, useRef } from 'react';
-import { animationDurationSec } from './device-theme';
+import { animationDurationSec, POOL } from './device-theme';
 import type { DeviceType } from '@/features/race-admin/types';
 import type { RawSample } from './useRaceRealtime';
 import type { PacerLive } from './contract';
@@ -39,8 +39,11 @@ export interface RankRow {
 
 interface KartRegistration {
   kart?: HTMLElement | null;
-  /** true면 위치 이동 안 함(고정 슬롯 구도) — 어트리뷰트/스프라이트 주기만 갱신 */
-  fixedPos?: boolean;
+  /**
+   * 수영장 레인 경로(poolLaneX) — 지정 시 진행률에 따라 상단(출발)→하단(피니시) 이동
+   * + 원근 스케일(POOL 상수). 미지정이면 레거시 수평 translate.
+   */
+  lanePath?: { xt: number; xb: number } | null;
   sprite?: HTMLElement | null;
   /** HUD 스탯 카드 — data-rank/-offline/-stale 어트리뷰트만 갱신(정적 위치) */
   card?: HTMLElement | null;
@@ -181,7 +184,17 @@ export function useRaceAnimator(
         if (!a) continue;
         const xPct = Math.min(100, (a.d / maxD) * 100);
         if (reg.kart) {
-          if (!reg.fixedPos) reg.kart.style.transform = `translate3d(${xPct}%, 0, 0)`;
+          if (reg.lanePath) {
+            // 레인 라인 추종: 상단 출발 → 하단 피니시 (원근: 하강할수록 확대, 앞쪽이 위 레이어)
+            const prog = xPct / 100;
+            const x = reg.lanePath.xt + (reg.lanePath.xb - reg.lanePath.xt) * prog;
+            const y = POOL.yTop + (POOL.yBottom - POOL.yTop) * prog;
+            const s = POOL.sTop + (POOL.sBottom - POOL.sTop) * prog;
+            reg.kart.style.left = `${x.toFixed(3)}%`;
+            reg.kart.style.top = `${y.toFixed(3)}%`;
+            reg.kart.style.transform = `translate(-50%, -100%) scale(${s.toFixed(3)})`;
+            reg.kart.style.zIndex = `${10 + Math.round(prog * 100)}`;
+          } else reg.kart.style.transform = `translate3d(${xPct}%, 0, 0)`;
           reg.kart.setAttribute('data-rank', String(a.rank));
           if (a.offline) reg.kart.setAttribute('data-offline', 'true');
           else reg.kart.removeAttribute('data-offline');

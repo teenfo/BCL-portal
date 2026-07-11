@@ -211,21 +211,27 @@
   color: var(--bcl-text);
 }
 
-/* ── 사이드뷰 워터 스테이지 ── */
+/* ── 수영장 아레나 스테이지(상단 출발 → 하단 피니시) ── */
 .stage {
   position: relative;
   flex: 1;
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  padding: var(--bcl-space-5) 0 var(--bcl-space-3);
   background: linear-gradient(
     var(--bcl-race-sky-horizon, var(--bcl-surface)) -70%,
     var(--bcl-race-surface, var(--bcl-surface-raised)) 34%,
     var(--bcl-race-sky-top, var(--bcl-bg)) 140%
   );
   overflow: hidden;
+}
+/* water 테마 = 수영장 아레나 이미지(관중·조명·레인번호 포함).
+   100%/100% 스트레치 — poolLaneX/POOL 지오메트리(% 좌표)와 1:1 정렬 전제 */
+.raceRoot[data-race-theme='water'] .stage {
+  background: url('/race/pool-bg.jpg') 0 0 / 100% 100% no-repeat;
+}
+.raceRoot[data-race-theme='water'] .stage::before,
+.raceRoot[data-race-theme='water'] .stageCrowd,
+.raceRoot[data-race-theme='water'] .crowd {
+  display: none;
 }
 /* 수면 반짝임 — 대각 광택 스트릭이 천천히 흐름 */
 .stage::before {
@@ -290,15 +296,13 @@
 .railBadge b {
   font-size: 22px;
 }
-/* 레인 고정 슬롯(레퍼런스 구도) — 거리 표기는 배지/HUD, 위치는 레인별 고정.
-   대각 레인 라인은 stage 전역 오버레이(::before)가 담당 */
-.laneSlot {
-  position: absolute;
-  transform: translateX(-50%);
-}
+/* 카트 — 레인 라인 위 절대 배치, 애니메이터가 left/top/scale(원근)/z-index를 rAF 갱신.
+   앵커 = 하단 중앙(레인 라인 접점), 초기값(출발선)은 인라인 스타일 */
 .kart {
-  position: relative;
+  position: absolute;
   display: inline-flex;
+  transform-origin: 50% 100%;
+  will-change: left, top, transform;
 }
 /* 잔잔한 보빙 — 물 위 부유감 */
 .kartLift {
@@ -324,7 +328,7 @@
   filter: drop-shadow(0 0 14px var(--team-color, transparent));
 }
 /* ── 로워 캐릭터 컷아웃(public/race/chars — 레퍼런스 원화 분리 자산) ──
-   높이는 레인 수(--lane-count, stage 인라인)에 맞춰 자동 스케일(겹침 방지).
+   기준 높이 = 피니시(하단) 크기 — 원근 축소는 애니메이터의 kart scale이 담당.
    스트로크 로킹은 --stroke-dur(실측 SPM, 애니메이터 주입) 동기 — 드라이브/리커버리 리듬 */
 .charImg {
   display: block;
@@ -351,24 +355,26 @@
 .kartSprite::before {
   content: '';
   position: absolute;
-  right: 84%;
-  top: 28%;
-  width: 140px;
-  height: 44%;
-  background: linear-gradient(90deg, transparent, var(--team-color, transparent));
+  left: 50%;
+  bottom: 92%;
+  width: 34%;
+  height: 90px;
+  background: linear-gradient(0deg, var(--team-color, transparent), transparent);
   border-radius: var(--bcl-radius-sm);
   opacity: 0.5;
   filter: blur(3px);
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
   animation: streak 0.42s ease-in-out infinite alternate;
   pointer-events: none;
 }
 @keyframes streak {
   from {
-    transform: scaleX(0.7);
+    transform: translateX(-50%) scaleY(0.7);
     opacity: 0.3;
   }
   to {
-    transform: scaleX(1);
+    transform: translateX(-50%) scaleY(1);
     opacity: 0.6;
   }
 }
