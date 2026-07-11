@@ -54,12 +54,6 @@ interface KartRegistration {
   deviceType: DeviceType | null;
 }
 
-/** 진행바(REMAINING → GOAL) DOM 등록 — 선두 기준 fill/잔여거리 rAF 직접 갱신 */
-export interface ProgressRegistration {
-  fill?: HTMLElement | null;
-  remain?: HTMLElement | null;
-}
-
 interface AnimatorOptions {
   /** 목표 거리(m) — 진행률 정규화 기준. 없으면 현재 선두 거리 기준 동적 스케일 */
   targetDistance?: number | null;
@@ -91,8 +85,6 @@ export interface Animator {
   unregister: (serial: string) => void;
   /** 페이서 라인 DOM 등록/해제(null=해제). 렌더 전용, karts와 독립 */
   registerPacer: (reg: PacerRegistration | null) => void;
-  /** 진행바 DOM 등록/해제(null=해제) — 선두 거리 기준 */
-  registerProgress: (reg: ProgressRegistration | null) => void;
   /** HUD 포커스 게이지 등 즉시 조회용 스냅샷 */
   getLane: (serial: string) => AnimatedLane | undefined;
 }
@@ -112,7 +104,6 @@ export function useRaceAnimator(
   const animatedRef = useRef<Map<string, AnimatedLane>>(new Map());
   const regRef = useRef<Map<string, KartRegistration>>(new Map());
   const pacerRegRef = useRef<PacerRegistration | null>(null);
-  const progressRegRef = useRef<ProgressRegistration | null>(null);
   const lastOrderRef = useRef<string>('');
   const optRef = useRef(options);
   useEffect(() => {
@@ -224,8 +215,8 @@ export function useRaceAnimator(
           if (reg.text.p) reg.text.p.textContent = `${Math.round(a.p)}`;
           if (reg.text.spm) reg.text.spm.textContent = `${Math.round(a.spm)}`;
           if (reg.text.hr) reg.text.hr.textContent = a.hr != null ? `${a.hr}` : '--';
-          // 목표 도달 후엔 마지막 값 유지(경과시간 증가로 평균 페이스가 무는 것 방지)
-          if (reg.text.pace && !(target && a.d >= target)) {
+          // 목표 도달 후엔 마지막 값 유지(경과시간 증가로 평균 페이스가 무는 것 방지, LERP 점근 1m 오차)
+          if (reg.text.pace && !(target && a.d >= target - 1)) {
             reg.text.pace.textContent = pace500(a.d, elapsed);
           }
         }
@@ -252,19 +243,6 @@ export function useRaceAnimator(
         } else {
           preg.line?.setAttribute('data-active', 'false');
           preg.minimapDot?.setAttribute('data-active', 'false');
-        }
-      }
-
-      // 4c) 진행바(REMAINING → GOAL) — 선두 거리 기준 fill/잔여 직접 갱신
-      const progReg = progressRegRef.current;
-      if (progReg && ranked.length > 0) {
-        const lead = ranked[0].d;
-        const pct = Math.min(100, (lead / maxD) * 100);
-        if (progReg.fill) progReg.fill.style.width = `${pct.toFixed(2)}%`;
-        if (progReg.remain) {
-          progReg.remain.textContent = target && target > 0
-            ? `${Math.max(0, Math.round(target - lead))}`
-            : `${Math.round(lead)}`;
         }
       }
 
@@ -297,9 +275,6 @@ export function useRaceAnimator(
     unregister: (serial) => regRef.current.delete(serial),
     registerPacer: (reg) => {
       pacerRegRef.current = reg;
-    },
-    registerProgress: (reg) => {
-      progressRegRef.current = reg;
     },
     getLane: (serial) => animatedRef.current.get(serial),
   };

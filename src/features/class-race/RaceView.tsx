@@ -1,8 +1,8 @@
 'use client';
 
 // 아케이드 레이스 관전 (docs/15 ⑤-b) — 게임쇼 스타일 레이아웃(SuperPark 레퍼런스):
-//   상단 HUD 스탯 카드(레인별 거리·페이스·SPM·순위) + REMAINING→GOAL 진행바
-//   + 사이드뷰 워터 스테이지(스피드 스트릭·리더 글로우) + 하단 응원 관중 실루엣.
+//   상단 HUD 스탯 카드(레인별 거리·페이스·SPM·순위)
+//   + 수영장 아레나 스테이지(상단 출발→하단 피니시, 스피드 스트릭·리더 글로우).
 // 테마: data-race-theme(event_type) 1곳 전환(R-11). 위치=실거리 비례(R-3, rAF 애니메이터).
 // Display-Safe: 이름·기록만(부상·메모 원천 미포함 — race_live_state/broadcast에 없음).
 import { useEffect, useRef, useState } from 'react';
@@ -44,17 +44,6 @@ export function RaceView({ eventId }: { eventId: string | null }) {
     pacer: pacerLive,
   });
 
-  // 진행바(REMAINING → GOAL) DOM 등록 — 선두 기준 rAF 직접 갱신
-  const progressFillRef = useRef<HTMLDivElement>(null);
-  const progressRemainRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    animator.registerProgress({
-      fill: progressFillRef.current,
-      remain: progressRemainRef.current,
-    });
-    return () => animator.registerProgress(null);
-  }, [animator]);
-
   // 경과 타이머 — race_start(startedAt) 기준, ref 직접 갱신(리렌더 없음)
   const timerRef = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -86,18 +75,19 @@ export function RaceView({ eventId }: { eventId: string | null }) {
 
   const lanes = rt.lanes;
 
-  // 피니시 도달 감지 — 목표 거리 이상이면 세리머니 포즈(저빈도 폴링, setState는 콜백에서만)
+  // 피니시 도달 감지 — 원시 샘플(브로드캐스트 정확값) 기준, 1m 허용 오차.
+  //   애니메이터의 LERP 보간값은 목표에 점근만 하므로 판정에 쓰지 않는다.
   const [finishedSerials, setFinishedSerials] = useState<string[]>([]);
   useEffect(() => {
     if (!target || lanes.length === 0) return;
     const t = setInterval(() => {
       const done = lanes
-        .filter((l) => (animator.getLane(l.serial)?.d ?? 0) >= target)
+        .filter((l) => (rt.samplesRef.current.get(l.serial)?.d ?? 0) >= target - 1)
         .map((l) => l.serial);
       setFinishedSerials((prev) => (prev.join(',') === done.join(',') ? prev : done));
     }, 500);
     return () => clearInterval(t);
-  }, [target, lanes, animator]);
+  }, [target, lanes, rt.samplesRef]);
 
   return (
     <div className={styles.raceRoot} data-race-theme={theme}>
@@ -135,19 +125,6 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           />
         ))}
       </div>
-
-      {/* 진행바 — REMAINING → GOAL */}
-      {target ? (
-        <div className={styles.progressBar}>
-          <span className={styles.progressLabel}>
-            남은 거리 <b ref={progressRemainRef}>--</b>m
-          </span>
-          <div className={styles.progressTrack}>
-            <div ref={progressFillRef} className={styles.progressFill} />
-          </div>
-          <span className={styles.progressGoal}>{target}m GOAL</span>
-        </div>
-      ) : null}
 
       {/* 수영장 아레나 스테이지 — 상단(수면 시작) 출발 → 하단(데크) 피니시.
           배경에 레인 표식이 없으므로 중앙 기준 균등 간격 배치(poolLaneX + POOL, rAF 이동) */}
