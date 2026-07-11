@@ -75,6 +75,8 @@ export function createRaceSimulator(
   let cfg: RaceSimConfig | null = null;
   let states: SimLaneState[] = [];
   let startAt = 0;
+  // 직전 틱 시각 — dt는 실측 경과로 계산(백그라운드 탭 setInterval 스로틀링에도 실시간 속도 유지)
+  let lastTickAt = 0;
 
   function setStatus(s: SimStatus) {
     status = s;
@@ -106,7 +108,11 @@ export function createRaceSimulator(
 
   function tick() {
     if (!cfg) return;
-    const dt = (cfg.tickMs ?? 300) / 1000;
+    // dt = 실측 경과(초) — 고정 tickMs 가정 금지. 백그라운드 탭에서 setInterval이 1s+로
+    // 스로틀링돼도 진행 속도(=스플릿)는 실시간 유지(프레임 빈도만 감소). 복귀 점프는 10s 캡.
+    const now = performance.now();
+    const dt = Math.min(10, Math.max(0, (now - lastTickAt) / 1000));
+    lastTickAt = now;
     const variance = cfg.variance ?? 0.06;
     const frames: ErgUpdate[] = [];
     let allDone = true;
@@ -179,6 +185,7 @@ export function createRaceSimulator(
         }
         send('race_start', { event_id: eventId });
         startAt = Date.now();
+        lastTickAt = performance.now();
         setStatus('running');
         clearTimer();
         timer = setInterval(tick, config.tickMs ?? 300);
@@ -191,6 +198,7 @@ export function createRaceSimulator(
     },
     resume() {
       if (status !== 'paused' || !cfg) return;
+      lastTickAt = performance.now(); // 일시정지 구간을 dt에 포함하지 않음
       setStatus('running');
       timer = setInterval(tick, cfg.tickMs ?? 300);
     },

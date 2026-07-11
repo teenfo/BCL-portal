@@ -129,11 +129,11 @@ export function RaceSimulatorTab() {
       onTick: (lanes) => setLaneStates(lanes),
     });
     simRef.current = sim;
-    // 레인별 스플릿을 base 중심으로 소폭 분산 → 선두 경쟁 연출(최소 60초 클램프)
+    // 레인별 스플릿을 base 중심으로 소폭 분산 → 선두 경쟁 연출(최소 20초 클램프 — 빠른 QA 허용)
     const lanes: SimLane[] = Array.from({ length: n }, (_, i) => ({
       lane: i + 1,
       name: `레인 ${i + 1}`,
-      split500: Math.max(60, base + (i - (n - 1) / 2) * 2),
+      split500: Math.max(20, base + (i - (n - 1) / 2) * 2),
     }));
     sim.start({ targetDistance, lanes });
     toast.success('시뮬레이션을 시작했습니다. 관전 화면을 열어 확인하세요.');
