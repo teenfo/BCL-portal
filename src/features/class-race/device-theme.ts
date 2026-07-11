@@ -92,21 +92,26 @@ export function rowerCharSrc(index: number, variant: 'race' | 'wait' = 'race'): 
 }
 
 /**
- * 수영장 아레나 레인 지오메트리 — public/race/pool-bg.jpg 실측(% 좌표, 1264x841).
+ * 수영장 아레나 레인 지오메트리 — public/race/pool-bg.jpg(레인 없는 오픈 워터, 1264x841).
  * 스테이지 배경은 100%/100% 스트레치라 이미지 %가 곧 스테이지 %.
- * 상단(수면 시작) 출발 → 하단(데크, 도장 레인번호 1~9) 피니시. 원근: 하강할수록 확대.
+ * 상단(수면 시작) 출발 → 하단(데크) 피니시. 원근: 하강할수록 확대.
  */
 export const POOL = {
   yTop: 58, // 수면 상단(출발선)
-  yBottom: 88, // 데크 직전(피니시) — 레인번호(≈93%)는 노출 유지
+  yBottom: 88, // 데크 직전(피니시)
   sTop: 0.5,
   sBottom: 1.05,
 } as const;
 
-/** 도장 레인번호 k(1..9)의 라인 x% — 하단 간격 11.85%p, 상단 수렴비 0.9(소실점 위) */
-export function poolLaneX(laneNo: number): { xt: number; xb: number } {
-  const k = ((Math.max(1, Math.round(laneNo)) - 1) % 9) + 1;
-  return { xt: 50 + (k - 5) * 10.67, xb: 50 + (k - 5) * 11.85 };
+/**
+ * 레인 x% — 배경에 레인 표식이 없으므로 중앙 기준 균등 간격 배치.
+ * index(렌더 순서 0..count-1)를 중앙 정렬 슬롯으로 환산, 상단은 수렴비 0.9(원근).
+ */
+export function poolLaneX(index: number, count: number): { xt: number; xb: number } {
+  const n = Math.max(1, count);
+  const spacing = n > 1 ? Math.min(11.85, 88 / (n - 1)) : 0;
+  const slot = index - (n - 1) / 2;
+  return { xt: 50 + slot * spacing * 0.9, xb: 50 + slot * spacing };
 }
 
 /** 팀 컬러 토큰 8색 순환 (--bcl-race-team-1..8) */

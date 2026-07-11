@@ -134,13 +134,13 @@ export function RaceView({ eventId }: { eventId: string | null }) {
         </div>
       ) : null}
 
-      {/* 수영장 아레나 스테이지 — 상단(수면 시작) 출발 → 하단(데크 레인번호) 피니시.
-          레인 = 배경 도장 번호 1~9 라인, 위치는 실거리 비례(poolLaneX + POOL, rAF 이동) */}
+      {/* 수영장 아레나 스테이지 — 상단(수면 시작) 출발 → 하단(데크) 피니시.
+          배경에 레인 표식이 없으므로 중앙 기준 균등 간격 배치(poolLaneX + POOL, rAF 이동) */}
       <div className={styles.stage}>
         <div className={styles.stageCrowd} aria-hidden />
         <div className={styles.badgeRail}>
           {lanes.map((l, i) => (
-            <RailBadge key={l.serial} meta={l} index={i} animator={animator} />
+            <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
           ))}
         </div>
         {lanes.map((l, i) => {
@@ -155,6 +155,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
               register={animator.registerKart}
               unregister={animator.unregister}
               deviceType={deviceType}
+              count={lanes.length}
               waiting={rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown'}
             />
           );
@@ -231,14 +232,16 @@ function HudCard({
   );
 }
 
-// 상단 배지 레일 슬롯 — 출발선(레인 라인 상단 x)에 정렬, kartD(거리)만 부분 등록
+// 상단 배지 레일 슬롯 — 출발선(레인 상단 x)에 정렬, kartD(거리)만 부분 등록
 function RailBadge({
   meta,
   index,
+  count,
   animator,
 }: {
   meta: LaneMeta;
   index: number;
+  count: number;
   animator: Animator;
 }) {
   const dRef = useRef<HTMLElement>(null);
@@ -246,7 +249,7 @@ function RailBadge({
     animator.registerKart(meta.serial, { kartD: dRef.current, deviceType: null });
   }, [meta.serial, animator]);
   if (meta.virtual) return null;
-  const { xt } = poolLaneX(meta.lane ?? index + 1);
+  const { xt } = poolLaneX(index, count);
   return (
     <span
       className={styles.railBadge}
@@ -265,6 +268,7 @@ function LaneRow({
   deviceType,
   register,
   unregister,
+  count,
   waiting,
 }: {
   meta: LaneMeta;
@@ -273,22 +277,23 @@ function LaneRow({
   deviceType: DeviceType;
   register: Animator['registerKart'];
   unregister: Animator['unregister'];
+  count: number;
   /** 출발 대기(로비·카운트다운) — 정면 대기 스프라이트 + 모션 연출 정지 */
   waiting: boolean;
 }) {
   const kartRef = useRef<HTMLDivElement>(null);
   const spriteRef = useRef<HTMLDivElement>(null);
-  const lane = poolLaneX(meta.lane ?? index + 1);
+  const lane = poolLaneX(index, count);
 
   useEffect(() => {
     register(meta.serial, {
       kart: kartRef.current,
-      lanePath: poolLaneX(meta.lane ?? index + 1),
+      lanePath: poolLaneX(index, count),
       sprite: spriteRef.current,
       deviceType,
     });
     return () => unregister(meta.serial);
-  }, [meta.serial, meta.lane, index, deviceType, register, unregister]);
+  }, [meta.serial, index, count, deviceType, register, unregister]);
 
   return (
     <div
