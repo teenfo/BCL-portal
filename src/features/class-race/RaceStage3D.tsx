@@ -186,16 +186,18 @@ interface Rig {
   } | null;
 }
 
-/** rower.glb(UniRig) 본 매핑 — 월드 좌표 분석 기준(스크래치 bones2.json) */
+/** rower.glb(UniRig, 레이싱 셸 v2) 본 매핑 — 월드 좌표 분석 기준(스크래치 bones4.json).
+    템플릿 축: 보트 길이=+X(뱃머리), 오어=±Z 4본 체인, 척추=Y 상승 */
 const BONE = {
-  torso: 'Bone_005', // 척추 중단 — 전후 스윙
-  oarL: 'Bone_017', // 좌측 오어락 피벗(팔+오어 스킨)
-  oarR: 'Bone_019', // 우측 오어락 피벗
-  armR: 'Bone_021', // 우측 어깨(보조)
-  neck: 'Bone_015',
+  torso: 'Bone_005', // 척추 하단 — 전후 스윙
+  oarL: 'Bone_024', // 좌현(−z) 어깨→오어 체인 루트
+  oarR: 'Bone_019', // 우현(+z) 어깨→오어 체인 루트
+  armR: 'Bone_018', // 우현 팔꿈치(보조)
+  neck: 'Bone_014',
 } as const;
-/** 모델 기본 자세 — 뱃머리(+z)가 화면 아래(시청자)를 향하도록 피치 */
-const MODEL_PITCH = 0.34;
+/** 모델 기본 자세 — 피치(뱃머리를 화면 아래로) + 요(+X 뱃머리 → 카메라 방향) */
+const MODEL_PITCH = 0.3;
+const MODEL_YAW = -Math.PI / 2;
 /** 모델 원본 높이(선체~머리, bbox y) — 화면 스케일 환산 기준 */
 const MODEL_H = 1.7;
 
@@ -471,8 +473,11 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           if (!rig.model && modelTemplate) {
             const model = cloneSkinned(modelTemplate) as THREE.Group;
             const inner = new THREE.Group();
+            const yaw = new THREE.Group();
             model.position.copy(modelOffset);
-            inner.add(model);
+            yaw.rotation.y = MODEL_YAW;
+            yaw.add(model);
+            inner.add(yaw);
             inner.rotation.x = MODEL_PITCH;
             const find = (n: string) => (model.getObjectByName(n) as THREE.Bone | undefined) ?? null;
             const bones = {
@@ -528,15 +533,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const rest = b.rest.get(bone);
             if (rest) bone.rotation[ax] = rest[ax] + delta;
           };
-          // 상체 전후 스윙 + 목 보정
-          setD(b.torso, 'x', pose === 'finish' ? -0.22 : 0.2 * drive);
-          setD(b.neck, 'x', pose === 'finish' ? -0.1 : -0.08 * drive);
-          // 오어 스윕(오어락 피벗, 좌우 미러) + 블레이드 딥
-          setD(b.oarL, 'y', 0.32 * drive);
-          setD(b.oarR, 'y', -0.32 * drive);
-          setD(b.oarL, 'x', 0.12 * dip);
-          setD(b.oarR, 'x', 0.12 * dip);
-          setD(b.armR, 'y', -0.15 * drive);
+          // 상체 전후 스윙(보트 축=X → 리깅 로컬 z) + 목 보정
+          setD(b.torso, 'z', pose === 'finish' ? -0.22 : 0.2 * drive);
+          setD(b.neck, 'z', pose === 'finish' ? -0.1 : -0.08 * drive);
+          // 오어 스윕(어깨 체인 루트, 좌우 미러) + 블레이드 딥
+          setD(b.oarL, 'y', 0.3 * drive);
+          setD(b.oarR, 'y', -0.3 * drive);
+          setD(b.oarL, 'x', 0.1 * dip);
+          setD(b.oarR, 'x', -0.1 * dip);
+          setD(b.armR, 'z', -0.12 * drive);
           // 선체 피치 서지(드라이브 반동)
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.02 * Math.sin(ph - 0.7) : 0);
         } else {
