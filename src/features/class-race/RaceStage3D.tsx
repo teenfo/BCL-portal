@@ -197,26 +197,36 @@ interface Rig {
 
 /** 3파트 조립 상수 — 스크래치 조립 하네스(assembly.html)에서 실측 확정.
     보트 export는 XY 평면 피치 ~40° 틀어짐 → Z축 0.7rad 정규화. 정규화 좌표계: 진행=+X, 상=Y.
-    캐릭터 리깅은 IBM 기반 rest 복원 + 자동 스키닝(auto-skin.mjs) 처리본. */
+    캐릭터는 정준 스켈레톤 이식본(rig-transplant + auto-skin2) — 전 캐릭터 동일 본 프레임/체격(h 0.98). */
 const ASM = {
   boatPitchFix: 0.7, // boatFix.rotation.z — 선체 수평 정규화
-  charScale: 0.75,
-  charPos: [-0.1, 0.13, 0] as const, // 시트 위 — 스케일업에 맞춰 뒤·아래로 (풋패드 X≈+0.19)
+  charScale: 0.68,
+  charPos: [-0.1, 0.13, 0] as const, // 시트 위 (풋패드 X≈+0.19)
   oarlock: { x: -0.04, y: 0.27, z: 0.42 }, // 오어락 피벗 — 노브 실측 0.45에서 그립이 손에 닿게 3cm 인보드
   oarScale: 0.8,
   oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
   oarTilt: 0.46, // 기본 딥(블레이드 물 쪽) — 그립(인보드 끝)이 손 높이로 올라오는 각
 } as const;
-/** 착석 포즈 — 본 로컬 축 실측(x+ = 전방: Thigh 굴곡·Upperarm 전방 스윙 동일 부호) */
+/** 레인별 캐릭터 로테이션 — public/race/parts/ 정준 처리본(index % N 배정) */
+const CHAR_URLS = [
+  '/race/parts/blacl-man.glb',
+  '/race/parts/greencap-man.glb',
+  '/race/parts/headband-man.glb',
+  '/race/parts/orangecap-girl.glb',
+  '/race/parts/redhelmet-boy.glb',
+  '/race/parts/heavy-boy.glb',
+  '/race/parts/bluecap-boy.glb',
+  '/race/parts/redcap-man.glb',
+  '/race/parts/green-boy.glb',
+] as const;
+/** 착석 포즈 — 정준 스켈레톤(월드축 본 프레임): z=좌우축(전후 굽힘), y=수직축(수평 스윙), x=전후축(팔 내림).
+    좌우는 부호 미러로 정확히 대칭. 손-그립 정합은 월드 좌표 프로브로 실측(오차 4cm 이내). */
 const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
-  ['L_Thigh', 'x', 1.3], ['R_Thigh', 'x', 1.3],
-  ['L_Calf', 'x', -1.0], ['R_Calf', 'x', -1.0],
-  // 팔 — 손이 오어 그립에 닿는 값(월드 좌표 프로브 실측). y/z는 좌우 본 프레임이 미러라 부호·크기 비대칭
-  ['L_Upperarm', 'x', 1.2], ['R_Upperarm', 'x', 1.2],
-  ['L_Upperarm', 'y', 0.1], ['R_Upperarm', 'y', -0.15],
-  ['L_Upperarm', 'z', -0.95], ['R_Upperarm', 'z', 0.9],
-  ['L_Forearm', 'x', 0.05], ['R_Forearm', 'x', 0.05],
-  ['Waist', 'x', 0.28],
+  ['L_Thigh', 'z', 1.35], ['R_Thigh', 'z', 1.35],
+  ['L_Calf', 'z', -1.05], ['R_Calf', 'z', -1.05],
+  ['Waist', 'z', -0.25],
+  ['L_Upperarm', 'y', -0.6], ['R_Upperarm', 'y', 0.6],
+  ['L_Upperarm', 'x', -0.85], ['R_Upperarm', 'x', 0.85],
 ];
 /** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
@@ -290,8 +300,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     const draco = new DRACOLoader().setDecoderPath('/draco/');
     const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
     let boatTpl: THREE.Group | null = null; // 정규화 래퍼 포함(하단 중앙 원점)
-    let charTpl: THREE.Group | null = null;
-    let charOffset = new THREE.Vector3();
+    const charTpls: Array<{ scene: THREE.Group; offset: THREE.Vector3 } | null> = CHAR_URLS.map(() => null);
     let oarTpl: THREE.Group | null = null;
     let oarOffset = new THREE.Vector3();
     gltfLoader.load('/race/parts/boat-blue.glb', (g) => {
@@ -303,12 +312,13 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       fix.position.set(-c.x, -bb.min.y, -c.z);
       boatTpl = fix;
     }, undefined, (e) => console.warn('[RaceStage3D] boat-blue.glb 로드 실패', e));
-    gltfLoader.load('/race/parts/rower-m1.glb', (g) => {
-      const bb = new THREE.Box3().setFromObject(g.scene);
-      const c = bb.getCenter(new THREE.Vector3());
-      charOffset = new THREE.Vector3(-c.x, -bb.min.y, -c.z); // 발바닥 원점
-      charTpl = g.scene;
-    }, undefined, (e) => console.warn('[RaceStage3D] rower-m1.glb 로드 실패', e));
+    CHAR_URLS.forEach((url, ci) => {
+      gltfLoader.load(url, (g) => {
+        const bb = new THREE.Box3().setFromObject(g.scene);
+        const c = bb.getCenter(new THREE.Vector3());
+        charTpls[ci] = { scene: g.scene, offset: new THREE.Vector3(-c.x, -bb.min.y, -c.z) }; // 발바닥 원점
+      }, undefined, (e) => console.warn(`[RaceStage3D] ${url} 로드 실패`, e));
+    });
     gltfLoader.load('/race/parts/oar-red.glb', (g) => {
       const bb = new THREE.Box3().setFromObject(g.scene);
       const c = bb.getCenter(new THREE.Vector3());
@@ -509,12 +519,13 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         if (deviceType === 'rower') {
           // 3파트 조립 경로 — 로드 전엔 스프라이트 없이 대기(칩/배지만), 로드 완료 프레임에 부착
           rig.char.visible = false;
+          const charTpl = charTpls[index % CHAR_URLS.length];
           if (!rig.model && boatTpl && charTpl && oarTpl) {
             const boatG = new THREE.Group();
             boatG.add(boatTpl.clone(true));
             // 캐릭터 착석 + 포즈(포즈 적용 후 rest 캡처 — 애니메이션 기준자세)
-            const char = cloneSkinned(charTpl) as THREE.Group;
-            char.position.copy(charOffset);
+            const char = cloneSkinned(charTpl.scene) as THREE.Group;
+            char.position.copy(charTpl.offset);
             const charG = new THREE.Group();
             charG.add(char);
             charG.scale.setScalar(ASM.charScale);
@@ -621,29 +632,30 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             }
             e[ax] += delta;
           };
+          // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           if (pose === 'finish') {
-            // 세리머니 — 상체 뒤로 + 팔 당겨 올림 + 오어 수평
-            setT(b.waist, 'x', -0.35);
-            setT(b.upperL, 'x', -0.7);
-            setT(b.upperR, 'x', -0.7);
-            setT(b.foreL, 'x', 0.5);
-            setT(b.foreR, 'x', 0.5);
+            // 세리머니 — 상체 뒤로 + 팔 벌려 올림 + 오어 수평
+            setT(b.waist, 'z', 0.45);
+            setT(b.upperL, 'x', 0.75);
+            setT(b.upperR, 'x', -0.75);
+            setT(b.upperL, 'y', 0.4);
+            setT(b.upperR, 'y', -0.4);
             setT(b.oarL, 'x', 0.2);
             setT(b.oarR, 'x', -0.2);
           } else if (stroke) {
             const sLeg = sAt(0);
             const sBack = sAt(0.05);
             const sArm = sAt(0.12);
-            // 다리 드라이브(선행) → 상체 스윙 → 팔 당김(후행) — 로잉 시퀀스
-            setT(b.thighL, 'x', -0.12 * sLeg);
-            setT(b.thighR, 'x', -0.12 * sLeg);
-            setT(b.calfL, 'x', 0.16 * sLeg);
-            setT(b.calfR, 'x', 0.16 * sLeg);
-            setT(b.waist, 'x', -0.18 * sBack);
-            setT(b.upperL, 'x', -0.35 * sArm);
-            setT(b.upperR, 'x', -0.35 * sArm);
-            setT(b.foreL, 'x', 0.42 * sArm);
-            setT(b.foreR, 'x', 0.42 * sArm);
+            // 다리 드라이브(선행, 무릎 펴기) → 상체 스윙 → 팔 당김(후행) — 로잉 시퀀스
+            setT(b.thighL, 'z', -0.14 * sLeg);
+            setT(b.thighR, 'z', -0.14 * sLeg);
+            setT(b.calfL, 'z', 0.18 * sLeg);
+            setT(b.calfR, 'z', 0.18 * sLeg);
+            setT(b.waist, 'z', 0.2 * sBack);
+            setT(b.upperL, 'y', 0.32 * sArm);
+            setT(b.upperR, 'y', -0.32 * sArm);
+            setT(b.foreL, 'y', -0.3 * sArm);
+            setT(b.foreR, 'y', 0.3 * sArm);
             // 오어: 스윕은 허리와 동기, 리커버리에만 블레이드 리프트
             setT(b.oarR, 'y', 0.45 * sAt(0.05));
             setT(b.oarL, 'y', -0.45 * sAt(0.05));
