@@ -181,6 +181,10 @@ interface Rig {
     upperR: THREE.Object3D | null;
     foreL: THREE.Object3D | null;
     foreR: THREE.Object3D | null;
+    thighL: THREE.Object3D | null;
+    thighR: THREE.Object3D | null;
+    calfL: THREE.Object3D | null;
+    calfR: THREE.Object3D | null;
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
@@ -545,11 +549,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               upperR: find('R_Upperarm'),
               foreL: find('L_Forearm'),
               foreR: find('R_Forearm'),
+              thighL: find('L_Thigh'),
+              thighR: find('R_Thigh'),
+              calfL: find('L_Calf'),
+              calfR: find('R_Calf'),
               oarL,
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
             };
-            for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.oarL, parts.oarR]) {
+            for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.thighL, parts.thighR, parts.calfL, parts.calfR, parts.oarL, parts.oarR]) {
               if (b) parts.rest.set(b, b.rotation.clone());
             }
             rig.model = inner;
@@ -604,12 +612,17 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setD(b.oarR, 'y', 0);
           } else {
             // 상체 전후 스윙(x+ = 전경) — 캐치(전경)→드라이브(후경)
-            setD(b.waist, 'x', -0.16 * drive);
-            // 팔: 드라이브에 당김(전방 스윙 x 감소 + 팔꿈치 굽힘)
-            setD(b.upperL, 'x', -0.3 * drive);
-            setD(b.upperR, 'x', -0.3 * drive);
-            setD(b.foreL, 'x', 0.3 * drive);
-            setD(b.foreR, 'x', 0.3 * drive);
+            setD(b.waist, 'x', -0.2 * drive);
+            // 팔: 드라이브에 당김(전방 스윙 x 감소 + 팔꿈치 굽힘) — 가독 우선 증폭
+            setD(b.upperL, 'x', -0.45 * drive);
+            setD(b.upperR, 'x', -0.45 * drive);
+            setD(b.foreL, 'x', 0.5 * drive);
+            setD(b.foreR, 'x', 0.5 * drive);
+            // 다리 드라이브 — 당길 때 무릎 펴기(슬라이드 흉내)
+            setD(b.thighL, 'x', -0.14 * drive);
+            setD(b.thighR, 'x', -0.14 * drive);
+            setD(b.calfL, 'x', 0.18 * drive);
+            setD(b.calfR, 'x', 0.18 * drive);
             // 오어 스윕(오어락 피벗, 좌우 미러) + 딥(리커버리 시 블레이드 이탈)
             setD(b.oarR, 'y', 0.5 * drive);
             setD(b.oarL, 'y', -0.5 * drive);
