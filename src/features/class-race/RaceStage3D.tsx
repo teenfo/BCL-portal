@@ -173,33 +173,45 @@ interface Rig {
   /** 표시 중 등수(0=비표시) + 팝인 시작 시각 */
   placeNo: number;
   placeAt: number;
-  /** 3D 로워 모델(rower.glb 클론) — 로드 완료 후 부착. 본 절차 애니메이션용 참조 포함 */
+  /** 3파트 조립 모델(보트+캐릭터+오어 ×2) — 로드 완료 후 부착. 절차 애니메이션 참조 포함 */
   model: THREE.Group | null;
-  bones: {
+  parts: {
     inner: THREE.Group;
-    torso: THREE.Bone | null;
-    oarL: THREE.Bone | null;
-    oarR: THREE.Bone | null;
-    armR: THREE.Bone | null;
-    neck: THREE.Bone | null;
-    rest: Map<THREE.Bone, THREE.Euler>;
+    waist: THREE.Object3D | null;
+    upperL: THREE.Object3D | null;
+    upperR: THREE.Object3D | null;
+    foreL: THREE.Object3D | null;
+    foreR: THREE.Object3D | null;
+    oarL: THREE.Group;
+    oarR: THREE.Group;
+    rest: Map<THREE.Object3D, THREE.Euler>;
   } | null;
 }
 
-/** rower.glb(UniRig, 레이싱 셸 v2) 본 매핑 — 월드 좌표 분석 기준(스크래치 bones4.json).
-    템플릿 축: 보트 길이=+X(뱃머리), 오어=±Z 4본 체인, 척추=Y 상승 */
-const BONE = {
-  torso: 'Bone_005', // 척추 하단 — 전후 스윙
-  oarL: 'Bone_024', // 좌현(−z) 어깨→오어 체인 루트
-  oarR: 'Bone_019', // 우현(+z) 어깨→오어 체인 루트
-  armR: 'Bone_018', // 우현 팔꿈치(보조)
-  neck: 'Bone_014',
+/** 3파트 조립 상수 — 스크래치 조립 하네스(assembly.html)에서 실측 확정.
+    보트 export는 XY 평면 피치 ~40° 틀어짐 → Z축 0.7rad 정규화. 정규화 좌표계: 진행=+X, 상=Y.
+    캐릭터 리깅은 IBM 기반 rest 복원 + 자동 스키닝(auto-skin.mjs) 처리본. */
+const ASM = {
+  boatPitchFix: 0.7, // boatFix.rotation.z — 선체 수평 정규화
+  charScale: 0.62,
+  charPos: [-0.08, 0.17, 0] as const, // 시트 X≈-0.08 / 풋패드 X≈+0.19
+  oarlock: { x: -0.04, y: 0.27, z: 0.45 }, // 오어락 노브 실측 (boat local)
+  oarScale: 1.15,
+  oarShift: 0.18, // 피벗 기준 샤프트 외측 이동
+  oarTilt: 0.28, // 기본 딥(블레이드 물 쪽)
 } as const;
-/** 모델 기본 자세 — 피치(뱃머리를 화면 아래로) + 요(+X 뱃머리 → 카메라 방향) */
+/** 착석 포즈 — 본 로컬 축 실측(x+ = 전방: Thigh 굴곡·Upperarm 전방 스윙 동일 부호) */
+const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
+  ['L_Thigh', 'x', 1.3], ['R_Thigh', 'x', 1.3],
+  ['L_Calf', 'x', -1.0], ['R_Calf', 'x', -1.0],
+  ['L_Upperarm', 'x', 1.2], ['R_Upperarm', 'x', 1.2],
+  ['L_Upperarm', 'y', 0.4], ['R_Upperarm', 'y', 0.4],
+  ['L_Forearm', 'x', 0.3], ['R_Forearm', 'x', 0.3],
+  ['Waist', 'x', 0.15],
+];
+/** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
 const MODEL_YAW = -Math.PI / 2;
-/** 모델 원본 높이(선체~머리, bbox y) — 화면 스케일 환산 기준 */
-const MODEL_H = 1.7;
 
 export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -265,17 +277,34 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     const streakTex = makeStreakTexture();
     const placeTexCache = new Map<number, THREE.CanvasTexture>();
 
-    // ── 3D 로워 모델(GLB, Draco) — 1회 로드 후 레인별 SkeletonUtils.clone ──
+    // ── 3파트 GLB(Draco) — 1회 로드 후 레인별 조립(보트/오어=clone, 캐릭터=SkeletonUtils.clone) ──
     const draco = new DRACOLoader().setDecoderPath('/draco/');
     const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
-    let modelTemplate: THREE.Group | null = null;
-    let modelOffset = new THREE.Vector3();
-    gltfLoader.load('/race/rower.glb', (g) => {
-      const box = new THREE.Box3().setFromObject(g.scene);
-      const c = box.getCenter(new THREE.Vector3());
-      // 하단 중앙(수면 접점) 원점 정렬 오프셋
-      modelOffset = new THREE.Vector3(-c.x, -box.min.y, -c.z);
-      modelTemplate = g.scene;
+    let boatTpl: THREE.Group | null = null; // 정규화 래퍼 포함(하단 중앙 원점)
+    let charTpl: THREE.Group | null = null;
+    let charOffset = new THREE.Vector3();
+    let oarTpl: THREE.Group | null = null;
+    let oarOffset = new THREE.Vector3();
+    gltfLoader.load('/race/parts/boat-blue.glb', (g) => {
+      const fix = new THREE.Group();
+      fix.rotation.z = ASM.boatPitchFix;
+      fix.add(g.scene);
+      const bb = new THREE.Box3().setFromObject(fix, true);
+      const c = bb.getCenter(new THREE.Vector3());
+      fix.position.set(-c.x, -bb.min.y, -c.z);
+      boatTpl = fix;
+    });
+    gltfLoader.load('/race/parts/rower-m1.glb', (g) => {
+      const bb = new THREE.Box3().setFromObject(g.scene);
+      const c = bb.getCenter(new THREE.Vector3());
+      charOffset = new THREE.Vector3(-c.x, -bb.min.y, -c.z); // 발바닥 원점
+      charTpl = g.scene;
+    });
+    gltfLoader.load('/race/parts/oar-red.glb', (g) => {
+      const bb = new THREE.Box3().setFromObject(g.scene);
+      const c = bb.getCenter(new THREE.Vector3());
+      oarOffset = new THREE.Vector3(-c.x, -c.y, -c.z + ASM.oarShift);
+      oarTpl = g.scene;
     });
     // 스킨 모델 라이팅(스탠다드 머티리얼)
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.15));
@@ -408,7 +437,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         placeNo: 0,
         placeAt: 0,
         model: null,
-        bones: null,
+        parts: null,
         glow,
         streak,
         streakMat,
@@ -469,31 +498,60 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const finished = !!tgt && rawD >= tgt - 1;
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
         if (deviceType === 'rower') {
-          // 3D 모델 경로 — 템플릿 로드 전에는 2D 컷아웃 폴백(로드 완료 시 교체)
-          if (!rig.model && modelTemplate) {
-            const model = cloneSkinned(modelTemplate) as THREE.Group;
-            const inner = new THREE.Group();
-            const yaw = new THREE.Group();
-            model.position.copy(modelOffset);
-            yaw.rotation.y = MODEL_YAW;
-            yaw.add(model);
-            inner.add(yaw);
-            inner.rotation.x = MODEL_PITCH;
-            const find = (n: string) => (model.getObjectByName(n) as THREE.Bone | undefined) ?? null;
-            const bones = {
-              inner,
-              torso: find(BONE.torso),
-              oarL: find(BONE.oarL),
-              oarR: find(BONE.oarR),
-              armR: find(BONE.armR),
-              neck: find(BONE.neck),
-              rest: new Map<THREE.Bone, THREE.Euler>(),
+          // 3파트 조립 경로 — 템플릿 로드 전에는 2D 컷아웃 폴백(로드 완료 시 교체)
+          if (!rig.model && boatTpl && charTpl && oarTpl) {
+            const boatG = new THREE.Group();
+            boatG.add(boatTpl.clone(true));
+            // 캐릭터 착석 + 포즈(포즈 적용 후 rest 캡처 — 애니메이션 기준자세)
+            const char = cloneSkinned(charTpl) as THREE.Group;
+            char.position.copy(charOffset);
+            const charG = new THREE.Group();
+            charG.add(char);
+            charG.scale.setScalar(ASM.charScale);
+            charG.position.set(...ASM.charPos);
+            boatG.add(charG);
+            for (const [bn, ax, rad] of SEAT_POSE) {
+              const b = char.getObjectByName(bn);
+              if (b) b.rotation[ax] += rad;
+            }
+            // 오어 ×2 — 오어락 피벗(우현 +Z 기준, 좌현은 y=π 미러)
+            const mountOar = (mirror: boolean) => {
+              const pivot = new THREE.Group();
+              pivot.position.set(ASM.oarlock.x, ASM.oarlock.y, mirror ? -ASM.oarlock.z : ASM.oarlock.z);
+              const o = oarTpl!.clone(true);
+              o.position.copy(oarOffset);
+              o.scale.setScalar(ASM.oarScale);
+              if (mirror) pivot.rotation.y = Math.PI;
+              pivot.rotation.x += mirror ? -ASM.oarTilt : ASM.oarTilt;
+              pivot.add(o);
+              boatG.add(pivot);
+              return pivot;
             };
-            for (const b of [bones.torso, bones.oarL, bones.oarR, bones.armR, bones.neck]) {
-              if (b) bones.rest.set(b, b.rotation.clone());
+            const oarR = mountOar(false);
+            const oarL = mountOar(true);
+            const inner = new THREE.Group();
+            const yawG = new THREE.Group();
+            yawG.rotation.y = MODEL_YAW;
+            yawG.add(boatG);
+            inner.add(yawG);
+            inner.rotation.x = MODEL_PITCH;
+            const find = (n: string) => char.getObjectByName(n) ?? null;
+            const parts = {
+              inner,
+              waist: find('Waist'),
+              upperL: find('L_Upperarm'),
+              upperR: find('R_Upperarm'),
+              foreL: find('L_Forearm'),
+              foreR: find('R_Forearm'),
+              oarL,
+              oarR,
+              rest: new Map<THREE.Object3D, THREE.Euler>(),
+            };
+            for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.oarL, parts.oarR]) {
+              if (b) parts.rest.set(b, b.rotation.clone());
             }
             rig.model = inner;
-            rig.bones = bones;
+            rig.parts = parts;
             rig.group.add(inner);
             rig.char.visible = false;
           }
@@ -518,30 +576,47 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         rig.group.renderOrder = Math.round(prog * 100);
 
         const charH = Math.min(0.26 * H, 230) * scl;
-        if (rig.model && rig.bones) {
-          // 3D 모델 — 화면 높이 환산 스케일 + 본 절차 스트로크(SPM 동기)
-          const ms = (charH / MODEL_H) * 0.58;
+        if (rig.model && rig.parts) {
+          // 3파트 조립 — 화면 높이 환산 스케일 + 절차 스트로크(SPM 동기)
+          //   rest = 착석 기본자세(포즈 적용 후 캡처) — 델타만 가감
+          const ms = charH * 0.65;
           rig.model.scale.set(ms, ms, ms);
-          const b = rig.bones;
+          const b = rig.parts;
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
           const ph = (t / dur) * TAU;
-          const drive = stroke ? Math.sin(ph) : 0; // +드라이브 / -리커버리
-          const dip = stroke ? Math.sin(ph - 1.1) : 0;
-          const setD = (bone: THREE.Bone | null, ax: 'x' | 'y' | 'z', delta: number) => {
-            if (!bone) return;
-            const rest = b.rest.get(bone);
-            if (rest) bone.rotation[ax] = rest[ax] + delta;
+          const drive = stroke ? Math.sin(ph) : 0; // +드라이브(당김) / -리커버리
+          const dip = stroke ? Math.sin(ph - 1.1) : 0; // 블레이드 입수 위상
+          const setD = (o: THREE.Object3D | null, ax: 'x' | 'y' | 'z', delta: number) => {
+            if (!o) return;
+            const rest = b.rest.get(o);
+            if (rest) o.rotation[ax] = rest[ax] + delta;
           };
-          // 상체 전후 스윙(보트 축=X → 리깅 로컬 z) + 목 보정
-          setD(b.torso, 'z', pose === 'finish' ? -0.22 : 0.2 * drive);
-          setD(b.neck, 'z', pose === 'finish' ? -0.1 : -0.08 * drive);
-          // 오어 스윕(어깨 체인 루트, 좌우 미러) + 블레이드 딥
-          setD(b.oarL, 'y', 0.3 * drive);
-          setD(b.oarR, 'y', -0.3 * drive);
-          setD(b.oarL, 'x', 0.1 * dip);
-          setD(b.oarR, 'x', -0.1 * dip);
-          setD(b.armR, 'z', -0.12 * drive);
+          if (pose === 'finish') {
+            // 세리머니 — 상체 뒤로 + 팔 당겨 올림 + 오어 수평
+            setD(b.waist, 'x', -0.35);
+            setD(b.upperL, 'x', -0.7);
+            setD(b.upperR, 'x', -0.7);
+            setD(b.foreL, 'x', 0.5);
+            setD(b.foreR, 'x', 0.5);
+            setD(b.oarL, 'x', 0.2);
+            setD(b.oarR, 'x', -0.2);
+            setD(b.oarL, 'y', 0);
+            setD(b.oarR, 'y', 0);
+          } else {
+            // 상체 전후 스윙(x+ = 전경) — 캐치(전경)→드라이브(후경)
+            setD(b.waist, 'x', -0.16 * drive);
+            // 팔: 드라이브에 당김(전방 스윙 x 감소 + 팔꿈치 굽힘)
+            setD(b.upperL, 'x', -0.3 * drive);
+            setD(b.upperR, 'x', -0.3 * drive);
+            setD(b.foreL, 'x', 0.3 * drive);
+            setD(b.foreR, 'x', 0.3 * drive);
+            // 오어 스윕(오어락 피벗, 좌우 미러) + 딥(리커버리 시 블레이드 이탈)
+            setD(b.oarR, 'y', 0.5 * drive);
+            setD(b.oarL, 'y', -0.5 * drive);
+            setD(b.oarR, 'x', -0.14 * Math.max(0, -dip));
+            setD(b.oarL, 'x', 0.14 * Math.max(0, -dip));
+          }
           // 선체 피치 서지(드라이브 반동)
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.02 * Math.sin(ph - 0.7) : 0);
         } else {
