@@ -26,6 +26,8 @@ const LERP_X = 0.08;
 const LERP_SPM = 0.1;
 const IDLE_MS = 2000; // 샘플 미수신 시 모션 연출 정지
 const TAU = Math.PI * 2;
+/** 오어 손 추종 IK 계산용 재사용 벡터(프레임당 할당 방지) */
+const IK_V = new THREE.Vector3();
 
 interface Props {
   lanes: LaneMeta[];
@@ -185,6 +187,8 @@ interface Rig {
     thighR: THREE.Object3D | null;
     calfL: THREE.Object3D | null;
     calfR: THREE.Object3D | null;
+    handL: THREE.Object3D | null;
+    handR: THREE.Object3D | null;
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
@@ -568,6 +572,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               thighR: find('R_Thigh'),
               calfL: find('L_Calf'),
               calfR: find('R_Calf'),
+              handL: find('L_Hand'),
+              handR: find('R_Hand'),
               oarL,
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
@@ -575,7 +581,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               lastT: performance.now(),
               cur: new Map<THREE.Object3D, { x: number; y: number; z: number }>(),
             };
-            for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.thighL, parts.thighR, parts.calfL, parts.calfR, parts.oarL, parts.oarR]) {
+            // 오어 피벗은 rest/스무딩 대상에서 제외 — 손 추종 IK가 직접 제어
+            for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.thighL, parts.thighR, parts.calfL, parts.calfR]) {
               if (b) parts.rest.set(b, b.rotation.clone());
             }
             rig.model = inner;
@@ -634,34 +641,27 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           };
           // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           if (pose === 'finish') {
-            // 세리머니 — 상체 뒤로 + 팔 벌려 올림 + 오어 수평
+            // 세리머니 — 상체 뒤로 + 팔 벌려 올림
             setT(b.waist, 'z', 0.45);
             setT(b.upperL, 'x', 0.75);
             setT(b.upperR, 'x', -0.75);
             setT(b.upperL, 'y', 0.4);
             setT(b.upperR, 'y', -0.4);
-            setT(b.oarL, 'x', 0.2);
-            setT(b.oarR, 'x', -0.2);
           } else if (stroke) {
             const sLeg = sAt(0);
             const sBack = sAt(0.05);
             const sArm = sAt(0.12);
             // 다리 드라이브(선행, 무릎 펴기) → 상체 스윙 → 팔 당김(후행) — 로잉 시퀀스
+            //   팔은 소폭(어깨 자체가 상체 스윙으로 이동) — 오어는 손 추종 IK가 동기화
             setT(b.thighL, 'z', -0.14 * sLeg);
             setT(b.thighR, 'z', -0.14 * sLeg);
             setT(b.calfL, 'z', 0.18 * sLeg);
             setT(b.calfR, 'z', 0.18 * sLeg);
             setT(b.waist, 'z', 0.2 * sBack);
-            // 팔 진폭은 손-그립 이탈 최소 범위로(정합 우선)
-            setT(b.upperL, 'y', 0.2 * sArm);
-            setT(b.upperR, 'y', -0.2 * sArm);
-            setT(b.foreL, 'y', -0.18 * sArm);
-            setT(b.foreR, 'y', 0.18 * sArm);
-            // 오어: 스윕은 허리와 동기, 리커버리에만 블레이드 리프트
-            setT(b.oarR, 'y', 0.45 * sAt(0.05));
-            setT(b.oarL, 'y', -0.45 * sAt(0.05));
-            setT(b.oarR, 'x', -0.18 * lift);
-            setT(b.oarL, 'x', 0.18 * lift);
+            setT(b.upperL, 'y', 0.12 * sArm);
+            setT(b.upperR, 'y', -0.12 * sArm);
+            setT(b.foreL, 'y', -0.1 * sArm);
+            setT(b.foreR, 'y', 0.1 * sArm);
           }
           const AX: Array<'x' | 'y' | 'z'> = ['x', 'y', 'z'];
           const k = 1 - Math.pow(0.88, dt / 16.7); // 프레임률 독립 스무딩 계수
@@ -679,6 +679,28 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           }
           // 선체 피치 서지(드라이브 반동, 소폭)
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.015 * sAt(0.12) : 0);
+          // ── 오어 = 손 추종 IK — 손과 노가 항상 동기(그립이 손 방향 정렬) ──
+          //   피벗 yaw/pitch를 손 벡터로 해석: gripDir = Rx(φ)·Ry(θ)·(0,0,-1)
+          //   좌현은 θ≈π로 자연 수렴(미러 특례 불필요). 리커버리엔 블레이드 리프트 가산
+          b.inner.updateWorldMatrix(true, true);
+          const followOar = (pivot: THREE.Group, hand: THREE.Object3D | null, mirror: boolean) => {
+            if (!hand || !pivot.parent) return;
+            hand.getWorldPosition(IK_V);
+            pivot.parent.worldToLocal(IK_V);
+            IK_V.sub(pivot.position);
+            const len = IK_V.length() || 1;
+            const theta = pose === 'finish' ? (mirror ? Math.PI : 0) : Math.atan2(-IK_V.x, -IK_V.z);
+            const cth = Math.cos(theta);
+            const denom = Math.abs(cth) < 0.25 ? (cth < 0 ? -0.25 : 0.25) : cth;
+            const sph = Math.max(-0.9, Math.min(0.9, IK_V.y / len / denom));
+            let phi = pose === 'finish' ? (mirror ? -0.5 : 0.5) : Math.asin(sph);
+            if (pose !== 'finish') phi += (mirror ? 0.22 : -0.22) * lift * (stroke ? 1 : 0); // 리커버리 블레이드 리프트(그립 하강 방향)
+            const dy = ((theta - pivot.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; // ±π 랩 처리
+            pivot.rotation.y += dy * k;
+            pivot.rotation.x += (phi - pivot.rotation.x) * k;
+          };
+          followOar(b.oarR, b.handR, false);
+          followOar(b.oarL, b.handL, true);
         } else {
           rig.char.scale.set(charH * rig.aspect, charH, 1);
           // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지
