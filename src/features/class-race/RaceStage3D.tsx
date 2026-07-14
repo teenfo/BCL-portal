@@ -225,8 +225,8 @@ const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
   ['L_Thigh', 'z', 1.35], ['R_Thigh', 'z', 1.35],
   ['L_Calf', 'z', -1.05], ['R_Calf', 'z', -1.05],
   ['Waist', 'z', -0.25],
-  ['L_Upperarm', 'y', -0.6], ['R_Upperarm', 'y', 0.6],
-  ['L_Upperarm', 'x', -0.85], ['R_Upperarm', 'x', 0.85],
+  ['L_Upperarm', 'y', -0.42], ['R_Upperarm', 'y', 0.42],
+  ['L_Upperarm', 'x', -0.9], ['R_Upperarm', 'x', 0.9],
 ];
 /** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
@@ -652,10 +652,11 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.calfL, 'z', 0.18 * sLeg);
             setT(b.calfR, 'z', 0.18 * sLeg);
             setT(b.waist, 'z', 0.2 * sBack);
-            setT(b.upperL, 'y', 0.32 * sArm);
-            setT(b.upperR, 'y', -0.32 * sArm);
-            setT(b.foreL, 'y', -0.3 * sArm);
-            setT(b.foreR, 'y', 0.3 * sArm);
+            // 팔 진폭은 손-그립 이탈 최소 범위로(정합 우선)
+            setT(b.upperL, 'y', 0.2 * sArm);
+            setT(b.upperR, 'y', -0.2 * sArm);
+            setT(b.foreL, 'y', -0.18 * sArm);
+            setT(b.foreR, 'y', 0.18 * sArm);
             // 오어: 스윕은 허리와 동기, 리커버리에만 블레이드 리프트
             setT(b.oarR, 'y', 0.45 * sAt(0.05));
             setT(b.oarL, 'y', -0.45 * sAt(0.05));
