@@ -14,7 +14,6 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import {
   poolLaneX,
   POOL,
-  rowerCharSrc,
   characterForDevice,
   animationDurationSec,
   type RowerPose,
@@ -193,21 +192,23 @@ interface Rig {
     캐릭터 리깅은 IBM 기반 rest 복원 + 자동 스키닝(auto-skin.mjs) 처리본. */
 const ASM = {
   boatPitchFix: 0.7, // boatFix.rotation.z — 선체 수평 정규화
-  charScale: 0.62,
-  charPos: [-0.08, 0.17, 0] as const, // 시트 X≈-0.08 / 풋패드 X≈+0.19
-  oarlock: { x: -0.04, y: 0.27, z: 0.45 }, // 오어락 노브 실측 (boat local)
+  charScale: 0.75,
+  charPos: [-0.1, 0.13, 0] as const, // 시트 위 — 스케일업에 맞춰 뒤·아래로 (풋패드 X≈+0.19)
+  oarlock: { x: -0.04, y: 0.27, z: 0.42 }, // 오어락 피벗 — 노브 실측 0.45에서 그립이 손에 닿게 3cm 인보드
   oarScale: 0.8,
   oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
-  oarTilt: 0.28, // 기본 딥(블레이드 물 쪽)
+  oarTilt: 0.46, // 기본 딥(블레이드 물 쪽) — 그립(인보드 끝)이 손 높이로 올라오는 각
 } as const;
 /** 착석 포즈 — 본 로컬 축 실측(x+ = 전방: Thigh 굴곡·Upperarm 전방 스윙 동일 부호) */
 const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
   ['L_Thigh', 'x', 1.3], ['R_Thigh', 'x', 1.3],
   ['L_Calf', 'x', -1.0], ['R_Calf', 'x', -1.0],
+  // 팔 — 손이 오어 그립에 닿는 값(월드 좌표 프로브 실측). y/z는 좌우 본 프레임이 미러라 부호·크기 비대칭
   ['L_Upperarm', 'x', 1.2], ['R_Upperarm', 'x', 1.2],
-  ['L_Upperarm', 'y', 0.4], ['R_Upperarm', 'y', 0.4],
-  ['L_Forearm', 'x', 0.3], ['R_Forearm', 'x', 0.3],
-  ['Waist', 'x', 0.15],
+  ['L_Upperarm', 'y', 0.1], ['R_Upperarm', 'y', -0.15],
+  ['L_Upperarm', 'z', -0.95], ['R_Upperarm', 'z', 0.9],
+  ['L_Forearm', 'x', 0.05], ['R_Forearm', 'x', 0.05],
+  ['Waist', 'x', 0.28],
 ];
 /** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
@@ -293,19 +294,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       const c = bb.getCenter(new THREE.Vector3());
       fix.position.set(-c.x, -bb.min.y, -c.z);
       boatTpl = fix;
-    });
+    }, undefined, (e) => console.warn('[RaceStage3D] boat-blue.glb 로드 실패', e));
     gltfLoader.load('/race/parts/rower-m1.glb', (g) => {
       const bb = new THREE.Box3().setFromObject(g.scene);
       const c = bb.getCenter(new THREE.Vector3());
       charOffset = new THREE.Vector3(-c.x, -bb.min.y, -c.z); // 발바닥 원점
       charTpl = g.scene;
-    });
+    }, undefined, (e) => console.warn('[RaceStage3D] rower-m1.glb 로드 실패', e));
     gltfLoader.load('/race/parts/oar-red.glb', (g) => {
       const bb = new THREE.Box3().setFromObject(g.scene);
       const c = bb.getCenter(new THREE.Vector3());
       oarOffset = new THREE.Vector3(-c.x, -c.y, -c.z + ASM.oarShift);
       oarTpl = g.scene;
-    });
+    }, undefined, (e) => console.warn('[RaceStage3D] oar-red.glb 로드 실패', e));
     // 스킨 모델 라이팅(스탠다드 머티리얼)
     scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.15));
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
@@ -498,7 +499,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const finished = !!tgt && rawD >= tgt - 1;
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
         if (deviceType === 'rower') {
-          // 3파트 조립 경로 — 템플릿 로드 전에는 2D 컷아웃 폴백(로드 완료 시 교체)
+          // 3파트 조립 경로 — 로드 전엔 스프라이트 없이 대기(칩/배지만), 로드 완료 프레임에 부착
+          rig.char.visible = false;
           if (!rig.model && boatTpl && charTpl && oarTpl) {
             const boatG = new THREE.Group();
             boatG.add(boatTpl.clone(true));
@@ -553,12 +555,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             rig.model = inner;
             rig.parts = parts;
             rig.group.add(inner);
-            rig.char.visible = false;
-          }
-          if (!rig.model) {
-            ensureCharTexture(rig, `${index % 7}:${pose}`, rowerCharSrc(index, pose), '');
           }
         } else {
+          rig.char.visible = true;
           const glyph = characterForDevice(deviceType).glyph;
           ensureCharTexture(rig, `glyph:${glyph}`, null, glyph);
         }
