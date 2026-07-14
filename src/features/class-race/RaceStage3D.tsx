@@ -196,8 +196,8 @@ const ASM = {
   charScale: 0.62,
   charPos: [-0.08, 0.17, 0] as const, // 시트 X≈-0.08 / 풋패드 X≈+0.19
   oarlock: { x: -0.04, y: 0.27, z: 0.45 }, // 오어락 노브 실측 (boat local)
-  oarScale: 1.15,
-  oarShift: 0.18, // 피벗 기준 샤프트 외측 이동
+  oarScale: 0.8,
+  oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
   oarTilt: 0.28, // 기본 딥(블레이드 물 쪽)
 } as const;
 /** 착석 포즈 — 본 로컬 축 실측(x+ = 전방: Thigh 굴곡·Upperarm 전방 스윙 동일 부호) */
