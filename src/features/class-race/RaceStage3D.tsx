@@ -188,6 +188,10 @@ interface Rig {
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
+    /** 스트로크 누적 위상(0..1)·직전 프레임 시각·본별 현재 델타(지수 스무딩 상태) */
+    phase: number;
+    lastT: number;
+    cur: Map<THREE.Object3D, { x: number; y: number; z: number }>;
   } | null;
 }
 
@@ -556,6 +560,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               oarL,
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
+              phase: (index * 0.37) % 1, // 레인별 위상 오프셋(제자리 합창 방지)
+              lastT: performance.now(),
+              cur: new Map<THREE.Object3D, { x: number; y: number; z: number }>(),
             };
             for (const b of [parts.waist, parts.upperL, parts.upperR, parts.foreL, parts.foreR, parts.thighL, parts.thighR, parts.calfL, parts.calfR, parts.oarL, parts.oarR]) {
               if (b) parts.rest.set(b, b.rotation.clone());
@@ -586,51 +593,79 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         if (rig.model && rig.parts) {
           // 3파트 조립 — 화면 높이 환산 스케일 + 절차 스트로크(SPM 동기)
           //   rest = 착석 기본자세(포즈 적용 후 캡처) — 델타만 가감
+          //   위상은 누적(phase += dt/dur) — t/dur 방식은 SPM 변동 시 위상 점프(모션 널뜀)
           const ms = charH * 0.65;
           rig.model.scale.set(ms, ms, ms);
           const b = rig.parts;
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
-          const ph = (t / dur) * TAU;
-          const drive = stroke ? Math.sin(ph) : 0; // +드라이브(당김) / -리커버리
-          const dip = stroke ? Math.sin(ph - 1.1) : 0; // 블레이드 입수 위상
-          const setD = (o: THREE.Object3D | null, ax: 'x' | 'y' | 'z', delta: number) => {
+          const dt = Math.min(200, t - b.lastT);
+          b.lastT = t;
+          if (stroke) b.phase = (b.phase + dt / dur) % 1;
+          // 비대칭 스트로크: 드라이브 35%(캐치→피니시, 힘참) / 리커버리 65%(느긋한 복귀)
+          //   s(-1=캐치 전경 ↔ +1=피니시 후경), 관절별 위상 지연(다리→허리→팔)
+          const sAt = (lag: number) => {
+            const q = ((b.phase - lag) % 1 + 1) % 1;
+            return q < 0.35 ? -Math.cos(Math.PI * (q / 0.35)) : Math.cos(Math.PI * ((q - 0.35) / 0.65));
+          };
+          // 리커버리 중 블레이드 리프트 험프(0→1→0)
+          const lift = b.phase < 0.35 ? 0 : Math.sin(Math.PI * ((b.phase - 0.35) / 0.65));
+          // 프레임 타깃 계산 → 지수 스무딩 적용(시작/정지/피니시 전환 스냅 제거)
+          const tgt = new Map<THREE.Object3D, { x: number; y: number; z: number }>();
+          const setT = (o: THREE.Object3D | null, ax: 'x' | 'y' | 'z', delta: number) => {
             if (!o) return;
-            const rest = b.rest.get(o);
-            if (rest) o.rotation[ax] = rest[ax] + delta;
+            let e = tgt.get(o);
+            if (!e) {
+              e = { x: 0, y: 0, z: 0 };
+              tgt.set(o, e);
+            }
+            e[ax] += delta;
           };
           if (pose === 'finish') {
             // 세리머니 — 상체 뒤로 + 팔 당겨 올림 + 오어 수평
-            setD(b.waist, 'x', -0.35);
-            setD(b.upperL, 'x', -0.7);
-            setD(b.upperR, 'x', -0.7);
-            setD(b.foreL, 'x', 0.5);
-            setD(b.foreR, 'x', 0.5);
-            setD(b.oarL, 'x', 0.2);
-            setD(b.oarR, 'x', -0.2);
-            setD(b.oarL, 'y', 0);
-            setD(b.oarR, 'y', 0);
-          } else {
-            // 상체 전후 스윙(x+ = 전경) — 캐치(전경)→드라이브(후경)
-            setD(b.waist, 'x', -0.2 * drive);
-            // 팔: 드라이브에 당김(전방 스윙 x 감소 + 팔꿈치 굽힘) — 가독 우선 증폭
-            setD(b.upperL, 'x', -0.45 * drive);
-            setD(b.upperR, 'x', -0.45 * drive);
-            setD(b.foreL, 'x', 0.5 * drive);
-            setD(b.foreR, 'x', 0.5 * drive);
-            // 다리 드라이브 — 당길 때 무릎 펴기(슬라이드 흉내)
-            setD(b.thighL, 'x', -0.14 * drive);
-            setD(b.thighR, 'x', -0.14 * drive);
-            setD(b.calfL, 'x', 0.18 * drive);
-            setD(b.calfR, 'x', 0.18 * drive);
-            // 오어 스윕(오어락 피벗, 좌우 미러) + 딥(리커버리 시 블레이드 이탈)
-            setD(b.oarR, 'y', 0.5 * drive);
-            setD(b.oarL, 'y', -0.5 * drive);
-            setD(b.oarR, 'x', -0.14 * Math.max(0, -dip));
-            setD(b.oarL, 'x', 0.14 * Math.max(0, -dip));
+            setT(b.waist, 'x', -0.35);
+            setT(b.upperL, 'x', -0.7);
+            setT(b.upperR, 'x', -0.7);
+            setT(b.foreL, 'x', 0.5);
+            setT(b.foreR, 'x', 0.5);
+            setT(b.oarL, 'x', 0.2);
+            setT(b.oarR, 'x', -0.2);
+          } else if (stroke) {
+            const sLeg = sAt(0);
+            const sBack = sAt(0.05);
+            const sArm = sAt(0.12);
+            // 다리 드라이브(선행) → 상체 스윙 → 팔 당김(후행) — 로잉 시퀀스
+            setT(b.thighL, 'x', -0.12 * sLeg);
+            setT(b.thighR, 'x', -0.12 * sLeg);
+            setT(b.calfL, 'x', 0.16 * sLeg);
+            setT(b.calfR, 'x', 0.16 * sLeg);
+            setT(b.waist, 'x', -0.18 * sBack);
+            setT(b.upperL, 'x', -0.35 * sArm);
+            setT(b.upperR, 'x', -0.35 * sArm);
+            setT(b.foreL, 'x', 0.42 * sArm);
+            setT(b.foreR, 'x', 0.42 * sArm);
+            // 오어: 스윕은 허리와 동기, 리커버리에만 블레이드 리프트
+            setT(b.oarR, 'y', 0.45 * sAt(0.05));
+            setT(b.oarL, 'y', -0.45 * sAt(0.05));
+            setT(b.oarR, 'x', -0.18 * lift);
+            setT(b.oarL, 'x', 0.18 * lift);
           }
-          // 선체 피치 서지(드라이브 반동)
-          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.02 * Math.sin(ph - 0.7) : 0);
+          const AX: Array<'x' | 'y' | 'z'> = ['x', 'y', 'z'];
+          const k = 1 - Math.pow(0.88, dt / 16.7); // 프레임률 독립 스무딩 계수
+          for (const [o, rest] of b.rest) {
+            const e = tgt.get(o);
+            let c = b.cur.get(o);
+            if (!c) {
+              c = { x: 0, y: 0, z: 0 };
+              b.cur.set(o, c);
+            }
+            for (const ax of AX) {
+              c[ax] += ((e ? e[ax] : 0) - c[ax]) * k;
+              o.rotation[ax] = rest[ax] + c[ax];
+            }
+          }
+          // 선체 피치 서지(드라이브 반동, 소폭)
+          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.015 * sAt(0.12) : 0);
         } else {
           rig.char.scale.set(charH * rig.aspect, charH, 1);
           // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지
