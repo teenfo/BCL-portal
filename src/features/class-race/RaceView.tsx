@@ -260,7 +260,7 @@ function RailBadge({
       style={{ left: `${xt}%`, ['--team-color' as string]: teamColorVar(index) }}
     >
       <em>ERG {meta.lane}</em>
-      <b ref={dRef}>0</b>m
+      <b ref={dRef}>0m</b>
     </span>
   );
 }

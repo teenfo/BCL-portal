@@ -209,7 +209,12 @@ export function useRaceAnimator(
           reg.sprite.style.setProperty('--stroke-dur', `${dur.toFixed(2)}s`);
           reg.sprite.setAttribute('data-idle', a.spm < 6 ? 'true' : 'false');
         }
-        if (reg.kartD) reg.kartD.textContent = `${Math.round(a.d)}`;
+        // 배지 레일: 1위는 "1위", 나머지는 1위와의 격차(-Xm). 출발 전(선두 1m 미만)은 0m
+        if (reg.kartD) {
+          const leadD = ranked[0]?.d ?? 0;
+          reg.kartD.textContent =
+            leadD < 1 ? '0m' : a.rank === 1 ? '1위' : `-${Math.max(0, Math.round(leadD - a.d))}m`;
+        }
         if (reg.text) {
           if (reg.text.d) reg.text.d.textContent = `${Math.round(a.d)}`;
           if (reg.text.p) reg.text.p.textContent = `${Math.round(a.p)}`;
