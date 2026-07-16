@@ -2,7 +2,7 @@
 
 // 데모 레이스 드라이버 — Supabase 없이 관전 화면(3D 스테이지·HUD)을 로컬 구동.
 //   /class/race/view?event=demo 로 진입(QA·쇼룸·오프라인 데모). 비파괴: 네트워크/DB 미사용.
-//   대기(3s) → 레이스 → 전원 피니시 → 5s 후 리셋 루프.
+//   대기(3s) → 카운트다운(3s, 승선 연출) → 레이스 → 전원 피니시 → 5s 후 리셋 루프.
 import { useEffect, useRef, useState } from 'react';
 import type { RaceRealtime, RawSample, LaneMeta, LobbyStatus } from './useRaceRealtime';
 
@@ -11,6 +11,7 @@ const DEMO_TARGET_M = 300;
 const NAMES = ['김도현', '이서준', '박민재', '정하윤', '최유나', '강태오'];
 const TICK_MS = 300;
 const LOBBY_MS = 3000;
+const COUNTDOWN_MS = 3000;
 const RESET_MS = 5000;
 
 export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: number } {
@@ -40,7 +41,7 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
     // 레인별 스플릿(빠른 데모 페이스) — 선두 경쟁 연출
     const splits = NAMES.map((_, i) => 40 + i * 2.4);
     const dist = NAMES.map(() => 0);
-    let phase: 'lobby' | 'racing' | 'finished' = 'lobby';
+    let phase: 'lobby' | 'countdown' | 'racing' | 'finished' = 'lobby';
     let phaseAt = Date.now();
     let last = performance.now();
 
@@ -51,6 +52,10 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
       last = t;
 
       if (phase === 'lobby' && now - phaseAt >= LOBBY_MS) {
+        phase = 'countdown';
+        phaseAt = now;
+        setLobbyStatus('countdown');
+      } else if (phase === 'countdown' && now - phaseAt >= COUNTDOWN_MS) {
         phase = 'racing';
         phaseAt = now;
         setLobbyStatus('racing');

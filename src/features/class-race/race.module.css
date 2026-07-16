@@ -374,6 +374,12 @@
 }
 
 /* ── FINAL STRETCH 배너 ── */
+/* START 배너 — FINAL STRETCH 동형, 성공 톤 */
+.finalBanner[data-kind='start'] {
+  background: linear-gradient(90deg, var(--bcl-success), var(--bcl-race-neon-b));
+  box-shadow: 0 0 44px var(--bcl-success);
+}
+
 .finalBanner {
   position: absolute;
   top: 30%;

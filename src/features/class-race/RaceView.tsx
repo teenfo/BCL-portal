@@ -72,6 +72,19 @@ export function RaceView({ eventId }: { eventId: string | null }) {
 
   const lanes = rt.lanes;
 
+  // START 배너 — 카운트다운 → 레이싱 전환 순간 2초(FINAL STRETCH 동형)
+  const [startBanner, setStartBanner] = useState(false);
+  const prevStatusRef = useRef(rt.lobbyStatus);
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = rt.lobbyStatus;
+    if (prev === 'countdown' && rt.lobbyStatus === 'racing') {
+      setStartBanner(true);
+      const t = setTimeout(() => setStartBanner(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [rt.lobbyStatus]);
+
   // 도착 순서(등수) — 원시 샘플 d ≥ target-1 최초 도달 순. 동시 도달은 d 내림차순.
   //   리셋(로비 복귀) 시 초기화. setState는 interval 콜백에서만(규약).
   const [finishOrder, setFinishOrder] = useState<string[]>([]);
@@ -160,8 +173,15 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       {/* 응원 관중 실루엣 */}
       <div className={styles.crowd} aria-hidden />
 
+      {/* START 배너 — 카운트다운 종료 직후 2초 */}
+      {startBanner ? (
+        <div className={styles.finalBanner} data-kind="start" aria-hidden>
+          START!
+        </div>
+      ) : null}
+
       {/* FINAL STRETCH 배너 — racing 상태에서만 노출(비racing 잔존값 게이트) */}
-      {rt.lobbyStatus === 'racing' && finalStretch ? (
+      {rt.lobbyStatus === 'racing' && finalStretch && !startBanner ? (
         <div className={styles.finalBanner} aria-hidden>
           FINAL STRETCH!
         </div>
@@ -274,18 +294,19 @@ function StateOverlay({ label, sub }: { label: string; sub: string }) {
   );
 }
 
-// 신호등 카운트다운 — race_start broadcast 기준(로컬 타이머 금지 3-8): 여기선 표시 연출만.
+// 신호등 카운트다운 3·2·1 — race_start broadcast 기준(로컬 타이머 금지 3-8): 여기선 표시 연출만.
+//   시작(START) 표시는 racing 전환 시 START 배너가 담당.
 function CountdownOverlay() {
-  const [n, setN] = useState(5);
+  const [n, setN] = useState(3);
   useEffect(() => {
-    if (n <= 0) return;
+    if (n <= 1) return;
     const t = setTimeout(() => setN((v) => v - 1), 1000);
     return () => clearTimeout(t);
   }, [n]);
   return (
     <div className={styles.countdownOverlay}>
       <div className={styles.trafficLight} data-n={n}>
-        {n > 0 ? n : 'GO'}
+        {n}
       </div>
     </div>
   );

@@ -237,6 +237,19 @@ const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
 ];
 /** 슬라이딩 시트 왕복폭(보트 로컬 X, ±) — 다리 드라이브 가시화의 핵심 */
 const SLIDE_AMP = 0.045;
+/** 승선 연출 — 로비: 보트 뒤(스타트 펜 쪽) 기립 대기 → 카운트다운 진입 후 BOARD_MS 내 점프 탑승·착석.
+    본 스무딩 트레일(~0.4s) 포함 "1" 표시(+2s) 시점에 착석 완료되도록 1.7s(서버 카운트다운이 더 길어도 안전) */
+const BOARD_BACK_X = -0.95; // 기립 위치(보트 로컬, 선미 뒤)
+const BOARD_MS = 1700;
+/** 기립 자세 — 착석 rest 기준 역델타(다리 펴기·상체 세우기·팔 내리기) */
+const STAND_DELTA = {
+  thigh: -1.35,
+  calf: 1.05,
+  waist: 0.25,
+  neck: -0.08,
+  upperY: 0.42, // L +, R − (전방 모음 해제)
+  upperX: -0.3, // L −, R + (팔 옆으로 내림)
+} as const;
 /** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
 const MODEL_YAW = -Math.PI / 2;
@@ -479,12 +492,24 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     }
 
     let raf = 0;
+    // 승선 타이밍 — 카운트다운 진입 시각(전 레인 공유)
+    let prevStatus: LobbyStatus | null = null;
+    let countdownAt = 0;
     const loop = () => {
       const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
       const now = Date.now();
       const t = performance.now();
       const samples = samplesRef.current;
       const n = Math.max(1, curLanes.length);
+
+      // 승선 진행도 — lobby 0(기립) → countdown 진입 후 BOARD_MS에 걸쳐 1(착석), racing 이후 1
+      if (status !== prevStatus) {
+        if (status === 'countdown') countdownAt = t;
+        prevStatus = status;
+      }
+      const boardRaw =
+        status === 'lobby' ? 0 : status === 'countdown' ? Math.min(1, (t - countdownAt) / BOARD_MS) : 1;
+      const boardE = boardRaw * boardRaw * (3 - 2 * boardRaw); // smoothstep
 
       // 편성 동기화 — 새 레인 rig 생성, 사라진 레인 정리
       const liveSerials = new Set(curLanes.map((l) => l.serial));
@@ -675,7 +700,20 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.foreL, 'y', -(0.06 * sArm + 0.3 * pull));
             setT(b.foreR, 'y', 0.06 * sArm + 0.3 * pull);
           } else {
-            // 대기 — 미세 호흡(상체·목), 위상은 레인별 분산
+            // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
+            const su = 1 - boardE;
+            if (su > 0.001) {
+              setT(b.thighL, 'z', STAND_DELTA.thigh * su);
+              setT(b.thighR, 'z', STAND_DELTA.thigh * su);
+              setT(b.calfL, 'z', STAND_DELTA.calf * su);
+              setT(b.calfR, 'z', STAND_DELTA.calf * su);
+              setT(b.waist, 'z', STAND_DELTA.waist * su);
+              setT(b.neck, 'z', STAND_DELTA.neck * su);
+              setT(b.upperL, 'y', STAND_DELTA.upperY * su);
+              setT(b.upperR, 'y', -STAND_DELTA.upperY * su);
+              setT(b.upperL, 'x', STAND_DELTA.upperX * su);
+              setT(b.upperR, 'x', -STAND_DELTA.upperX * su);
+            }
             const breath = Math.sin(t / 1400 + index * 1.7);
             setT(b.waist, 'z', 0.03 * breath);
             setT(b.neck, 'z', -0.02 * breath);
@@ -694,26 +732,35 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               o.rotation[ax] = rest[ax] + c[ax];
             }
           }
-          // 슬라이딩 시트 — 캐릭터 그룹 전후 이동(지수 스무딩)
-          b.charG.position.x += (ASM.charPos[0] + slideX - b.charG.position.x) * k;
+          // 캐릭터 그룹 배치 — 승선 보간(기립 위치 → 시트, 포물선 점프 아크) + 슬라이딩 시트
+          const seatX = ASM.charPos[0] + slideX;
+          const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
+          b.charG.position.x += (bx - b.charG.position.x) * k;
+          b.charG.position.y = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
           // 선체 피치 서지(드라이브 반동)
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.028 * sAt(0.1) : 0);
           // ── 오어 = 손 추종 IK — 손과 노가 항상 동기(그립이 손 방향 정렬) ──
           //   피벗 yaw/pitch를 손 벡터로 해석: gripDir = Rx(φ)·Ry(θ)·(0,0,-1)
           //   좌현은 θ≈π로 자연 수렴(미러 특례 불필요). 리커버리엔 블레이드 리프트 가산
           b.inner.updateWorldMatrix(true, true);
+          const parked = boardE < 0.9; // 승선 완료 전 — 오어는 오어락 거치 자세 고정(손 추종 해제)
           const followOar = (pivot: THREE.Group, hand: THREE.Object3D | null, mirror: boolean) => {
             if (!hand || !pivot.parent) return;
             hand.getWorldPosition(IK_V);
             pivot.parent.worldToLocal(IK_V);
             IK_V.sub(pivot.position);
             const len = IK_V.length() || 1;
-            const theta = pose === 'finish' ? (mirror ? Math.PI : 0) : Math.atan2(-IK_V.x, -IK_V.z);
+            const theta =
+              parked || pose === 'finish' ? (mirror ? Math.PI : 0) : Math.atan2(-IK_V.x, -IK_V.z);
             const cth = Math.cos(theta);
             const denom = Math.abs(cth) < 0.25 ? (cth < 0 ? -0.25 : 0.25) : cth;
             const sph = Math.max(-0.9, Math.min(0.9, IK_V.y / len / denom));
-            let phi = pose === 'finish' ? (mirror ? -0.5 : 0.5) : Math.asin(sph);
-            if (pose !== 'finish') phi += (mirror ? 0.22 : -0.22) * lift * (stroke ? 1 : 0); // 리커버리 블레이드 리프트(그립 하강 방향)
+            let phi = parked
+              ? (mirror ? -1 : 1) * ASM.oarTilt
+              : pose === 'finish'
+                ? (mirror ? -0.5 : 0.5)
+                : Math.asin(sph);
+            if (!parked && pose !== 'finish') phi += (mirror ? 0.22 : -0.22) * lift * (stroke ? 1 : 0); // 리커버리 블레이드 리프트
             const dy = ((theta - pivot.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; // ±π 랩 처리
             pivot.rotation.y += dy * k;
             pivot.rotation.x += (phi - pivot.rotation.x) * k;
