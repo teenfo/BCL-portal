@@ -169,6 +169,12 @@ interface Rig {
   texKey: string;
   d: number;
   spm: number;
+  /** 부스터 — 속도 빠른/느린 EMA(m/s)·발동/종료 시각. 급가속 감지 시 ~2s 연출.
+      velF: 표시좌표 미분은 샘플 틱마다 톱니 스파이크 → ~0.4s EMA로 평활 후 비교 */
+  velF: number;
+  velS: number;
+  boostAt: number;
+  boostUntil: number;
   place: THREE.Mesh;
   placeMat: THREE.MeshBasicMaterial;
   /** 표시 중 등수(0=비표시) + 팝인 시작 시각 */
@@ -235,7 +241,15 @@ const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
   ['L_Upperarm', 'x', -0.9], ['R_Upperarm', 'x', 0.9],
 ];
 /** 슬라이딩 시트 왕복폭(보트 로컬 X, ±) — 다리 드라이브 가시화의 핵심 */
-const SLIDE_AMP = 0.045;
+const SLIDE_AMP = 0.07;
+/** 드라이브 구간 비율(캐치→피니시) — 짧을수록 드라이브가 punchy, 리커버리 대비 대비감↑ */
+const DRIVE_FRAC = 0.3;
+/** 부스터 — 표시속도(rig.d 미분)가 느린 EMA 기준선 대비 급증하면 2s 연출(스트릭 연장·링 플래시·선수 들림).
+    스타트 가속 오발동 방지를 위해 15m 이후만, 종료 후 1.5s 쿨다운 */
+const BOOST_MS = 2000;
+const BOOST_COOLDOWN_MS = 1500;
+const BOOST_RATIO = 1.18; // 기준선 대비 배율 임계(스퍼트 감지)
+const BOOST_MIN_GAIN = 0.25; // 절대 여유(m/s) — 저속 노이즈 오발동 방지
 /** 승선 연출 — 로비: 보트 뒤(스타트 펜 쪽) 기립 대기 → 카운트다운 진입 후 BOARD_MS 내 점프 탑승·착석.
     본 스무딩 트레일(~0.4s) 포함 "1" 표시(+2s) 시점에 착석 완료되도록 1.7s(서버 카운트다운이 더 길어도 안전) */
 const BOARD_BACK_X = -0.95; // 기립 위치(보트 로컬, 선미 뒤)
@@ -487,6 +501,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         texKey: '',
         d: 0,
         spm: 0,
+        velF: 0,
+        velS: 0,
+        boostAt: 0,
+        boostUntil: 0,
       };
     }
 
@@ -549,6 +567,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const s = samples.get(meta.serial);
         const rawD = s?.d ?? 0;
         // LERP 보간(샘플 없으면 출발선으로 복귀 — race_reset)
+        const dPrev = rig.d;
         rig.d += ((s ? s.d : 0) - rig.d) * aX;
         rig.spm += ((s ? s.spm : 0) - rig.spm) * aSpm;
         const idle = !s || now - s.lastAt > IDLE_MS || rig.spm < 6;
@@ -557,6 +576,27 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const waiting = status === 'lobby' || status === 'countdown';
         const finished = !!tgt && rawD >= tgt - 1;
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
+
+        // 부스터 감지 — 평활 속도(velF)가 기준선(velS, 느린 EMA) 대비 급증하면 발동
+        const vel = dtF > 0 ? ((rig.d - dPrev) * 1000) / dtF : 0;
+        rig.velF += (vel - rig.velF) * (1 - Math.pow(0.96, dtF / 16.7));
+        rig.velS += (rig.velF - rig.velS) * (1 - Math.pow(0.995, dtF / 16.7));
+        if (
+          pose === 'race' &&
+          !idle &&
+          rig.d > 15 &&
+          rig.velF > rig.velS * BOOST_RATIO + BOOST_MIN_GAIN &&
+          t >= rig.boostUntil + BOOST_COOLDOWN_MS
+        ) {
+          rig.boostAt = t;
+          rig.boostUntil = t + BOOST_MS;
+        }
+        if (pose !== 'race') rig.boostUntil = 0; // 대기·피니시 전환 시 즉시 해제
+        // 엔벨로프: 150ms 어택 → 유지 → 400ms 릴리즈
+        const boostE =
+          t < rig.boostUntil
+            ? Math.min(1, (t - rig.boostAt) / 150) * Math.min(1, (rig.boostUntil - t) / 400)
+            : 0;
         if (deviceType === 'rower') {
           // 3파트 조립 경로 — 로드 전엔 스프라이트 없이 대기(칩/배지만), 로드 완료 프레임에 부착
           rig.char.visible = false;
@@ -646,6 +686,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         rig.group.renderOrder = Math.round(prog * 100);
 
         const charH = Math.min(0.26 * H, 230) * scl;
+        let drivePulse = 0; // 드라이브 임팩트(0..1) — 모델 경로에서 산출, 이펙트 동기용
         if (rig.model && rig.parts) {
           // 3파트 조립 — 화면 높이 환산 스케일 + 절차 스트로크(SPM 동기)
           //   rest = 착석 기본자세(포즈 적용 후 캡처) — 델타만 가감
@@ -656,14 +697,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
           if (stroke) b.phase = (b.phase + dtF / dur) % 1;
-          // 비대칭 스트로크: 드라이브 35%(캐치→피니시, 힘참) / 리커버리 65%(느긋한 복귀)
+          // 비대칭 스트로크: 드라이브 30%(캐치→피니시, 힘참) / 리커버리 70%(느긋한 복귀)
           //   s(-1=캐치 전경 ↔ +1=피니시 후경), 관절별 위상 지연(다리→허리→팔)
           const sAt = (lag: number) => {
             const q = ((b.phase - lag) % 1 + 1) % 1;
-            return q < 0.35 ? -Math.cos(Math.PI * (q / 0.35)) : Math.cos(Math.PI * ((q - 0.35) / 0.65));
+            return q < DRIVE_FRAC
+              ? -Math.cos(Math.PI * (q / DRIVE_FRAC))
+              : Math.cos(Math.PI * ((q - DRIVE_FRAC) / (1 - DRIVE_FRAC)));
           };
           // 리커버리 중 블레이드 리프트 험프(0→1→0)
-          const lift = b.phase < 0.35 ? 0 : Math.sin(Math.PI * ((b.phase - 0.35) / 0.65));
+          const lift =
+            b.phase < DRIVE_FRAC ? 0 : Math.sin(Math.PI * ((b.phase - DRIVE_FRAC) / (1 - DRIVE_FRAC)));
+          // 드라이브 임팩트(0→1→0, 드라이브 구간만) — 선체 침하·이펙트 펄스 공유
+          drivePulse = stroke && b.phase < DRIVE_FRAC ? Math.sin(Math.PI * (b.phase / DRIVE_FRAC)) : 0;
           // 프레임 타깃 계산 → 지수 스무딩 적용(시작/정지/피니시 전환 스냅 제거)
           const tgt = new Map<THREE.Object3D, { x: number; y: number; z: number }>();
           const setT = (o: THREE.Object3D | null, ax: 'x' | 'y' | 'z', delta: number) => {
@@ -692,17 +738,17 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const pull = Math.max(0, sAt(0.16)); // 팔꿈치 당김은 드라이브 후반에만
             // 로잉 시퀀스: 슬라이드+다리(선행) → 상체 스윙(레이백까지) → 팔꿈치 당김(마무리)
             slideX = -SLIDE_AMP * sLeg; // 캐치=앞(+X, 무릎 압축) ↔ 피니시=뒤
-            setT(b.thighL, 'z', -0.16 * sLeg);
-            setT(b.thighR, 'z', -0.16 * sLeg);
-            setT(b.calfL, 'z', 0.2 * sLeg);
-            setT(b.calfR, 'z', 0.2 * sLeg);
-            // 상체: 캐치 전경 −0.57 ↔ 피니시 레이백 +0.07 (rest −0.25 기준 ±0.32)
-            setT(b.waist, 'z', 0.32 * sBack);
-            setT(b.neck, 'z', -0.18 * sBack); // 시선 전방 유지(상체 보상)
-            setT(b.upperL, 'y', 0.1 * sArm);
-            setT(b.upperR, 'y', -0.1 * sArm);
-            setT(b.foreL, 'y', -(0.06 * sArm + 0.3 * pull));
-            setT(b.foreR, 'y', 0.06 * sArm + 0.3 * pull);
+            setT(b.thighL, 'z', -0.24 * sLeg);
+            setT(b.thighR, 'z', -0.24 * sLeg);
+            setT(b.calfL, 'z', 0.3 * sLeg);
+            setT(b.calfR, 'z', 0.3 * sLeg);
+            // 상체: 캐치 전경 ↔ 피니시 레이백 (rest −0.25 기준 ±0.45 — 다이나믹 스윙)
+            setT(b.waist, 'z', 0.45 * sBack);
+            setT(b.neck, 'z', -0.24 * sBack); // 시선 전방 유지(상체 보상)
+            setT(b.upperL, 'y', 0.2 * sArm);
+            setT(b.upperR, 'y', -0.2 * sArm);
+            setT(b.foreL, 'y', -(0.1 * sArm + 0.5 * pull));
+            setT(b.foreR, 'y', 0.1 * sArm + 0.5 * pull);
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
             const su = 1 - boardE;
@@ -741,8 +787,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
           b.charG.position.x += (bx - b.charG.position.x) * k;
           b.charG.position.y = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
-          // 선체 피치 서지(드라이브 반동)
-          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.028 * sAt(0.1) : 0);
+          // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브) + 부스터 선수 들림
+          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.055 * sAt(0.1) : 0) - 0.05 * boostE;
+          b.inner.position.y = -drivePulse * charH * 0.022 + boostE * charH * 0.012;
           // ── 오어 = 손 추종 IK — 손과 노가 항상 동기(그립이 손 방향 정렬) ──
           //   피벗 yaw/pitch를 손 벡터로 해석: gripDir = Rx(φ)·Ry(θ)·(0,0,-1)
           //   좌현은 θ≈π로 자연 수렴(미러 특례 불필요). 리커버리엔 블레이드 리프트 가산
@@ -778,22 +825,33 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const dur = animationDurationSec(deviceType, rig.spm) * 1000;
             rig.char.rotation.z = Math.sin((t / dur) * TAU) * 0.04;
             rig.char.position.y = Math.abs(Math.sin((t / dur) * TAU)) * -charH * 0.015;
+            drivePulse = 0.5 + 0.5 * Math.sin((t / dur) * TAU); // 스프라이트 경로 근사 펄스
           } else {
             rig.char.rotation.z = 0;
             rig.char.position.y = 0;
           }
         }
 
-        // 이펙트 — 전진 중에만(대기·피니시·idle 제외)
+        // 이펙트 — 전진 중에만(대기·피니시·idle 제외), 드라이브 임팩트에 동기(스트로크 가시화)
+        //   부스터(boostE): 급가속 2s — 스트릭 대폭 연장·링 플래시로 스퍼트 강조
         const moving = pose === 'race' && !idle;
         const pulse = 0.5 + 0.5 * Math.sin(t / 260 + index);
-        rig.ring.scale.set(charH * (0.95 + pulse * 0.18), charH * 0.24, 1);
+        const fxPulse = Math.max(drivePulse, boostE);
+        rig.ring.scale.set(
+          charH * (0.9 + fxPulse * 0.35 + boostE * 0.25),
+          charH * (0.22 + fxPulse * 0.1),
+          1,
+        );
         rig.ring.position.y = charH * 0.02;
-        rig.ringMat.opacity = moving ? 0.22 + pulse * 0.18 : 0;
-        // 스트릭 — 캐릭터 위(진행 반대 방향)로 페이드(텍스처 자체가 상단 투명)
-        rig.streak.scale.set(charH * 0.26, charH * (0.5 + pulse * 0.22), 1);
-        rig.streak.position.y = charH * 0.55;
-        rig.streakMat.opacity = moving ? 0.14 : 0;
+        rig.ringMat.opacity = moving ? 0.14 + drivePulse * 0.34 + boostE * 0.28 : 0;
+        // 스트릭 — 캐릭터 위(진행 반대 방향)로 페이드(텍스처 자체가 상단 투명), 드라이브 때 길어짐
+        rig.streak.scale.set(
+          charH * (0.26 + boostE * 0.14),
+          charH * (0.4 + drivePulse * 0.45 + pulse * 0.08 + boostE * 0.8),
+          1,
+        );
+        rig.streak.position.y = charH * (0.55 + boostE * 0.25);
+        rig.streakMat.opacity = moving ? 0.08 + drivePulse * 0.22 + boostE * 0.3 : 0;
 
         // 리더 글로우(흰-시안 아우라)
         const isLead = meta.serial === leadSerial && status !== 'lobby' && status !== 'countdown' && leadD > 0;

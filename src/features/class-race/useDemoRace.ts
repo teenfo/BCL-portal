@@ -41,6 +41,7 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
     // 레인별 스플릿(빠른 데모 페이스) — 선두 경쟁 연출
     const splits = NAMES.map((_, i) => 40 + i * 2.4);
     const dist = NAMES.map(() => 0);
+    const spurtUntil = NAMES.map(() => 0); // 랜덤 스퍼트(급가속) — 부스터 연출 확인용
     let phase: 'lobby' | 'countdown' | 'racing' | 'finished' = 'lobby';
     let phaseAt = Date.now();
     let last = performance.now();
@@ -64,8 +65,10 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
         let allDone = true;
         dist.forEach((d, i) => {
           if (d < DEMO_TARGET_M) {
+            if (spurtUntil[i] <= now && d > 30 && Math.random() < 0.012) spurtUntil[i] = now + 2500;
+            const spurt = spurtUntil[i] > now ? 1.55 : 1;
             const jitter = 1 + (Math.random() * 2 - 1) * 0.07;
-            dist[i] = Math.min(DEMO_TARGET_M, d + (500 / splits[i]) * jitter * dt);
+            dist[i] = Math.min(DEMO_TARGET_M, d + (500 / splits[i]) * spurt * jitter * dt);
           }
           if (dist[i] < DEMO_TARGET_M) allDone = false;
         });
@@ -92,7 +95,7 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
             lane: i + 1,
             d: Math.round(dist[i] * 10) / 10,
             p: racing ? 180 + Math.round(Math.random() * 60) : 0,
-            spm: racing ? 26 + Math.round(Math.random() * 6) : 0,
+            spm: racing ? 26 + Math.round(Math.random() * 6) + (spurtUntil[i] > now ? 5 : 0) : 0,
             hr: null,
             maxW: 260,
             virtual: false,
