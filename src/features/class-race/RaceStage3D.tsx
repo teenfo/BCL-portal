@@ -194,9 +194,8 @@ interface Rig {
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
-    /** 스트로크 누적 위상(0..1)·직전 프레임 시각·본별 현재 델타(지수 스무딩 상태) */
+    /** 스트로크 누적 위상(0..1)·본별 현재 델타(지수 스무딩 상태) */
     phase: number;
-    lastT: number;
     cur: Map<THREE.Object3D, { x: number; y: number; z: number }>;
   } | null;
 }
@@ -495,10 +494,18 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     // 승선 타이밍 — 카운트다운 진입 시각(전 레인 공유)
     let prevStatus: LobbyStatus | null = null;
     let countdownAt = 0;
+    let lastLoopT = performance.now();
     const loop = () => {
       const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
       const now = Date.now();
       const t = performance.now();
+      // 프레임 간격(ms) — 모든 보간·위상 누적의 시간 기준. 탭 복귀 등 장공백만 1s 캡
+      //   (저프레임 기기에서도 스트로크율이 SPM 실측과 어긋나지 않도록 프레임률 독립 유지)
+      const dtF = Math.min(1000, t - lastLoopT);
+      lastLoopT = t;
+      // 프레임당 고정 계수 LERP는 저프레임에서 수렴 지연 → 60fps 기준 계수를 dt로 환산
+      const aX = 1 - Math.pow(1 - LERP_X, dtF / 16.7);
+      const aSpm = 1 - Math.pow(1 - LERP_SPM, dtF / 16.7);
       const samples = samplesRef.current;
       const n = Math.max(1, curLanes.length);
 
@@ -542,8 +549,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const s = samples.get(meta.serial);
         const rawD = s?.d ?? 0;
         // LERP 보간(샘플 없으면 출발선으로 복귀 — race_reset)
-        rig.d += ((s ? s.d : 0) - rig.d) * LERP_X;
-        rig.spm += ((s ? s.spm : 0) - rig.spm) * LERP_SPM;
+        rig.d += ((s ? s.d : 0) - rig.d) * aX;
+        rig.spm += ((s ? s.spm : 0) - rig.spm) * aSpm;
         const idle = !s || now - s.lastAt > IDLE_MS || rig.spm < 6;
 
         const deviceType = meta.device_type ?? defDev;
@@ -610,7 +617,6 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
               phase: (index * 0.37) % 1, // 레인별 위상 오프셋(제자리 합창 방지)
-              lastT: performance.now(),
               cur: new Map<THREE.Object3D, { x: number; y: number; z: number }>(),
             };
             // 오어 피벗은 rest/스무딩 대상에서 제외 — 손 추종 IK가 직접 제어
@@ -649,9 +655,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const b = rig.parts;
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
-          const dt = Math.min(200, t - b.lastT);
-          b.lastT = t;
-          if (stroke) b.phase = (b.phase + dt / dur) % 1;
+          if (stroke) b.phase = (b.phase + dtF / dur) % 1;
           // 비대칭 스트로크: 드라이브 35%(캐치→피니시, 힘참) / 리커버리 65%(느긋한 복귀)
           //   s(-1=캐치 전경 ↔ +1=피니시 후경), 관절별 위상 지연(다리→허리→팔)
           const sAt = (lag: number) => {
@@ -719,7 +723,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.neck, 'z', -0.02 * breath);
           }
           const AX: Array<'x' | 'y' | 'z'> = ['x', 'y', 'z'];
-          const k = 1 - Math.pow(0.88, dt / 16.7); // 프레임률 독립 스무딩 계수
+          const k = 1 - Math.pow(0.88, dtF / 16.7); // 프레임률 독립 스무딩 계수
           for (const [o, rest] of b.rest) {
             const e = tgt.get(o);
             let c = b.cur.get(o);
