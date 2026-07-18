@@ -855,9 +855,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           let bx: number;
           let by: number;
           if (unE > 0) {
-            // 하선 — 선수(뱃머리) 앞쪽으로 점프해 내려 카메라를 향해 만세
+            // 하선 — 선수(뱃머리) 앞쪽으로 점프해 내려 카메라를 향해 만세. 1위는 승리 점프 반복
             bx = seatX + (DISMOUNT_FRONT_X - seatX) * unE;
             by = ASM.charPos[1] * (1 - unE) + Math.sin(Math.PI * unE) * 0.26;
+            if (order.indexOf(meta.serial) === 0) by += Math.abs(Math.sin(t / 190)) * 0.13 * unE;
           } else {
             bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
             by = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
