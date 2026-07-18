@@ -267,6 +267,7 @@ const BOOST_MIN_GAIN = 0.25; // 절대 여유(m/s) — 저속 노이즈 오발�
 /** 승선 연출 — 로비: 보트 뒤(스타트 펜 쪽) 기립 대기 → 카운트다운 진입 후 BOARD_MS 내 점프 탑승·착석.
     본 스무딩 트레일(~0.4s) 포함 "1" 표시(+2s) 시점에 착석 완료되도록 1.7s(서버 카운트다운이 더 길어도 안전) */
 const BOARD_BACK_X = -0.95; // 기립 위치(보트 로컬, 선미 뒤)
+const DISMOUNT_FRONT_X = 1.05; // 하선 착지(보트 로컬, 선수 앞 — 카메라 쪽)
 const BOARD_MS = 1700;
 /** 기립 자세 — 착석 rest 기준 역델타(다리 펴기·상체 세우기·팔 내리기) */
 const STAND_DELTA = {
@@ -775,6 +776,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           };
           // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           let slideX = 0; // 슬라이딩 시트 목표(보트 로컬 X 오프셋)
+          let glanceTurn = 0; // 뒤돌아보기 몸통 회전(rad) — charG 요에 가산
           if (pose === 'finish') {
             // 세리머니 — 하선(unE) 후 기립 + 앞보기 만세(팔 V자) + 환호 바운스
             const unE = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
@@ -809,15 +811,16 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.upperR, 'x', 0.12 * pull);
             setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
             setT(b.foreR, 'y', 0.12 * sArm + 0.65 * pull);
-            // 뒤돌아보기 — 주기적으로 상체를 크게 틀어 진행 방향을 완전히 확인(얼굴이 카메라 쪽으로).
-            //   레인별 위상·좌우 교대. 목 1.25 + 허리 0.55 ≈ 103°
+            // 뒤돌아보기 — 몸 전체(charG)+목을 함께 틀어 완전히 뒤를 봄(얼굴 ~70% 노출).
+            //   몸통 69° + 목 74° ≈ 143°. 레인별 위상·좌우 교대. glanceTurn은 배치부에서 charG 요에 가산
             const gT = t / 1000 + index * 3.1;
             const gIn = gT % 7.5;
             const glanceE = gIn < 1.8 ? Math.sin(Math.PI * (gIn / 1.8)) : 0;
             if (glanceE > 0.001) {
               const gSide = Math.floor(gT / 7.5) % 2 === 0 ? 1 : -1;
-              setT(b.neck, 'y', 1.25 * glanceE * gSide);
-              setT(b.waist, 'y', 0.55 * glanceE * gSide);
+              glanceTurn = 1.2 * glanceE * gSide;
+              setT(b.neck, 'y', 1.3 * glanceE * gSide);
+              setT(b.waist, 'y', 0.25 * glanceE * gSide);
             }
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
@@ -852,16 +855,25 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               o.rotation[ax] = rest[ax] + c[ax];
             }
           }
-          // 캐릭터 그룹 배치 — 승선(boardE 0→1)·하선(unE 1→0 역재생) 보간 + 포물선 점프 아크
+          // 캐릭터 그룹 배치 — 승선(선미 뒤→시트)·하선(시트→선수 앞) 보간 + 포물선 점프 아크
           const unRaw = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
           const unE = unRaw * unRaw * (3 - 2 * unRaw);
-          const seatE = boardE * (1 - unE); // 0=선미 뒤 기립 ↔ 1=착석
+          const seatE = boardE * (1 - unE);
           const seatX = ASM.charPos[0] + slideX;
-          const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * seatE;
+          let bx: number;
+          let by: number;
+          if (unE > 0) {
+            // 하선 — 선수(뱃머리) 앞쪽으로 점프해 내려 카메라를 향해 만세
+            bx = seatX + (DISMOUNT_FRONT_X - seatX) * unE;
+            by = ASM.charPos[1] * (1 - unE) + Math.sin(Math.PI * unE) * 0.26;
+          } else {
+            bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
+            by = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
+          }
           b.charG.position.x += (bx - b.charG.position.x) * k;
-          b.charG.position.y = ASM.charPos[1] * seatE + Math.sin(Math.PI * seatE) * 0.26;
-          // 승선/하선 회전 — 기립(선수 쪽 바라봄, 0) ↔ 착석(후향, π). 점프 아크 중 자연 회전
-          b.charG.rotation.y = Math.PI * seatE;
+          b.charG.position.y = by;
+          // 승선/하선 회전(기립 0 ↔ 착석 π) + 뒤돌아보기 몸통 회전 가산
+          b.charG.rotation.y = Math.PI * seatE - glanceTurn;
           // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
           b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
