@@ -216,7 +216,7 @@ const ASM = {
   boatScale: 1.6,
   charScale: 0.68,
   charPos: [-0.05, -0.02, 0] as const, // 콕핏 시트 (그립-손 오차 1.5cm 실측)
-  oarlock: { x: 0.02, y: 0.14, z: 0.42 }, // 오어락 피벗(윙 리거 끝) — 그립이 손 높이
+  oarlock: { x: -0.12, y: 0.14, z: 0.42 }, // 오어락 피벗(윙 리거 끝) — 후향 착석 손 위치 정합
   oarScale: 0.8,
   oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
   oarTilt: 0.46, // 기본 딥(블레이드 물 쪽) — 그립(인보드 끝)이 손 높이로 올라오는 각
@@ -630,6 +630,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             charG.add(char);
             charG.scale.setScalar(ASM.charScale);
             charG.position.set(...ASM.charPos);
+            charG.rotation.y = Math.PI; // 후향 착석(실제 로잉 — 진행 방향을 등짐). 승선 중엔 boardE로 회전
             boatG.add(charG);
             for (const [bn, ax, rad] of SEAT_POSE) {
               const b = char.getObjectByName(bn);
@@ -730,7 +731,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         rig.group.position.set(x, -yPx + bob, 0);
         rig.group.renderOrder = Math.round(prog * 100);
 
-        const charH = Math.min(0.26 * H, 230) * scl;
+        const charH = Math.min(0.29 * H, 258) * scl;
         let drivePulse = 0; // 드라이브 임팩트(0..1) — 모델 경로에서 산출, 이펙트 동기용
         if (rig.model && rig.parts) {
           // 3파트 조립 — 화면 높이 환산 스케일 + 절차 스트로크(SPM 동기)
@@ -782,7 +783,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const sArm = sAt(0.12);
             const pull = Math.max(0, sAt(0.16)); // 팔꿈치 당김은 드라이브 후반에만
             // 로잉 시퀀스: 슬라이드+다리(선행) → 상체 스윙(레이백까지) → 팔꿈치 당김(마무리)
-            slideX = -SLIDE_AMP * sLeg; // 캐치=앞(+X, 무릎 압축) ↔ 피니시=뒤
+            slideX = SLIDE_AMP * sLeg; // 후향 착석: 캐치=선미 쪽(−X, 무릎 압축) ↔ 드라이브=선수 쪽
             setT(b.thighL, 'z', -0.3 * sLeg);
             setT(b.thighR, 'z', -0.3 * sLeg);
             setT(b.calfL, 'z', 0.38 * sLeg);
@@ -796,6 +797,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.upperR, 'x', 0.12 * pull);
             setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
             setT(b.foreR, 'y', 0.12 * sArm + 0.65 * pull);
+            // 뒤돌아보기 — 실제 로잉처럼 주기적으로 진행 방향(어깨 너머) 확인. 레인별 위상·좌우 교대
+            const gT = t / 1000 + index * 3.1;
+            const gIn = gT % 7.5;
+            const glanceE = gIn < 1.5 ? Math.sin(Math.PI * (gIn / 1.5)) : 0;
+            if (glanceE > 0.001) {
+              const gSide = Math.floor(gT / 7.5) % 2 === 0 ? 1 : -1;
+              setT(b.neck, 'y', 0.95 * glanceE * gSide);
+              setT(b.waist, 'y', 0.2 * glanceE * gSide);
+            }
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
             const su = 1 - boardE;
@@ -834,6 +844,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
           b.charG.position.x += (bx - b.charG.position.x) * k;
           b.charG.position.y = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
+          // 승선 회전 — 기립(선수 쪽 바라봄, 0) → 착석(후향, π). 점프 아크 중 자연 회전
+          b.charG.rotation.y = Math.PI * boardE;
           // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
           b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
@@ -864,8 +876,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             pivot.rotation.y += dy * k;
             pivot.rotation.x += (phi - pivot.rotation.x) * k;
           };
-          followOar(b.oarR, b.handR, false);
-          followOar(b.oarL, b.handL, true);
+          // 후향 착석 — 캐릭터 왼손이 우현(+Z) 오어를 잡음(좌우 교차)
+          followOar(b.oarR, b.handL, false);
+          followOar(b.oarL, b.handR, true);
         } else {
           rig.char.scale.set(charH * rig.aspect, charH, 1);
           // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지

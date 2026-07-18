@@ -111,7 +111,7 @@ export const POOL = {
  */
 export function poolLaneX(index: number, count: number): { xt: number; xb: number } {
   const n = Math.max(1, count);
-  const spacing = n > 1 ? Math.min(11.85, 88 / (n - 1)) : 0;
+  const spacing = n > 1 ? Math.min(14.5, 88 / (n - 1)) : 0;
   const slot = index - (n - 1) / 2;
   return { xt: 50 + slot * spacing * 0.9, xb: 50 + slot * spacing };
 }
