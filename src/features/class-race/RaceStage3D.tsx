@@ -776,7 +776,6 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           };
           // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           let slideX = 0; // 슬라이딩 시트 목표(보트 로컬 X 오프셋)
-          let glanceTurn = 0; // 뒤돌아보기 몸통 회전(rad) — charG 요에 가산
           if (pose === 'finish') {
             // 세리머니 — 하선(unE) 후 기립 + 앞보기 만세(팔 V자) + 환호 바운스
             const unE = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
@@ -811,17 +810,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.upperR, 'x', 0.12 * pull);
             setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
             setT(b.foreR, 'y', 0.12 * sArm + 0.65 * pull);
-            // 뒤돌아보기 — 몸 전체(charG)+목을 함께 틀어 완전히 뒤를 봄(얼굴 ~70% 노출).
-            //   몸통 69° + 목 74° ≈ 143°. 레인별 위상·좌우 교대. glanceTurn은 배치부에서 charG 요에 가산
-            const gT = t / 1000 + index * 3.1;
-            const gIn = gT % 7.5;
+            // 뒤돌아보기 — 몸은 고정, 목만 왼쪽 어깨 너머로 돌려 진행 방향 확인(주기 7.5s, 레인별 위상)
+            const gIn = (t / 1000 + index * 3.1) % 7.5;
             const glanceE = gIn < 1.8 ? Math.sin(Math.PI * (gIn / 1.8)) : 0;
-            if (glanceE > 0.001) {
-              const gSide = Math.floor(gT / 7.5) % 2 === 0 ? 1 : -1;
-              glanceTurn = 1.2 * glanceE * gSide;
-              setT(b.neck, 'y', 1.3 * glanceE * gSide);
-              setT(b.waist, 'y', 0.25 * glanceE * gSide);
-            }
+            if (glanceE > 0.001) setT(b.neck, 'y', 1.3 * glanceE);
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
             const su = 1 - boardE;
@@ -872,8 +864,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           }
           b.charG.position.x += (bx - b.charG.position.x) * k;
           b.charG.position.y = by;
-          // 승선/하선 회전(기립 0 ↔ 착석 π) + 뒤돌아보기 몸통 회전 가산
-          b.charG.rotation.y = Math.PI * seatE - glanceTurn;
+          // 승선/하선 회전 — 기립(선수 쪽 바라봄, 0) ↔ 착석(후향, π)
+          b.charG.rotation.y = Math.PI * seatE;
           // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
           b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
