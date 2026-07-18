@@ -26,8 +26,9 @@ const LERP_X = 0.08;
 const LERP_SPM = 0.1;
 const IDLE_MS = 2000; // 샘플 미수신 시 모션 연출 정지
 const TAU = Math.PI * 2;
-/** 오어 손 추종 IK 계산용 재사용 벡터(프레임당 할당 방지) */
+/** 오어 손 추종 IK 계산용 재사용 벡터(프레임당 할당 방지) + 리거 튜브 정렬 기준축 */
 const IK_V = new THREE.Vector3();
+const IK_UP = new THREE.Vector3(0, 1, 0);
 
 interface Props {
   lanes: LaneMeta[];
@@ -617,9 +618,26 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               if (b) b.rotation[ax] += rad;
             }
             // 오어 ×2 — 오어락 피벗(우현 +Z 기준, 좌현은 y=π 미러)
+            //   윙 리거(노 거치대)는 절차 생성 — 헐 모델 교체와 무관하게 피벗 위치와 항상 정합
+            const riggerGeo = new THREE.CylinderGeometry(0.016, 0.016, 1, 8);
+            const riggerMat = new THREE.MeshStandardMaterial({
+              color: new THREE.Color(cssColor('--bcl-text-muted', '#9e9e9e')),
+              metalness: 0.75,
+              roughness: 0.35,
+            });
+            const addRiggerTube = (from: THREE.Vector3, to: THREE.Vector3) => {
+              const dir = to.clone().sub(from);
+              const len = dir.length();
+              const tube = new THREE.Mesh(riggerGeo, riggerMat);
+              tube.scale.y = len;
+              tube.position.copy(from).addScaledVector(dir, 0.5);
+              tube.quaternion.setFromUnitVectors(IK_UP, dir.normalize());
+              boatG.add(tube);
+            };
             const mountOar = (mirror: boolean) => {
+              const pz = mirror ? -ASM.oarlock.z : ASM.oarlock.z;
               const pivot = new THREE.Group();
-              pivot.position.set(ASM.oarlock.x, ASM.oarlock.y, mirror ? -ASM.oarlock.z : ASM.oarlock.z);
+              pivot.position.set(ASM.oarlock.x, ASM.oarlock.y, pz);
               const o = oarTpl!.clone(true);
               o.position.copy(oarOffset);
               o.scale.setScalar(ASM.oarScale);
@@ -627,6 +645,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               pivot.rotation.x += mirror ? -ASM.oarTilt : ASM.oarTilt;
               pivot.add(o);
               boatG.add(pivot);
+              // 윙 리거: 데크 접점 2개 → 오어락 피벗 V자 튜브 + 오어락 핀
+              const zIn = mirror ? -0.1 : 0.1;
+              const pivotPos = new THREE.Vector3(ASM.oarlock.x, ASM.oarlock.y - 0.015, pz);
+              addRiggerTube(new THREE.Vector3(ASM.oarlock.x + 0.14, ASM.oarlock.y - 0.06, zIn), pivotPos);
+              addRiggerTube(new THREE.Vector3(ASM.oarlock.x - 0.14, ASM.oarlock.y - 0.06, zIn), pivotPos);
+              const post = new THREE.Mesh(riggerGeo, riggerMat);
+              post.scale.set(1.5, 0.06, 1.5);
+              post.position.set(ASM.oarlock.x, ASM.oarlock.y - 0.005, pz);
+              boatG.add(post);
               return pivot;
             };
             const oarR = mountOar(false);
