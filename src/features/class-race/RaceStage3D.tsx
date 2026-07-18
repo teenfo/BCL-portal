@@ -208,13 +208,15 @@ interface Rig {
 }
 
 /** 3파트 조립 상수 — 스크래치 조립 하네스(assembly.html)에서 실측 확정.
-    보트 export는 XY 평면 피치 ~40° 틀어짐 → Z축 0.7rad 정규화. 정규화 좌표계: 진행=+X, 상=Y.
+    싱글 스컬 헐(Tripo racing shell): 길이축=Z export → Y축 270° 회전으로 진행=+X(선수 +X) 정렬,
+    1.6× 스케일(정규화 후 1.57×0.20×0.18). 정규화 좌표계: 진행=+X, 상=Y.
     캐릭터는 정준 스켈레톤 이식본(rig-transplant + auto-skin2) — 전 캐릭터 동일 본 프레임/체격(h 0.98). */
 const ASM = {
-  boatPitchFix: 0.7, // boatFix.rotation.z — 선체 수평 정규화
+  boatYawFix: Math.PI * 1.5, // boatFix.rotation.y — 선수(+X) 정렬
+  boatScale: 1.6,
   charScale: 0.68,
-  charPos: [-0.1, 0.13, 0] as const, // 시트 위 (풋패드 X≈+0.19)
-  oarlock: { x: -0.04, y: 0.27, z: 0.42 }, // 오어락 피벗 — 노브 실측 0.45에서 그립이 손에 닿게 3cm 인보드
+  charPos: [-0.05, -0.02, 0] as const, // 콕핏 시트 (그립-손 오차 1.5cm 실측)
+  oarlock: { x: 0.02, y: 0.14, z: 0.42 }, // 오어락 피벗(윙 리거 끝) — 그립이 손 높이
   oarScale: 0.8,
   oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
   oarTilt: 0.46, // 기본 딥(블레이드 물 쪽) — 그립(인보드 끝)이 손 높이로 올라오는 각
@@ -266,7 +268,8 @@ const STAND_DELTA = {
 } as const;
 /** 모델 기본 자세 — 피치(데크가 살짝 보이게) + 요(+X 뱃머리 → 카메라 방향) */
 const MODEL_PITCH = 0.3;
-const MODEL_YAW = -Math.PI / 2;
+/** 정면 −90°에서 +0.35rad 틀어 3/4 뷰 — 스컬 헐의 길이감·샤프함이 화면에 드러나는 각 */
+const MODEL_YAW = -Math.PI / 2 + 0.35;
 
 export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -339,15 +342,16 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     const charTpls: Array<{ scene: THREE.Group; offset: THREE.Vector3 } | null> = CHAR_URLS.map(() => null);
     let oarTpl: THREE.Group | null = null;
     let oarOffset = new THREE.Vector3();
-    gltfLoader.load('/race/parts/boat-blue.glb', (g) => {
+    gltfLoader.load('/race/parts/scull-blue.glb', (g) => {
       const fix = new THREE.Group();
-      fix.rotation.z = ASM.boatPitchFix;
+      g.scene.scale.setScalar(ASM.boatScale);
+      fix.rotation.y = ASM.boatYawFix;
       fix.add(g.scene);
       const bb = new THREE.Box3().setFromObject(fix, true);
       const c = bb.getCenter(new THREE.Vector3());
       fix.position.set(-c.x, -bb.min.y, -c.z);
       boatTpl = fix;
-    }, undefined, (e) => console.warn('[RaceStage3D] boat-blue.glb 로드 실패', e));
+    }, undefined, (e) => console.warn('[RaceStage3D] scull-blue.glb 로드 실패', e));
     CHAR_URLS.forEach((url, ci) => {
       gltfLoader.load(url, (g) => {
         const bb = new THREE.Box3().setFromObject(g.scene);
@@ -645,11 +649,11 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               pivot.rotation.x += mirror ? -ASM.oarTilt : ASM.oarTilt;
               pivot.add(o);
               boatG.add(pivot);
-              // 윙 리거: 데크 접점 2개 → 오어락 피벗 V자 튜브 + 오어락 핀
-              const zIn = mirror ? -0.1 : 0.1;
+              // 윙 리거: 데크 접점 2개(거널 높이) → 오어락 피벗 V자 튜브 + 오어락 핀
+              const zIn = mirror ? -0.08 : 0.08;
               const pivotPos = new THREE.Vector3(ASM.oarlock.x, ASM.oarlock.y - 0.015, pz);
-              addRiggerTube(new THREE.Vector3(ASM.oarlock.x + 0.14, ASM.oarlock.y - 0.06, zIn), pivotPos);
-              addRiggerTube(new THREE.Vector3(ASM.oarlock.x - 0.14, ASM.oarlock.y - 0.06, zIn), pivotPos);
+              addRiggerTube(new THREE.Vector3(ASM.oarlock.x + 0.14, ASM.oarlock.y + 0.045, zIn), pivotPos);
+              addRiggerTube(new THREE.Vector3(ASM.oarlock.x - 0.14, ASM.oarlock.y + 0.045, zIn), pivotPos);
               const post = new THREE.Mesh(riggerGeo, riggerMat);
               post.scale.set(1.5, 0.06, 1.5);
               post.position.set(ASM.oarlock.x, ASM.oarlock.y - 0.005, pz);
