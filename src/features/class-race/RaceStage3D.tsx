@@ -221,6 +221,15 @@ const ASM = {
   oarShift: 0.12, // 피벗 기준 샤프트 외측 이동
   oarTilt: 0.46, // 기본 딥(블레이드 물 쪽) — 그립(인보드 끝)이 손 높이로 올라오는 각
 } as const;
+/** 레인별 스컬 색상 로테이션 — 팀 컬러 순(orange/blue/green/amber/purple/pink), index % N 배정 */
+const BOAT_URLS = [
+  '/race/parts/scull-orange.glb',
+  '/race/parts/scull-blue.glb',
+  '/race/parts/scull-green.glb',
+  '/race/parts/scull-amber.glb',
+  '/race/parts/scull-purple.glb',
+  '/race/parts/scull-pink.glb',
+] as const;
 /** 레인별 캐릭터 로테이션 — public/race/parts/ 정준 처리본(index % N 배정) */
 const CHAR_URLS = [
   '/race/parts/blacl-man.glb',
@@ -237,6 +246,7 @@ const CHAR_URLS = [
     좌우는 부호 미러로 정확히 대칭. 손-그립 정합은 월드 좌표 프로브로 실측(오차 4cm 이내). */
 const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
   ['L_Thigh', 'z', 1.35], ['R_Thigh', 'z', 1.35],
+  ['L_Thigh', 'x', -0.3], ['R_Thigh', 'x', 0.3], // 무릎 모음(내전) — 좁은 스컬 헐 밖 관통 방지
   ['L_Calf', 'z', -1.05], ['R_Calf', 'z', -1.05],
   ['Waist', 'z', -0.25],
   ['NeckTwist01', 'z', 0.08], // 시선 전방(상체 전경 보상)
@@ -338,20 +348,23 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     // ── 3파트 GLB(Draco) — 1회 로드 후 레인별 조립(보트/오어=clone, 캐릭터=SkeletonUtils.clone) ──
     const draco = new DRACOLoader().setDecoderPath('/draco/');
     const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
-    let boatTpl: THREE.Group | null = null; // 정규화 래퍼 포함(하단 중앙 원점)
+    // 보트 템플릿 — 색상별 정규화 래퍼(하단 중앙 원점), 레인 index % N 배정
+    const boatTpls: Array<THREE.Group | null> = BOAT_URLS.map(() => null);
     const charTpls: Array<{ scene: THREE.Group; offset: THREE.Vector3 } | null> = CHAR_URLS.map(() => null);
     let oarTpl: THREE.Group | null = null;
     let oarOffset = new THREE.Vector3();
-    gltfLoader.load('/race/parts/scull-blue.glb', (g) => {
-      const fix = new THREE.Group();
-      g.scene.scale.setScalar(ASM.boatScale);
-      fix.rotation.y = ASM.boatYawFix;
-      fix.add(g.scene);
-      const bb = new THREE.Box3().setFromObject(fix, true);
-      const c = bb.getCenter(new THREE.Vector3());
-      fix.position.set(-c.x, -bb.min.y, -c.z);
-      boatTpl = fix;
-    }, undefined, (e) => console.warn('[RaceStage3D] scull-blue.glb 로드 실패', e));
+    BOAT_URLS.forEach((url, bi) => {
+      gltfLoader.load(url, (g) => {
+        const fix = new THREE.Group();
+        g.scene.scale.setScalar(ASM.boatScale);
+        fix.rotation.y = ASM.boatYawFix;
+        fix.add(g.scene);
+        const bb = new THREE.Box3().setFromObject(fix, true);
+        const c = bb.getCenter(new THREE.Vector3());
+        fix.position.set(-c.x, -bb.min.y, -c.z);
+        boatTpls[bi] = fix;
+      }, undefined, (e) => console.warn(`[RaceStage3D] ${url} 로드 실패`, e));
+    });
     CHAR_URLS.forEach((url, ci) => {
       gltfLoader.load(url, (g) => {
         const bb = new THREE.Box3().setFromObject(g.scene);
@@ -606,6 +619,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           // 3파트 조립 경로 — 로드 전엔 스프라이트 없이 대기(칩/배지만), 로드 완료 프레임에 부착
           rig.char.visible = false;
           const charTpl = charTpls[index % CHAR_URLS.length];
+          const boatTpl = boatTpls[index % BOAT_URLS.length];
           if (!rig.model && boatTpl && charTpl && oarTpl) {
             const boatG = new THREE.Group();
             boatG.add(boatTpl.clone(true));
