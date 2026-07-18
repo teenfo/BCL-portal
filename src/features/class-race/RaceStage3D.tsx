@@ -241,7 +241,7 @@ const SEAT_POSE: ReadonlyArray<readonly [string, 'x' | 'y' | 'z', number]> = [
   ['L_Upperarm', 'x', -0.9], ['R_Upperarm', 'x', 0.9],
 ];
 /** 슬라이딩 시트 왕복폭(보트 로컬 X, ±) — 다리 드라이브 가시화의 핵심 */
-const SLIDE_AMP = 0.07;
+const SLIDE_AMP = 0.09;
 /** 드라이브 구간 비율(캐치→피니시) — 짧을수록 드라이브가 punchy, 리커버리 대비 대비감↑ */
 const DRIVE_FRAC = 0.3;
 /** 부스터 — 표시속도(rig.d 미분)가 느린 EMA 기준선 대비 급증하면 2s 연출(스트릭 연장·링 플래시·선수 들림).
@@ -738,17 +738,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const pull = Math.max(0, sAt(0.16)); // 팔꿈치 당김은 드라이브 후반에만
             // 로잉 시퀀스: 슬라이드+다리(선행) → 상체 스윙(레이백까지) → 팔꿈치 당김(마무리)
             slideX = -SLIDE_AMP * sLeg; // 캐치=앞(+X, 무릎 압축) ↔ 피니시=뒤
-            setT(b.thighL, 'z', -0.24 * sLeg);
-            setT(b.thighR, 'z', -0.24 * sLeg);
-            setT(b.calfL, 'z', 0.3 * sLeg);
-            setT(b.calfR, 'z', 0.3 * sLeg);
-            // 상체: 캐치 전경 ↔ 피니시 레이백 (rest −0.25 기준 ±0.45 — 다이나믹 스윙)
-            setT(b.waist, 'z', 0.45 * sBack);
-            setT(b.neck, 'z', -0.24 * sBack); // 시선 전방 유지(상체 보상)
-            setT(b.upperL, 'y', 0.2 * sArm);
-            setT(b.upperR, 'y', -0.2 * sArm);
-            setT(b.foreL, 'y', -(0.1 * sArm + 0.5 * pull));
-            setT(b.foreR, 'y', 0.1 * sArm + 0.5 * pull);
+            setT(b.thighL, 'z', -0.3 * sLeg);
+            setT(b.thighR, 'z', -0.3 * sLeg);
+            setT(b.calfL, 'z', 0.38 * sLeg);
+            setT(b.calfR, 'z', 0.38 * sLeg);
+            // 상체: 캐치 전경 ↔ 피니시 레이백 (rest −0.25 기준 ±0.55 — 다이나믹 스윙)
+            setT(b.waist, 'z', 0.55 * sBack);
+            setT(b.neck, 'z', -0.28 * sBack); // 시선 전방 유지(상체 보상)
+            setT(b.upperL, 'y', 0.28 * sArm);
+            setT(b.upperR, 'y', -0.28 * sArm);
+            setT(b.upperL, 'x', -0.12 * pull); // 드라이브 때 어깨로 끌어내리는 파워 감
+            setT(b.upperR, 'x', 0.12 * pull);
+            setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
+            setT(b.foreR, 'y', 0.12 * sArm + 0.65 * pull);
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
             const su = 1 - boardE;
@@ -787,9 +789,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
           b.charG.position.x += (bx - b.charG.position.x) * k;
           b.charG.position.y = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
-          // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브) + 부스터 선수 들림
-          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.055 * sAt(0.1) : 0) - 0.05 * boostE;
-          b.inner.position.y = -drivePulse * charH * 0.022 + boostE * charH * 0.012;
+          // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
+          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
+          b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
+          b.inner.position.x = drivePulse * charH * 0.028; // 스트로크당 가속 런지(제로평균 아님·소폭 — 순위 왜곡 없음)
           // ── 오어 = 손 추종 IK — 손과 노가 항상 동기(그립이 손 방향 정렬) ──
           //   피벗 yaw/pitch를 손 벡터로 해석: gripDir = Rx(φ)·Ry(θ)·(0,0,-1)
           //   좌현은 θ≈π로 자연 수렴(미러 특례 불필요). 리커버리엔 블레이드 리프트 가산
