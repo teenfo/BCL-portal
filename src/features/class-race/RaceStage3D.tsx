@@ -201,8 +201,9 @@ interface Rig {
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
-    /** 스트로크 누적 위상(0..1)·본별 현재 델타(지수 스무딩 상태) */
+    /** 스트로크 누적 위상(0..1)·피니시 진입 시각·본별 현재 델타(지수 스무딩 상태) */
     phase: number;
+    finAt: number;
     cur: Map<THREE.Object3D, { x: number; y: number; z: number }>;
   } | null;
 }
@@ -703,6 +704,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
               phase: (index * 0.37) % 1, // 레인별 위상 오프셋(제자리 합창 방지)
+              finAt: 0, // 피니시 진입 시각 — 하선 세리머니 진행도 기준
               cur: new Map<THREE.Object3D, { x: number; y: number; z: number }>(),
             };
             // 오어 피벗은 rest/스무딩 대상에서 제외 — 손 추종 IK가 직접 제어
@@ -743,6 +745,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
           if (stroke) b.phase = (b.phase + dtF / dur) % 1;
+          // 피니시 하선 타이밍 — 진입 시각 기록(레인별), 리셋 시 해제
+          if (pose === 'finish') {
+            if (!b.finAt) b.finAt = t;
+          } else if (b.finAt) b.finAt = 0;
           // 비대칭 스트로크: 드라이브 30%(캐치→피니시, 힘참) / 리커버리 70%(느긋한 복귀)
           //   s(-1=캐치 전경 ↔ +1=피니시 후경), 관절별 위상 지연(다리→허리→팔)
           const sAt = (lag: number) => {
@@ -770,9 +776,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           let slideX = 0; // 슬라이딩 시트 목표(보트 로컬 X 오프셋)
           if (pose === 'finish') {
-            // 세리머니 — 만세(팔 V자 위로) + 상체 뒤로 + 고개 들기
-            setT(b.waist, 'z', 0.4);
-            setT(b.neck, 'z', 0.18);
+            // 세리머니 — 하선(unE) 후 기립 + 앞보기 만세(팔 V자) + 환호 바운스
+            const unE = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
+            const su = unE * unE * (3 - 2 * unE); // smoothstep — 기립 전개
+            setT(b.thighL, 'z', STAND_DELTA.thigh * su);
+            setT(b.thighR, 'z', STAND_DELTA.thigh * su);
+            setT(b.calfL, 'z', STAND_DELTA.calf * su);
+            setT(b.calfR, 'z', STAND_DELTA.calf * su);
+            setT(b.waist, 'z', STAND_DELTA.waist * su + 0.15 * su);
+            setT(b.neck, 'z', STAND_DELTA.neck * su + 0.14 * su);
             setT(b.upperL, 'x', 1.5);
             setT(b.upperR, 'x', -1.5);
             setT(b.upperL, 'y', 0.42);
@@ -797,14 +809,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             setT(b.upperR, 'x', 0.12 * pull);
             setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
             setT(b.foreR, 'y', 0.12 * sArm + 0.65 * pull);
-            // 뒤돌아보기 — 실제 로잉처럼 주기적으로 진행 방향(어깨 너머) 확인. 레인별 위상·좌우 교대
+            // 뒤돌아보기 — 주기적으로 상체를 크게 틀어 진행 방향을 완전히 확인(얼굴이 카메라 쪽으로).
+            //   레인별 위상·좌우 교대. 목 1.25 + 허리 0.55 ≈ 103°
             const gT = t / 1000 + index * 3.1;
             const gIn = gT % 7.5;
-            const glanceE = gIn < 1.5 ? Math.sin(Math.PI * (gIn / 1.5)) : 0;
+            const glanceE = gIn < 1.8 ? Math.sin(Math.PI * (gIn / 1.8)) : 0;
             if (glanceE > 0.001) {
               const gSide = Math.floor(gT / 7.5) % 2 === 0 ? 1 : -1;
-              setT(b.neck, 'y', 0.95 * glanceE * gSide);
-              setT(b.waist, 'y', 0.2 * glanceE * gSide);
+              setT(b.neck, 'y', 1.25 * glanceE * gSide);
+              setT(b.waist, 'y', 0.55 * glanceE * gSide);
             }
           } else {
             // 대기/승선 — 기립(역델타 × 미승선분) + 미세 호흡(상체·목, 레인별 위상 분산)
@@ -839,13 +852,16 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               o.rotation[ax] = rest[ax] + c[ax];
             }
           }
-          // 캐릭터 그룹 배치 — 승선 보간(기립 위치 → 시트, 포물선 점프 아크) + 슬라이딩 시트
+          // 캐릭터 그룹 배치 — 승선(boardE 0→1)·하선(unE 1→0 역재생) 보간 + 포물선 점프 아크
+          const unRaw = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
+          const unE = unRaw * unRaw * (3 - 2 * unRaw);
+          const seatE = boardE * (1 - unE); // 0=선미 뒤 기립 ↔ 1=착석
           const seatX = ASM.charPos[0] + slideX;
-          const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * boardE;
+          const bx = BOARD_BACK_X + (seatX - BOARD_BACK_X) * seatE;
           b.charG.position.x += (bx - b.charG.position.x) * k;
-          b.charG.position.y = ASM.charPos[1] * boardE + Math.sin(Math.PI * boardE) * 0.26;
-          // 승선 회전 — 기립(선수 쪽 바라봄, 0) → 착석(후향, π). 점프 아크 중 자연 회전
-          b.charG.rotation.y = Math.PI * boardE;
+          b.charG.position.y = ASM.charPos[1] * seatE + Math.sin(Math.PI * seatE) * 0.26;
+          // 승선/하선 회전 — 기립(선수 쪽 바라봄, 0) ↔ 착석(후향, π). 점프 아크 중 자연 회전
+          b.charG.rotation.y = Math.PI * seatE;
           // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
           b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
           b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
@@ -854,7 +870,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           //   피벗 yaw/pitch를 손 벡터로 해석: gripDir = Rx(φ)·Ry(θ)·(0,0,-1)
           //   좌현은 θ≈π로 자연 수렴(미러 특례 불필요). 리커버리엔 블레이드 리프트 가산
           b.inner.updateWorldMatrix(true, true);
-          const parked = boardE < 0.9; // 승선 완료 전 — 오어는 오어락 거치 자세 고정(손 추종 해제)
+          const parked = seatE < 0.9; // 승선 완료 전/하선 후 — 오어는 오어락 거치 자세 고정(손 추종 해제)
           const followOar = (pivot: THREE.Group, hand: THREE.Object3D | null, mirror: boolean) => {
             if (!hand || !pivot.parent) return;
             hand.getWorldPosition(IK_V);
@@ -933,8 +949,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         }
         const chipS = Math.max(0.72, scl) * charH;
         rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
-        // 3D 모델은 뱃머리가 원점 아래로 나옴 — 칩을 그 아래로
-        rig.chip.position.y = rig.model ? -chipS * 0.38 : -chipS * 0.16;
+        // 캐릭터 머리 위(등수 배지 1.12보다 아래 — 배지와 겹침 방지)
+        rig.chip.position.y = rig.model ? charH * 0.88 : chipS * 0.7;
 
         // 도착 등수 배지 — 머리 위, 팝인(오버슈트) 애니메이션. 리셋 시 소멸
         const placeNo = order.indexOf(meta.serial) + 1;
