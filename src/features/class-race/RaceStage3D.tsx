@@ -1476,12 +1476,12 @@ export function RaceStage3D({
             const vx = px + i * (halfWpx + gapPx);
             renderer.setViewport(vx, vy, halfWpx, panelH);
             renderer.setScissor(vx, vy, halfWpx, panelH);
-            // 전면 풀샷 프레이밍 — 세로 창=신장 0.85배(전신 꽉 참), 가로 창은 패널 비율
+            // 전면 풀샷 프레이밍 — 보트+오어 포함(오어 스윙 폭 감안해 창 소폭 확대), 가로 창은 패널 비율
             const charHr = Math.min(0.29 * H, 258) * r.baseScl;
-            const worldHFull = charHr * 0.85;
+            const worldHFull = charHr * 1.15;
             const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
             const worldW = worldHFull * (halfWpx / panelHFull);
-            const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.32, 0);
+            const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.38, 0);
             const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
             duelCam.position.set(
               target.x - bowDir.x * D,
@@ -1495,9 +1495,9 @@ export function RaceStage3D({
             duelCam.top = worldH / 2;
             duelCam.bottom = -worldH / 2;
             duelCam.updateProjectionMatrix();
-            // 캐릭터만 레이어 1에 임시 등록(3파트 모델은 charG, 폴백은 스프라이트) 후 렌더.
-            //   탑뷰용 조립체 피치를 PiP 동안만 0으로 — 캐릭터가 직립 전면으로 보임(메인 무영향)
-            const subject: THREE.Object3D = r.parts ? r.parts.charG : r.char;
+            // 해당 레인 조립체(보트+캐릭터+오어)만 레이어 1에 임시 등록 후 렌더(옆 레인 제외).
+            //   탑뷰용 조립체 피치를 PiP 동안만 0으로 — 직립 전면으로 보임(메인 무영향)
+            const subject: THREE.Object3D = r.parts ? r.parts.inner : r.char;
             const prevPitch = r.parts ? r.parts.inner.rotation.x : 0;
             if (r.parts) r.parts.inner.rotation.x = 0;
             subject.traverse((o) => o.layers.enable(1));
