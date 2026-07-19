@@ -38,8 +38,10 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
     if (!enabled) return;
     const samples = samplesRef.current;
 
+    // ?glow=1 — 페이스 티어 오로라 검수 모드: 레인별 고정 페이스(없음/파랑/초록/노랑/빨강×2)
+    const glowDemo = new URLSearchParams(window.location.search).has('glow');
     // 레인별 스플릿(빠른 데모 페이스) — 선두 경쟁 연출
-    const splits = NAMES.map((_, i) => 40 + i * 2.4);
+    const splits = glowDemo ? [110, 103, 97, 92, 87, 84] : NAMES.map((_, i) => 40 + i * 2.4);
     const dist = NAMES.map(() => 0);
     const spurtUntil = NAMES.map(() => 0); // 랜덤 스퍼트(급가속) — 부스터 연출 확인용
     let phase: 'lobby' | 'countdown' | 'racing' | 'finished' = 'lobby';
@@ -65,9 +67,10 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
         let allDone = true;
         dist.forEach((d, i) => {
           if (d < DEMO_TARGET_M) {
-            if (spurtUntil[i] <= now && d > 30 && Math.random() < 0.012) spurtUntil[i] = now + 2500;
+            if (!glowDemo && spurtUntil[i] <= now && d > 30 && Math.random() < 0.012)
+              spurtUntil[i] = now + 2500;
             const spurt = spurtUntil[i] > now ? 1.55 : 1;
-            const jitter = 1 + (Math.random() * 2 - 1) * 0.07;
+            const jitter = glowDemo ? 1 : 1 + (Math.random() * 2 - 1) * 0.07;
             dist[i] = Math.min(DEMO_TARGET_M, d + (500 / splits[i]) * spurt * jitter * dt);
           }
           if (dist[i] < DEMO_TARGET_M) allDone = false;

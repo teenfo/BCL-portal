@@ -162,6 +162,9 @@ interface Rig {
   /** 칩에 그려진 이름 — member_name 지연 병합(RPC/broadcast) 시 재생성 판별 */
   chipName: string;
   glow: THREE.Mesh;
+  /** 페이스 티어 오로라(캐릭터+보트 글로우) */
+  aura: THREE.Mesh;
+  auraMat: THREE.MeshBasicMaterial;
   streak: THREE.Mesh;
   streakMat: THREE.MeshBasicMaterial;
   ring: THREE.Mesh;
@@ -330,6 +333,13 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     const charTexCache = new Map<string, { tex: THREE.Texture; aspect: number }>();
     const glowColor = cssColor('--bcl-race-glow', '#35d6ff');
     const glowTex = makeRadialTexture('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
+    // 페이스 티어 오로라 — 500m 페이스(초): ≤105 파랑 → ≤100 초록 → ≤95 노랑 → <90 빨강
+    const PACE_TIERS: ReadonlyArray<{ max: number; color: THREE.Color }> = [
+      { max: 90, color: new THREE.Color(cssColor('--bcl-danger', '#ff4d4f')) },
+      { max: 95, color: new THREE.Color(cssColor('--bcl-warning', '#f5a623')) },
+      { max: 100, color: new THREE.Color(cssColor('--bcl-success', '#34c759')) },
+      { max: 105.5, color: new THREE.Color(cssColor('--bcl-info', '#4da3ff')) },
+    ];
     const ringTex = makeRadialTexture('rgba(255,255,255,0)', 'rgba(255,255,255,0)');
     {
       // 링: 도넛형 물결(중심 투명 → 링 밝음 → 바깥 투명)
@@ -453,6 +463,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       const glow = new THREE.Mesh(centerPlane, glowMat);
       glow.renderOrder = 402;
 
+      // 페이스 오로라 — 캐릭터+보트를 감싸는 티어 색 글로우(페이스 임계 돌파 시)
+      const auraMat = new THREE.MeshBasicMaterial({
+        map: glowTex,
+        color: new THREE.Color(cssColor('--bcl-info', '#4da3ff')),
+        transparent: true,
+        depthWrite: false,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+        opacity: 0,
+      });
+      const aura = new THREE.Mesh(centerPlane, auraMat);
+      aura.renderOrder = 401;
+
       const streakMat = new THREE.MeshBasicMaterial({
         map: streakTex,
         color: new THREE.Color(teamColor),
@@ -497,7 +520,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       const place = new THREE.Mesh(centerPlane, placeMat);
       place.renderOrder = 501;
 
-      group.add(glow, ring, streak, char, chip, place);
+      group.add(glow, aura, ring, streak, char, chip, place);
       scene.add(group);
       return {
         serial: meta.serial,
@@ -515,6 +538,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         model: null,
         parts: null,
         glow,
+        aura,
+        auraMat,
         streak,
         streakMat,
         ring,
@@ -974,6 +999,28 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         );
         rig.streak.position.y = charH * (0.55 + boostE * 0.25);
         rig.streakMat.opacity = moving ? 0.08 + drivePulse * 0.22 + boostE * 0.3 : 0;
+
+        // 페이스 티어 오로라 — 500m 페이스 임계 돌파 시 캐릭터+보트 글로우(파랑→초록→노랑→빨강)
+        const paceS = rig.velF > 0.2 ? 500 / rig.velF : Infinity;
+        let auraColor: THREE.Color | null = null;
+        if (moving) {
+          for (const tier of PACE_TIERS) {
+            if (paceS < tier.max) {
+              auraColor = tier.color;
+              break;
+            }
+          }
+        }
+        rig.aura.scale.set(
+          charH * (1.5 + 0.12 * Math.sin(t / 340 + index)),
+          charH * (1.1 + 0.1 * Math.sin(t / 270 + index * 2.3)),
+          1,
+        );
+        rig.aura.position.y = charH * 0.42;
+        const auraK = 1 - Math.pow(0.9, dtF / 16.7);
+        rig.auraMat.opacity +=
+          ((auraColor ? 0.55 + 0.16 * Math.sin(t / 300 + index) : 0) - rig.auraMat.opacity) * auraK;
+        if (auraColor) rig.auraMat.color.lerp(auraColor, auraK);
 
         // 리더 글로우(흰-시안 아우라)
         const isLead = meta.serial === leadSerial && status !== 'lobby' && status !== 'countdown' && leadD > 0;
