@@ -244,6 +244,32 @@
 .raceRoot[data-race-theme='water'] .stage {
   background: url('/race/pool-bg.jpg') 0 0 / 100% 100% no-repeat;
 }
+/* 가로 코스(?course=h) — 탑다운 아레나. HUD가 상단 수면·관중석을 덮는 것 허용 */
+.raceRoot[data-course='h'][data-race-theme='water'] .stage {
+  background-image: url('/race/pool-bg-h.jpg');
+}
+/* 가로 코스 HUD — 좌측 관중석 밴드 위 세로 스택(레인 행과 나란히) */
+.raceRoot[data-course='h'] .hudRow {
+  position: absolute;
+  left: 0;
+  top: 8vh;
+  bottom: 0;
+  width: 21vw;
+  grid-auto-flow: row;
+  grid-auto-columns: unset;
+  grid-auto-rows: 1fr;
+  align-content: stretch;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  background: var(--bcl-overlay);
+}
+.raceRoot[data-course='h'] .hudCard {
+  justify-content: center;
+  overflow: hidden;
+}
+.raceRoot[data-course='h'] .hudMain {
+  font-size: 32px;
+}
 .raceRoot[data-race-theme='water'] .stage::before,
 .raceRoot[data-race-theme='water'] .stageCrowd,
 .raceRoot[data-race-theme='water'] .crowd {

@@ -289,6 +289,15 @@ const STAND_DELTA = {
 const MODEL_PITCH = 0.3;
 /** 정면 −90°에서 +0.35rad 틀어 3/4 뷰 — 스컬 헐의 길이감·샤프함이 화면에 드러나는 각 */
 const MODEL_YAW = -Math.PI / 2 + 0.35;
+/** 가로 코스(?course=h) — 탑다운 배경(pool-bg-h): 좌→우 진행, 레인 세로 적층, 준-조감 시점 */
+const POOL_H = {
+  xStart: 25, // 출발선(x%) — 좌측 세로 HUD(관중석 밴드 ~21%) 우측
+  xFinish: 92, // 피니시(x%)
+  yTop: 16, // 첫 레인 앵커(y%) — 탑뷰는 앵커 중심 배치라 톱바(8vh) 아래부터 사용
+  yBottom: 89,
+  scale: 0.55, // 전 레인 균일(원근 없음)
+  pitch: Math.PI / 2, // 완전 탑뷰 — 정수리·데크가 보이는 조감
+} as const;
 
 export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -360,6 +369,11 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     }
     const streakTex = makeStreakTexture();
     const placeTexCache = new Map<number, THREE.CanvasTexture>();
+
+    // 가로 코스 모드(?course=h) — 페이지 수명 동안 불변(CSR 전용 컴포넌트)
+    const courseH = new URLSearchParams(window.location.search).get('course') === 'h';
+    const baseYaw = courseH ? 0 : MODEL_YAW; // 가로: 뱃머리 +X(화면 오른쪽) 측면 프로파일
+    const basePitch = courseH ? POOL_H.pitch : MODEL_PITCH;
 
     // ── 3파트 GLB(Draco) — 1회 로드 후 레인별 조립(보트/오어=clone, 캐릭터=SkeletonUtils.clone) ──
     const draco = new DRACOLoader().setDecoderPath('/draco/');
@@ -763,10 +777,10 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             const oarL = mountOar(true);
             const inner = new THREE.Group();
             const yawG = new THREE.Group();
-            yawG.rotation.y = MODEL_YAW;
+            yawG.rotation.y = baseYaw;
             yawG.add(boatG);
             inner.add(yawG);
-            inner.rotation.x = MODEL_PITCH;
+            inner.rotation.x = basePitch;
             const find = (n: string) => char.getObjectByName(n) ?? null;
             const parts = {
               inner,
@@ -806,16 +820,27 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         }
 
         const prog = Math.min(1, rig.d / dynamicMax);
-        const { xt, xb } = poolLaneX(index, n);
-        const xPct = xt + (xb - xt) * prog;
-        const yPct = POOL.yTop + (POOL.yBottom - POOL.yTop) * prog;
-        const scl = POOL.sTop + (POOL.sBottom - POOL.sTop) * prog;
-        const x = (xPct / 100) * W;
-        const yPx = (yPct / 100) * H;
+        let x: number;
+        let yPx: number;
+        let scl: number;
+        if (courseH) {
+          // 가로 코스 — 좌(출발)→우(피니시), 레인 세로 적층, 균일 스케일(원근 없음)
+          const spacing = n > 1 ? (POOL_H.yBottom - POOL_H.yTop) / (n - 1) : 0;
+          x = ((POOL_H.xStart + (POOL_H.xFinish - POOL_H.xStart) * prog) / 100) * W;
+          yPx = ((POOL_H.yTop + spacing * index) / 100) * H;
+          scl = POOL_H.scale;
+        } else {
+          const { xt, xb } = poolLaneX(index, n);
+          const xPct = xt + (xb - xt) * prog;
+          const yPct = POOL.yTop + (POOL.yBottom - POOL.yTop) * prog;
+          scl = POOL.sTop + (POOL.sBottom - POOL.sTop) * prog;
+          x = (xPct / 100) * W;
+          yPx = (yPct / 100) * H;
+        }
         const bob = Math.sin(t / 2800 * TAU + index * 1.3) * 5 * scl;
 
         rig.group.position.set(x, -yPx + bob, 0);
-        rig.group.renderOrder = Math.round(prog * 100);
+        rig.group.renderOrder = courseH ? index : Math.round(prog * 100);
 
         const charH = Math.min(0.29 * H, 258) * scl;
         let drivePulse = 0; // 드라이브 임팩트(0..1) — 모델 경로에서 산출, 이펙트 동기용
@@ -983,7 +1008,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           // 승선/하선 회전 — 기립(선수 쪽 바라봄, 0) ↔ 착석(후향, π)
           b.charG.rotation.y = Math.PI * seatE;
           // 선체 피치 서지(드라이브 반동) + 드라이브 침하(헤브)·전진 런지 + 부스터 선수 들림
-          b.inner.rotation.x = MODEL_PITCH + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
+          b.inner.rotation.x = basePitch + (stroke ? 0.085 * sAt(0.1) : 0) - 0.05 * boostE;
           b.inner.position.y = -drivePulse * charH * 0.032 + boostE * charH * 0.012;
           b.inner.position.x = drivePulse * charH * 0.028; // 스트로크당 가속 런지(제로평균 아님·소폭 — 순위 왜곡 없음)
           // ── 오어 = 손 추종 IK — 손과 노가 항상 동기(그립이 손 방향 정렬) ──
@@ -1105,8 +1130,15 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         }
         const chipS = Math.max(0.72, scl) * charH;
         rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
-        // 캐릭터 머리 위(등수 배지 1.12보다 아래 — 배지와 겹침 방지)
-        rig.chip.position.y = rig.model ? charH * 0.88 : chipS * 0.7;
+        if (courseH) {
+          // 탑뷰 — 네임택을 보트 뒤(선미 쪽, 왼쪽)에 따라붙는 태그로(레인 밴드 침범 방지)
+          rig.chip.position.x = -chipS * 1.5;
+          rig.chip.position.y = 0;
+        } else {
+          // 캐릭터 머리 위(등수 배지 1.12보다 아래 — 배지와 겹침 방지)
+          rig.chip.position.x = 0;
+          rig.chip.position.y = rig.model ? charH * 0.88 : chipS * 0.7;
+        }
 
         // 도착 등수 배지 — 머리 위, 팝인(오버슈트) 애니메이션. 리셋 시 소멸
         const placeNo = order.indexOf(meta.serial) + 1;

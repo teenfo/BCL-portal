@@ -113,8 +113,12 @@ export function RaceView({ eventId }: { eventId: string | null }) {
     return () => clearInterval(t);
   }, [target, lanes, rt.lobbyStatus, rt.samplesRef]);
 
+  // 가로 코스 비교 모드(?course=h) — 탑다운 배경 + 좌→우 진행(스테이지가 동일 파라미터 해석)
+  const courseH =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('course') === 'h';
+
   return (
-    <div className={styles.raceRoot} data-race-theme={theme}>
+    <div className={styles.raceRoot} data-race-theme={theme} data-course={courseH ? 'h' : 'v'}>
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
 
       {/* 톱바 — 스타디움 라이트 + 중앙 타이틀 + 경과 타이머 */}
@@ -163,11 +167,14 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           defaultDevice={defaultDeviceForTheme(theme)}
           finishOrder={finishOrder}
         />
-        <div className={styles.badgeRail}>
-          {lanes.map((l, i) => (
-            <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
-          ))}
-        </div>
+        {/* 배지 레일 — 가로 코스에선 숨김(순위·격차는 HUD 카드 담당, 레인 밴드 시야 확보) */}
+        {!courseH ? (
+          <div className={styles.badgeRail}>
+            {lanes.map((l, i) => (
+              <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/* 응원 관중 실루엣 */}
