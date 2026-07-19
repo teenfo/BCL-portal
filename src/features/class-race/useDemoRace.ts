@@ -40,8 +40,8 @@ export function useDemoRace(enabled: boolean): { rt: RaceRealtime; target: numbe
 
     // ?glow=1 — 페이스 티어 오로라 검수 모드: 레인별 고정 페이스(없음/파랑/초록/노랑/빨강×2)
     const glowDemo = new URLSearchParams(window.location.search).has('glow');
-    // 레인별 스플릿(빠른 데모 페이스) — 선두 경쟁 연출
-    const splits = glowDemo ? [110, 103, 97, 92, 87, 84] : NAMES.map((_, i) => 40 + i * 2.4);
+    // 레인별 스플릿(500m 초) — 현실적 페이스 분포(1:48~1:24): 무글로우~빨강 티어가 섞여 보이게
+    const splits = glowDemo ? [110, 103, 97, 92, 87, 84] : [108, 98, 93, 88, 84, 102];
     const dist = NAMES.map(() => 0);
     const spurtUntil = NAMES.map(() => 0); // 랜덤 스퍼트(급가속) — 부스터 연출 확인용
     let phase: 'lobby' | 'countdown' | 'racing' | 'finished' = 'lobby';
