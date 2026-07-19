@@ -99,10 +99,10 @@ export function rowerCharSrc(index: number, pose: RowerPose = 'race'): string {
  * 상단(수면 시작) 출발 → 하단(데크) 피니시. 원근: 하강할수록 확대.
  */
 export const POOL = {
-  yTop: 58, // 수면 상단(출발선)
-  yBottom: 88, // 데크 직전(피니시)
-  sTop: 0.5,
-  sBottom: 1.05,
+  yTop: 55, // 수면 상단(출발선) — 코스 연장: 더 멀리서 출발
+  yBottom: 90, // 데크 직전(피니시)
+  sTop: 0.42, // 원근 축소 강화 — 출발선이 더 멀어 보이게(코스 길이감)
+  sBottom: 1.08,
 } as const;
 
 /**
