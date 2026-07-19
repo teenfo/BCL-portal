@@ -207,6 +207,8 @@ interface Rig {
     /** 스트로크 누적 위상(0..1)·피니시 진입 시각·본별 현재 델타(지수 스무딩 상태) */
     phase: number;
     finAt: number;
+    /** 페이스 오로라 림 셸 재질(캐릭터+헐 실루엣 글로우) */
+    rimMat: THREE.MeshBasicMaterial;
     cur: Map<THREE.Object3D, { x: number; y: number; z: number }>;
   } | null;
 }
@@ -362,6 +364,21 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     // ── 3파트 GLB(Draco) — 1회 로드 후 레인별 조립(보트/오어=clone, 캐릭터=SkeletonUtils.clone) ──
     const draco = new DRACOLoader().setDecoderPath('/draco/');
     const gltfLoader = new GLTFLoader().setDRACOLoader(draco);
+    // Tripo export가 불필요한 alphaMode BLEND(depth 미기록)를 쓰는 경우가 있어 불투명 강제
+    //   — 림 셸 내부 가림(depth test)과 투명 정렬 아티팩트 방지
+    const forceOpaque = (root: THREE.Object3D) => {
+      root.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (!mesh.isMesh) return;
+        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        for (const m of mats) {
+          if (m && m.transparent) {
+            m.transparent = false;
+            m.depthWrite = true;
+          }
+        }
+      });
+    };
     // 보트 템플릿 — 색상별 정규화 래퍼(하단 중앙 원점), 레인 index % N 배정
     const boatTpls: Array<THREE.Group | null> = BOAT_URLS.map(() => null);
     const charTpls: Array<{ scene: THREE.Group; offset: THREE.Vector3 } | null> = CHAR_URLS.map(() => null);
@@ -369,6 +386,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     let oarOffset = new THREE.Vector3();
     BOAT_URLS.forEach((url, bi) => {
       gltfLoader.load(url, (g) => {
+        forceOpaque(g.scene);
         const fix = new THREE.Group();
         g.scene.scale.setScalar(ASM.boatScale);
         fix.rotation.y = ASM.boatYawFix;
@@ -381,6 +399,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     });
     CHAR_URLS.forEach((url, ci) => {
       gltfLoader.load(url, (g) => {
+        forceOpaque(g.scene);
         const bb = new THREE.Box3().setFromObject(g.scene);
         const c = bb.getCenter(new THREE.Vector3());
         charTpls[ci] = { scene: g.scene, offset: new THREE.Vector3(-c.x, -bb.min.y, -c.z) }; // 발바닥 원점
@@ -566,7 +585,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       const t = performance.now();
       // 프레임 간격(ms) — 모든 보간·위상 누적의 시간 기준. 탭 복귀 등 장공백만 1s 캡
       //   (저프레임 기기에서도 스트로크율이 SPM 실측과 어긋나지 않도록 프레임률 독립 유지)
-      const dtF = Math.min(1000, t - lastLoopT);
+      //   dtGap: 캡 없는 실제 간격 — 속도 미분(페이스 오로라/부스터)은 실시간 기준이어야 과대 산정이 없다
+      const dtGap = Math.max(1, t - lastLoopT);
+      const dtF = Math.min(1000, dtGap);
       lastLoopT = t;
       // 프레임당 고정 계수 LERP는 저프레임에서 수렴 지연 → 60fps 기준 계수를 dt로 환산
       const aX = 1 - Math.pow(1 - LERP_X, dtF / 16.7);
@@ -625,7 +646,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
 
         // 부스터 감지 — 평활 속도(velF)가 기준선(velS, 느린 EMA) 대비 급증하면 발동
-        const vel = dtF > 0 ? ((rig.d - dPrev) * 1000) / dtF : 0;
+        const vel = ((rig.d - dPrev) * 1000) / dtGap;
         rig.velF += (vel - rig.velF) * (1 - Math.pow(0.96, dtF / 16.7));
         rig.velS += (rig.velF - rig.velS) * (1 - Math.pow(0.995, dtF / 16.7));
         if (
@@ -664,6 +685,32 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             for (const [bn, ax, rad] of SEAT_POSE) {
               const b = char.getObjectByName(bn);
               if (b) b.rotation[ax] += rad;
+            }
+            // 페이스 오로라 림 셸 — 캐릭터+헐 메시를 법선 방향으로 부풀린 백사이드 클론(실루엣을 감싸는 글로우).
+            //   SkinnedMesh 클론은 스켈레톤을 공유하므로 스트로크 애니메이션을 그대로 따라간다
+            const rimMat = new THREE.MeshBasicMaterial({
+              color: new THREE.Color(cssColor('--bcl-info', '#4da3ff')),
+              transparent: true,
+              depthWrite: false,
+              side: THREE.BackSide,
+              blending: THREE.AdditiveBlending,
+              opacity: 0,
+            });
+            rimMat.onBeforeCompile = (shader) => {
+              shader.vertexShader = shader.vertexShader.replace(
+                '#include <begin_vertex>',
+                'vec3 transformed = vec3( position ) + normal * 0.05;',
+              );
+            };
+            const rimSrc: THREE.Mesh[] = [];
+            boatG.traverse((o) => {
+              if ((o as THREE.Mesh).isMesh) rimSrc.push(o as THREE.Mesh);
+            });
+            for (const m of rimSrc) {
+              const rim = m.clone();
+              rim.material = rimMat;
+              rim.renderOrder = 399;
+              m.parent?.add(rim);
             }
             // 오어 ×2 — 오어락 피벗(우현 +Z 기준, 좌현은 y=π 미러)
             //   윙 리거(노 거치대)는 절차 생성 — 헐 모델 교체와 무관하게 피벗 위치와 항상 정합
@@ -733,6 +780,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               rest: new Map<THREE.Object3D, THREE.Euler>(),
               phase: (index * 0.37) % 1, // 레인별 위상 오프셋(제자리 합창 방지)
               finAt: 0, // 피니시 진입 시각 — 하선 세리머니 진행도 기준
+              rimMat,
               cur: new Map<THREE.Object3D, { x: number; y: number; z: number }>(),
             };
             // 오어 피벗은 rest/스무딩 대상에서 제외 — 손 추종 IK가 직접 제어
@@ -1011,16 +1059,24 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             }
           }
         }
-        rig.aura.scale.set(
-          charH * (1.5 + 0.12 * Math.sin(t / 340 + index)),
-          charH * (1.1 + 0.1 * Math.sin(t / 270 + index * 2.3)),
-          1,
-        );
-        rig.aura.position.y = charH * 0.42;
         const auraK = 1 - Math.pow(0.9, dtF / 16.7);
-        rig.auraMat.opacity +=
-          ((auraColor ? 0.55 + 0.16 * Math.sin(t / 300 + index) : 0) - rig.auraMat.opacity) * auraK;
-        if (auraColor) rig.auraMat.color.lerp(auraColor, auraK);
+        if (rig.parts) {
+          // 3파트 모델 — 실루엣 림 셸이 캐릭터·헐을 감싸는 글로우(스프라이트 오라 비활성)
+          rig.auraMat.opacity = 0;
+          rig.parts.rimMat.opacity +=
+            ((auraColor ? 0.8 + 0.2 * Math.sin(t / 300 + index) : 0) - rig.parts.rimMat.opacity) * auraK;
+          if (auraColor) rig.parts.rimMat.color.lerp(auraColor, auraK);
+        } else {
+          rig.aura.scale.set(
+            charH * (1.5 + 0.12 * Math.sin(t / 340 + index)),
+            charH * (1.1 + 0.1 * Math.sin(t / 270 + index * 2.3)),
+            1,
+          );
+          rig.aura.position.y = charH * 0.42;
+          rig.auraMat.opacity +=
+            ((auraColor ? 0.55 + 0.16 * Math.sin(t / 300 + index) : 0) - rig.auraMat.opacity) * auraK;
+          if (auraColor) rig.auraMat.color.lerp(auraColor, auraK);
+        }
 
         // 리더 글로우(흰-시안 아우라)
         const isLead = meta.serial === leadSerial && status !== 'lobby' && status !== 'countdown' && leadD > 0;
