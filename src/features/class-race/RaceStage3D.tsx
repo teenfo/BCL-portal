@@ -72,6 +72,153 @@ function makeChipTexture(name: string, teamColor: string): THREE.CanvasTexture {
   return t;
 }
 
+/**
+ * 가로 코스 전용 — 보트 선수(오른쪽 끝)에 꼬리표처럼 다는 문장(紋章) 배너.
+ * 제비꼬리 페넌트 + 레인 메달리온 + 레인별 문양 변주(사선줄/셰브런/원판/이중띠/물결/마름모).
+ */
+function makeCrestTexture(name: string, teamColor: string, lane: number): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 640;
+  c.height = 160;
+  const g = c.getContext('2d')!;
+  const H = c.height;
+  const mid = H / 2;
+  const attachX = 18; // 왼쪽 부착 꼭짓점(보트 선수 쪽)
+  const shoulderX = 84; // 부착 꼭짓점 → 본체 어깨
+  const tailX = 622; // 꼬리 끝
+  const notchX = 548; // 제비꼬리 안쪽 파임
+  const topY = 24;
+  const botY = H - 24;
+
+  const banner = () => {
+    g.beginPath();
+    g.moveTo(attachX, mid);
+    g.lineTo(shoulderX, topY);
+    g.lineTo(tailX, topY);
+    g.lineTo(notchX, mid);
+    g.lineTo(tailX, botY);
+    g.lineTo(shoulderX, botY);
+    g.closePath();
+  };
+
+  // 바탕(짙은 필드) + 클리핑 후 레인별 문양
+  banner();
+  g.fillStyle = 'rgba(10,14,22,0.88)';
+  g.fill();
+  g.save();
+  banner();
+  g.clip();
+  g.strokeStyle = teamColor;
+  g.fillStyle = teamColor;
+  g.globalAlpha = 0.34;
+  const motif = (lane - 1 + 6) % 6;
+  if (motif === 0) {
+    // 사선 줄무늬(벤드)
+    g.lineWidth = 16;
+    for (let x = -H; x < c.width + H; x += 64) {
+      g.beginPath();
+      g.moveTo(x, H + 8);
+      g.lineTo(x + H, -8);
+      g.stroke();
+    }
+  } else if (motif === 1) {
+    // 셰브런(꺾쇠 연속)
+    g.lineWidth = 14;
+    for (let x = 40; x < c.width + 60; x += 76) {
+      g.beginPath();
+      g.moveTo(x - 30, topY - 4);
+      g.lineTo(x + 12, mid);
+      g.lineTo(x - 30, botY + 4);
+      g.stroke();
+    }
+  } else if (motif === 2) {
+    // 원판(라운델) 격자
+    for (let x = 60; x < c.width; x += 92)
+      for (const y of [mid - 32, mid + 32]) {
+        g.beginPath();
+        g.arc(x + (y > mid ? 46 : 0), y, 15, 0, Math.PI * 2);
+        g.fill();
+      }
+  } else if (motif === 3) {
+    // 상·하 이중 띠(페스)
+    g.fillRect(0, topY + 8, c.width, 14);
+    g.fillRect(0, botY - 22, c.width, 14);
+  } else if (motif === 4) {
+    // 물결(바리 웨이비)
+    g.lineWidth = 10;
+    for (const y of [mid - 30, mid, mid + 30]) {
+      g.beginPath();
+      for (let x = 0; x <= c.width; x += 8)
+        g.lineTo(x, y + Math.sin(x / 26) * 9);
+      g.stroke();
+    }
+  } else {
+    // 마름모(로젠지) 연속
+    for (let x = 60; x < c.width + 40; x += 84) {
+      g.beginPath();
+      g.moveTo(x, mid - 34);
+      g.lineTo(x + 26, mid);
+      g.lineTo(x, mid + 34);
+      g.lineTo(x - 26, mid);
+      g.closePath();
+      g.fill();
+    }
+  }
+  g.restore();
+
+  // 테두리(팀 컬러) + 안쪽 흰 헤어라인
+  banner();
+  g.globalAlpha = 1;
+  g.strokeStyle = teamColor;
+  g.lineWidth = 7;
+  g.stroke();
+  g.save();
+  banner();
+  g.clip();
+  banner();
+  g.strokeStyle = 'rgba(255,255,255,0.35)';
+  g.lineWidth = 18;
+  g.setLineDash([]);
+  g.globalAlpha = 0.5;
+  g.stroke();
+  g.restore();
+  g.globalAlpha = 1;
+
+  // 레인 메달리온(왼쪽 원형 인장)
+  const medX = 128;
+  g.beginPath();
+  g.arc(medX, mid, 44, 0, Math.PI * 2);
+  g.fillStyle = teamColor;
+  g.fill();
+  g.beginPath();
+  g.arc(medX, mid, 44, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(255,255,255,0.9)';
+  g.lineWidth = 5;
+  g.stroke();
+  g.beginPath();
+  g.arc(medX, mid, 33, 0, Math.PI * 2);
+  g.strokeStyle = 'rgba(0,0,0,0.35)';
+  g.lineWidth = 3;
+  g.stroke();
+  g.fillStyle = 'rgba(12,14,18,0.92)';
+  g.font = '800 46px Lexend, Pretendard, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(String(lane), medX, mid + 2);
+
+  // 이름 — 메달리온과 제비꼬리 사이, 가독 우선 그림자
+  g.fillStyle = '#ffffff';
+  g.font = '700 52px Lexend, Pretendard, sans-serif';
+  g.shadowColor = 'rgba(0,0,0,0.85)';
+  g.shadowBlur = 8;
+  g.fillText(name, (medX + 60 + notchX) / 2, mid + 2, notchX - medX - 100);
+  g.shadowBlur = 0;
+
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /** 등수 배지("N위") — 1·2·3위 메달 톤, 이후 중립. 색은 토큰에서 해석 */
 function makePlaceTexture(place: number): THREE.CanvasTexture {
   const medal =
@@ -534,7 +681,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       ring.renderOrder = 400;
 
       const chipName = meta.member_name ?? `레인 ${meta.lane || index + 1}`;
-      const chipTex = makeChipTexture(chipName, teamColor);
+      const chipTex = courseH
+        ? makeCrestTexture(chipName, teamColor, meta.lane || index + 1)
+        : makeChipTexture(chipName, teamColor);
       const chipMat = new THREE.MeshBasicMaterial({
         map: chipTex,
         transparent: true,
@@ -1125,16 +1274,19 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           rig.chipName = wantName;
           const mat = rig.chip.material as THREE.MeshBasicMaterial;
           mat.map?.dispose();
-          mat.map = makeChipTexture(wantName, teamColorOf(index));
+          mat.map = courseH
+            ? makeCrestTexture(wantName, teamColorOf(index), meta.lane || index + 1)
+            : makeChipTexture(wantName, teamColorOf(index));
           mat.needsUpdate = true;
         }
         const chipS = Math.max(0.72, scl) * charH;
-        rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
         if (courseH) {
-          // 탑뷰 — 네임택을 보트 뒤(선미 쪽, 왼쪽)에 따라붙는 태그로(레인 밴드 침범 방지)
-          rig.chip.position.x = -chipS * 1.5;
+          // 문장(紋章) 배너 — 보트 선수(오른쪽 끝)에 꼬리표처럼 부착. 부착 꼭짓점이 선수 부근
+          rig.chip.scale.set(chipS * 1.9, chipS * 0.475, 1);
+          rig.chip.position.x = chipS * 1.82;
           rig.chip.position.y = 0;
         } else {
+          rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
           // 캐릭터 머리 위(등수 배지 1.12보다 아래 — 배지와 겹침 방지)
           rig.chip.position.x = 0;
           rig.chip.position.y = rig.model ? charH * 0.88 : chipS * 0.7;
