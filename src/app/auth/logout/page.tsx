@@ -1,79 +1,40 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+// /auth/logout — 진입 즉시 로그아웃 (docs/01 §2.8)
+// AuthContext.signOut이 로컬 상태 선초기화 + best-effort 네트워크(5s 타임아웃)를 담당 (F-10).
+// 성공/실패 무관하게 반드시 /auth/login 으로 이탈 — 무한 대기 금지.
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/features/auth';
+import { Card, Skeleton } from '@/components/ui';
+import styles from '../auth.module.css';
 
-/**
- * /auth/logout — 로그아웃 라우트
- * 
- * Sitemap에 명시된 공통 로그아웃 경로.
- * 로그아웃 처리 후 /auth/login으로 리다이렉트합니다.
- */
 export default function LogoutPage() {
-    const { signOut, user, loading } = useAuth();
-    const router = useRouter();
-    const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const router = useRouter();
+  const { signOut } = useAuth();
+  const startedRef = useRef(false); // StrictMode 이중 실행 방지
 
-    useEffect(() => {
-        if (loading) return;
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
 
-        // 이미 로그아웃 상태면 로그인 페이지로
-        if (!user) {
-            router.replace('/auth/login');
-            return;
-        }
+    (async () => {
+      try {
+        await signOut();
+      } catch {
+        /* signOut 실패해도 login 이동 (F-10) */
+      } finally {
+        router.replace('/auth/login');
+      }
+    })();
+  }, [router, signOut]);
 
-        // 중복 실행 방지
-        if (isLoggingOut) return;
-
-        const performLogout = async () => {
-            setIsLoggingOut(true);
-            try {
-                await signOut();
-                router.replace('/auth/login');
-            } catch (err) {
-                console.error('[Logout] Error during sign out:', err);
-                // 에러가 나도 로그인 페이지로 이동
-                router.replace('/auth/login');
-            }
-        };
-
-        performLogout();
-    }, [user, loading, signOut, router, isLoggingOut]);
-
-    return (
-        <div style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--background, #0D0D0E)',
-            fontFamily: "'Lexend', sans-serif",
-        }}>
-            <div style={{ textAlign: 'center' }}>
-                <div style={{
-                    width: 48,
-                    height: 48,
-                    border: '3px solid rgba(255, 255, 255, 0.06)',
-                    borderTop: '3px solid var(--primary, #FF6B00)',
-                    borderRadius: '50%',
-                    animation: 'spin 1s linear infinite',
-                    margin: '0 auto 16px',
-                }} />
-                <p style={{
-                    color: 'rgba(255, 255, 255, 0.4)',
-                    fontSize: 14,
-                    fontWeight: 500,
-                }}>
-                    로그아웃 중...
-                </p>
-            </div>
-            <style>{`
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-            `}</style>
-        </div>
-    );
+  return (
+    <Card>
+      <div className={styles.stack} aria-busy="true">
+        <h1 className={styles.title}>로그아웃 중…</h1>
+        <Skeleton variant="rect" height="var(--bcl-control-h)" />
+      </div>
+    </Card>
+  );
 }

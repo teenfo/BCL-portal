@@ -1,0 +1,87 @@
+/* StatCard — docs/12 §4.12. 라벨 → 값(display·tabular-nums) → 보조 */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: var(--bcl-pad-card);
+  color: var(--bcl-text);
+}
+
+.label {
+  /* type-caption 13/18 · muted */
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+.value {
+  /* type-display 32/40 700 · tabular-nums */
+  margin: 0;
+  font-size: calc(32px * var(--bcl-font-scale));
+  line-height: calc(40 / 32);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bcl-space-1);
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.arrow {
+  font-size: calc(11px * var(--bcl-font-scale));
+}
+.up {
+  color: var(--bcl-success);
+}
+.down {
+  color: var(--bcl-danger);
+}
+.flat {
+  color: var(--bcl-text-muted);
+}
+.trendHint {
+  color: var(--bcl-text-muted);
+  font-weight: 400;
+  margin-left: var(--bcl-space-1);
+}
+
+/* progress 게이지 */
+.gauge {
+  margin-top: var(--bcl-space-1);
+  height: var(--bcl-space-2);
+  background: var(--bcl-surface-raised);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.gaugeFill {
+  height: 100%;
+  background: var(--bcl-accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.hint {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

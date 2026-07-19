@@ -1,0 +1,172 @@
+/* Select — docs/12 §4.7. Input과 동일 셸 + 우측 셰브론 */
+
+.root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+
+.label {
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+/* Input과 동일 셸 */
+.shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: var(--bcl-control-h);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 0 var(--bcl-space-3);
+  color: var(--bcl-text);
+  font-size: calc(15px * var(--bcl-font-scale));
+}
+.shell:focus-within,
+.trigger:focus-visible {
+  border-color: var(--bcl-accent-border);
+}
+.shell[aria-invalid='true'],
+.invalid {
+  border-color: var(--bcl-danger);
+}
+.shell:disabled,
+.trigger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* native */
+.nativeSelect {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: var(--bcl-text);
+  font-size: inherit;
+  padding-right: var(--bcl-space-5);
+}
+
+/* custom trigger */
+.trigger {
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+  text-align: left;
+}
+.triggerText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.placeholder {
+  color: var(--bcl-text-muted);
+}
+
+/* 셰브론 */
+.chevron {
+  flex: none;
+  color: var(--bcl-text-muted);
+  transition: transform 0.15s ease;
+  pointer-events: none;
+}
+.nativeSelect + .chevron {
+  position: absolute;
+  right: var(--bcl-space-3);
+}
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* custom 메뉴 — document.body 포털 + 뷰포트 fixed 플로팅(위치는 인라인 style).
+   모달(overlay z 1000) 위로 뜨도록 z 1100. 컨테이너 maxHeight 안에서 리스트 스크롤. */
+.menu {
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  box-shadow: var(--bcl-shadow-md);
+  padding: var(--bcl-space-1);
+  overflow: hidden;
+}
+
+.search {
+  flex: none;
+  width: 100%;
+  height: var(--bcl-control-h-sm);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-sm);
+  padding: 0 var(--bcl-space-2);
+  margin-bottom: var(--bcl-space-1);
+  font-size: calc(15px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+.search::placeholder {
+  color: var(--bcl-text-muted);
+}
+.search:focus {
+  border-color: var(--bcl-accent-border);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(var(--bcl-control-h-sm) * 6);
+  overflow-y: auto;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  height: var(--bcl-control-h-sm);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  font-size: calc(15px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  cursor: pointer;
+}
+.active {
+  background: var(--bcl-surface);
+}
+.optionSelected {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+}
+.optionDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.check {
+  flex: none;
+  width: calc(15px * var(--bcl-font-scale));
+  text-align: center;
+  color: var(--bcl-accent-ink);
+}
+
+.noResult {
+  padding: var(--bcl-space-2);
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  text-align: center;
+}
+
+.helper {
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+.error {
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-danger);
+}

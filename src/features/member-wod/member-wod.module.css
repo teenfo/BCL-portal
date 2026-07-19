@@ -1,0 +1,50 @@
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+  margin-bottom: var(--bcl-space-3);
+}
+.moveList {
+  margin: 0;
+  padding-left: var(--bcl-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+.moveItem {
+  color: var(--bcl-text);
+  font-size: calc(14px * var(--bcl-font-scale));
+  line-height: calc(20 / 14);
+}
+/* 컴파운드 세트: 그룹 라벨 + 좌측 액센트 바 */
+.moveGroup {
+  list-style: none;
+  margin: var(--bcl-space-1) 0;
+  margin-left: calc(-1 * var(--bcl-space-4));
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border-left: 3px solid var(--bcl-accent);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent-soft);
+}
+.moveGroupTag {
+  display: block;
+  font-size: calc(12px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-accent);
+  margin-bottom: var(--bcl-space-1);
+}
+.moveGroupItems {
+  margin: 0;
+  padding-left: var(--bcl-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+.notes {
+  margin: var(--bcl-space-3) 0 0;
+  padding-top: var(--bcl-space-3);
+  border-top: 1px solid var(--bcl-border);
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  white-space: pre-wrap;
+}

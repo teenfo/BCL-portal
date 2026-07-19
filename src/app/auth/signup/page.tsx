@@ -1,439 +1,455 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+// /auth/signup — 4-Step 회원가입 (docs/01 §2.2 + §3b G-6)
+// Step1 계정 → Step2 기본정보 → Step3 약관 → Step4 전자 동의·웨이버 서명(fn_sign_agreement)
+// Confirm email OFF 전제: signUp 즉시 세션 발급 — 미발급 시 에러 표면화(무한 대기 금지).
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Logo from '@/components/ui/Logo';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/features/auth';
+import {
+  AGREEMENT_DOC_LABELS,
+  AGREEMENT_DOC_VERSION,
+  REQUIRED_AGREEMENT_DOCS,
+} from '@/lib/auth/agreements';
+import { validatePassword } from '@/lib/auth/password';
+import { normalizeAuthResult } from '@/lib/auth/normalize';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { rpc } from '@/lib/supabase/query';
+import { Button, Card, Checkbox, Input } from '@/components/ui';
+import styles from '../auth.module.css';
 
-type SignupStep = 1 | 2 | 3 | 'complete';
+const TOTAL_STEPS = 4;
+const DRAFT_KEY = 'bcl-signup-draft'; // Step 이탈 시 입력값 세션 보존 (§2.2) — 비밀번호 제외
 
-interface SignupForm {
-    email: string;
-    password: string;
-    confirmPassword: string;
-    name: string;
-    phone: string;
-    birthDate: string;
-    agreeTerms: boolean;
-    agreePrivacy: boolean;
-    agreeMarketing: boolean;
+// G-6 필수 문서 4종 — 단일 정의처 src/lib/auth/agreements.ts (환불규정 포함, docs/01 §3b)
+const REQUIRED_DOCS = REQUIRED_AGREEMENT_DOCS;
+const DOC_VERSION = AGREEMENT_DOC_VERSION;
+
+type Gender = 'male' | 'female' | 'other';
+
+interface Draft {
+  step: number;
+  email: string;
+  name: string;
+  phone: string;
+  birthday: string;
+  gender: Gender | '';
+  agreeTerms: boolean;
+  agreePrivacy: boolean;
+  agreeMarketing: boolean;
+}
+
+const EMPTY_DRAFT: Draft = {
+  step: 1,
+  email: '',
+  name: '',
+  phone: '',
+  birthday: '',
+  gender: '',
+  agreeTerms: false,
+  agreePrivacy: false,
+  agreeMarketing: false,
+};
+
+function loadDraft(): Draft {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    if (!raw) return EMPTY_DRAFT;
+    return { ...EMPTY_DRAFT, ...(JSON.parse(raw) as Partial<Draft>) };
+  } catch {
+    return EMPTY_DRAFT;
+  }
 }
 
 export default function SignupPage() {
-    const router = useRouter();
-    const { signUp, signInWithOAuth } = useAuth();
-    const [step, setStep] = useState<SignupStep>(1);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const { signUp } = useAuth();
 
-    const [formData, setFormData] = useState<SignupForm>({
-        email: '',
-        password: '',
-        confirmPassword: '',
-        name: '',
-        phone: '',
-        birthDate: '',
-        agreeTerms: false,
-        agreePrivacy: false,
-        agreeMarketing: false,
-    });
+  const [step, setStep] = useState(1);
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
+  const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
+  const [signatureName, setSignatureName] = useState('');
+  const [signatureConsent, setSignatureConsent] = useState(false);
 
-    const handleInputChange = (field: keyof SignupForm, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
-        setError('');
-    };
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-    const validateStep1 = () => {
-        if (!formData.email) return '이메일을 입력해주세요';
-        if (!formData.password) return '비밀번호를 입력해주세요';
-        if (formData.password.length < 6) return '비밀번호는 6자 이상이어야 합니다';
-        if (formData.password !== formData.confirmPassword) return '비밀번호가 일치하지 않습니다';
-        return null;
-    };
-
-    const validateStep2 = () => {
-        if (!formData.name) return '이름을 입력해주세요';
-        if (!formData.phone) return '전화번호를 입력해주세요';
-        return null;
-    };
-
-    const validateStep3 = () => {
-        if (!formData.agreeTerms) return '서비스 이용약관에 동의해주세요';
-        if (!formData.agreePrivacy) return '개인정보 처리방침에 동의해주세요';
-        return null;
-    };
-
-    const handleNext = () => {
-        let validationError = null;
-
-        if (step === 1) validationError = validateStep1();
-        else if (step === 2) validationError = validateStep2();
-
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
-
-        setStep((prev) => {
-            if (typeof prev === 'number') return Math.min(prev + 1, 3) as SignupStep;
-            return prev;
-        });
-        setError('');
-    };
-
-    const handleBack = () => {
-        setStep((prev) => {
-            if (typeof prev === 'number') return Math.max(prev - 1, 1) as SignupStep;
-            return prev;
-        });
-        setError('');
-    };
-
-    const handleSubmit = async () => {
-        const validationError = validateStep3();
-        if (validationError) {
-            setError(validationError);
-            return;
-        }
-
-        setLoading(true);
-        setError('');
-
-        const { error: signUpError } = await signUp(
-            formData.email,
-            formData.password,
-            {
-                name: formData.name,
-                full_name: formData.name,
-                phone: formData.phone,
-                birth_date: formData.birthDate,
-                role: 'member',
-            }
-        );
-
-        if (signUpError) {
-            if (signUpError.message?.includes('already registered')) {
-                setError('이미 가입된 이메일입니다.');
-            } else {
-                setError(signUpError.message || '회원가입에 실패했습니다.');
-            }
-            setLoading(false);
-        } else {
-            // 성공 — 승인 대기 안내 화면 표시
-            setStep('complete');
-            setLoading(false);
-        }
-    };
-
-    // 완료 화면
-    if (step === 'complete') {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4 relative bg-[var(--background)] overflow-hidden">
-                <div className="bcl-glow-spot w-[600px] h-[600px] -top-48 -right-48 opacity-15" />
-                <div className="bcl-glow-spot w-[400px] h-[400px] -bottom-24 -left-24 opacity-10" />
-
-                <div className="relative w-full max-w-[480px] animate-fade-in">
-                    <div className="flex flex-col items-center mb-8">
-                        <Logo size={48} className="mb-6" />
-                    </div>
-
-                    <div className="premium-card p-1">
-                        <div className="bg-[#1A1A1A]/40 backdrop-blur-xl rounded-[calc(var(--radius-md)-4px)] p-10 text-center">
-                            {/* Success Icon */}
-                            <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-                                style={{ background: 'rgba(34, 197, 94, 0.15)', border: '2px solid rgba(34, 197, 94, 0.3)' }}>
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#22C55E" strokeWidth="2">
-                                    <circle cx="12" cy="12" r="10" />
-                                    <path d="M9 12l2 2 4-4" />
-                                </svg>
-                            </div>
-
-                            <h1 className="text-2xl font-bold text-white mb-3">가입 신청 완료!</h1>
-                            <p className="text-sm text-[var(--text-secondary)] mb-2 leading-relaxed">
-                                회원가입이 성공적으로 접수되었습니다.
-                            </p>
-                            <p className="text-xs text-[var(--text-muted)] mb-8 leading-relaxed">
-                                관리자가 회원님의 가입을 검토 후 승인합니다.<br />
-                                승인이 완료되면 로그인하실 수 있습니다.
-                            </p>
-
-                            {/* Info Box */}
-                            <div className="mb-8 p-4 rounded-xl text-left space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                <div>
-                                    <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">이메일</p>
-                                    <p className="text-sm text-white font-medium">{formData.email}</p>
-                                </div>
-                                <div>
-                                    <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">이름</p>
-                                    <p className="text-sm text-white font-medium">{formData.name}</p>
-                                </div>
-                            </div>
-
-                            <Link
-                                href="/auth/login"
-                                className="block w-full py-3.5 rounded-xl text-sm font-semibold text-white text-center transition-all"
-                                style={{ background: 'var(--primary)', boxShadow: '0 0 20px rgba(255,107,0,0.2)' }}
-                            >
-                                로그인 화면으로 가기
-                            </Link>
-                        </div>
-                    </div>
-
-                    <div className="mt-10 text-center">
-                        <p className="text-[10px] text-[var(--text-muted)] font-medium tracking-wide">
-                            승인은 일반적으로 24시간 이내에 처리됩니다
-                        </p>
-                    </div>
-                </div>
-            </div>
-        );
+  // 드래프트 복원 (비밀번호 제외) — 하이드레이션 이후 비동기 복원(서버 프리렌더와의 불일치 방지)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      // ?resume=sign — Step4 이탈자의 서명 재개 경로 (pending-approval 미서명 감지에서 진입, §3b)
+      // 이미 계정·세션이 있는 상태이므로 드래프트 복원 없이 곧장 서명 단계로.
+      const resumeSign = new URLSearchParams(window.location.search).get('resume') === 'sign';
+      const restored = loadDraft();
+      setDraft(restored);
+      if (resumeSign) {
+        setStep(4);
+        return;
+      }
+      // 계정 생성 전(비밀번호 미보존)이므로 Step3까지만 복원
+      const resumed = Math.min(restored.step, 3);
+      setStep(resumed >= 1 ? resumed : 1);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, step }));
+    } catch {
+      /* 저장 실패는 치명적이지 않음 */
     }
+  }, [draft, step]);
 
-    return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative bg-[var(--background)] overflow-hidden">
-            {/* Background Glow Spots */}
-            <div className="bcl-glow-spot w-[600px] h-[600px] -top-48 -right-48 opacity-15" />
-            <div className="bcl-glow-spot w-[400px] h-[400px] -bottom-24 -left-24 opacity-10" />
+  function patch(partial: Partial<Draft>) {
+    setDraft((d) => ({ ...d, ...partial }));
+  }
 
-            {/* Main Container */}
-            <div className="relative w-full max-w-[440px] animate-fade-in">
-                {/* Header */}
-                <div className="flex flex-col items-center mb-8">
-                    <Logo size={48} className="mb-6" />
-                    <span className="inline-block text-[10px] font-bold tracking-[0.4em] text-[var(--primary)] uppercase mb-2">
-                        회원 가입
-                    </span>
-                    <h1 className="text-3xl font-extrabold text-white tracking-tight">계정 만들기</h1>
-                </div>
+  // ---- Step1: 계정 (이메일/비밀번호 — 강도 실시간 검증. 중복 검증은 signUp 시점 에러 표면화 ⏳) ----
+  function validateStep1(): boolean {
+    const errors: Record<string, string> = {};
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email.trim())) {
+      errors.email = '올바른 이메일 주소를 입력해주세요.';
+    }
+    const pwError = validatePassword(password);
+    if (pwError) errors.password = pwError;
+    if (password !== passwordConfirm) errors.passwordConfirm = '비밀번호가 일치하지 않습니다.';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
-                {/* Progress Bar */}
-                <div className="flex gap-2 mb-8 px-1">
-                    {[1, 2, 3].map((s) => (
-                        <div key={s} className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <div
-                                className={`h-full bg-[var(--primary)] transition-all duration-500 ease-out shadow-[0_0_10px_var(--primary-glow)]`}
-                                style={{ width: typeof step === 'number' && s <= step ? '100%' : '0%' }}
-                            />
-                        </div>
-                    ))}
-                </div>
+  // ---- Step2: 기본정보 ----
+  function validateStep2(): boolean {
+    const errors: Record<string, string> = {};
+    if (!draft.name.trim()) errors.name = '이름을 입력해주세요.';
+    if (!/^[0-9\-+ ]{9,}$/.test(draft.phone.trim())) errors.phone = '올바른 연락처를 입력해주세요.';
+    if (!draft.birthday) errors.birthday = '생년월일을 선택해주세요.';
+    if (!draft.gender) errors.gender = '성별을 선택해주세요.';
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
-                {/* Step Labels */}
-                <div className="flex justify-between mb-6 px-2">
-                    {['계정 정보', '개인 정보', '약관 동의'].map((label, i) => (
-                        <span key={i} className={`text-[10px] font-semibold tracking-wide transition-colors ${typeof step === 'number' && i + 1 <= step ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}`}>
-                            {label}
-                        </span>
-                    ))}
-                </div>
+  function goNext() {
+    setFormError(null);
+    if (step === 1 && !validateStep1()) return;
+    if (step === 2 && !validateStep2()) return;
+    setFieldErrors({});
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  }
 
-                {/* Signup Card */}
-                <div className="premium-card p-1">
-                    <div className="bg-[#1A1A1A]/40 backdrop-blur-xl rounded-[calc(var(--radius-md)-4px)] p-8">
-                        {/* Error Message */}
-                        {error && (
-                            <div className="mb-6 p-3 rounded-lg text-sm bg-red-500/10 border border-red-500/20 text-red-400 text-center animate-shake">
-                                {error}
-                            </div>
-                        )}
+  function goBack() {
+    setFormError(null);
+    setFieldErrors({});
+    setStep((s) => Math.max(s - 1, 1));
+  }
 
-                        <div className="space-y-6">
-                            {/* Step 1: Account Info */}
-                            {step === 1 && (
-                                <div className="space-y-5">
-                                    <div className="space-y-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">이메일</label>
-                                            <input
-                                                type="email"
-                                                value={formData.email}
-                                                onChange={(e) => handleInputChange('email', e.target.value)}
-                                                className="bcl-input"
-                                                placeholder="name@example.com"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">비밀번호</label>
-                                            <input
-                                                type="password"
-                                                value={formData.password}
-                                                onChange={(e) => handleInputChange('password', e.target.value)}
-                                                className="bcl-input"
-                                                placeholder="6자 이상 입력"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">비밀번호 확인</label>
-                                            <input
-                                                type="password"
-                                                value={formData.confirmPassword}
-                                                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                                                className="bcl-input"
-                                                placeholder="비밀번호 재입력"
-                                            />
-                                        </div>
-                                    </div>
-                                    <button onClick={handleNext} className="bcl-button-primary w-full py-4 mt-2">
-                                        다음 단계로
-                                    </button>
-                                </div>
-                            )}
+  // ---- Step3 완료 → signUp (즉시 세션 발급 전제) → Step4 ----
+  async function handleSignUp() {
+    if (!draft.agreeTerms || !draft.agreePrivacy) {
+      setFormError('필수 약관에 모두 동의해주세요.');
+      return;
+    }
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      // options.data metadata — DB 트리거가 profiles(pending)+members 생성 (docs/01 §2.2)
+      const result = normalizeAuthResult(
+        await signUp(draft.email.trim(), password, {
+          name: draft.name.trim(),
+          phone: draft.phone.trim(),
+          birthday: draft.birthday,
+          gender: draft.gender,
+          marketing_opt_in: draft.agreeMarketing,
+        }),
+      );
+      if (result.error) {
+        setFormError(result.error); // 이메일 중복 등 — 서버 메시지 표면화
+        return;
+      }
+      if (!result.hasSession) {
+        // Confirm email 설정 오적용 감지 — 무한 대기 금지 (docs/01 §2.2)
+        setFormError(
+          '가입은 접수되었으나 세션이 발급되지 않았습니다. 관리자에게 문의해주세요. (이메일 확인 설정 오류)',
+        );
+        return;
+      }
+      setStep(4);
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '가입 처리에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-                            {/* Step 2: Personal Info */}
-                            {step === 2 && (
-                                <div className="space-y-5">
-                                    <div className="space-y-4">
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">이름 *</label>
-                                            <input
-                                                type="text"
-                                                value={formData.name}
-                                                onChange={(e) => handleInputChange('name', e.target.value)}
-                                                className="bcl-input"
-                                                placeholder="홍길동"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">전화번호 *</label>
-                                            <input
-                                                type="tel"
-                                                value={formData.phone}
-                                                onChange={(e) => handleInputChange('phone', e.target.value)}
-                                                className="bcl-input"
-                                                placeholder="010-0000-0000"
-                                            />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-xs font-medium text-[var(--text-secondary)] ml-1">생년월일 (선택)</label>
-                                            <input
-                                                type="date"
-                                                value={formData.birthDate}
-                                                onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                                                className="bcl-input"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-3">
-                                        <button onClick={handleBack} className="bcl-button-ghost flex-1 py-4">이전</button>
-                                        <button onClick={handleNext} className="bcl-button-primary flex-[1.5] py-4">다음</button>
-                                    </div>
-                                </div>
-                            )}
+  // ---- Step4: 전자 동의·웨이버 서명 (G-6) — fn_sign_agreement 3건 ----
+  async function handleSign() {
+    if (!signatureName.trim()) {
+      setFieldErrors({ signature: '서명할 성명을 입력해주세요.' });
+      return;
+    }
+    // 서명 재개(?resume=sign) 경로는 드래프트가 없을 수 있음 — 이름 대조는 드래프트 보유 시에만
+    if (draft.name.trim() && signatureName.trim() !== draft.name.trim()) {
+      setFieldErrors({ signature: '가입 시 입력한 이름과 동일하게 입력해주세요.' });
+      return;
+    }
+    if (!signatureConsent) {
+      setFormError('전자 서명 동의 확인에 체크해주세요.');
+      return;
+    }
+    setFieldErrors({});
+    setFormError(null);
+    setSubmitting(true);
+    try {
+      const client = getSupabaseBrowserClient();
+      for (const docType of REQUIRED_DOCS) {
+        const res = await rpc(client, 'fn_sign_agreement', {
+          p_doc_type: docType,
+          p_doc_version: DOC_VERSION,
+          p_signature: signatureName.trim(),
+        });
+        if (!res.success) {
+          // 서명 게이트도 에러 표면화 3원칙 적용 (docs/01 §3b.3)
+          setFormError(res.error ?? `문서 서명에 실패했습니다. (${docType}) 다시 시도해주세요.`);
+          return;
+        }
+      }
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {
+        /* noop */
+      }
+      router.replace('/auth/pending-approval');
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '서명 처리에 실패했습니다. 다시 시도해주세요.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-                            {/* Step 3: Terms */}
-                            {step === 3 && (
-                                <div className="space-y-6">
-                                    <div className="space-y-4 px-1">
-                                        {[
-                                            { id: 'agreeTerms', label: '서비스 이용약관', sub: '서비스 이용 조건에 동의합니다 (필수)' },
-                                            { id: 'agreePrivacy', label: '개인정보 처리방침', sub: '개인정보 수집 및 이용에 동의합니다 (필수)' },
-                                            { id: 'agreeMarketing', label: '마케팅 정보 수신', sub: '이벤트 및 프로모션 안내를 받습니다 (선택)', optional: true },
-                                        ].map((item) => (
-                                            <label key={item.id} className="flex items-center gap-4 cursor-pointer group p-3 rounded-xl hover:bg-white/5 transition-colors">
-                                                <div className="relative">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={formData[item.id as keyof SignupForm] as boolean}
-                                                        onChange={(e) => handleInputChange(item.id as keyof SignupForm, e.target.checked)}
-                                                        className="peer sr-only"
-                                                    />
-                                                    <div className="w-5 h-5 rounded border border-[var(--border)] peer-checked:bg-[var(--primary)] peer-checked:border-[var(--primary)] transition-all" />
-                                                    <svg className="absolute inset-0 w-3.5 h-3.5 text-white m-auto opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                                    </svg>
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-semibold text-white group-hover:text-[var(--primary)] transition-colors">
-                                                        {item.label}
-                                                    </span>
-                                                    <span className="text-[10px] text-[var(--text-secondary)]">
-                                                        {item.sub}
-                                                    </span>
-                                                </div>
-                                            </label>
-                                        ))}
-                                    </div>
+  const stepTitles = ['계정 만들기', '기본 정보', '약관 동의', '전자 동의·웨이버 서명'];
 
-                                    {/* 관리자 승인 안내 */}
-                                    <div className="p-3 rounded-lg text-xs text-center leading-relaxed"
-                                        style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.15)', color: '#F59E0B' }}>
-                                        💡 가입 후 관리자 승인이 필요합니다. 승인 완료 후 이용 가능합니다.
-                                    </div>
-
-                                    <div className="flex gap-3">
-                                        <button onClick={handleBack} className="bcl-button-ghost flex-1 py-4">이전</button>
-                                        <button
-                                            onClick={handleSubmit}
-                                            disabled={loading}
-                                            className="bcl-button-primary flex-[1.5] py-4"
-                                        >
-                                            {loading ? '가입 중...' : '가입 신청'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Kakao 간편 가입 - Step 1에서만 표시 */}
-                        {step === 1 && (
-                            <>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 16, margin: '28px 0', }}>                                    <div style={{ flex: 1, height: 1, background: 'rgba(255, 255, 255, 0.06)' }} />
-                                    <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255, 255, 255, 0.25)', letterSpacing: '0.1em', textTransform: 'uppercase' as const }}>OR</span>
-                                    <div style={{ flex: 1, height: 1, background: 'rgba(255, 255, 255, 0.06)' }} />
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => signInWithOAuth('kakao')}
-                                    disabled={loading}
-                                    style={{
-                                        width: '100%',
-                                        padding: '14px 24px',
-                                        background: '#FEE500',
-                                        border: 'none',
-                                        borderRadius: 14,
-                                        color: '#191919',
-                                        fontSize: 15,
-                                        fontWeight: 700,
-                                        cursor: loading ? 'not-allowed' : 'pointer',
-                                        transition: 'all 0.3s ease',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: 10,
-                                        opacity: loading ? 0.6 : 1,
-                                    }}
-                                >
-                                    <svg width={20} height={20} viewBox="0 0 512 512" fill="#191919">
-                                        <path d="M255.5 48C299.345 48 339.897 56.5332 377.156 73.5996C414.415 90.666 443.871 113.873 465.522 143.22C487.174 172.566 498 204.577 498 239.252C498 273.926 487.174 305.982 465.522 335.42C443.871 364.857 414.46 388.109 377.291 405.175C340.122 422.241 299.525 430.775 255.5 430.775C241.607 430.775 227.262 429.781 212.467 427.795C177.509 457.547 138.204 479.143 94.5518 492.582C85.8498 495.399 76.33 497.762 66 499.669C63.8358 500.124 61.4464 500.535 58.8318 500.9C56.2172 501.266 53.9426 500.262 51.9792 497.89C50.016 495.519 49.9518 492.693 51.7871 489.414C53.6224 486.135 56.546 481.867 60.5579 476.61C64.5698 471.353 67.8543 466.955 70.4112 463.421C72.9682 459.887 76.664 454.819 81.4991 448.219C86.3341 441.618 89.8189 436.421 91.9533 432.628C74.0553 418.188 58.8398 401.939 46.3067 383.879C33.7735 365.819 24.0176 346.448 17.039 325.765C10.0604 305.083 6.5718 283.629 6.5718 261.402C6.5718 239.176 10.0604 218.487 17.039 199.335C24.0176 180.183 33.7735 163.023 46.3067 147.854C58.8398 132.686 74.0553 119.601 91.9533 108.6C109.851 97.598 129.661 89.0424 151.383 82.9332C173.105 76.824 195.746 73.0548 219.305 71.6624L255.5 48Z" />
-                                    </svg>
-                                    카카오로 간편 가입
-                                </button>
-                            </>
-                        )}
-
-                        <div className="mt-8 pt-8 border-t border-[var(--border)] text-center">
-                            <p className="text-sm text-[var(--text-secondary)]">
-                                이미 계정이 있나요?{' '}
-                                <Link
-                                    href="/auth/login"
-                                    className="font-bold text-white hover:text-[var(--primary)] transition-colors ml-1"
-                                >
-                                    로그인하기
-                                </Link>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Footer Info */}
-                <div className="mt-10 text-center">
-                    <p className="text-[10px] text-[var(--text-muted)] font-medium tracking-wide">
-                        가입 시 이용약관 및 개인정보 처리방침에 동의하게 됩니다
-                    </p>
-                </div>
-            </div>
+  return (
+    <Card>
+      <div className={styles.stack}>
+        <div className={styles.stackSm}>
+          <h1 className={styles.title}>회원가입</h1>
+          <p className={styles.subtitle}>
+            {step}/{TOTAL_STEPS} — {stepTitles[step - 1]}
+          </p>
+          <div className={styles.steps} aria-hidden="true">
+            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+              <span
+                key={i}
+                className={`${styles.stepDot}${i < step ? ` ${styles.stepDotActive}` : ''}`}
+              />
+            ))}
+          </div>
         </div>
-    );
+
+        {formError ? (
+          <p className={styles.errorBanner} role="alert">
+            {formError}
+          </p>
+        ) : null}
+
+        {step === 1 ? (
+          <div className={styles.stack}>
+            <Input
+              label="이메일"
+              type="email"
+              autoComplete="email"
+              value={draft.email}
+              onChange={(e) => patch({ email: e.target.value })}
+              error={fieldErrors.email}
+              required
+            />
+            <Input
+              label="비밀번호"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                // 강도 실시간 검증
+                const err = validatePassword(e.target.value);
+                setFieldErrors((prev) => ({ ...prev, password: err ?? '' }));
+              }}
+              error={fieldErrors.password || null}
+              helper="8자 이상, 영문 대/소문자·숫자·특수문자 중 3종 조합"
+              required
+            />
+            <Input
+              label="비밀번호 확인"
+              type="password"
+              autoComplete="new-password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              error={fieldErrors.passwordConfirm}
+              required
+            />
+            <Button variant="primary" block onClick={goNext}>
+              다음
+            </Button>
+          </div>
+        ) : null}
+
+        {step === 2 ? (
+          <div className={styles.stack}>
+            <Input
+              label="이름"
+              type="text"
+              autoComplete="name"
+              value={draft.name}
+              onChange={(e) => patch({ name: e.target.value })}
+              error={fieldErrors.name}
+              required
+            />
+            <Input
+              label="연락처"
+              type="tel"
+              autoComplete="tel"
+              placeholder="010-0000-0000"
+              value={draft.phone}
+              onChange={(e) => patch({ phone: e.target.value })}
+              error={fieldErrors.phone}
+              required
+            />
+            <Input
+              label="생년월일"
+              type="date"
+              autoComplete="bday"
+              value={draft.birthday}
+              onChange={(e) => patch({ birthday: e.target.value })}
+              error={fieldErrors.birthday}
+              required
+            />
+            <div className={styles.stackSm}>
+              <p className={styles.caption}>성별</p>
+              <div className={styles.segmentRow} role="group" aria-label="성별">
+                {(
+                  [
+                    ['male', '남성'],
+                    ['female', '여성'],
+                    ['other', '기타'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <Button
+                    key={value}
+                    variant={draft.gender === value ? 'soft' : 'ghost'}
+                    aria-pressed={draft.gender === value}
+                    onClick={() => patch({ gender: value })}
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {fieldErrors.gender ? (
+                <p className={styles.errorBanner} role="alert">
+                  {fieldErrors.gender}
+                </p>
+              ) : null}
+            </div>
+            <div className={styles.actions}>
+              <Button variant="ghost" onClick={goBack}>
+                이전
+              </Button>
+              <Button variant="primary" block onClick={goNext}>
+                다음
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {step === 3 ? (
+          <div className={styles.stack}>
+            <Checkbox
+              label="[필수] 이용약관에 동의합니다"
+              checked={draft.agreeTerms}
+              onChange={(e) => patch({ agreeTerms: e.target.checked })}
+            />
+            <Checkbox
+              label="[필수] 개인정보 수집·이용에 동의합니다"
+              checked={draft.agreePrivacy}
+              onChange={(e) => patch({ agreePrivacy: e.target.checked })}
+            />
+            <Checkbox
+              label="[선택] 마케팅 정보 수신에 동의합니다"
+              checked={draft.agreeMarketing}
+              onChange={(e) => patch({ agreeMarketing: e.target.checked })}
+            />
+            <div className={styles.actions}>
+              <Button variant="ghost" onClick={goBack} disabled={submitting}>
+                이전
+              </Button>
+              <Button
+                variant="primary"
+                block
+                loading={submitting}
+                disabled={!draft.agreeTerms || !draft.agreePrivacy}
+                onClick={handleSignUp}
+              >
+                동의하고 가입하기
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
+        {step === 4 ? (
+          <div className={styles.stack}>
+            <p className={styles.subtitle}>
+              아래 필수 문서에 대한 전자 서명이 필요합니다. 성명을 입력하면 서명으로 처리됩니다.
+            </p>
+            <div className={styles.termsBox}>
+              필수 서명 문서 (버전 {DOC_VERSION})
+              {REQUIRED_DOCS.map((d) => (
+                <span key={d}>
+                  <br />· {AGREEMENT_DOC_LABELS[d]}({d})
+                </span>
+              ))}
+              {/* ⏳ 문서 스냅샷 전문 열람 UI — 문서 관리(system_config) 구현 후 연결 */}
+            </div>
+            <Input
+              label="서명 (성명 입력)"
+              type="text"
+              autoComplete="off"
+              placeholder={draft.name || '성명'}
+              value={signatureName}
+              onChange={(e) => setSignatureName(e.target.value)}
+              error={fieldErrors.signature}
+              required
+            />
+            <div className={styles.signaturePreview} aria-hidden="true">
+              {signatureName.trim() ? (
+                signatureName.trim()
+              ) : (
+                <span className={styles.signatureEmpty}>서명 미리보기</span>
+              )}
+            </div>
+            <Checkbox
+              label="본인은 위 문서를 확인했으며, 성명 입력이 전자 서명으로 효력을 가짐에 동의합니다"
+              checked={signatureConsent}
+              onChange={(e) => setSignatureConsent(e.target.checked)}
+            />
+            <Button variant="primary" block loading={submitting} onClick={handleSign}>
+              서명 완료
+            </Button>
+            <p className={styles.caption}>
+              서명을 완료해야 승인 대기 단계로 진행됩니다. 이탈해도 로그인 후 승인 대기 화면에서
+              서명을 이어서 완료할 수 있습니다.
+            </p>
+          </div>
+        ) : null}
+
+        {step < 4 ? (
+          <div className={styles.links}>
+            <Link className={styles.link} href="/auth/login">
+              이미 계정이 있으신가요? 로그인
+            </Link>
+          </div>
+        ) : null}
+      </div>
+    </Card>
+  );
 }

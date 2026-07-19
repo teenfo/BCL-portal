@@ -1,0 +1,422 @@
+.shell {
+  display: grid;
+  grid-template-columns: 248px 1fr;
+  min-height: 100dvh;
+  background: var(--bcl-bg);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  background: var(--bcl-surface);
+  border-right: 1px solid var(--bcl-border);
+  position: sticky;
+  top: 0;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+/* 브랜드 — 로고 아이콘 + 워드마크, 하단 구분선(Bootstrap <hr> 대응) */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  font-weight: 700;
+  font-size: calc(18px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  padding: var(--bcl-space-2) var(--bcl-space-2) var(--bcl-space-3);
+  border-bottom: 1px solid var(--bcl-border);
+  margin-bottom: var(--bcl-space-1);
+}
+
+.brandIcon {
+  color: var(--bcl-accent);
+  flex-shrink: 0;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  flex: 1;
+  min-height: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 그룹 헤더 = 라벨형(소형 대문자) + 아코디언 토글 */
+.groupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--bcl-space-2) var(--bcl-space-2) 2px;
+  margin-top: var(--bcl-space-1);
+  background: transparent;
+  border: none;
+  color: var(--bcl-text-muted);
+  cursor: pointer;
+}
+
+.groupHeader:hover .groupLabel {
+  color: var(--bcl-text);
+}
+
+.groupLabel {
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.chevron {
+  opacity: 0.5;
+  transition: transform 0.15s ease;
+  transform: rotate(-90deg);
+}
+
+.chevronOpen {
+  transform: rotate(0deg);
+}
+
+.groupItems {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 네비 항목 — 아이콘 + 라벨의 pill (Bootstrap nav-pills 대응) */
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+  text-decoration: none;
+  font-size: calc(14px * var(--bcl-font-scale));
+  line-height: 1.4;
+  min-height: var(--bcl-hit-min);
+}
+
+.navIcon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+.navLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navItem:hover {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text);
+}
+
+.navItem:hover .navIcon {
+  opacity: 1;
+}
+
+/* 활성 항목 = accent 면 + 흰 텍스트(Button on-accent 선례) */
+.navItemActive {
+  background: var(--bcl-accent);
+  color: white;
+  font-weight: 600;
+}
+
+.navItemActive:hover {
+  background: var(--bcl-accent);
+  color: white;
+}
+
+.navItemActive .navIcon {
+  opacity: 1;
+}
+
+/* ── 앱 바로가기 (다른 앱 표면 새 탭) ─────────────────── */
+.appLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: var(--bcl-space-2);
+  border-top: 1px solid var(--bcl-border);
+}
+
+.appLinksLabel {
+  padding: var(--bcl-space-1) var(--bcl-space-3);
+  font-size: calc(11px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bcl-text-muted);
+  opacity: 0.7;
+}
+
+.appLink {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+  text-decoration: none;
+  font-size: calc(14px * var(--bcl-font-scale));
+  line-height: 1.4;
+  min-height: var(--bcl-hit-min);
+}
+
+.appLink:hover {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text);
+}
+
+.appLink:hover .navIcon {
+  opacity: 1;
+}
+
+.appLinkExt {
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+/* ── 하단 유저 드롭다운 ─────────────────────────────── */
+.userMenu {
+  position: relative;
+  margin-top: auto;
+  padding-top: var(--bcl-space-2);
+  border-top: 1px solid var(--bcl-border);
+}
+
+.userToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  width: 100%;
+  padding: var(--bcl-space-2);
+  border: none;
+  border-radius: var(--bcl-radius-md);
+  background: transparent;
+  color: var(--bcl-text);
+  cursor: pointer;
+  text-align: left;
+}
+
+.userToggle:hover {
+  background: var(--bcl-surface-raised);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+  font-weight: 700;
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.userName {
+  font-size: calc(13px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.userRole {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.userChevron {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: transform 0.15s ease;
+}
+
+.userChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* 드롭업 메뉴 (토글 위로 펼침) */
+.userDropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: var(--bcl-space-1);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--bcl-space-1);
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  box-shadow: var(--bcl-shadow-md);
+  z-index: 50;
+}
+
+.userDropdownItem {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  color: var(--bcl-text);
+  text-decoration: none;
+  font-size: calc(13px * var(--bcl-font-scale));
+  min-height: var(--bcl-hit-min);
+}
+
+.userDropdownItem:hover {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+}
+
+.userDropdownDivider {
+  height: 1px;
+  background: var(--bcl-border);
+  margin: 2px 0;
+}
+
+.content {
+  min-width: 0;
+  padding: var(--bcl-pad-page);
+  overflow-x: auto;
+}
+
+/* ── 모바일 상단바 + 오프캔버스 드로어 (데스크톱 숨김) ───────────── */
+.topbar {
+  display: none;
+}
+.backdrop {
+  display: none;
+}
+.drawerClose {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  /* 단일 컬럼 + 행 고정: 헤더(auto) / 본문(1fr).
+     grid는 align-content:normal이 stretch로 동작해 auto 행을 늘려버림 → 헤더 유동 방지 위해 명시. */
+  .shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--bcl-space-2);
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    min-height: 56px;
+    padding: var(--bcl-space-2) var(--bcl-space-3);
+    background: var(--bcl-surface);
+    border-bottom: 1px solid var(--bcl-border);
+  }
+  .hamburger {
+    display: grid;
+    place-items: center;
+    width: var(--bcl-hit-min);
+    height: var(--bcl-hit-min);
+    border: none;
+    background: transparent;
+    color: var(--bcl-text);
+    border-radius: var(--bcl-radius-md);
+    cursor: pointer;
+  }
+  .hamburger:hover {
+    background: var(--bcl-surface-raised);
+  }
+  .topbarBrand {
+    display: flex;
+    align-items: center;
+    gap: var(--bcl-space-2);
+    font-weight: 700;
+    font-size: calc(16px * var(--bcl-font-scale));
+    color: var(--bcl-text);
+  }
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 60;
+    width: min(280px, 82vw);
+    height: 100dvh;
+    transform: translateX(-100%);
+    transition: transform 0.22s ease;
+    box-shadow: var(--bcl-shadow-md);
+  }
+  .sidebarOpen {
+    transform: translateX(0);
+  }
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: var(--bcl-overlay);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .backdropShow {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawerClose {
+    display: grid;
+    place-items: center;
+    margin-left: auto;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--bcl-text-muted);
+    border-radius: var(--bcl-radius-sm);
+    cursor: pointer;
+  }
+  .drawerClose:hover {
+    background: var(--bcl-surface-raised);
+    color: var(--bcl-text);
+  }
+  .content {
+    padding: var(--bcl-space-4);
+  }
+}
+
+/* BCL 워드마크 로고 + 역할 접미사(Admin) — 사이드바/모바일 상단바 공용 */
+.brandLogo {
+  height: 20px;
+  width: auto;
+  color: var(--bcl-accent);
+  flex-shrink: 0;
+}
+.brandSuffix {
+  font-weight: 700;
+  font-size: calc(15px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  letter-spacing: 0.02em;
+}

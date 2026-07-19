@@ -1,0 +1,154 @@
+/* 회원 앱 공용 화면 레이아웃 (토큰만 사용). 여러 화면이 공유 소비 — CSS 모듈 로컬 스코프 */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+  padding: var(--bcl-space-4);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+}
+
+.pageTitle {
+  margin: 0;
+  /* type-h1 24/32 700 */
+  font-size: calc(24px * var(--bcl-font-scale));
+  line-height: calc(32 / 24);
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.pageSubtitle {
+  margin: 2px 0 0;
+  /* type-caption 13/18 */
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.sectionTitle {
+  margin: 0;
+  /* type-h3 17/24 600 */
+  font-size: calc(17px * var(--bcl-font-scale));
+  line-height: calc(24 / 17);
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.rowBetween {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+}
+
+.muted {
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+}
+
+.bodyText {
+  color: var(--bcl-text);
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  margin: 0;
+}
+
+.strong {
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.divider {
+  height: 1px;
+  background: var(--bcl-border);
+  border: 0;
+  margin: 0;
+}
+
+.bell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bcl-hit-min);
+  height: var(--bcl-hit-min);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text);
+}
+.bell:hover {
+  background: var(--bcl-surface-raised);
+}
+.bellDot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--bcl-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* 세그먼트/필터 칩 행 */
+.chipRow {
+  display: flex;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+/* 간단 진행 게이지 */
+.gauge {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bcl-surface-raised);
+  overflow: hidden;
+}
+.gaugeFill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--bcl-accent);
+}
+
+.centerCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-3);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}

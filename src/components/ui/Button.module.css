@@ -1,0 +1,83 @@
+/* Button — docs/12 §4.1. 색·크기·간격은 토큰만 (HEX 금지) */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-2);
+  border-radius: var(--bcl-radius-md);
+  /* type-body-strong 15/22 600 × 밀도 배율 (docs/12 §2.4) */
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  font-weight: 600;
+  padding: 0 var(--bcl-space-4);
+  user-select: none;
+  transition:
+    filter 0.15s ease,
+    background-color 0.15s ease,
+    transform 0.05s ease;
+}
+
+/* size — 밀도 변수 자동 반영 (밀도별 포크 금지) */
+.md {
+  height: var(--bcl-control-h);
+}
+.sm {
+  height: var(--bcl-control-h-sm);
+  padding: 0 var(--bcl-space-3);
+}
+
+/* 상태 */
+.button:hover:not(:disabled) {
+  filter: brightness(1.06); /* hover 휘도 +6% */
+}
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.button:disabled {
+  opacity: 0.45;
+}
+
+/* variant */
+.primary {
+  background: var(--bcl-accent);
+  color: white; /* 명세 "accent 면+흰 텍스트" — on-accent 토큰 부재로 키워드 사용 */
+}
+.soft {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+}
+.danger {
+  background: var(--bcl-danger);
+  color: white;
+}
+.ghost {
+  background: transparent;
+  color: var(--bcl-text);
+}
+.ghost:hover:not(:disabled) {
+  background: var(--bcl-surface-raised);
+  filter: none;
+}
+
+/* loading — 내장 스피너 + 라벨 유지 (docs/12 §4.1) */
+.spinner {
+  flex: none;
+  width: calc(14px * var(--bcl-font-scale));
+  height: calc(14px * var(--bcl-font-scale));
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: bcl-button-spin 0.8s linear infinite;
+}
+
+@keyframes bcl-button-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 폼 등에서 가로 꽉 채움 옵션 */
+.block {
+  width: 100%;
+}

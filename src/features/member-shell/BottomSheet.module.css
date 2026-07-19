@@ -1,0 +1,108 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bcl-overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade 160ms ease;
+}
+
+.panel {
+  width: 100%;
+  max-width: 560px;
+  background: var(--bcl-surface);
+  border-top-left-radius: var(--bcl-radius-lg);
+  border-top-right-radius: var(--bcl-radius-lg);
+  box-shadow: var(--bcl-shadow-md);
+  display: flex;
+  flex-direction: column;
+  animation: slide 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  touch-action: none;
+}
+
+.auto {
+  max-height: 92vh;
+}
+.full {
+  height: 92vh;
+}
+
+.handleZone {
+  display: flex;
+  justify-content: center;
+  padding: var(--bcl-space-2) 0 var(--bcl-space-1);
+  cursor: grab;
+}
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bcl-text-muted);
+  opacity: 0.4;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) var(--bcl-space-4) var(--bcl-space-3);
+  border-bottom: 1px solid var(--bcl-border);
+}
+.title {
+  /* type-h2 20/28 600 (docs/12 §2.4) */
+  margin: 0;
+  font-size: calc(20px * var(--bcl-font-scale));
+  line-height: calc(28 / 20);
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bcl-hit-min);
+  height: var(--bcl-hit-min);
+  border-radius: var(--bcl-radius-md);
+  color: var(--bcl-text-muted);
+}
+.close:hover {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text);
+}
+
+.body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--bcl-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.footer {
+  padding: var(--bcl-space-3) var(--bcl-space-4);
+  border-top: 1px solid var(--bcl-border);
+  display: flex;
+  gap: var(--bcl-space-2);
+  background: var(--bcl-surface);
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes slide {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}

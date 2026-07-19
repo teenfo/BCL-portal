@@ -1,0 +1,232 @@
+'use client';
+
+// Circuit Console — /coach/schedule/rotation (docs/04 §3.2-1)
+// 체크인 회원 기반 팀 편성(4인×최대6팀) + TV Rotation HUD 리모컨(START/PAUSE/RESET/ROTATE).
+//
+// 상태 지속화: fn_get_session_rotation_state(로드) + fn_upsert_session_rotation_state(저장, 배정코치/admin).
+// team_assignments/is_running/current_round 를 DB에 영속하고, Realtime(postgres_changes)로 교차 기기 동기화.
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { Envelope } from '@/lib/supabase/query';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Card, Button, Badge, EmptyState, Skeleton, useToast } from '@/components/ui';
+import { useQuery } from '@/lib/data/useQuery';
+import { rpc } from '@/lib/supabase/query';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import type { SessionBoardData } from './types';
+import styles from './circuit.module.css';
+
+const TEAM_COUNT = 6;
+const PER_TEAM = 4;
+
+interface RotationState {
+  current_round: number | null;
+  total_rounds: number | null;
+  seconds_per_round: number | null;
+  is_running: boolean | null;
+  team_assignments: Record<string, number> | null;
+}
+
+export function CircuitConsole() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const toast = useToast();
+  const supabase = getSupabaseBrowserClient();
+  const sessionId = params.get('session_id');
+
+  const board = useQuery<SessionBoardData>(
+    () =>
+      sessionId
+        ? rpc<SessionBoardData>(supabase, 'fn_get_coach_session_board', { p_session_id: sessionId })
+        : Promise.resolve({ success: false, data: null, error: 'session_id 누락' }),
+    [sessionId],
+  );
+
+  // 지속 상태 로드 — session_rotation_states (useQuery 로 setState-in-effect 회피, reloadKey 로 재조회)
+  const [reloadKey, setReloadKey] = useState(0);
+  const rot = useQuery<RotationState | null>(
+    () =>
+      sessionId
+        ? rpc<RotationState | null>(supabase, 'fn_get_session_rotation_state', { p_session_id: sessionId })
+        : Promise.resolve({ success: true, data: null, error: null } as Envelope<RotationState | null>),
+    [sessionId, reloadKey],
+  );
+
+  // 로컬 낙관 오버라이드 — 유저 조작 시 즉시 반영, 서버 변경(Realtime) 시 null 로 리셋해 서버값 채택
+  const [override, setOverride] = useState<RotationState | null>(null);
+  const effective: RotationState = override ??
+    rot.data ?? { current_round: 1, total_rounds: null, seconds_per_round: null, is_running: false, team_assignments: {} };
+
+  const assign = effective.team_assignments ?? {};
+  const running = Boolean(effective.is_running);
+  const round = effective.current_round ?? 1;
+  const hydrated = !rot.loading;
+
+  // Realtime 교차 기기 동기화 — 다른 코치/TV 변경 시 오버라이드 해제 + 재조회(구독 콜백 내 setState 는 허용)
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`coach:rotation:${sessionId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'session_rotation_states', filter: `session_id=eq.${sessionId}` },
+        () => {
+          setOverride(null);
+          setReloadKey((k) => k + 1);
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [sessionId, supabase]);
+
+  // 지속화 — 부분 패치를 서버 upsert로 저장(배정코치/admin 게이트). 실패해도 로컬은 유지.
+  const persist = useCallback(
+    async (patch: Record<string, unknown>) => {
+      if (!sessionId) return;
+      const res = await rpc(supabase, 'fn_upsert_session_rotation_state', {
+        p_session_id: sessionId,
+        p_state: patch,
+      });
+      if (!res.success) {
+        toast.warning('상태 저장에 실패했습니다(로컬만 반영).');
+      }
+    },
+    [sessionId, supabase, toast],
+  );
+
+  const checkedIn = useMemo(
+    () =>
+      (board.data?.attendees ?? []).filter(
+        (a) => a.checked_in || a.attendance_outcome === 'walk_in',
+      ),
+    [board.data],
+  );
+
+  const patchLocal = (patch: Partial<RotationState>) =>
+    setOverride((prev) => ({ ...effective, ...(prev ?? {}), ...patch }));
+
+  const autoForm = () => {
+    const next: Record<string, number> = {};
+    checkedIn.forEach((a, i) => {
+      next[a.member_id] = Math.floor(i / PER_TEAM) % TEAM_COUNT;
+    });
+    patchLocal({ team_assignments: next });
+    void persist({ team_assignments: next });
+    toast.info('자동 편성했습니다.');
+  };
+
+  const move = (memberId: string, team: number) => {
+    const next = { ...assign, [memberId]: team };
+    patchLocal({ team_assignments: next });
+    void persist({ team_assignments: next });
+  };
+
+  const remote = (cmd: 'start' | 'pause' | 'reset' | 'rotate') => {
+    if (cmd === 'start') {
+      patchLocal({ is_running: true });
+      void persist({ is_running: true, timer_started_at: new Date().toISOString() });
+    } else if (cmd === 'pause') {
+      patchLocal({ is_running: false });
+      void persist({ is_running: false });
+    } else if (cmd === 'reset') {
+      patchLocal({ is_running: false, current_round: 1 });
+      void persist({ is_running: false, current_round: 1, timer_started_at: '' });
+    } else if (cmd === 'rotate') {
+      const nextRound = round + 1;
+      patchLocal({ current_round: nextRound });
+      void persist({ current_round: nextRound });
+    }
+  };
+
+  if (!sessionId) {
+    return (
+      <div className={styles.page}>
+        <EmptyState title="세션이 지정되지 않았습니다" description="세션 보드에서 서킷 콘솔을 열어주세요." action={{ label: '일정으로', onClick: () => router.push('/coach/schedule') }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <Button variant="ghost" size="sm" onClick={() => router.push(`/coach/schedule?session_id=${sessionId}`)}>← 세션 보드</Button>
+        <h1 className={styles.title}>서킷 콘솔</h1>
+      </header>
+
+      {board.loading || !hydrated ? (
+        <Skeleton variant="rect" height={200} />
+      ) : board.error || !board.data ? (
+        <Card>
+          <EmptyState variant="error" title="세션을 불러오지 못했습니다" description={board.error ?? '접근 권한이 없습니다.'} onRetry={board.refetch} />
+        </Card>
+      ) : (
+        <>
+          <div className={styles.remoteBar}>
+            <Badge variant={running ? 'success' : 'neutral'}>{running ? '진행 중' : '정지'}</Badge>
+            <Badge variant="info">라운드 {round}</Badge>
+            <Button variant="primary" size="sm" onClick={() => remote('start')}>START</Button>
+            <Button variant="soft" size="sm" onClick={() => remote('pause')}>PAUSE</Button>
+            <Button variant="ghost" size="sm" onClick={() => remote('reset')}>RESET</Button>
+            <Button variant="soft" size="sm" onClick={() => remote('rotate')}>ROTATE</Button>
+          </div>
+
+          <div className={styles.formRow}>
+            <span className={styles.hint}>체크인 {checkedIn.length}명</span>
+            <Button variant="soft" size="sm" onClick={autoForm}>자동 편성</Button>
+          </div>
+
+          {checkedIn.length === 0 ? (
+            <Card><EmptyState title="체크인 인원 없음" description="체크인 후 팀을 편성할 수 있습니다." /></Card>
+          ) : (
+            <div className={styles.teamGrid}>
+              {Array.from({ length: TEAM_COUNT }).map((_, team) => (
+                <Card key={team} title={`스테이션 ${team + 1}`}>
+                  <div className={styles.teamMembers}>
+                    {checkedIn
+                      .filter((a) => assign[a.member_id] === team)
+                      .map((a) => (
+                        <div key={a.member_id} className={styles.memberChip}>
+                          <span>{a.member_name}</span>
+                          <div className={styles.moveBtns}>
+                            {Array.from({ length: TEAM_COUNT }).map((__, t) => (
+                              <button
+                                key={t}
+                                type="button"
+                                className={styles.moveBtn}
+                                aria-label={`스테이션 ${t + 1}로 이동`}
+                                onClick={() => move(a.member_id, t)}
+                              >
+                                {t + 1}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </Card>
+              ))}
+              {/* 미배정 */}
+              <Card title="미배정">
+                <div className={styles.teamMembers}>
+                  {checkedIn
+                    .filter((a) => assign[a.member_id] === undefined)
+                    .map((a) => (
+                      <div key={a.member_id} className={styles.memberChip}>
+                        <span>{a.member_name}</span>
+                        <div className={styles.moveBtns}>
+                          {Array.from({ length: TEAM_COUNT }).map((__, t) => (
+                            <button key={t} type="button" className={styles.moveBtn} onClick={() => move(a.member_id, t)}>{t + 1}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </Card>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}

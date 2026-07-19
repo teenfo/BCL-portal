@@ -1,56 +1,29 @@
+# BCL Portal 배포 구성 (docs/11 §2 표준 토폴로지)
+#   portal       : 호스트 3001 → 컨테이너 3000 (127.0.0.1 바인딩, nginx만 경유)
+#   race-service : 호스트 8001 → 컨테이너 8001 (privileged BLE, 운영 호스트만) — profile로 분리
+# portal은 race 없이도 기동(장애 격리) → depends_on 없음. race는 `--profile race`로만 기동.
 services:
   portal:
+    image: bcl-portal:latest
     build:
       context: .
       args:
-        - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-        - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        - NEXT_PUBLIC_SITE_NAME=${NEXT_PUBLIC_SITE_NAME:-BCL CrossFit Lounge}
-        - NEXT_PUBLIC_SITE_DESCRIPTION=${NEXT_PUBLIC_SITE_DESCRIPTION:-BCL CrossFit Lounge Portal}
-    image: bcl-portal:latest
-    container_name: bcl-portal
-    ports:
-      - "3001:3000"
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_RACE_SERVICE_URL: ${NEXT_PUBLIC_RACE_SERVICE_URL:-}
     restart: unless-stopped
-    env_file:
-      - .env.local
-    volumes:
-      # Persist uploaded images across container rebuilds
-      - portal-uploads:/app/public/uploads
-      # Persist .env.local for settings API
-      - ./.env.local:/app/.env.local:rw
-    depends_on:
-      - race-service
-    healthcheck:
-      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:3000" ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    env_file: .env
+    ports:
+      - "127.0.0.1:${PORTAL_HOST_PORT:-3001}:3000"
 
   race-service:
-    build:
-      context: ./race
     image: bcl-race-server:latest
-    container_name: bcl-race-server
+    build:
+      context: ./race-service
     restart: unless-stopped
-    ports:
-      - "8001:8001"
-    env_file:
-      - .env.local
-    environment:
-      - SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-    volumes:
-      - race-recordings:/app/recordings
-    # BLE access requires privileged mode and host network on Linux
+    env_file: .env
+    # 실시간 BLE(PM5) 접근 — 운영 호스트 전용. staging 시뮬레이터는 privileged 불필요(별도 override).
     privileged: true
-    # Internal port 8001 — accessed by portal via Docker network
-
-volumes:
-  portal-uploads:
-    driver: local
-  race-recordings:
-    driver: local
+    ports:
+      - "${RACE_HOST_PORT:-8001}:8001"
+    profiles: ["race"]

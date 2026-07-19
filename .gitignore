@@ -50,3 +50,6 @@ next-env.d.ts
 # settings snapshots (runtime config backups)
 .settings-snapshots/
 .aider*
+
+# Claude personal permission overrides (not team-shared)
+.claude/settings.local.json

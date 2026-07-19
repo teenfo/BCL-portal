@@ -1,77 +1,138 @@
 'use client';
 
-import { useAuth } from '@/contexts/AuthContext';
+// /auth/pending-approval — 관리자 승인 대기 랜딩 (docs/01 §2.4 + §3b 미서명 재개)
+// 폴링 없음: 수동 새로고침(refreshProfile) + 재진입 시 확인. approved 진입 시 즉시 리다이렉트.
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Logo from '@/components/ui/Logo';
+import { useAuth } from '@/features/auth';
+import { resolvePostLoginRoute, type RouteProfile } from '@/lib/auth/resolve-route';
+import { REQUIRED_AGREEMENT_DOCS } from '@/lib/auth/agreements';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { query } from '@/lib/supabase/query';
+import { Button, Card } from '@/components/ui';
+import styles from '../auth.module.css';
 
 export default function PendingApprovalPage() {
-    const { signOut, user, profile } = useAuth();
-    const router = useRouter();
+  const router = useRouter();
+  const { user, profile, memberId, loading, refreshProfile } = useAuth();
 
-    const handleSignOut = async () => {
-        await signOut();
-        router.push('/auth/login');
+  const [checking, setChecking] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  // G-6 미서명 감지 — Step4 이탈자가 서명을 이어서 완료하는 유일한 경로 (§3b)
+  const [missingDocs, setMissingDocs] = useState<string[] | null>(null);
+
+  // 비로그인 → login, pending 외 상태 → 각자 목적지 (단일 함수 경유 — F-6)
+  useEffect(() => {
+    if (loading) return;
+    if (!user) {
+      router.replace('/auth/login');
+      return;
+    }
+    const p = profile as RouteProfile | null;
+    if (p && p.approval_status !== 'pending') {
+      router.replace(resolvePostLoginRoute(p));
+    }
+  }, [loading, user, profile, router]);
+
+  // 미서명 문서 감지 (RLS: 본인 행만 조회 가능)
+  useEffect(() => {
+    if (loading || !user || !memberId) return;
+    let cancelled = false;
+    (async () => {
+      const res = await query<{ doc_type: string }[]>(getSupabaseBrowserClient(), 'member_agreements', (q) =>
+        q.select('doc_type').eq('member_id', memberId),
+      );
+      if (cancelled) return;
+      if (res.success) {
+        const signed = new Set((res.data ?? []).map((r) => r.doc_type));
+        setMissingDocs(REQUIRED_AGREEMENT_DOCS.filter((d) => !signed.has(d)));
+      }
+      // 조회 실패 시에는 서명 안내를 띄우지 않음(승인 대기 화면 본연 기능 유지) — 재진입 시 재시도
+    })();
+    return () => {
+      cancelled = true;
     };
+  }, [loading, user, memberId]);
 
-    return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative bg-[var(--background)] overflow-hidden">
-            {/* Background Glow Spots */}
-            <div className="bcl-glow-spot w-[600px] h-[600px] -top-48 -left-48 opacity-15" />
-            <div className="bcl-glow-spot w-[400px] h-[400px] -bottom-24 -right-24 opacity-10" />
+  async function handleRefresh() {
+    if (checking) return;
+    setNotice(null);
+    setFormError(null);
+    setChecking(true);
+    try {
+      // refreshProfile은 최신 프로필을 반환한다(실패·타임아웃 시 null + authError 세팅)
+      const fresh = await refreshProfile();
+      if (fresh && fresh.approval_status !== 'pending') {
+        router.replace(resolvePostLoginRoute(fresh));
+        return;
+      }
+      if (!fresh) {
+        // §5.6 에러 표면화 — "아직 대기 중" 문구로 실패를 가리지 않는다
+        setFormError('상태 확인에 실패했습니다. 네트워크 확인 후 다시 시도해주세요.');
+        return;
+      }
+      setNotice('아직 승인 대기 중입니다. 승인이 완료되면 이용할 수 있습니다.');
+    } finally {
+      setChecking(false);
+    }
+  }
 
-            {/* Main Container */}
-            <div className="relative w-full max-w-[480px] animate-fade-in">
-                {/* Brand */}
-                <div className="flex flex-col items-center mb-10">
-                    <Logo size={60} className="mb-8" />
-                </div>
+  async function handleLogout() {
+    router.replace('/auth/logout');
+  }
 
-                {/* Card */}
-                <div className="premium-card p-1">
-                    <div className="bg-[#1A1A1A]/40 backdrop-blur-xl rounded-[calc(var(--radius-md)-4px)] p-10 text-center">
-                        {/* Pending Icon */}
-                        <div className="w-20 h-20 rounded-full mx-auto mb-6 flex items-center justify-center"
-                            style={{ background: 'rgba(245, 158, 11, 0.15)', border: '2px solid rgba(245, 158, 11, 0.3)' }}>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6v6l4 2" />
-                            </svg>
-                        </div>
+  const needsSignature = (missingDocs?.length ?? 0) > 0;
 
-                        <h1 className="text-2xl font-bold text-white mb-3">승인 대기 중</h1>
-                        <p className="text-sm text-[var(--text-secondary)] mb-2 leading-relaxed">
-                            회원님의 계정이 아직 관리자의 승인을 기다리고 있습니다.
-                        </p>
-                        <p className="text-xs text-[var(--text-muted)] mb-8 leading-relaxed">
-                            승인이 완료되면 로그인하실 수 있습니다.<br />
-                            관리자에게 직접 문의하시면 더 빠른 승인이 가능합니다.
-                        </p>
+  return (
+    <Card>
+      <div className={styles.stack}>
+        <h1 className={styles.title}>가입 승인 대기 중</h1>
+        <p className={styles.subtitle}>
+          가입 신청이 접수되었습니다. 관리자 승인 후 서비스를 이용할 수 있습니다. 승인은 보통 영업일
+          기준 1일 이내에 처리됩니다.
+        </p>
+        {/* ⏳ 가입 지점/신청 일시 표시 — profiles 확장 필드 조회 연결 후 */}
 
-                        {/* User Info */}
-                        {user && (
-                            <div className="mb-8 p-4 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                                <p className="text-xs text-[var(--text-muted)] mb-1">가입 이메일</p>
-                                <p className="text-sm text-white font-medium">{user.email}</p>
-                            </div>
-                        )}
+        {needsSignature ? (
+          <div className={styles.errorBanner} role="alert">
+            <p style={{ margin: 0 }}>
+              필수 문서 서명이 완료되지 않았습니다({missingDocs!.length}건). 서명을 완료해야 승인
+              처리가 진행됩니다.
+            </p>
+            <Button
+              variant="primary"
+              block
+              onClick={() => router.push('/auth/signup?resume=sign')}
+              style={{ marginTop: 'var(--bcl-space-2)' }}
+            >
+              서명 이어서 완료하기
+            </Button>
+          </div>
+        ) : null}
 
-                        <button
-                            onClick={handleSignOut}
-                            className="w-full py-3.5 rounded-xl text-sm font-semibold text-white transition-all hover:bg-white/[0.06]"
-                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
-                        >
-                            로그인 화면으로 돌아가기
-                        </button>
-                    </div>
-                </div>
+        {formError ? (
+          <p className={styles.errorBanner} role="alert">
+            {formError}
+          </p>
+        ) : null}
+        {notice ? (
+          <p className={styles.infoBanner} role="status">
+            {notice}
+          </p>
+        ) : null}
 
-                {/* Footer */}
-                <div className="mt-10 text-center">
-                    <p className="text-[10px] text-[var(--text-muted)] font-medium tracking-wide">
-                        © 2026 BCL PORTAL • ACCOUNT PENDING REVIEW
-                    </p>
-                </div>
-            </div>
-        </div>
-    );
+        <Button variant="primary" block loading={checking} onClick={handleRefresh}>
+          승인 상태 새로고침
+        </Button>
+        <Button variant="ghost" block onClick={handleLogout}>
+          로그아웃
+        </Button>
+
+        <p className={`${styles.caption} ${styles.centered}`}>
+          문의: 방문하신 지점 데스크 또는 안내된 연락처로 문의해주세요.
+        </p>
+      </div>
+    </Card>
+  );
 }

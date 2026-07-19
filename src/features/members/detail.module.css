@@ -1,0 +1,386 @@
+/* Admin 회원 상세 + 탭 — 토큰만 사용 (02-admin §3.2 B) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.backRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.tabBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+/* 카드 그리드 */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--bcl-space-4);
+  align-items: start;
+}
+
+.cardStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--bcl-space-4);
+}
+
+/* 프로필 필드 */
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--bcl-space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fieldLabel {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.fieldValue {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+/* 플래그 리스트 */
+.flagList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.flagItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+}
+
+.flagMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.flagNote {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 멤버십 카드 */
+.msCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.msTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.msName {
+  font-size: calc(16px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.actionBar {
+  display: flex;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-weight: 600;
+}
+
+/* 이력 타임라인 */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.timelineItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--bcl-space-3);
+  padding-bottom: var(--bcl-space-3);
+  border-bottom: 1px solid var(--bcl-border);
+}
+
+.timelineDot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent);
+  margin-top: 6px;
+}
+
+.timelineMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.timelineHead {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.timelineTime {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.timelineNote {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+/* 폼 (모달) */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.preview {
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.previewRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.previewLabel {
+  color: var(--bcl-text-muted);
+}
+
+.previewValue {
+  color: var(--bcl-text);
+  font-weight: 600;
+}
+
+.errorText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+/* 게스트 코드 1회 표시 */
+.guestCodeBox {
+  padding: var(--bcl-space-4);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  display: flex;
+  justify-content: center;
+}
+
+.guestCode {
+  font-family: var(--bcl-font-mono, monospace);
+  font-size: calc(40px * var(--bcl-font-scale));
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--bcl-text);
+  user-select: all;
+}
+
+.hint {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 검색 결과(양도 대상) */
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+}
+
+.searchItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  color: var(--bcl-text);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.searchItem:hover {
+  background: var(--bcl-accent-soft);
+}
+
+.searchItemActive {
+  background: var(--bcl-accent-soft);
+}
+
+/* 노트 */
+.notesList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.noteItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+}
+
+.noteHead {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}
+
+.noteContent {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  white-space: pre-wrap;
+}
+
+/* 성과 */
+.perfList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.perfRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+}
+
+.perfName {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+.perfValue {
+  font-size: calc(14px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.badgeGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--bcl-space-3);
+}
+
+.badgeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-1);
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  text-align: center;
+}

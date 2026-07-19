@@ -1,0 +1,14 @@
+.shell {
+  min-height: 100dvh;
+  background: var(--bcl-bg);
+}
+
+.main {
+  max-width: 560px;
+  margin: 0 auto;
+  min-height: 100dvh;
+}
+
+.withNav {
+  padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--bcl-space-4));
+}

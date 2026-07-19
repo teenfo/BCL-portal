@@ -1,36 +1,31 @@
-'use client';
+// /apps(회원) 셸 — light/mobile 밀도 + AuthGuard + Toast + 하단탭 셸 (docs/12 §6, docs/01 §5.4, docs/03)
+import type { Metadata, Viewport } from 'next';
+import { ThemeScope } from '@/components/ThemeScope';
+import { AuthGuard } from '@/features/auth';
+import { ToastProvider } from '@/components/ui';
+import { MemberShell } from '@/features/member-shell';
+import { BRAND_ACCENT_HEX } from '@/lib/brand';
 
-import UserTopHeader from '@/components/layout/UserTopHeader';
-import UserBottomNav from '@/components/layout/UserBottomNav';
-import NotificationToast from '@/components/ui/NotificationToast';
-import { AuthGuard } from '@/components/AuthGuard';
-import { ReactNode, useEffect } from 'react';
-import './apps.css';
+// PWA — 회원 앱 전용 매니페스트(scope /apps) + iOS 홈화면 메타. 앱별 독립 설치.
+export const metadata: Metadata = {
+  applicationName: 'BCL',
+  manifest: '/apps.webmanifest',
+  appleWebApp: { capable: true, title: 'BCL', statusBarStyle: 'default' },
+  icons: { apple: '/icons/apple-touch-icon.png' },
+};
 
-export default function AppsLayout({ children }: { children: ReactNode }) {
-    // Override body dark theme for user app
-    useEffect(() => {
-        document.body.classList.add('apps-active');
-        return () => document.body.classList.remove('apps-active');
-    }, []);
+export const viewport: Viewport = {
+  themeColor: BRAND_ACCENT_HEX,
+};
 
-    // Register Service Worker for PWA + Push
-    useEffect(() => {
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('/sw.js').catch(err =>
-                console.log('SW registration failed:', err)
-            );
-        }
-    }, []);
-
-    return (
-        <AuthGuard requireAuth={true} redirectTo="/auth/login">
-            <div className="relative">
-                <UserTopHeader />
-                <NotificationToast />
-                {children}
-                <UserBottomNav />
-            </div>
-        </AuthGuard>
-    );
+export default function AppsLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeScope theme="light" density="mobile">
+      <AuthGuard requiredPrefix="/apps">
+        <ToastProvider>
+          <MemberShell>{children}</MemberShell>
+        </ToastProvider>
+      </AuthGuard>
+    </ThemeScope>
+  );
 }

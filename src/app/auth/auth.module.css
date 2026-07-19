@@ -1,0 +1,145 @@
+/* Auth 라우트 공용 스타일 — 토큰만 사용 (docs/12) */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.stackSm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.title {
+  /* type-h1 24/32 700 */
+  margin: 0;
+  font-size: calc(24px * var(--bcl-font-scale));
+  line-height: calc(32 / 24);
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+
+.subtitle {
+  margin: 0;
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  color: var(--bcl-text-muted);
+}
+
+.caption {
+  margin: 0;
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  color: var(--bcl-text-muted);
+}
+
+/* 폼 상단 에러 배너 — 색+텍스트 병행 (에러 표면화 3원칙) */
+.errorBanner {
+  padding: var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-danger-soft);
+  border: 1px solid var(--bcl-danger);
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+}
+
+/* 안내(정보) 배너 */
+.infoBanner {
+  padding: var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-info-soft);
+  border: 1px solid var(--bcl-info);
+  color: var(--bcl-info);
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+}
+
+.actions {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+
+.links {
+  display: flex;
+  justify-content: center;
+  gap: var(--bcl-space-4);
+}
+
+.link {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-accent-ink);
+  text-decoration: none;
+}
+.link:hover {
+  text-decoration: underline;
+}
+
+/* Step 인디케이터 */
+.steps {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+.stepDot {
+  flex: 1;
+  height: var(--bcl-space-1);
+  border-radius: 999px;
+  background: var(--bcl-border);
+}
+.stepDotActive {
+  background: var(--bcl-accent);
+}
+
+/* 성별 등 세그먼트 선택(버튼 조합) */
+.segmentRow {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+.segmentRow > * {
+  flex: 1;
+}
+
+/* Step4 서명 미리보기 */
+.signaturePreview {
+  min-height: calc(var(--bcl-control-h) * 1.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  font-size: calc(24px * var(--bcl-font-scale));
+  font-style: italic;
+  color: var(--bcl-text);
+}
+.signatureEmpty {
+  color: var(--bcl-text-muted);
+  font-size: calc(15px * var(--bcl-font-scale));
+  font-style: normal;
+}
+
+/* 약관 요약 박스 */
+.termsBox {
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  color: var(--bcl-text-muted);
+  font-size: calc(13px * var(--bcl-font-scale));
+  line-height: calc(18 / 13);
+  max-height: calc(var(--bcl-control-h) * 3);
+  overflow-y: auto;
+}
+
+.centered {
+  text-align: center;
+}

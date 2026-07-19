@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# BCL Portal 배포 스크립트 (docs/11 §5) — 서버 /opt/bcl-portal에서 실행.
+# ⚠️ 과거 사고: 이 스크립트가 레포에 없어 서버에만 존재 가정 → main 병합 시 배포 실패.
+#   이제 레포로 버전관리한다. deploy.yml이 git 최신화 후 이 스크립트를 호출한다.
+# 범위: portal만 빌드·기동(race-service는 라이프사이클 분리 — docs/11 §2.4). git 최신화는 호출측(deploy.yml).
+set -euo pipefail
+
+PORTAL_PORT="${PORTAL_HOST_PORT:-3001}"
+
+echo "▶ portal 이미지 빌드"
+docker compose build portal
+
+echo "▶ portal 기동 (127.0.0.1:${PORTAL_PORT} → 컨테이너 3000)"
+docker compose up -d portal
+
+echo "▶ 헬스체크 (최대 60s)"
+for i in $(seq 1 12); do
+  if curl -fsS -o /dev/null "http://127.0.0.1:${PORTAL_PORT}/"; then
+    echo "✅ portal 정상 (127.0.0.1:${PORTAL_PORT})"
+    docker image prune -f >/dev/null 2>&1 || true
+    echo "✅ 배포 완료"
+    exit 0
+  fi
+  echo "  … 대기 ${i}/12"
+  sleep 5
+done
+
+echo "❌ 헬스체크 실패 — 최근 로그:"
+docker compose logs --tail=50 portal || true
+exit 1

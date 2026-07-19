@@ -1,70 +1,51 @@
-/// <reference lib="webworker" />
-// BCL Portal Service Worker - Push Notifications
-
-const SW_VERSION = '1.0.0';
-
+/* BCL Portal 서비스워커 — 웹푸시 수신/클릭 처리 (docs/08 §2.4)
+   push: 서버(send-push-notification EF)가 보낸 { title, body, data:{ id, action_url } } 표시.
+   notificationclick: action_url 로 포커스/오픈. 앱 셸 캐싱은 범위 밖(알림 전용). */
 self.addEventListener('install', (event) => {
-    console.log('[SW] Install v' + SW_VERSION);
-    self.skipWaiting();
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-    console.log('[SW] Activate v' + SW_VERSION);
-    event.waitUntil(self.clients.claim());
+  event.waitUntil(self.clients.claim());
 });
 
-// Push notification received
+// PWA 설치 가능 조건 충족용 fetch 핸들러(패스스루 — 오프라인 캐싱은 범위 밖).
+//   respondWith 미호출 = 브라우저 기본 네트워크 처리. 존재 자체가 installability 요건.
+self.addEventListener('fetch', () => {});
+
 self.addEventListener('push', (event) => {
-    if (!event.data) return;
-
-    let data;
-    try {
-        data = event.data.json();
-    } catch {
-        data = {
-            title: 'BCL Portal',
-            body: event.data.text(),
-            icon: '/images/logo/bcl-logo.svg',
-        };
-    }
-
-    const options = {
-        body: data.body || data.content || '',
-        icon: data.icon || '/images/logo/bcl-logo.svg',
-        badge: '/images/logo/bcl-logo.svg',
-        tag: data.tag || 'bcl-notification',
-        data: {
-            url: data.url || data.action_url || '/apps/notifications',
-            notificationId: data.notificationId || data.id,
-        },
-        vibrate: [100, 50, 100],
-        actions: data.actions || [],
-        requireInteraction: data.requireInteraction || false,
-    };
-
-    event.waitUntil(
-        self.registration.showNotification(data.title || 'BCL Portal', options)
-    );
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch (e) {
+    payload = { title: 'BCL', body: event.data ? event.data.text() : '' };
+  }
+  const title = payload.title || 'BCL';
+  const data = payload.data || {};
+  const options = {
+    body: payload.body || '',
+    tag: data.id ? `bcl-${data.id}` : undefined,
+    data: { actionUrl: data.action_url || data.actionUrl || '/apps/notifications' },
+    badge: '/icons/badge-72.png',
+    icon: '/icons/icon-192.png',
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', (event) => {
-    event.notification.close();
-
-    const url = event.notification.data?.url || '/apps/notifications';
-
-    event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-            // If the app is already open, focus it and navigate
-            for (const client of clientList) {
-                if ('focus' in client) {
-                    client.focus();
-                    client.navigate(url);
-                    return;
-                }
-            }
-            // Otherwise open a new window
-            return self.clients.openWindow(url);
-        })
-    );
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.actionUrl) || '/apps/notifications';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        // 이미 열린 앱 창이 있으면 포커스 후 이동
+        if ('focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(url);
+          return;
+        }
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(url);
+    }),
+  );
 });

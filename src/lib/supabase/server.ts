@@ -1,34 +1,28 @@
-import { createServerClient } from '@supabase/ssr';
+// 팩토리 ③ server — RSC / Route Handler / Server Action 전용 (docs/01-auth §5.2)
+// 요청마다 새 인스턴스 (싱글턴 금지)
 import { cookies } from 'next/headers';
-import type { Database } from '@/types/supabase';
-import { getSupabaseConfig } from './client';
+import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { AUTH_STORAGE_KEY, getSupabaseConfig } from './constants';
 
-export async function createClient() {
-    const cookieStore = await cookies();
-    const { url, anonKey } = getSupabaseConfig();
+type CookieToSet = { name: string; value: string; options: CookieOptions };
 
-    return createServerClient<Database>(
-        url,
-        anonKey,
-        {
-            // 브라우저 클라이언트의 auth.storageKey('bcl-portal-auth')와 쿠키명 일치 필수
-            cookieOptions: { name: 'bcl-portal-auth' },
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll();
-                },
-                setAll(cookiesToSet) {
-                    try {
-                        cookiesToSet.forEach(({ name, value, options }) =>
-                            cookieStore.set(name, value, options)
-                        );
-                    } catch {
-                        // The `setAll` method was called from a Server Component.
-                        // This can be ignored if you have middleware refreshing
-                        // user sessions.
-                    }
-                },
-            },
+export async function createServerSupabase() {
+  const cookieStore = await cookies();
+  const { url, anonKey } = getSupabaseConfig();
+
+  return createServerClient(url, anonKey, {
+    cookieOptions: { name: AUTH_STORAGE_KEY },
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet: CookieToSet[]) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+        } catch {
+          // RSC에서는 쿠키 set 불가 — 무시 (세션 갱신은 미들웨어가 담당, docs/01-auth §5.2)
         }
-    );
+      },
+    },
+  });
 }

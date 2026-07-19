@@ -1,0 +1,30 @@
+.stars {
+  display: flex;
+  gap: var(--bcl-space-1);
+}
+.star {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bcl-text-muted);
+}
+.starOn {
+  color: var(--bcl-warning);
+}
+.starSm {
+  color: var(--bcl-warning);
+  font-size: calc(15px * var(--bcl-font-scale));
+}
+.response {
+  margin-top: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
+  border-radius: var(--bcl-radius-md);
+}
+.responseLabel {
+  font-weight: 600;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-accent-ink);
+}

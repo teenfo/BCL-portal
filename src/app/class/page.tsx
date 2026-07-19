@@ -1,17 +1,25 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+// /class → screen-console 리다이렉트 (docs/05 §1: 진입점을 통합 콘솔로).
+// facility 쿼리는 보존하여 전달.
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
-/**
- * /class/ 접근 시 /class/timer로 리다이렉트
- */
+function ClassRedirect() {
+  const router = useRouter();
+  const params = useSearchParams();
+  useEffect(() => {
+    const facility = params?.get('facility');
+    const qs = facility ? `?facility=${encodeURIComponent(facility)}` : '';
+    router.replace(`/class/screen-console${qs}`);
+  }, [router, params]);
+  return null;
+}
+
 export default function ClassIndexPage() {
-    const router = useRouter();
-
-    useEffect(() => {
-        router.replace('/class/timer');
-    }, [router]);
-
-    return null;
+  return (
+    <Suspense fallback={null}>
+      <ClassRedirect />
+    </Suspense>
+  );
 }

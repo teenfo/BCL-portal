@@ -1,0 +1,351 @@
+/* Admin 스케줄 — 토큰만 사용 (02-admin §3.6) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.viewToggle {
+  display: inline-flex;
+  gap: var(--bcl-space-1);
+  padding: var(--bcl-space-1);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface-raised);
+}
+
+.rangeLabel {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  font-weight: 600;
+  min-width: 180px;
+}
+
+.navBtns {
+  display: inline-flex;
+  gap: var(--bcl-space-1);
+  align-items: center;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* 코치 색상 필터 */
+.coachFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+  align-items: center;
+}
+
+.coachDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: var(--bcl-space-2);
+}
+
+/* 코치 색상 8종 — Race 팀 색 토큰 재사용(토큰만) */
+.c1 { background: var(--bcl-race-team-1); }
+.c2 { background: var(--bcl-race-team-2); }
+.c3 { background: var(--bcl-race-team-3); }
+.c4 { background: var(--bcl-race-team-4); }
+.c5 { background: var(--bcl-race-team-5); }
+.c6 { background: var(--bcl-race-team-6); }
+.c7 { background: var(--bcl-race-team-7); }
+.c8 { background: var(--bcl-race-team-8); }
+
+/* 주간 그리드 — 요일 컬럼(시간순 정렬 카드) */
+.weekGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: var(--bcl-space-2);
+  overflow-x: auto;
+}
+
+.dayView {
+  display: grid;
+  grid-template-columns: minmax(0, 640px);
+  gap: var(--bcl-space-2);
+}
+
+.dayColumn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  min-width: 0;
+}
+
+.dayHeader {
+  padding: var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-surface);
+  border: 1px solid var(--bcl-border);
+  text-align: center;
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.dayHeaderToday {
+  border-color: var(--bcl-accent-border);
+  color: var(--bcl-accent-ink);
+  font-weight: 700;
+}
+
+.dayName {
+  font-weight: 600;
+  color: var(--bcl-text);
+}
+
+.emptyDay {
+  padding: var(--bcl-space-3) var(--bcl-space-2);
+  text-align: center;
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 세션 카드 */
+.sessionCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  border-radius: var(--bcl-radius-md);
+  border: 1px solid var(--bcl-border);
+  background: var(--bcl-surface-raised);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s ease;
+}
+
+.sessionCard:hover,
+.sessionCard:focus-visible {
+  border-color: var(--bcl-accent-border);
+  outline: none;
+}
+
+.sessionCardCancelled {
+  opacity: 0.6;
+}
+
+.sessionTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-2);
+}
+
+.sessionTime {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessionTitle {
+  font-size: calc(14px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 정원 게이지 */
+.gauge {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.gaugeTrack {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent-soft);
+  overflow: hidden;
+}
+
+.gaugeFill {
+  height: 100%;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent);
+}
+
+.gaugeFillFull {
+  background: var(--bcl-warning);
+}
+
+.gaugeText {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.coachTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-1);
+  align-items: center;
+}
+
+.coachTag {
+  display: inline-flex;
+  align-items: center;
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 세션 통합 패널 */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.panelHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+
+.panelMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+  align-items: center;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.panelActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+  align-items: flex-end;
+}
+
+.statusField {
+  min-width: 150px;
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+/* 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.coachAssign {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+}
+
+.coachAssignHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.coachAssignRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr auto;
+  align-items: end;
+  gap: var(--bcl-space-2);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--bcl-space-1);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.addRow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: end;
+  gap: var(--bcl-space-2);
+}
+
+.errorText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.hint {
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+/* 예약 정책 카드 (booking_policy 조회 표시) */
+.policyList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}
+
+.policyRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+}
+
+.policyLabel {
+  color: var(--bcl-text-muted);
+}
+
+/* WOD */
+.wodMeta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text);
+}

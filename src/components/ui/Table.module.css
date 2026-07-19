@@ -1,0 +1,99 @@
+/* Table — docs/12 §4.11. 헤더 sticky · 행 hover · admin 밀도 row-h */
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.scroll {
+  overflow-x: auto;
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--bcl-text);
+  font-size: calc(15px * var(--bcl-font-scale));
+}
+
+/* 헤더 sticky */
+.thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.th {
+  height: var(--bcl-row-h);
+  padding: 0 var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
+  border-bottom: 1px solid var(--bcl-border);
+  /* type-caption 강조 */
+  font-size: calc(13px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  text-align: left;
+  white-space: nowrap;
+}
+.th[data-align='center'] {
+  text-align: center;
+}
+.th[data-align='right'] {
+  text-align: right;
+}
+
+.row {
+  border-bottom: 1px solid var(--bcl-border);
+}
+.row:last-child {
+  border-bottom: none;
+}
+.row.clickable {
+  cursor: pointer;
+}
+.row.clickable:hover {
+  background: var(--bcl-surface-raised);
+}
+.row.clickable:focus-visible {
+  outline: 2px solid var(--bcl-focus-ring);
+  outline-offset: -2px;
+}
+
+.cell {
+  height: var(--bcl-row-h);
+  padding: 0 var(--bcl-space-3);
+  background: var(--bcl-surface);
+  vertical-align: middle;
+}
+.cell[data-align='center'] {
+  text-align: center;
+}
+.cell[data-align='right'] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyCell {
+  background: var(--bcl-surface);
+  padding: 0;
+}
+
+/* 페이지네이션 */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--bcl-space-3);
+}
+.pageInfo {
+  font-size: calc(13px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.pageBtns {
+  display: flex;
+  gap: var(--bcl-space-1);
+}

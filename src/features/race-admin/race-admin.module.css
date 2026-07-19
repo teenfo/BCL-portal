@@ -1,0 +1,102 @@
+/* Admin Race — 토큰만 사용 (02-admin §3.9) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.tabBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.filters {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.filter {
+  min-width: 160px;
+}
+
+.filterWide {
+  min-width: 320px;
+}
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--bcl-space-3);
+}
+
+.rowActions {
+  display: flex;
+  gap: var(--bcl-space-1);
+  justify-content: flex-end;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.formRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--bcl-space-3);
+}
+
+.errorText {
+  color: var(--bcl-danger);
+  font-size: calc(13px * var(--bcl-font-scale));
+}
+
+.note {
+  color: var(--bcl-text-muted);
+  font-size: calc(12px * var(--bcl-font-scale));
+  margin: 0;
+}
+
+/* 시뮬레이션 탭 */
+.simConfig {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.simActions {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  flex-wrap: wrap;
+}

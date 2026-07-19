@@ -1,0 +1,108 @@
+/* Admin 출석 — 토큰만 사용 (02-admin §3.3) */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-5);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: calc(22px * var(--bcl-font-scale));
+  line-height: 1.2;
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--bcl-space-3);
+  flex-wrap: wrap;
+}
+
+.dateField {
+  min-width: 170px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--bcl-space-4);
+}
+
+/* 히트맵 */
+.heatScroll {
+  overflow-x: auto;
+}
+
+.heat {
+  display: grid;
+  grid-template-columns: 32px repeat(24, minmax(18px, 1fr));
+  gap: 3px;
+  min-width: 640px;
+}
+
+.heatHeadCell,
+.heatDayLabel {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.heatDayLabel {
+  justify-content: flex-end;
+  padding-right: var(--bcl-space-2);
+}
+
+.heatCell {
+  height: calc(20px * var(--bcl-font-scale));
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-surface-raised);
+}
+
+.heatCellOn {
+  background: var(--bcl-accent);
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+
+.legendSwatch {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-accent);
+}
+
+/* 수동 출석 폼 */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}

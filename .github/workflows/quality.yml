@@ -9,29 +9,58 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run ESLint (0 errors)
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint (경고 0)
         run: npm run lint
-
-      - name: Run TypeScript typecheck
+      - name: Typecheck
         run: npm run typecheck
-
-      - name: Run build check
+      - name: Unit tests (Vitest)
+        run: npm run test
+      - name: Build
         run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder_anon_key' }}
+      - name: 릴리즈 게이트 — 클라이언트 번들 SRK 0건
+        run: |
+          if grep -rn "service_role" .next/static 2>/dev/null; then
+            echo "::error::Service Role Key가 클라이언트 번들에서 검출됨"; exit 1
+          fi
+      - name: 릴리즈 게이트 — 세션 상수·토큰 단일화 grep
+        run: |
+          VIOLATIONS=$(grep -rn "bcl-portal-auth" src/ | grep -v "lib/supabase/constants.ts" || true)
+          if [ -n "$VIOLATIONS" ]; then echo "::error::AUTH_STORAGE_KEY 리터럴 중복 정의:"; echo "$VIOLATIONS"; exit 1; fi
+          HEX=$(grep -rniE "#(FF6A00|FF6B00|D2691E)\b|--app-|--primary\b" src/ | grep -v "styles/tokens.css" | grep -v "lib/brand.ts" || true)
+          if [ -n "$HEX" ]; then echo "::error::토큰 밖 브랜드 HEX/구 토큰 검출:"; echo "$HEX"; exit 1; fi
+
+  auth-e2e:
+    # 인증 E2E = CI 필수 게이트 (docs/01-auth §7) — 실패 시 병합/배포 차단
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: auth.smoke (S1~S8)
+        run: npm run test:e2e -- auth.smoke
+        env:
+          CI: 'true'
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

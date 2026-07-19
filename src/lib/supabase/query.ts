@@ -1,43 +1,38 @@
-import { createClient } from './client';
+// query()/rpc() 헬퍼 — DB 접근은 이 두 함수 경유만 (직접 supabase-js from()/rpc() 호출 금지)
+// envelope 표준 {success, data, error} 1종 (계약 §3, docs/07 §7)
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-/**
- * Supabase 쿼리 헬퍼
- * 
- * TypeScript의 "Type instantiation is excessively deep" 에러를 
- * 구조적으로 우회하는 유틸리티입니다.
- * 
- * @description
- * Supabase의 자동 생성 Database 타입이 테이블 수에 비례하여 
- * 재귀 깊이가 깊어지면 TS2589 에러가 발생합니다.
- * 이 헬퍼를 사용하면 `as any` 캐스팅 없이 쿼리를 작성할 수 있습니다.
- * 
- * @usage
- * ```ts
- * import { query } from '@/lib/supabase/query';
- * const { data, error } = await query('transactions').select('*').eq('source', 'pos');
- * ```
- */
-
-type QueryBuilder = ReturnType<SupabaseClient['from']>;
-
-/**
- * 타입 안전 우회 쿼리 빌더
- * @param table 테이블 이름
- * @param client (선택) Supabase 클라이언트. 기본값: createClient()
- */
-export function query(table: string, client?: SupabaseClient): QueryBuilder {
-    const supabase = client ?? createClient();
-    return (supabase as any).from(table);
+export interface Envelope<T> {
+  success: boolean;
+  data: T | null;
+  error: string | null;
 }
 
-/**
- * RPC 호출 헬퍼
- * @param fn RPC 함수 이름
- * @param args 인자
- * @param client (선택) Supabase 클라이언트
- */
-export function rpc(fn: string, args?: Record<string, any>, client?: SupabaseClient) {
-    const supabase = client ?? createClient();
-    return (supabase as any).rpc(fn, args);
+/** 표준 RPC 호출 — 서버 함수가 envelope를 반환한다(미반환 시 통신 오류로 취급) */
+export async function rpc<T>(
+  client: SupabaseClient,
+  fn: string,
+  args?: Record<string, unknown>,
+): Promise<Envelope<T>> {
+  const { data, error } = await client.rpc(fn, args);
+  if (error) {
+    return { success: false, data: null, error: error.message };
+  }
+  if (data && typeof data === 'object' && 'success' in data) {
+    return data as Envelope<T>;
+  }
+  return { success: true, data: (data ?? null) as T | null, error: null };
+}
+
+/** 단순 테이블 조회 래퍼 — RLS 전제. 쓰기·복합 로직은 반드시 RPC로 */
+export async function query<T>(
+  client: SupabaseClient,
+  table: string,
+  build: (q: ReturnType<SupabaseClient['from']>) => PromiseLike<{ data: unknown; error: { message: string } | null }>,
+): Promise<Envelope<T>> {
+  const { data, error } = await build(client.from(table));
+  if (error) {
+    return { success: false, data: null, error: error.message };
+  }
+  return { success: true, data: (data ?? null) as T | null, error: null };
 }

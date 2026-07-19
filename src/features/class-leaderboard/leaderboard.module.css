@@ -1,0 +1,129 @@
+/* leaderboard — 다크/tv, 토큰만. */
+
+.lbRoot {
+  position: fixed;
+  inset: 0;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-direction: column;
+  padding: var(--bcl-space-6) 6vw;
+  overflow: hidden;
+}
+.lbHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-4);
+  margin-bottom: var(--bcl-space-5);
+}
+.lbTitle {
+  font-size: 80px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+.scopeTabs {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+.scopeTab {
+  font-family: var(--bcl-font);
+  font-size: 32px;
+  font-weight: 600;
+  padding: var(--bcl-space-2) var(--bcl-space-5);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  color: var(--bcl-text-muted);
+  border: none;
+  cursor: pointer;
+}
+.scopeTabActive {
+  background: var(--bcl-accent);
+  color: var(--bcl-bg);
+}
+.lbList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  overflow-y: auto;
+}
+.lbRow {
+  display: grid;
+  grid-template-columns: 1.4em 1fr auto auto;
+  align-items: center;
+  gap: var(--bcl-space-5);
+  padding: var(--bcl-space-3) var(--bcl-space-5);
+  background: var(--bcl-surface);
+  border-radius: var(--bcl-radius-md);
+  font-size: 40px;
+}
+.lbRow[data-rank='1'] {
+  background: var(--bcl-accent-soft);
+  box-shadow: inset 0 0 0 2px var(--bcl-accent-border);
+}
+.lbRank {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+  text-align: center;
+}
+.lbName {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lbDist {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+}
+.lbMeta {
+  font-size: 30px;
+  color: var(--bcl-text-muted);
+}
+.lbEmpty {
+  margin: auto;
+  font-size: 48px;
+  color: var(--bcl-text-muted);
+}
+
+/* 일일 WOD 화이트보드 모드 (fn_get_class_wod_board) */
+.lbSub {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  margin-top: var(--bcl-space-2);
+}
+.lbScore {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.rxBadge {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: var(--bcl-space-1) var(--bcl-space-3);
+  border-radius: var(--bcl-radius-sm);
+  text-align: center;
+}
+.rxPlus {
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-accent-ink);
+  box-shadow: inset 0 0 0 2px var(--bcl-accent-border);
+}
+.rx {
+  background: var(--bcl-success-soft);
+  color: var(--bcl-success);
+}
+.scaled {
+  background: var(--bcl-surface-raised);
+  color: var(--bcl-text-muted);
+}

@@ -1,0 +1,676 @@
+/* Race 화면 — 다크/tv, 토큰만. 아케이드 게임쇼 룩(SuperPark 레퍼런스):
+   HUD 스탯 카드 + REMAINING→GOAL 진행바 + 사이드뷰 워터 스테이지 + 관중 실루엣.
+   테마 표면은 --bcl-race-*(data-race-theme) 토큰으로만 전환(R-11). */
+
+.raceRoot,
+.runRoot,
+.resultRoot {
+  position: fixed;
+  inset: 0;
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+  font-family: var(--bcl-font);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 톱바 — 스타디움 타이틀 + 네온 언더라인 + 경과 타이머 ── */
+.topbar {
+  position: relative;
+  z-index: 10; /* 전체 화면 스테이지 위 오버레이 */
+  height: 8vh;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--bcl-space-8);
+  background: var(--bcl-surface);
+}
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--bcl-race-neon-a), var(--bcl-accent), var(--bcl-race-neon-b));
+  filter: drop-shadow(0 0 8px var(--bcl-race-glow, var(--bcl-accent)));
+}
+/* 타이틀 중앙(레퍼런스 구도) + 좌측 스타디움 라이트 도트 */
+.topbarName {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 44px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.lights {
+  display: flex;
+  gap: var(--bcl-space-3);
+}
+.light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bcl-warning);
+  box-shadow: 0 0 10px var(--bcl-warning);
+  opacity: 0.85;
+}
+.topbarMeta {
+  display: flex;
+  gap: var(--bcl-space-5);
+  /* 우상단 상태 스트립(class-common, absolute)과 타이머 겹침 방지 */
+  margin-right: 120px;
+  font-size: 32px;
+  color: var(--bcl-text-muted);
+  align-items: center;
+}
+.topbarTimer {
+  font-size: 40px;
+  font-weight: 800;
+  color: var(--bcl-text);
+  text-shadow: 0 0 14px var(--bcl-race-glow, var(--bcl-accent));
+}
+.heatBadge {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: 2px var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+  box-shadow: 0 0 16px var(--bcl-accent-border);
+}
+
+/* ── HUD 스탯 카드(레인별) — 팀컬러 탑 보더 + 1위 글로우 배지 ── */
+.hudRow {
+  position: relative;
+  z-index: 10; /* 전체 화면 스테이지(관중석) 위 오버레이 */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-4) var(--bcl-space-6) var(--bcl-space-3);
+  background: var(--bcl-surface);
+}
+.hudCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--bcl-space-2) var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
+  border-top: 6px solid var(--team-color, var(--bcl-border));
+  border-radius: var(--bcl-radius-md);
+}
+.hudCard[data-rank='1'] {
+  animation: leadPulse 1.6s ease-in-out infinite;
+}
+@keyframes leadPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--bcl-accent-border);
+  }
+  50% {
+    box-shadow: 0 0 22px var(--bcl-accent);
+  }
+}
+.hudCard[data-rank='1']::after {
+  content: '1st';
+  position: absolute;
+  top: -16px;
+  right: var(--bcl-space-2);
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  color: var(--bcl-bg);
+  background: linear-gradient(90deg, var(--bcl-accent), var(--bcl-race-neon-b));
+  padding: 0 var(--bcl-space-3);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: 0 0 14px var(--bcl-accent);
+}
+/* 도착 등수 뱃지 — 도착 순서 고정 표시(1~3위 메달 톤). 도착 후엔 '1st' 라이브 배지 대체 */
+.hudPlace {
+  position: absolute;
+  top: -16px;
+  right: var(--bcl-space-2);
+  font-size: 22px;
+  font-weight: 800;
+  font-style: italic;
+  color: var(--bcl-bg);
+  padding: 0 var(--bcl-space-3);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-info);
+  box-shadow: 0 0 14px var(--bcl-info-soft);
+  z-index: 1;
+}
+.hudPlace[data-place='1'] {
+  background: var(--bcl-warning);
+  box-shadow: 0 0 14px var(--bcl-warning);
+}
+.hudPlace[data-place='2'] {
+  background: var(--bcl-text-muted);
+  box-shadow: 0 0 14px var(--bcl-text-muted);
+}
+.hudPlace[data-place='3'] {
+  background: var(--bcl-accent);
+  box-shadow: 0 0 14px var(--bcl-accent);
+}
+.hudCard[data-finished='true'][data-rank='1']::after {
+  display: none;
+}
+.hudCard[data-finished='true'] {
+  animation: none;
+}
+.hudCard[data-offline='true'] {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.hudHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-2);
+  min-width: 0;
+}
+.hudLane {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--team-color, var(--bcl-accent));
+  flex: 0 0 auto;
+}
+.hudName {
+  font-size: 24px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hudMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+}
+.hudMain b {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+}
+.hudUnit {
+  font-size: 22px;
+  color: var(--bcl-text-muted);
+}
+.hudSub {
+  display: flex;
+  gap: var(--bcl-space-4);
+  font-size: 20px;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+}
+.hudSub b {
+  color: var(--bcl-text);
+  font-weight: 700;
+}
+
+
+/* ── 수영장 아레나 스테이지(상단 출발 → 하단 피니시) ──
+   전체 화면 배경 레이어 — 톱바/HUD/배지 레일이 관중석 위를 덮고, 수면이 화면 대부분을 차지 */
+.stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    var(--bcl-race-sky-horizon, var(--bcl-surface)) -70%,
+    var(--bcl-race-surface, var(--bcl-surface-raised)) 34%,
+    var(--bcl-race-sky-top, var(--bcl-bg)) 140%
+  );
+  overflow: hidden;
+}
+/* three.js 캔버스 호스트 — 스테이지 전체(배경 CSS 위 투명 합성) */
+.stageCanvas {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+}
+.stageCanvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* water 테마 = 수영장 아레나 이미지(관중·조명·레인번호 포함).
+   100%/100% 스트레치 — poolLaneX/POOL 지오메트리(% 좌표)와 1:1 정렬 전제 */
+.raceRoot[data-race-theme='water'] .stage {
+  background: url('/race/pool-bg.jpg') 0 0 / 100% 100% no-repeat;
+}
+/* 가로 코스(?course=h) — 탑다운 아레나. HUD가 상단 수면·관중석을 덮는 것 허용 */
+.raceRoot[data-course='h'][data-race-theme='water'] .stage {
+  background-image: url('/race/pool-bg-h.jpg');
+}
+/* 가로 코스 HUD — 좌측 관중석 밴드 위 세로 스택(레인 행과 나란히) */
+.raceRoot[data-course='h'] .hudRow {
+  position: absolute;
+  left: 0;
+  top: 8vh;
+  bottom: 0;
+  width: 21vw;
+  grid-auto-flow: row;
+  grid-auto-columns: unset;
+  grid-auto-rows: 1fr;
+  align-content: stretch;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3);
+  background: var(--bcl-overlay);
+}
+.raceRoot[data-course='h'] .hudCard {
+  justify-content: center;
+  overflow: hidden;
+}
+/* 가로 HUD는 overflow:hidden — 카드 위로 걸치는 1st/등수 배지를 카드 안쪽 우상단으로 */
+.raceRoot[data-course='h'] .hudCard[data-rank='1']::after,
+.raceRoot[data-course='h'] .hudPlace {
+  top: var(--bcl-space-2);
+}
+.raceRoot[data-course='h'] .hudMain {
+  font-size: 32px;
+}
+.raceRoot[data-race-theme='water'] .stage::before,
+.raceRoot[data-race-theme='water'] .stageCrowd,
+.raceRoot[data-race-theme='water'] .crowd {
+  display: none;
+}
+/* 수면 반짝임 — 대각 광택 스트릭이 천천히 흐름 */
+.stage::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    115deg,
+    transparent 0 150px,
+    var(--bcl-race-trail, transparent) 150px 154px,
+    transparent 154px 320px
+  );
+  opacity: 0.22;
+  animation: shimmer 7s linear infinite;
+  pointer-events: none;
+}
+@keyframes shimmer {
+  to {
+    background-position: 420px 0;
+  }
+}
+/* 배경 관중 밴드(수면 뒤, 흐릿) — 레퍼런스 상단 스타디움 관중 */
+.stageCrowd {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 15%;
+  background: url('/race/crowd.svg') repeat-x bottom / auto 100%;
+  opacity: 0.3;
+  filter: blur(3px);
+  pointer-events: none;
+}
+/* 상단 ERG 배지 레일 — 레인별 고정 슬롯(레퍼런스: 수면 위 배지 행) */
+.badgeRail {
+  position: absolute;
+  top: 28vh; /* 스테이지가 전체 화면 — HUD 아래 관중석 구간(수면 위)에 부유 */
+  left: 0;
+  right: 0;
+  height: 40px;
+  z-index: 12;
+  pointer-events: none;
+}
+.railBadge {
+  position: absolute;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+  font-size: 20px;
+  font-weight: 800;
+  background: var(--bcl-overlay);
+  border: 2px solid var(--team-color, var(--bcl-border));
+  border-radius: var(--bcl-radius-sm);
+  padding: 1px var(--bcl-space-2);
+  white-space: nowrap;
+}
+.railBadge em {
+  font-style: normal;
+  color: var(--team-color, var(--bcl-accent));
+}
+.railBadge b {
+  font-size: 22px;
+}
+/* ── 버추얼 페이서 라인(§4b.5, 렌더 전용 — 중립 회백 톤) ── */
+.pacerLine {
+  position: absolute;
+  top: var(--bcl-space-2);
+  bottom: var(--bcl-space-2);
+  left: 4%;
+  width: 4px;
+  border-radius: var(--bcl-radius-sm);
+  background: repeating-linear-gradient(
+    var(--bcl-text-muted) 0 10px,
+    transparent 10px 20px
+  );
+  opacity: 0.6;
+  z-index: 5;
+  pointer-events: none;
+  will-change: left;
+}
+.pacerLine[data-active='false'] {
+  display: none;
+}
+.pacerLabel {
+  position: absolute;
+  top: -1.6em;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--bcl-text-muted);
+  background: var(--bcl-overlay);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  white-space: nowrap;
+}
+
+.finishLine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 4%;
+  width: 12px;
+  background: repeating-linear-gradient(
+    45deg,
+    var(--bcl-text) 0 10px,
+    var(--bcl-bg) 10px 20px
+  );
+  box-shadow: 0 0 18px var(--bcl-race-glow, var(--bcl-accent));
+}
+
+/* ── 응원 관중 실루엣(하단 전경) ── */
+.crowd {
+  height: 10vh;
+  flex: 0 0 auto;
+  background: url('/race/crowd.svg') repeat-x bottom / auto 100%;
+  animation: crowdBob 1.1s ease-in-out infinite alternate;
+}
+@keyframes crowdBob {
+  from {
+    background-position-y: 100%;
+  }
+  to {
+    background-position-y: 88%;
+  }
+}
+
+/* ── FINAL STRETCH 배너 ── */
+/* START 배너 — FINAL STRETCH 동형, 성공 톤 */
+.finalBanner[data-kind='start'] {
+  background: linear-gradient(90deg, var(--bcl-success), var(--bcl-race-neon-b));
+  box-shadow: 0 0 44px var(--bcl-success);
+}
+
+.finalBanner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  z-index: 20;
+  font-size: 84px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: var(--bcl-bg);
+  background: linear-gradient(90deg, var(--bcl-accent), var(--bcl-race-neon-b));
+  padding: var(--bcl-space-2) var(--bcl-space-8);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: 0 0 44px var(--bcl-accent);
+  animation: bannerPulse 0.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes bannerPulse {
+  from {
+    transform: translateX(-50%) skew(-6deg) scale(1);
+  }
+  to {
+    transform: translateX(-50%) skew(-6deg) scale(1.06);
+  }
+}
+
+/* ── 상태 오버레이 ── */
+.stateOverlay,
+.countdownOverlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-4);
+  background: var(--bcl-overlay);
+  z-index: 30;
+}
+/* 피니시는 딤 없이 — 세리머니·등수 배지가 깨끗하게 보이도록 배너만 표시(HUD/배지 레일 아래 띠) */
+.stateOverlay[data-kind='finish'] {
+  background: none;
+  justify-content: flex-start;
+  padding-top: 31vh;
+  gap: var(--bcl-space-2);
+  pointer-events: none;
+}
+.stateOverlay[data-kind='finish'] .stateLabel {
+  font-size: 76px;
+}
+.stateLabel {
+  font-size: 120px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-accent);
+  text-shadow: 0 0 40px var(--bcl-accent);
+}
+.stateSub {
+  font-size: 40px;
+  color: var(--bcl-text-muted);
+}
+.trafficLight {
+  font-size: 260px;
+  font-weight: 800;
+  color: var(--bcl-danger);
+  text-shadow: 0 0 60px var(--bcl-danger);
+}
+.trafficLight[data-n='2'],
+.trafficLight[data-n='1'] {
+  color: var(--bcl-warning);
+  text-shadow: 0 0 60px var(--bcl-warning);
+}
+.trafficLight[data-n='0'] {
+  color: var(--bcl-success);
+  text-shadow: 0 0 60px var(--bcl-success);
+}
+
+/* ── ERG 그리드(run) ── */
+.grid {
+  flex: 1;
+  display: grid;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-6);
+  grid-template-columns: repeat(4, 1fr);
+  align-content: start;
+}
+.grid[data-count='1'],
+.grid[data-count='2'],
+.grid[data-count='3'],
+.grid[data-count='4'] {
+  grid-template-columns: repeat(2, 1fr);
+}
+.tile {
+  background: var(--bcl-surface);
+  border-left: 8px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  padding: var(--bcl-space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+}
+.tileHead {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+}
+.tileLane {
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+}
+.tileName {
+  font-size: 34px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tileMain {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-2);
+}
+.tileDist {
+  font-size: 88px;
+  font-weight: 800;
+  line-height: 1;
+}
+.tileUnit {
+  font-size: 36px;
+  color: var(--bcl-text-muted);
+}
+.tileStats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2) var(--bcl-space-5);
+  font-size: 30px;
+  color: var(--bcl-text-muted);
+}
+.tileStats b {
+  color: var(--bcl-text);
+}
+
+/* ── 결과 ── */
+.resultRoot {
+  padding: var(--bcl-space-6) 5vw;
+}
+.resultHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-4);
+}
+.resultTitle {
+  font-size: 72px;
+  font-weight: 800;
+}
+.axisTabs {
+  display: flex;
+  gap: var(--bcl-space-2);
+}
+.axisTab {
+  font-family: var(--bcl-font);
+  font-size: 30px;
+  font-weight: 600;
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface);
+  color: var(--bcl-text-muted);
+  border: none;
+  cursor: pointer;
+}
+.axisTabActive {
+  background: var(--bcl-accent);
+  color: var(--bcl-bg);
+}
+.podium {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--bcl-space-5);
+  margin: var(--bcl-space-6) 0;
+  min-height: 30vh;
+}
+.podiumCol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  width: 22%;
+}
+.podiumName {
+  font-size: 40px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+.podiumValue {
+  font-size: 48px;
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+}
+.podiumStand {
+  width: 100%;
+  border-radius: var(--bcl-radius-md) var(--bcl-radius-md) 0 0;
+  color: var(--bcl-bg);
+  font-size: 88px;
+  font-weight: 800;
+  text-align: center;
+}
+.podiumCol[data-place='1'] .podiumStand {
+  height: 26vh;
+}
+.podiumCol[data-place='2'] .podiumStand {
+  height: 18vh;
+}
+.podiumCol[data-place='3'] .podiumStand {
+  height: 13vh;
+}
+.prTag {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--bcl-bg);
+  background: var(--bcl-accent);
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+}
+.resultList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+.resultRow {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-3) var(--bcl-space-4);
+  border-bottom: 2px solid var(--bcl-border);
+  font-size: 36px;
+}
+.resultRank {
+  font-weight: 800;
+  width: 1.6em;
+  color: var(--bcl-text-muted);
+}
+.resultName {
+  flex: 1;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+.resultValue {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+}

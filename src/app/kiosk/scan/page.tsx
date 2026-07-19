@@ -1,654 +1,347 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+// /kiosk/scan — 스캔 화면 (docs/06 §3.2·§4·§4.6·§5)
+// 카메라 프리뷰 + 조준 프레임 + 자동 디코딩 → 서버 검증(fn_kiosk_checkin) → success 전환.
+// 대체 경로: 수동 입력(전화 뒷4자리, 격하) · 게스트/드롭인 코드(§4.6 G-7).
+// 오류는 3초 토스트 후 스캔 재개. 60초 무동작 → idle 복귀.
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { query, rpc } from '@/lib/supabase/query';
+import { Button, Input, useToast } from '@/components/ui';
+import { useKiosk } from '@/features/kiosk-shell';
+import {
+  KIOSK_ERROR_MESSAGE,
+  lookupMembers,
+  setSuccessResult,
+  submitGuestCheckin,
+  submitManualCheckin,
+  submitScan,
+  useScanner,
+  type KioskCandidate,
+  type ScanOutcome,
+} from '@/features/kiosk-checkin';
+import styles from '../kiosk.module.css';
 
-type ScanState = 'scanning' | 'processing' | 'error';
+const IDLE_TIMEOUT_MS = 60_000;
+
+type ScanMode = 'scan' | 'manual' | 'guest';
 
 export default function KioskScanPage() {
-    const router = useRouter();
-    const scannerRef = useRef<any>(null);
-    const scannerContainerId = 'qr-scanner-container';
-    const [scanState, setScanState] = useState<ScanState>('scanning');
-    const [errorMessage, setErrorMessage] = useState('');
-    const [cameraReady, setCameraReady] = useState(false);
-    const [manualMode, setManualMode] = useState(false);
-    const [manualCode, setManualCode] = useState('');
-    const [currentTime, setCurrentTime] = useState('');
-    const processingRef = useRef(false);
-    const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
-    const facingModeRef = useRef<'user' | 'environment'>('user');
+  const router = useRouter();
+  const toast = useToast();
+  const { device, online } = useKiosk();
+  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<ScanMode>('scan');
+  const processingRef = useRef(false);
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // 시각
-    useEffect(() => {
-        const update = () => {
-            setCurrentTime(new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }));
-        };
-        update();
-        const timer = setInterval(update, 1000);
-        return () => clearInterval(timer);
-    }, []);
+  // idle 에서 "게스트/드롭인" 진입 시 #guest 해시로 코드 입력 모드 시작(Suspense 불필요)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (typeof window !== 'undefined' && window.location.hash === '#guest') setMode('guest');
+  }, []);
 
-    // html5-qrcode 초기화
-    const startScanner = useCallback(async () => {
-        try {
-            // Dynamic import to avoid SSR issues
-            const { Html5Qrcode } = await import('html5-qrcode');
+  const resetIdleTimer = useCallback(() => {
+    if (idleTimer.current) clearTimeout(idleTimer.current);
+    idleTimer.current = setTimeout(() => router.push('/kiosk'), IDLE_TIMEOUT_MS);
+  }, [router]);
 
-            const scanner = new Html5Qrcode(scannerContainerId, /* verbose= */ false);
-            scannerRef.current = scanner;
-
-            await scanner.start(
-                { facingMode: facingModeRef.current },
-                {
-                    fps: 10,
-                    qrbox: { width: 280, height: 280 },
-                    aspectRatio: 1.0,
-                    disableFlip: false,
-                },
-                // onScanSuccess
-                (decodedText: string) => {
-                    if (!processingRef.current) {
-                        processingRef.current = true;
-                        processQRCode(decodedText);
-                    }
-                },
-                // onScanFailure - silent (continuously scanning)
-                () => { }
-            );
-
-            setCameraReady(true);
-        } catch (err) {
-            console.warn('카메라 접근 불가, 수동 입력 모드로 전환:', err);
-            setManualMode(true);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // 스캐너 중지
-    const stopScanner = useCallback(async () => {
-        try {
-            if (scannerRef.current) {
-                const state = scannerRef.current.getState?.();
-                // Html5QrcodeScannerState.SCANNING = 2
-                if (state === 2) {
-                    await scannerRef.current.stop();
-                }
-                scannerRef.current.clear();
-                scannerRef.current = null;
-            }
-        } catch (err) {
-            console.warn('Scanner stop error:', err);
-        }
-    }, []);
-
-    useEffect(() => {
-        startScanner();
-        return () => { stopScanner(); };
-    }, [startScanner, stopScanner]);
-
-    // 에러 후 재시작
-    const restartScanner = useCallback(() => {
-        processingRef.current = false;
-        setScanState('scanning');
-        setErrorMessage('');
-        startScanner();
-    }, [startScanner]);
-
-    // 카메라 전환 (전면 ↔ 후면)
-    const toggleCamera = useCallback(async () => {
-        await stopScanner();
-        const newMode = facingModeRef.current === 'user' ? 'environment' : 'user';
-        facingModeRef.current = newMode;
-        setFacingMode(newMode);
-        setCameraReady(false);
-        startScanner();
-    }, [stopScanner, startScanner]);
-
-    // QR 코드 처리 — JSON { mid, fid, ts, v } 파싱 + 체크인 분기
-    const processQRCode = async (code: string) => {
-        setScanState('processing');
-        await stopScanner();
-
-        try {
-
-            // 1. JSON 파싱
-            let parsed: { mid: string; fid: string; ts: number; v: number };
-            try {
-                parsed = JSON.parse(code);
-            } catch {
-                setScanState('error');
-                setErrorMessage('유효하지 않은 QR 코드입니다');
-                setTimeout(restartScanner, 3000);
-                return;
-            }
-
-            const { mid, fid, ts } = parsed;
-            if (!mid || !fid || !ts) {
-                setScanState('error');
-                setErrorMessage('유효하지 않은 QR 코드입니다');
-                setTimeout(restartScanner, 3000);
-                return;
-            }
-
-            // 2. 타임스탬프 검증 (5분 = 300초 이내)
-            const now = Math.floor(Date.now() / 1000);
-            if (now - ts > 300) {
-                setScanState('error');
-                setErrorMessage('QR 코드가 만료되었습니다.\n앱에서 새로 생성해주세요.');
-                setTimeout(restartScanner, 4000);
-                return;
-            }
-
-            // 3. 회원 존재 확인
-            const { data: memberData, error: memberErr } = await query('members')
-                
-                .select('id, user_id, name')
-                .eq('id', mid)
-                .single();
-
-            if (memberErr || !memberData) {
-                setScanState('error');
-                setErrorMessage('등록되지 않은 회원입니다');
-                setTimeout(restartScanner, 3000);
-                return;
-            }
-
-            // 4. 중복 체크인 방지 (5분 이내 동일 회원)
-            const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-            const { data: recentCheckin } = await query('checkins')
-                
-                .select('id')
-                .eq('member_id', mid)
-                .gte('checkin_time', fiveMinAgo)
-                .limit(1);
-
-            if (recentCheckin && recentCheckin.length > 0) {
-                setScanState('error');
-                setErrorMessage(`${memberData.name || '회원'}님은\n이미 체크인 되었습니다`);
-                setTimeout(restartScanner, 3000);
-                return;
-            }
-
-            // 5. 오늘 수업 예약 확인 (현재 시간 ±30분 이내)
-            const today = new Date();
-            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
-            let bookingId: string | null = null;
-            let sessionId: string | null = null;
-            let sessionName = '';
-            let sessionTime = '';
-            let coachName = '';
-
-            const { data: bookings } = await query('bookings')
-                
-                .select(`
-                    id,
-                    session_id,
-                    sessions (
-                        id,
-                        session_date,
-                        start_time,
-                        end_time,
-                        classes ( name ),
-                        coaches ( name )
-                    )
-                `)
-                .eq('member_id', mid)
-                .eq('status', 'booked')
-                .limit(5);
-
-            if (bookings && bookings.length > 0) {
-                // 오늘 날짜 + 현재 시간 ±30분 이내 수업 찾기
-                const nowMinutes = today.getHours() * 60 + today.getMinutes();
-
-                for (const booking of bookings) {
-                    const session = booking.sessions as any;
-                    if (!session) continue;
-
-                    // 오늘 날짜인지 확인
-                    if (session.session_date !== todayStr) continue;
-
-                    // 수업 시작 시간 ±30분 이내인지 확인
-                    if (session.start_time) {
-                        const [h, m] = session.start_time.split(':').map(Number);
-                        const sessionMinutes = h * 60 + m;
-                        if (Math.abs(nowMinutes - sessionMinutes) <= 30) {
-                            bookingId = booking.id;
-                            sessionId = session.id;
-                            sessionName = session.classes?.name || '수업';
-                            sessionTime = session.start_time?.slice(0, 5) || '';
-                            coachName = session.coaches?.name || '';
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // 6. 체크인 기록 삽입
-            const checkinData: any = {
-                member_id: mid,
-                facility_id: fid,
-                checkin_time: new Date().toISOString(),
-                checkin_method: 'kiosk',
-            };
-
-            if (bookingId && sessionId) {
-                // 수업 체크인
-                checkinData.booking_id = bookingId;
-                checkinData.session_id = sessionId;
-                checkinData.notes = `수업 체크인: ${sessionName}`;
-            } else {
-                // 시설 출석 체크인
-                checkinData.notes = '시설 출석 체크인';
-            }
-
-            const { error: checkInError } = await query('checkins')
-                
-                .insert(checkinData);
-
-            if (checkInError) {
-                console.error('Check-in error:', checkInError);
-                setScanState('error');
-                setErrorMessage('체크인 처리 중 오류가 발생했습니다');
-                setTimeout(restartScanner, 3000);
-                return;
-            }
-
-            // 7. 수업 체크인이면 booking 상태 업데이트
-            if (bookingId) {
-                await query('bookings')
-                    
-                    .update({ status: 'attended' })
-                    .eq('id', bookingId);
-            }
-
-            // 8. 성공 화면으로 이동 (회원 이름 + 체크인 유형 전달)
-            const params = new URLSearchParams({
-                member: mid,
-                name: memberData.name || '',
-                type: bookingId ? 'class' : 'facility',
-            });
-            if (sessionName) params.set('class', sessionName);
-            if (sessionTime) params.set('time', sessionTime);
-            if (coachName) params.set('coach', coachName);
-
-            router.push(`/kiosk/success?${params.toString()}`);
-
-        } catch (err) {
-            console.error('QR processing error:', err);
-            setScanState('error');
-            setErrorMessage('시스템 오류가 발생했습니다');
-            setTimeout(restartScanner, 3000);
-        }
+  useEffect(() => {
+    resetIdleTimer();
+    return () => {
+      if (idleTimer.current) clearTimeout(idleTimer.current);
     };
+  }, [resetIdleTimer]);
 
-    // 수동 입력 처리
-    const handleManualSubmit = () => {
-        if (manualCode.trim()) {
-            processQRCode(manualCode.trim());
-        }
-    };
+  // 결과 → success 전환 또는 오류 토스트 (스캔·수동·게스트 공통). 성공 계열이면 true
+  const applyOutcome = useCallback(
+    (outcome: ScanOutcome): boolean => {
+      if (outcome.kind === 'success') {
+        setSuccessResult({ kind: 'success', data: outcome.data });
+        router.push('/kiosk/success');
+        return true;
+      }
+      if (outcome.kind === 'duplicate') {
+        setSuccessResult({ kind: 'duplicate', data: outcome.data });
+        router.push('/kiosk/success');
+        return true;
+      }
+      if (outcome.kind === 'queued') {
+        setSuccessResult({ kind: 'queued' });
+        router.push('/kiosk/success');
+        return true;
+      }
+      toast.error(KIOSK_ERROR_MESSAGE[outcome.code]);
+      return false;
+    },
+    [router, toast],
+  );
 
-    // 취소 → 대기 화면
-    const handleCancel = async () => {
-        await stopScanner();
-        router.push('/kiosk');
-    };
+  const handleRaw = useCallback(
+    async (raw: string) => {
+      if (processingRef.current) return; // 재진입 차단(디바운스와 별개)
+      processingRef.current = true;
+      setBusy(true);
+      resetIdleTimer();
+      try {
+        const outcome = await submitScan(raw, {
+          deviceId: device?.deviceId ?? null,
+          facilityId: device?.facilityId ?? null,
+          offline: !online,
+        });
+        applyOutcome(outcome);
+      } catch {
+        toast.error(KIOSK_ERROR_MESSAGE.network_error);
+      } finally {
+        setBusy(false);
+        // 짧은 쿨다운 후 재판독 허용(동일인 연속 오류 폭주 방지)
+        setTimeout(() => {
+          processingRef.current = false;
+        }, 1500);
+      }
+    },
+    [applyOutcome, device, online, resetIdleTimer, toast],
+  );
 
-    // 자동 복귀 (30초 무동작)
-    useEffect(() => {
-        const timeout = setTimeout(async () => {
-            await stopScanner();
-            router.push('/kiosk');
-        }, 30000);
-        return () => clearTimeout(timeout);
-    }, [router, stopScanner]);
+  // 수동 대체 체크인 — 후보(member_id) 선택 → 서버 위임(submitManualCheckin)
+  const handleManualCheckin = useCallback(
+    async (memberId: string) => {
+      resetIdleTimer();
+      const outcome = await submitManualCheckin(memberId, {
+        deviceId: device?.deviceId ?? null,
+        facilityId: device?.facilityId ?? null,
+        offline: !online,
+      });
+      applyOutcome(outcome);
+    },
+    [applyOutcome, device, online, resetIdleTimer],
+  );
 
-    return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            background: '#0a0a0b',
-            display: 'flex',
-            flexDirection: 'column',
-            fontFamily: "'Lexend', sans-serif",
-            overflow: 'hidden',
-        }}>
-            {/* Header */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '24px 40px',
-                zIndex: 10,
-            }}>
-                <button
-                    onClick={handleCancel}
-                    style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        padding: '14px 28px',
-                        borderRadius: '14px',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        backdropFilter: 'blur(12px)',
-                        color: 'rgba(255,255,255,0.7)',
-                        fontSize: '16px',
-                        fontWeight: 600,
-                        fontFamily: "'Lexend', sans-serif",
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                    }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                        e.currentTarget.style.color = 'white';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-                        e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
-                    }}
-                >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 12H5" /><polyline points="12,19 5,12 12,5" />
-                    </svg>
-                    취소
-                </button>
+  // 게스트/드롭인 — 6자리 발권 코드 상환(§4.6). 서버 검증 전담(오프라인 불가).
+  const handleGuestCheckin = useCallback(
+    async (code: string) => {
+      resetIdleTimer();
+      const outcome = await submitGuestCheckin(code, {
+        deviceId: device?.deviceId ?? null,
+        facilityId: device?.facilityId ?? null,
+        offline: !online,
+      });
+      applyOutcome(outcome);
+    },
+    [applyOutcome, device, online, resetIdleTimer],
+  );
 
-                <h1 style={{
-                    fontSize: '24px',
-                    fontWeight: 800,
-                    color: 'white',
-                    letterSpacing: '-0.01em',
-                }}>QR 체크인</h1>
+  const { videoRef, state, hasDecoder } = useScanner({
+    onDecode: (raw) => void handleRaw(raw),
+    active: mode === 'scan',
+  });
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    {!manualMode && (
-                        <button
-                            onClick={toggleCamera}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '8px',
-                                padding: '10px 20px',
-                                borderRadius: '12px',
-                                background: 'rgba(255,255,255,0.05)',
-                                border: '1px solid rgba(255,255,255,0.08)',
-                                backdropFilter: 'blur(12px)',
-                                color: 'rgba(255,255,255,0.6)',
-                                fontSize: '13px',
-                                fontWeight: 600,
-                                fontFamily: "'Lexend', sans-serif",
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = 'white'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
-                        >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5" />
-                                <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5" />
-                                <polyline points="16 3 19 6 16 9" /><polyline points="8 15 5 18 8 21" />
-                            </svg>
-                            {facingMode === 'user' ? '후면' : '전면'}
-                        </button>
-                    )}
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: 'rgba(255,255,255,0.4)' }}>
-                        {currentTime}
-                    </div>
-                </div>
+  const cameraBlocked = state === 'denied' || state === 'unsupported' || state === 'error';
+  const decoderMissing = state === 'streaming' && !hasDecoder;
+
+  return (
+    <main className={styles.scan}>
+      <header className={styles.scanHeader}>
+        <Button variant="ghost" size="sm" onClick={() => router.push('/kiosk')}>
+          ← 취소
+        </Button>
+        <span className={styles.scanTitle}>
+          {mode === 'guest'
+            ? '게스트 · 드롭인 코드 입력'
+            : mode === 'manual'
+              ? '수동 입력'
+              : 'QR을 카메라에 비춰주세요'}
+        </span>
+        <span className={online ? styles.scanNet : styles.scanNetOff}>{online ? '' : '오프라인 접수'}</span>
+      </header>
+
+      {mode === 'scan' ? (
+        <div className={styles.viewport}>
+          <video ref={videoRef} className={styles.video} muted playsInline />
+          <div className={styles.reticle} aria-hidden="true">
+            <span className={styles.corner + ' ' + styles.tl} />
+            <span className={styles.corner + ' ' + styles.tr} />
+            <span className={styles.corner + ' ' + styles.bl} />
+            <span className={styles.corner + ' ' + styles.br} />
+          </div>
+          {busy ? <div className={styles.scanBusy}>확인 중…</div> : null}
+          {(cameraBlocked || decoderMissing) && (
+            <div className={styles.cameraNotice}>
+              {cameraBlocked
+                ? '카메라를 사용할 수 없습니다. 수동 입력을 이용해주세요.'
+                : '이 단말은 자동 인식을 지원하지 않습니다. 수동 입력을 이용해주세요.'}
             </div>
-
-            {/* Camera / Scan Area */}
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-            }}>
-                {/* Camera preview via html5-qrcode */}
-                {!manualMode && (
-                    <div style={{
-                        position: 'relative',
-                        width: '500px', height: '500px',
-                        borderRadius: '24px',
-                        overflow: 'hidden',
-                        background: '#111',
-                    }}>
-                        <div
-                            id={scannerContainerId}
-                            style={{
-                                width: '100%', height: '100%',
-                                transform: facingMode === 'user' ? 'scaleX(-1)' : 'none',
-                                transition: 'transform 0.3s ease',
-                            }}
-                        />
-
-                        {/* QR Guide overlay */}
-                        <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            {/* Corner brackets */}
-                            <div style={{ position: 'relative', width: '280px', height: '280px' }}>
-                                {/* Top-Left */}
-                                <div style={{
-                                    position: 'absolute', top: 0, left: 0,
-                                    width: '40px', height: '40px',
-                                    borderTop: '4px solid #FF6B00', borderLeft: '4px solid #FF6B00',
-                                    borderRadius: '4px 0 0 0',
-                                }} />
-                                {/* Top-Right */}
-                                <div style={{
-                                    position: 'absolute', top: 0, right: 0,
-                                    width: '40px', height: '40px',
-                                    borderTop: '4px solid #FF6B00', borderRight: '4px solid #FF6B00',
-                                    borderRadius: '0 4px 0 0',
-                                }} />
-                                {/* Bottom-Left */}
-                                <div style={{
-                                    position: 'absolute', bottom: 0, left: 0,
-                                    width: '40px', height: '40px',
-                                    borderBottom: '4px solid #FF6B00', borderLeft: '4px solid #FF6B00',
-                                    borderRadius: '0 0 0 4px',
-                                }} />
-                                {/* Bottom-Right */}
-                                <div style={{
-                                    position: 'absolute', bottom: 0, right: 0,
-                                    width: '40px', height: '40px',
-                                    borderBottom: '4px solid #FF6B00', borderRight: '4px solid #FF6B00',
-                                    borderRadius: '0 0 4px 0',
-                                }} />
-
-                                {/* Scan line animation */}
-                                <div style={{
-                                    position: 'absolute',
-                                    left: '8px', right: '8px',
-                                    height: '2px',
-                                    background: 'linear-gradient(90deg, transparent, #FF6B00, transparent)',
-                                    animation: 'scanLine 2s ease-in-out infinite',
-                                    boxShadow: '0 0 12px rgba(255,107,0,0.5)',
-                                }} />
-                            </div>
-                        </div>
-
-                        {/* Processing overlay */}
-                        {scanState === 'processing' && (
-                            <div style={{
-                                position: 'absolute', inset: 0,
-                                background: 'rgba(0,0,0,0.7)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                flexDirection: 'column', gap: '16px',
-                            }}>
-                                <div style={{
-                                    width: '48px', height: '48px',
-                                    border: '3px solid rgba(255,255,255,0.2)',
-                                    borderTopColor: '#FF6B00',
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite',
-                                }} />
-                                <span style={{ color: 'white', fontSize: '18px', fontWeight: 600 }}>처리 중...</span>
-                            </div>
-                        )}
-
-                        {/* Error overlay */}
-                        {scanState === 'error' && (
-                            <div style={{
-                                position: 'absolute', inset: 0,
-                                background: 'rgba(220,38,38,0.15)',
-                                border: '2px solid rgba(220,38,38,0.3)',
-                                borderRadius: '24px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                flexDirection: 'column', gap: '16px',
-                            }}>
-                                <div style={{
-                                    width: '64px', height: '64px',
-                                    borderRadius: '50%',
-                                    background: 'rgba(220,38,38,0.2)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
-                                </div>
-                                <span style={{ color: '#ef4444', fontSize: '20px', fontWeight: 700 }}>{errorMessage}</span>
-                                <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>잠시 후 다시 시도합니다...</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* Manual mode */}
-                {manualMode && (
-                    <div style={{
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '24px',
-                        padding: '48px',
-                        borderRadius: '24px',
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        backdropFilter: 'blur(16px)',
-                    }}>
-                        <div style={{
-                            width: '80px', height: '80px',
-                            borderRadius: '50%',
-                            background: 'rgba(255,107,0,0.1)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <rect x="3" y="3" width="7" height="7" rx="1" />
-                                <rect x="14" y="3" width="7" height="7" rx="1" />
-                                <rect x="3" y="14" width="7" height="7" rx="1" />
-                                <rect x="14" y="14" width="3" height="3" />
-                            </svg>
-                        </div>
-                        <h2 style={{ fontSize: '24px', fontWeight: 700, color: 'white' }}>수동 코드 입력</h2>
-                        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)' }}>카메라를 사용할 수 없습니다. 코드를 직접 입력해주세요.</p>
-                        <div style={{ display: 'flex', gap: '12px' }}>
-                            <input
-                                type="text"
-                                value={manualCode}
-                                onChange={(e) => setManualCode(e.target.value)}
-                                onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
-                                placeholder="QR 코드 입력..."
-                                style={{
-                                    padding: '16px 24px',
-                                    borderRadius: '14px',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    color: 'white',
-                                    fontSize: '18px',
-                                    fontFamily: "'Lexend', sans-serif",
-                                    width: '320px',
-                                    outline: 'none',
-                                }}
-                            />
-                            <button
-                                onClick={handleManualSubmit}
-                                style={{
-                                    padding: '16px 32px',
-                                    borderRadius: '14px',
-                                    background: 'linear-gradient(135deg, #FF6B00, #FF8A3D)',
-                                    border: 'none',
-                                    color: 'white',
-                                    fontSize: '18px',
-                                    fontWeight: 700,
-                                    fontFamily: "'Lexend', sans-serif",
-                                    cursor: 'pointer',
-                                }}
-                            >확인</button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Bottom guidance */}
-            <div style={{
-                padding: '24px 40px 36px',
-                textAlign: 'center',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '8px',
-            }}>
-                <p style={{ fontSize: '18px', fontWeight: 500, color: 'rgba(255,255,255,0.5)' }}>
-                    회원앱에서 QR 코드를 표시해주세요
-                </p>
-                <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.25)' }}>
-                    인식이 안될 경우 밝기를 높여주세요
-                </p>
-
-                {!manualMode && (
-                    <button
-                        onClick={() => setManualMode(true)}
-                        style={{
-                            marginTop: '8px',
-                            padding: '10px 24px',
-                            borderRadius: '10px',
-                            background: 'rgba(255,255,255,0.03)',
-                            border: '1px solid rgba(255,255,255,0.06)',
-                            color: 'rgba(255,255,255,0.35)',
-                            fontSize: '13px',
-                            fontFamily: "'Lexend', sans-serif",
-                            cursor: 'pointer',
-                        }}
-                    >
-                        수동 입력으로 전환
-                    </button>
-                )}
-
-                {scanState === 'scanning' && (
-                    <div style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        marginTop: '4px',
-                    }}>
-                        <div style={{
-                            width: '8px', height: '8px',
-                            borderRadius: '50%',
-                            background: '#FF6B00',
-                            animation: 'blink 1.5s ease-in-out infinite',
-                        }} />
-                        <span style={{ fontSize: '13px', color: '#FF6B00', fontWeight: 600 }}>스캔 중...</span>
-                    </div>
-                )}
-            </div>
-
-            <style jsx>{`
-                @keyframes scanLine {
-                    0% { top: 8px; }
-                    50% { top: calc(100% - 10px); }
-                    100% { top: 8px; }
-                }
-                @keyframes spin {
-                    to { transform: rotate(360deg); }
-                }
-                @keyframes blink {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.3; }
-                }
-            `}</style>
+          )}
         </div>
-    );
+      ) : mode === 'manual' ? (
+        <ManualEntry
+          facilityId={device?.facilityId ?? null}
+          onCheckin={handleManualCheckin}
+          toastError={toast.error}
+        />
+      ) : (
+        <GuestEntry online={online} onCheckin={handleGuestCheckin} toastError={toast.error} />
+      )}
+
+      <div className={styles.scanFooter}>
+        {mode === 'scan' ? (
+          <>
+            <Button
+              variant={cameraBlocked || decoderMissing ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setMode('manual')}
+            >
+              수동 입력
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setMode('guest')}>
+              게스트 · 드롭인
+            </Button>
+          </>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setMode('scan')}>
+            카메라로 스캔
+          </Button>
+        )}
+      </div>
+    </main>
+  );
+}
+
+// 수동 폴백 (docs/06 §3.2⑤) — 전화번호 뒤 4자리 → 마스킹 후보(fn_kiosk_lookup_member) → 데스크 지원 체크인.
+// 후보 선택 시 member_id를 서버(submitManualCheckin→fn_kiosk_checkin)에 위임한다(클라 멤버십 로직 없음).
+function ManualEntry({
+  facilityId,
+  onCheckin,
+  toastError,
+}: {
+  facilityId: string | null;
+  onCheckin: (memberId: string) => Promise<void>;
+  toastError: (m: string) => void;
+}) {
+  const [digits, setDigits] = useState('');
+  const [candidates, setCandidates] = useState<KioskCandidate[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleLookup = useCallback(async () => {
+    if (digits.length !== 4) return;
+    setLoading(true);
+    try {
+      const found = await lookupMembers(facilityId, digits);
+      setCandidates(found);
+      if (found.length === 0) {
+        toastError('일치하는 회원이 없습니다. 데스크에 문의해주세요.');
+      }
+    } catch {
+      toastError(KIOSK_ERROR_MESSAGE.network_error);
+    } finally {
+      setLoading(false);
+    }
+  }, [digits, facilityId, toastError]);
+
+  const handleSelect = useCallback(
+    async (memberId: string) => {
+      if (submitting) return;
+      setSubmitting(true);
+      try {
+        await onCheckin(memberId);
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [onCheckin, submitting],
+  );
+
+  return (
+    <div className={styles.manual}>
+      <Input
+        label="전화번호 뒤 4자리"
+        inputMode="numeric"
+        maxLength={4}
+        value={digits}
+        onChange={(e) => {
+          setDigits(e.target.value.replace(/\D/g, '').slice(0, 4));
+          setCandidates(null);
+        }}
+        placeholder="1234"
+      />
+      <Button
+        variant="primary"
+        block
+        disabled={digits.length !== 4 || loading}
+        onClick={() => void handleLookup()}
+      >
+        {loading ? '조회 중…' : '조회'}
+      </Button>
+
+      {candidates && candidates.length > 0 ? (
+        <ul className={styles.candidateList}>
+          {candidates.map((c) => (
+            <li key={c.member_id}>
+              <button
+                type="button"
+                className={styles.candidate}
+                disabled={submitting}
+                onClick={() => void handleSelect(c.member_id)}
+              >
+                <span className={styles.candidateName}>{c.masked_name}</span>
+                <span className={styles.candidatePhone}>···{c.phone_tail}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+// 게스트/드롭인 (docs/06 §4.6 G-7) — 데스크 발권 6자리 1회용 코드 입력 → 서버 상환.
+// 폰(앱 세션) 없는 게스트용. 코드 검증·크레딧 차감은 fn_kiosk_guest_checkin 전담.
+function GuestEntry({
+  online,
+  onCheckin,
+  toastError,
+}: {
+  online: boolean;
+  onCheckin: (code: string) => Promise<void>;
+  toastError: (m: string) => void;
+}) {
+  const [code, setCode] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = useCallback(async () => {
+    if (code.length !== 6 || submitting) return;
+    if (!online) {
+      toastError('오프라인 상태에서는 게스트 코드를 사용할 수 없습니다. 데스크에 문의해주세요.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await onCheckin(code);
+    } finally {
+      setSubmitting(false);
+    }
+  }, [code, online, onCheckin, submitting, toastError]);
+
+  return (
+    <div className={styles.manual}>
+      <p className={styles.guestHint}>데스크에서 받은 6자리 드롭인/체험 코드를 입력하세요.</p>
+      <Input
+        label="게스트 코드 (6자리)"
+        inputMode="numeric"
+        maxLength={6}
+        value={code}
+        onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+        placeholder="000000"
+      />
+      <Button
+        variant="primary"
+        block
+        loading={submitting}
+        disabled={code.length !== 6 || submitting}
+        onClick={() => void handleSubmit()}
+      >
+        체크인
+      </Button>
+    </div>
+  );
 }

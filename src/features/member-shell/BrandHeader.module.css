@@ -1,0 +1,31 @@
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bcl-surface);
+  border-bottom: 1px solid var(--bcl-border);
+}
+.inner {
+  max-width: 560px;
+  margin: 0 auto;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: 0 var(--bcl-space-4);
+}
+/* BCL 워드마크 로고 — 높이 지정, 폭은 종횡비 자동. accent 색 상속 */
+.logo {
+  height: 22px;
+  width: auto;
+  display: block;
+  color: var(--bcl-accent);
+}
+.tagline {
+  font-size: calc(11px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

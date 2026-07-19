@@ -1,0 +1,66 @@
+/* Checkbox — reset.css의 appearance:none으로 네이티브 체크박스가 비가시화되므로
+ * 토큰 기반 커스텀 박스 제공. 색·크기·간격은 토큰만. */
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  min-height: var(--bcl-hit-min);
+  cursor: pointer;
+  user-select: none;
+}
+
+.input {
+  /* 시각 숨김(포커스는 유지) — box가 시각 표현 담당 */
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.box {
+  flex: none;
+  width: var(--bcl-space-5);
+  height: var(--bcl-space-5);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-surface);
+  position: relative;
+  transition:
+    background-color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.input:checked + .box {
+  background: var(--bcl-accent);
+  border-color: var(--bcl-accent);
+}
+
+.input:checked + .box::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  top: 12%;
+  width: 30%;
+  height: 55%;
+  border: solid white; /* on-accent 토큰 부재 — Button primary와 동일 키워드 */
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.input:focus-visible + .box {
+  outline: 2px solid var(--bcl-focus-ring);
+  outline-offset: 2px;
+}
+
+.input:disabled + .box,
+.input:disabled ~ .label {
+  opacity: 0.45;
+}
+
+.label {
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  color: var(--bcl-text);
+}

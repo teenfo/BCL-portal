@@ -1,309 +1,164 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { query, rpc } from '@/lib/supabase/query';
-import { Suspense } from 'react';
+// /kiosk/success — 완료 화면 (docs/06 §3.3)
+// 회원명·인사 + 분기 결과(수업 vs 시설) + 잔여 횟수/만료 D-day. 5초 후 idle 자동 복귀.
+// RPC 응답 data만 사용(추가 조회 없음). result-store에서 1회성 소비.
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { takeSuccessResult, type SuccessResult } from '@/features/kiosk-checkin';
+import type { KioskCheckinData } from '@/features/kiosk-checkin';
+import styles from '../kiosk.module.css';
 
-interface MembershipInfo {
-    remaining_sessions: number | null;
-    plan_name: string;
+const AUTO_RETURN_MS = 5000;
+
+const PLAN_LABEL: Record<string, string> = {
+  standard: '정기권',
+  drop_in: '드롭인',
+  trial: '체험',
+};
+
+/** ISO 시각 → HH:MM (표시용) */
+function formatTime(iso: string): string {
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '';
+  return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
 }
 
-function SuccessContent() {
-    const router = useRouter();
-    const searchParams = useSearchParams();
-    const memberId = searchParams.get('member');
-    const memberName = searchParams.get('name') || '회원';
-    const checkinType = searchParams.get('type') || 'facility'; // 'class' or 'facility'
-    const className = searchParams.get('class') || '';
-    const classTime = searchParams.get('time') || '';
-    const coachName = searchParams.get('coach') || '';
+/** 만료 D-day 라벨 — 0=당일, 양수=남은 일수 */
+function ddayLabel(d: number): string {
+  return d <= 0 ? '만료 D-DAY' : `만료 D-${d}`;
+}
 
-    const [membership, setMembership] = useState<MembershipInfo | null>(null);
-    const [countdown, setCountdown] = useState(5);
-    const [showContent, setShowContent] = useState(false);
-
-    // 멤버십 정보 로드
-    const loadMemberInfo = useCallback(async () => {
-        if (!memberId) return;
-
-        // 멤버 테이블에서 user_id를 조회한 후 멤버십 확인
-        const { data: memberData } = await query('members')
-            
-            .select('user_id')
-            .eq('id', memberId)
-            .single();
-
-        if (memberData?.user_id) {
-            const { data: membershipData } = await query('memberships')
-                
-                .select('remaining_credits, status')
-                .eq('user_id', memberData.user_id)
-                .eq('status', 'active')
-                .order('end_date', { ascending: false })
-                .limit(1);
-
-            if (membershipData && membershipData.length > 0) {
-                setMembership({
-                    remaining_sessions: membershipData[0].remaining_credits,
-                    plan_name: '회원권',
-                });
-            }
-        }
-    }, [memberId]);
-
-    useEffect(() => {
-        loadMemberInfo();
-        setTimeout(() => setShowContent(true), 100);
-    }, [loadMemberInfo]);
-
-    // 카운트다운 (5→0 후 복귀)
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCountdown((prev) => {
-                if (prev <= 1) {
-                    router.push('/kiosk');
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        return () => clearInterval(timer);
-    }, [router]);
-
-    const isClassCheckin = checkinType === 'class';
-
-    return (
-        <div style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'linear-gradient(160deg, #0a0a0b 0%, #0d1a0e 40%, #0d0d0e 100%)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontFamily: "'Lexend', sans-serif",
-            overflow: 'hidden',
-        }}>
-            {/* Green gradient accent */}
-            <div style={{
-                position: 'absolute',
-                top: '10%', left: '30%',
-                width: '40vw', height: '40vw',
-                borderRadius: '50%',
-                background: 'radial-gradient(circle, rgba(34,197,94,0.08) 0%, transparent 70%)',
-                pointerEvents: 'none',
-            }} />
-
-            {/* Main content */}
-            <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '28px',
-                transform: showContent ? 'translateY(0) scale(1)' : 'translateY(20px) scale(0.95)',
-                opacity: showContent ? 1 : 0,
-                transition: 'all 0.6s cubic-bezier(0.16, 1, 0.3, 1)',
-                zIndex: 1,
-            }}>
-                {/* Success icon */}
-                <div style={{
-                    position: 'relative',
-                    width: '120px', height: '120px',
-                }}>
-                    <div style={{
-                        position: 'absolute', inset: '-20px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(circle, rgba(34,197,94,0.2) 0%, transparent 70%)',
-                    }} />
-                    <div style={{
-                        width: '120px', height: '120px',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #22C55E, #16A34A)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        boxShadow: '0 8px 32px rgba(34,197,94,0.3)',
-                    }}>
-                        <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20,6 9,17 4,12" />
-                        </svg>
-                    </div>
-                </div>
-
-                {/* Message */}
-                <div style={{ textAlign: 'center' }}>
-                    <h1 style={{
-                        fontSize: '52px',
-                        fontWeight: 900,
-                        color: 'white',
-                        letterSpacing: '-0.03em',
-                        lineHeight: 1.1,
-                        marginBottom: '12px',
-                    }}>
-                        체크인 완료!
-                    </h1>
-                    <p style={{
-                        fontSize: '36px',
-                        fontWeight: 700,
-                        color: '#FF6B00',
-                        lineHeight: 1.2,
-                    }}>
-                        {memberName}님
-                    </p>
-                    <p style={{
-                        fontSize: '20px',
-                        fontWeight: 400,
-                        color: 'rgba(255,255,255,0.45)',
-                        marginTop: '8px',
-                    }}>
-                        오늘도 좋은 운동 되세요! 💪
-                    </p>
-                </div>
-
-                {/* Info cards */}
-                <div style={{
-                    display: 'flex',
-                    gap: '20px',
-                    marginTop: '8px',
-                }}>
-                    {/* Check-in type card */}
-                    <div style={{
-                        padding: '24px 32px',
-                        borderRadius: '20px',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        backdropFilter: 'blur(16px)',
-                        minWidth: '200px',
-                        textAlign: 'center',
-                    }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            marginBottom: '12px',
-                        }}>
-                            <span style={{ fontSize: '20px' }}>{isClassCheckin ? '🎓' : '🏢'}</span>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>
-                                {isClassCheckin ? '수업 체크인' : '시설 출석'}
-                            </span>
-                        </div>
-                        {isClassCheckin ? (
-                            <div>
-                                <div style={{ fontSize: '24px', fontWeight: 800, color: 'white' }}>
-                                    {className}
-                                </div>
-                                <div style={{ fontSize: '16px', fontWeight: 500, color: '#FF6B00', marginTop: '4px' }}>
-                                    {classTime}
-                                </div>
-                                {coachName && (
-                                    <div style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>
-                                        코치: {coachName}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div>
-                                <div style={{ fontSize: '18px', fontWeight: 600, color: 'white' }}>
-                                    시설 이용을 시작합니다
-                                </div>
-                                <div style={{ fontSize: '14px', fontWeight: 400, color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
-                                    좋은 하루 되세요!
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Remaining sessions */}
-                    <div style={{
-                        padding: '24px 32px',
-                        borderRadius: '20px',
-                        background: 'rgba(255,255,255,0.04)',
-                        border: '1px solid rgba(255,255,255,0.06)',
-                        backdropFilter: 'blur(16px)',
-                        minWidth: '200px',
-                        textAlign: 'center',
-                    }}>
-                        <div style={{
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                            marginBottom: '12px',
-                        }}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                                <polyline points="22,4 12,14.01 9,11.01" />
-                            </svg>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.05em' }}>
-                                남은 횟수
-                            </span>
-                        </div>
-                        {membership ? (
-                            <div>
-                                <div style={{ fontSize: '32px', fontWeight: 900, color: 'white' }}>
-                                    {membership.remaining_sessions !== null ? `${membership.remaining_sessions}회` : '무제한'}
-                                </div>
-                                <div style={{ fontSize: '13px', fontWeight: 500, color: 'rgba(255,255,255,0.3)', marginTop: '4px' }}>
-                                    {membership.plan_name}
-                                </div>
-                            </div>
-                        ) : (
-                            <div style={{ fontSize: '16px', color: 'rgba(255,255,255,0.3)' }}>
-                                멤버십 정보 없음
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-
-            {/* Countdown footer */}
-            <div style={{
-                position: 'absolute',
-                bottom: '40px',
-                left: 0, right: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '12px',
-            }}>
-                <span style={{
-                    fontSize: '14px',
-                    color: 'rgba(255,255,255,0.3)',
-                }}>
-                    {countdown}초 후 자동으로 초기 화면으로 돌아갑니다...
-                </span>
-                {/* Progress bar */}
-                <div style={{
-                    width: '200px',
-                    height: '4px',
-                    borderRadius: '2px',
-                    background: 'rgba(255,255,255,0.06)',
-                    overflow: 'hidden',
-                }}>
-                    <div style={{
-                        height: '100%',
-                        borderRadius: '2px',
-                        background: 'linear-gradient(90deg, #22C55E, #16A34A)',
-                        width: `${(countdown / 5) * 100}%`,
-                        transition: 'width 1s linear',
-                    }} />
-                </div>
-            </div>
-        </div>
-    );
+/** 잔여 횟수/만료 D-day 칩 행 (성공·중복 공통) */
+function MembershipMeta({
+  planLabel,
+  remainingCredits,
+  membershipDday,
+}: {
+  planLabel?: string;
+  remainingCredits: number | null;
+  membershipDday: number | null;
+}) {
+  const chips: string[] = [];
+  if (planLabel) chips.push(planLabel);
+  if (remainingCredits != null) chips.push(`잔여 ${remainingCredits}회`);
+  if (membershipDday != null) chips.push(ddayLabel(membershipDday));
+  if (chips.length === 0) return null;
+  return (
+    <div className={styles.successMeta}>
+      {chips.map((c) => (
+        <span key={c} className={styles.successChip}>
+          {c}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function KioskSuccessPage() {
+  const router = useRouter();
+  const [result, setResult] = useState<SuccessResult | null | undefined>(undefined);
+
+  useEffect(() => {
+    // 마운트 시 result-store 1회성 소비 — localStorage 유사 외부 소스 읽기(하이드레이션 일치 위해 effect)
+    const r = takeSuccessResult();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setResult(r);
+    if (!r) {
+      router.replace('/kiosk'); // 직접 진입/새로고침 — 표시할 결과 없음
+      return;
+    }
+    const t = setTimeout(() => router.replace('/kiosk'), AUTO_RETURN_MS);
+    return () => clearTimeout(t);
+  }, [router]);
+
+  if (result === undefined || result === null) return null;
+
+  if (result.kind === 'queued') {
     return (
-        <Suspense fallback={
-            <div style={{
-                position: 'fixed', inset: 0,
-                background: '#0a0a0b',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontFamily: "'Lexend', sans-serif",
-                color: 'rgba(255,255,255,0.4)',
-                fontSize: '18px',
-            }}>
-                로딩 중...
-            </div>
-        }>
-            <SuccessContent />
-        </Suspense>
+      <ResultShell tone="info" title="체크인 접수됨" subtitle="동기화 대기 중">
+        <p className={styles.successNote}>네트워크 복구 시 자동으로 처리됩니다. 회원 정보는 지금 표시할 수 없습니다.</p>
+      </ResultShell>
     );
+  }
+
+  if (result.kind === 'duplicate') {
+    const dup = result.data;
+    const at = formatTime(dup.checkin_time);
+    return (
+      <ResultShell tone="info" title={`${dup.member_name}님`} subtitle="이미 체크인됨">
+        <p className={styles.successNote}>
+          {at ? `오늘 ${at}에 체크인이 완료되어 있습니다.` : '조금 전 체크인이 완료되어 있습니다.'}
+        </p>
+        <MembershipMeta
+          remainingCredits={dup.remaining_credits}
+          membershipDday={dup.membership_dday}
+        />
+      </ResultShell>
+    );
+  }
+
+  const data: KioskCheckinData = result.data;
+  const isSession = data.linked_booking && !!data.session_title;
+  const planLabel = PLAN_LABEL[data.membership_plan_kind] ?? data.membership_plan_name ?? undefined;
+
+  return (
+    <ResultShell
+      tone="success"
+      title={`${data.member_name}님`}
+      subtitle={data.guest ? '게스트 체크인 완료' : '체크인 완료'}
+    >
+      {isSession ? (
+        <div className={styles.successDetail}>
+          <span className={styles.successBadge}>수업 체크인</span>
+          <span className={styles.successSession}>{data.session_title}</span>
+        </div>
+      ) : (
+        <div className={styles.successDetail}>
+          <span className={styles.successBadgeFacility}>시설 체크인</span>
+          <span className={styles.successSession}>자유 이용</span>
+        </div>
+      )}
+      <MembershipMeta
+        planLabel={planLabel}
+        remainingCredits={data.remaining_credits}
+        membershipDday={data.membership_dday}
+      />
+      {data.guest ? <p className={styles.successNote}>당일 유효 · 오늘 이용해주세요.</p> : null}
+    </ResultShell>
+  );
+}
+
+function ResultShell({
+  tone,
+  title,
+  subtitle,
+  children,
+}: {
+  tone: 'success' | 'info';
+  title: string;
+  subtitle: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <main className={styles.success} role="status" aria-live="polite">
+      <div className={[styles.successMark, tone === 'success' ? styles.markSuccess : styles.markInfo].join(' ')} aria-hidden="true">
+        {tone === 'success' ? (
+          <svg viewBox="0 0 64 64" width="96" height="96">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" />
+            <path d="M20 33l8 8 16-18" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 64 64" width="96" height="96">
+            <circle cx="32" cy="32" r="28" fill="none" stroke="currentColor" strokeWidth="3" />
+            <path d="M32 20v16" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+            <circle cx="32" cy="44" r="2.4" fill="currentColor" />
+          </svg>
+        )}
+      </div>
+      <h1 className={styles.successTitle}>{title}</h1>
+      {subtitle ? <p className={styles.successSubtitle}>{subtitle}</p> : null}
+      {children}
+    </main>
+  );
 }

@@ -1,0 +1,59 @@
+/* ============================================================================
+ * 기본 리셋 (docs/12-design-system.md §3) — 필수 선행
+ * UA 폼 컨트롤 초기화: "흰 패널" 버그(다크 화면 위 UA 기본 버튼 배경) 원천 차단
+ * ==========================================================================*/
+
+/* 1. UA 폼 컨트롤 초기화 */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
+  appearance: none;
+}
+button {
+  cursor: pointer;
+  text-align: inherit;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* 2. 포커스: outline 제거 대신 토큰 링으로 교체 (제거만 하고 방치 금지) */
+:focus-visible {
+  outline: 2px solid var(--bcl-focus-ring);
+  outline-offset: 2px;
+}
+
+/* 3. 박스 모델·미디어 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+img,
+svg,
+video {
+  display: block;
+  max-width: 100%;
+}
+body {
+  margin: 0;
+  font-family: var(--bcl-font);
+  font-size: calc(15px * var(--bcl-font-scale));
+  line-height: calc(22 / 15);
+  background: var(--bcl-bg);
+  color: var(--bcl-text);
+}
+
+/* 4. iOS 자동 확대 방지(모바일 밀도): input font-size >= 16px 보장 */
+[data-density='mobile'] input,
+[data-density='mobile'] select {
+  font-size: max(1em, 16px);
+}

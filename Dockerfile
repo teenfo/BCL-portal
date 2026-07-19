@@ -1,67 +1,30 @@
-# ============================================
-# BCL Portal — Multi-stage Dockerfile
-# Next.js Standalone Mode + Node.js Server
-# ============================================
-
-# ---- Stage 1: Dependencies ----
-FROM node:20-alpine AS deps
+# BCL Portal — Next.js 16 standalone 멀티스테이지 (docs/11 §2: 컨테이너 내부 3000)
+# NEXT_PUBLIC_* 는 빌드타임 임베드(anon key는 공개 안전) — build args로 주입.
+FROM node:22-alpine AS deps
 WORKDIR /app
-
-# Install libc6-compat for alpine compatibility
-RUN apk add --no-cache libc6-compat
-
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# ---- Stage 2: Builder ----
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
-
-# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Build-time environment variables (required for NEXT_PUBLIC_*)
 ARG NEXT_PUBLIC_SUPABASE_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_SITE_NAME
-ARG NEXT_PUBLIC_SITE_DESCRIPTION
-
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_SITE_NAME=$NEXT_PUBLIC_SITE_NAME
-ENV NEXT_PUBLIC_SITE_DESCRIPTION=$NEXT_PUBLIC_SITE_DESCRIPTION
-
-# Disable Next.js telemetry
-ENV NEXT_TELEMETRY_DISABLED=1
-
+ARG NEXT_PUBLIC_RACE_SERVICE_URL
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
+    NEXT_PUBLIC_RACE_SERVICE_URL=$NEXT_PUBLIC_RACE_SERVICE_URL \
+    NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# ---- Stage 3: Runner ----
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Copy built standalone output
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+RUN addgroup -g 1001 nodejs && adduser -u 1001 -G nodejs -S nextjs
 COPY --from=builder /app/public ./public
-
-# Create uploads directory with proper permissions
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app/public/uploads
-
-# Switch to non-root user
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
-
 EXPOSE 3000
-
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
-
 CMD ["node", "server.js"]

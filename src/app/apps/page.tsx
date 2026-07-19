@@ -1,17 +1,6 @@
-'use client';
+// /apps 인덱스 → home 리다이렉트 (docs/03 §2.2 #1)
+import { redirect } from 'next/navigation';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-/**
- * /apps/ 접근 시 /apps/dashboard로 리다이렉트
- */
-export default function AppsIndexPage() {
-    const router = useRouter();
-
-    useEffect(() => {
-        router.replace('/apps/dashboard');
-    }, [router]);
-
-    return null;
+export default function AppsIndex() {
+  redirect('/apps/home');
 }

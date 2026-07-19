@@ -1,0 +1,87 @@
+/* PWA 설치 배너 — 하단 고정. .withNav 는 하단탭(56px) 위로 띄움. 토큰만 사용. */
+.banner {
+  position: fixed;
+  left: var(--bcl-space-3);
+  right: var(--bcl-space-3);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--bcl-space-3));
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  max-width: 520px;
+  margin: 0 auto;
+  padding: var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  box-shadow: var(--bcl-shadow-md);
+}
+.withNav {
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--bcl-space-2));
+}
+
+.icon {
+  flex-shrink: 0;
+  height: 22px;
+  width: auto;
+  color: var(--bcl-accent);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.title {
+  font-size: calc(14px * var(--bcl-font-scale));
+  font-weight: 700;
+  color: var(--bcl-text);
+}
+.desc {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: calc(12px * var(--bcl-font-scale));
+  color: var(--bcl-text-muted);
+}
+.share {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+.cta {
+  flex-shrink: 0;
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border: none;
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-accent);
+  color: #fff;
+  font-size: calc(14px * var(--bcl-font-scale));
+  font-weight: 600;
+  cursor: pointer;
+  min-height: var(--bcl-hit-min);
+}
+.cta:hover {
+  filter: brightness(1.05);
+}
+
+.close {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--bcl-text-muted);
+  border-radius: var(--bcl-radius-sm);
+  cursor: pointer;
+}
+.close:hover {
+  background: var(--bcl-surface);
+  color: var(--bcl-text);
+}

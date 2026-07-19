@@ -1,0 +1,39 @@
+.nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--bcl-surface);
+  border-top: 1px solid var(--bcl-border);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--bcl-space-1) 0;
+  color: var(--bcl-text-muted);
+  text-decoration: none;
+}
+
+.tab.active {
+  color: var(--bcl-accent-ink);
+}
+
+.icon {
+  display: inline-flex;
+}
+
+.label {
+  /* type-micro 11/16 500 */
+  font-size: calc(11px * var(--bcl-font-scale));
+  line-height: calc(16 / 11);
+  font-weight: 500;
+}
