@@ -354,6 +354,8 @@ interface Rig {
     handR: THREE.Object3D | null;
     neck: THREE.Object3D | null;
     charG: THREE.Group;
+    /** 요 회전 그룹 — 클로즈업 캠에서 선미→선수 시점(캐릭터 얼굴 노출)으로 블렌드 */
+    yawG: THREE.Group;
     oarL: THREE.Group;
     oarR: THREE.Group;
     rest: Map<THREE.Object3D, THREE.Euler>;
@@ -761,13 +763,19 @@ export function RaceStage3D({
     //   화면공간 줌(배경/HUD 고정, 표시 전용) — 위치 계산·집계·상태머신 미영향. 양 코스 모드 공통.
     const CAM_GAP_M = 4;
     const CAM_ZOOM = 1.55;
+    const LEAD_ZOOM = 1.7; // 피날레(선두 95%↑) 1위 단독 클로즈업 배율
     const CAM_HOLD_MS = 5000;
     const CAM_EVERY_MS = 13000;
+    // 클로즈업 시선 — 선미에서 선수 쪽을 바라보는 각(후향 로잉 캐릭터의 얼굴이 화면을 향함)
+    const CLOSE_YAW = Math.PI / 2 - 0.35;
     let camZoom = 1;
     let camCx = 0;
     let camCy = 0;
     let camTCx = 0;
     let camTCy = 0;
+    // 스크린 앵커 — 클로즈업 피사체가 화면 중앙부(30~70%)에 오도록 팬. 와이드에선 camC와 일치(항등)
+    let camSx = 0;
+    let camSy = 0;
     let camActiveUntil = 0;
     let camNextAt = 0;
     let lastLoopT = performance.now();
@@ -820,10 +828,15 @@ export function RaceStage3D({
       }
       const dynamicMax = tgt && tgt > 0 ? tgt : Math.max(1, leadD);
 
+      // 피날레 캠 — 선두가 95% 통과 시 배틀 캠 해제, 1위(피니시 후엔 확정 우승자) 단독 클로즈업.
+      //   레이스 종료 세리머니까지 유지, 리셋(로비) 시 와이드 복귀.
+      const finaleOn =
+        (status === 'racing' || status === 'finished') && !!tgt && leadD >= tgt * 0.95;
+
       // 배틀 캠 — 경합 클러스터 감지: 원시 d 내림차순에서 인접 간격 ≤ CAM_GAP_M 최대 그룹(≥2).
-      //   출발 직후(선두 25m 미만)·피니시 근접(85%↑)·비레이싱 상태는 와이드 유지.
+      //   출발 직후(선두 25m 미만)·피날레(95%↑)·비레이싱 상태는 대상 아님.
       let clusterSerials: string[] | null = null;
-      if (status === 'racing' && leadD > 25 && (!tgt || leadD < tgt * 0.85)) {
+      if (status === 'racing' && !finaleOn && leadD > 25 && (!tgt || leadD < tgt * 0.95)) {
         const racers = curLanes
           .map((m) => ({ serial: m.serial, d: samples.get(m.serial)?.d ?? 0 }))
           .filter((r) => !tgt || r.d < tgt - 1)
@@ -844,9 +857,19 @@ export function RaceStage3D({
         camActiveUntil = t + CAM_HOLD_MS;
         camNextAt = t + CAM_EVERY_MS;
       }
+      if (finaleOn) camActiveUntil = 0; // 배틀 캠 즉시 해제
       const camOn = t < camActiveUntil && clusterSerials !== null;
-      // 타깃 중심 — 클러스터 rig의 직전 프레임 기준 좌표(1프레임 지연은 LERP가 흡수)
-      if (camOn && clusterSerials) {
+      // 타깃 중심 — rig의 직전 프레임 기준 좌표(1프레임 지연은 LERP가 흡수)
+      let camTZoom = 1;
+      if (finaleOn) {
+        // 피날레: 확정 1위(도착 순서) > 현재 선두
+        const winner = rigs.get(order[0] ?? leadSerial ?? '');
+        if (winner) {
+          camTCx = winner.baseX;
+          camTCy = winner.baseY;
+          camTZoom = LEAD_ZOOM;
+        }
+      } else if (camOn && clusterSerials) {
         let sx = 0;
         let sy = 0;
         let cnt = 0;
@@ -861,15 +884,23 @@ export function RaceStage3D({
         if (cnt > 0) {
           camTCx = sx / cnt;
           camTCy = sy / cnt;
+          camTZoom = CAM_ZOOM;
         }
       } else {
         camTCx = W / 2;
         camTCy = H / 2;
       }
       const camK = 1 - Math.pow(0.945, dtF / 16.7); // 방송 카메라 감속(부드러운 팬/줌)
-      camZoom += ((camOn ? CAM_ZOOM : 1) - camZoom) * camK;
+      const zooming = camTZoom > 1;
+      const camTSx = zooming ? Math.min(W * 0.68, Math.max(W * 0.32, camTCx)) : camTCx;
+      const camTSy = zooming ? Math.min(H * 0.7, Math.max(H * 0.3, camTCy)) : camTCy;
+      camZoom += (camTZoom - camZoom) * camK;
       camCx += (camTCx - camCx) * camK;
       camCy += (camTCy - camCy) * camK;
+      camSx += (camTSx - camSx) * camK;
+      camSy += (camTSy - camSy) * camK;
+      // 클로즈업 시선 전환도(0..1) — 줌 수렴에 비례해 요를 CLOSE_YAW로 스윙(카메라 오빗 연출)
+      const camE = Math.min(1, Math.max(0, (camZoom - 1) / 0.45));
 
       curLanes.forEach((meta, index) => {
         const rig = rigs.get(meta.serial);
@@ -1026,6 +1057,7 @@ export function RaceStage3D({
               handR: find('R_Hand'),
               neck: find('NeckTwist01'),
               charG,
+              yawG,
               oarL,
               oarR,
               rest: new Map<THREE.Object3D, THREE.Euler>(),
@@ -1066,11 +1098,11 @@ export function RaceStage3D({
           x = (xPct / 100) * W;
           yPx = (yPct / 100) * H;
         }
-        // 배틀 캠 적용 — 기준 좌표 저장 후 화면공간 줌(중심 camC, 배율 camZoom)
+        // 배틀 캠 적용 — 기준 좌표 저장 후 화면공간 줌(피사체 camC → 스크린 앵커 camS, 배율 camZoom)
         rig.baseX = x;
         rig.baseY = yPx;
-        x = camCx + (x - camCx) * camZoom;
-        yPx = camCy + (yPx - camCy) * camZoom;
+        x = camSx + (x - camCx) * camZoom;
+        yPx = camSy + (yPx - camCy) * camZoom;
         scl *= camZoom;
         const bob = Math.sin(t / 2800 * TAU + index * 1.3) * 5 * scl;
 
@@ -1086,6 +1118,8 @@ export function RaceStage3D({
           const ms = charH * 0.65;
           rig.model.scale.set(ms, ms, ms);
           const b = rig.parts;
+          // 클로즈업 캠 — 선미→선수 시점으로 요 스윙(줌과 동기, 와이드 복귀 시 원위치)
+          b.yawG.rotation.y = baseYaw + (CLOSE_YAW - baseYaw) * camE;
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
           if (stroke) b.phase = (b.phase + dtF / dur) % 1;
