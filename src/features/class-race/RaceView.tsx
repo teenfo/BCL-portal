@@ -174,12 +174,14 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           defaultDevice={defaultDeviceForTheme(theme)}
           finishOrder={finishOrder}
         />
-        {/* 배지 레일 — 세로: 상단 가로 레일 / 가로 코스: 우측 데크 타일 밴드에 레인별 세로 정렬 */}
-        <div className={styles.badgeRail}>
-          {lanes.map((l, i) => (
-            <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} courseH={courseH} />
-          ))}
-        </div>
+        {/* 배지 레일 — 세로 전용 상단 가로 레일 (가로 코스는 보트 선수 문장 배너가 diff 표시를 대체) */}
+        {courseH ? null : (
+          <div className={styles.badgeRail}>
+            {lanes.map((l, i) => (
+              <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 응원 관중 실루엣 */}
@@ -274,13 +276,11 @@ function RailBadge({
   index,
   count,
   animator,
-  courseH,
 }: {
   meta: LaneMeta;
   index: number;
   count: number;
   animator: Animator;
-  courseH: boolean;
 }) {
   const dRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -288,13 +288,10 @@ function RailBadge({
   }, [meta.serial, animator]);
   if (meta.virtual) return null;
   const { xt } = poolLaneX(index, count);
-  // 가로 코스: 우측 데크 타일 밴드(x 96.5%)에 레인 행(y 16~89% — RaceStage3D POOL_H와 동기) 정렬
-  const laneY = 16 + (count > 1 ? (89 - 16) / (count - 1) : 0) * index;
-  const pos = courseH ? { left: '95%', top: `${laneY}%` } : { left: `${xt}%` };
   return (
     <span
       className={styles.railBadge}
-      style={{ ...pos, ['--team-color' as string]: teamColorVar(index) }}
+      style={{ left: `${xt}%`, ['--team-color' as string]: teamColorVar(index) }}
     >
       <em>ERG {meta.lane}</em>
       <b ref={dRef}>0m</b>

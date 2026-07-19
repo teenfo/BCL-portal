@@ -75,18 +75,19 @@ function makeChipTexture(name: string, teamColor: string): THREE.CanvasTexture {
 /**
  * 가로 코스 전용 — 보트 선수(오른쪽 끝)에 꼬리표처럼 다는 문장(紋章) 배너.
  * 제비꼬리 페넌트 + 레인 메달리온 + 레인별 문양 변주(사선줄/셰브런/원판/이중띠/물결/마름모).
+ * 본문 텍스트는 순위 diff("1위"/"-4m") — HUD 배지 레일을 대체.
  */
-function makeCrestTexture(name: string, teamColor: string, lane: number): THREE.CanvasTexture {
+function makeCrestTexture(text: string, teamColor: string, lane: number): THREE.CanvasTexture {
   const c = document.createElement('canvas');
-  c.width = 640;
+  c.width = 448;
   c.height = 160;
   const g = c.getContext('2d')!;
   const H = c.height;
   const mid = H / 2;
   const attachX = 18; // 왼쪽 부착 꼭짓점(보트 선수 쪽)
   const shoulderX = 84; // 부착 꼭짓점 → 본체 어깨
-  const tailX = 622; // 꼬리 끝
-  const notchX = 548; // 제비꼬리 안쪽 파임
+  const tailX = 430; // 꼬리 끝
+  const notchX = 356; // 제비꼬리 안쪽 파임
   const topY = 24;
   const botY = H - 24;
 
@@ -206,12 +207,12 @@ function makeCrestTexture(name: string, teamColor: string, lane: number): THREE.
   g.textBaseline = 'middle';
   g.fillText(String(lane), medX, mid + 2);
 
-  // 이름 — 메달리온과 제비꼬리 사이, 가독 우선 그림자
+  // 순위 diff — 메달리온과 제비꼬리 사이, 가독 우선 그림자
   g.fillStyle = '#ffffff';
-  g.font = '700 52px Lexend, Pretendard, sans-serif';
+  g.font = '800 58px Lexend, Pretendard, sans-serif';
   g.shadowColor = 'rgba(0,0,0,0.85)';
   g.shadowBlur = 8;
-  g.fillText(name, (medX + 60 + notchX) / 2, mid + 2, notchX - medX - 100);
+  g.fillText(text, (medX + 44 + notchX - 12) / 2, mid + 2, notchX - medX - 72);
   g.shadowBlur = 0;
 
   const t = new THREE.CanvasTexture(c);
@@ -680,7 +681,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       const ring = new THREE.Mesh(centerPlane, ringMat);
       ring.renderOrder = 400;
 
-      const chipName = meta.member_name ?? `레인 ${meta.lane || index + 1}`;
+      // 세로: 이름 칩 / 가로: 순위 diff 문장 배너(본문은 루프에서 diff 텍스트로 갱신)
+      const chipName = courseH ? '0m' : (meta.member_name ?? `레인 ${meta.lane || index + 1}`);
       const chipTex = courseH
         ? makeCrestTexture(chipName, teamColor, meta.lane || index + 1)
         : makeChipTexture(chipName, teamColor);
@@ -1268,8 +1270,17 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           ? 0.3 + 0.14 * Math.sin(t / 420)
           : 0;
 
-        // 이름 칩 — 캐릭터 하단(원근 스케일 완화 — 가독성). 이름 지연 병합 시 재생성
-        const wantName = meta.member_name ?? `레인 ${meta.lane || index + 1}`;
+        // 칩 텍스트 — 세로: 이름 / 가로: 순위 diff(HUD 배지 레일과 동일 규칙 + 피니시 후 확정 등수)
+        const fin = order.indexOf(meta.serial) + 1;
+        const wantName = courseH
+          ? fin > 0
+            ? `${fin}위`
+            : leadD < 1
+              ? '0m'
+              : meta.serial === leadSerial
+                ? '1위'
+                : `-${Math.max(0, Math.round(leadD - rawD))}m`
+          : (meta.member_name ?? `레인 ${meta.lane || index + 1}`);
         if (wantName !== rig.chipName) {
           rig.chipName = wantName;
           const mat = rig.chip.material as THREE.MeshBasicMaterial;
@@ -1282,8 +1293,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
         const chipS = Math.max(0.72, scl) * charH;
         if (courseH) {
           // 문장(紋章) 배너 — 보트 선수(오른쪽 끝)에 꼬리표처럼 부착. 부착 꼭짓점이 선수 부근
-          rig.chip.scale.set(chipS * 1.9, chipS * 0.475, 1);
-          rig.chip.position.x = chipS * 1.82;
+          rig.chip.scale.set(chipS * 0.98, chipS * 0.35, 1);
+          rig.chip.position.x = chipS * 1.36;
           rig.chip.position.y = 0;
         } else {
           rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);

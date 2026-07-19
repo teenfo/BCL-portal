@@ -267,15 +267,6 @@
   justify-content: center;
   overflow: hidden;
 }
-/* 가로 코스 배지 레일 — 우측 데크 밴드 전체 높이, 배지는 레인 행 중심 정렬 */
-.raceRoot[data-course='h'] .badgeRail {
-  top: 0;
-  bottom: 0;
-  height: auto;
-}
-.raceRoot[data-course='h'] .railBadge {
-  transform: translate(-50%, -50%);
-}
 .raceRoot[data-course='h'] .hudMain {
   font-size: 32px;
 }
