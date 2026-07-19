@@ -267,6 +267,11 @@
   justify-content: center;
   overflow: hidden;
 }
+/* 가로 HUD는 overflow:hidden — 카드 위로 걸치는 1st/등수 배지를 카드 안쪽 우상단으로 */
+.raceRoot[data-course='h'] .hudCard[data-rank='1']::after,
+.raceRoot[data-course='h'] .hudPlace {
+  top: var(--bcl-space-2);
+}
 .raceRoot[data-course='h'] .hudMain {
   font-size: 32px;
 }

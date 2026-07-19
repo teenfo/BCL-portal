@@ -323,6 +323,9 @@ interface Rig {
   texKey: string;
   d: number;
   spm: number;
+  /** 배틀 캠 기준 좌표(줌 변환 전 화면 px) — 경합 클러스터 중심 산출용 */
+  baseX: number;
+  baseY: number;
   /** 부스터 — 속도 빠른/느린 EMA(m/s)·발동/종료 시각. 급가속 감지 시 ~2s 연출.
       velF: 표시좌표 미분은 샘플 틱마다 톱니 스파이크 → ~0.4s EMA로 평활 후 비교 */
   velF: number;
@@ -741,6 +744,8 @@ export function RaceStage3D({
         texKey: '',
         d: 0,
         spm: 0,
+        baseX: 0,
+        baseY: 0,
         velF: 0,
         velS: 0,
         boostAt: 0,
@@ -752,6 +757,19 @@ export function RaceStage3D({
     // 승선 타이밍 — 카운트다운 진입 시각(전 레인 공유)
     let prevStatus: LobbyStatus | null = null;
     let countdownAt = 0;
+    // 배틀 캠 — 경합(인접 간격 ≤ CAM_GAP_M) 클러스터 자동 클로즈업: 5s 줌 인 후 와이드 복귀.
+    //   화면공간 줌(배경/HUD 고정, 표시 전용) — 위치 계산·집계·상태머신 미영향. 양 코스 모드 공통.
+    const CAM_GAP_M = 4;
+    const CAM_ZOOM = 1.55;
+    const CAM_HOLD_MS = 5000;
+    const CAM_EVERY_MS = 13000;
+    let camZoom = 1;
+    let camCx = 0;
+    let camCy = 0;
+    let camTCx = 0;
+    let camTCy = 0;
+    let camActiveUntil = 0;
+    let camNextAt = 0;
     let lastLoopT = performance.now();
     const loop = () => {
       const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
@@ -801,6 +819,57 @@ export function RaceStage3D({
         }
       }
       const dynamicMax = tgt && tgt > 0 ? tgt : Math.max(1, leadD);
+
+      // 배틀 캠 — 경합 클러스터 감지: 원시 d 내림차순에서 인접 간격 ≤ CAM_GAP_M 최대 그룹(≥2).
+      //   출발 직후(선두 25m 미만)·피니시 근접(85%↑)·비레이싱 상태는 와이드 유지.
+      let clusterSerials: string[] | null = null;
+      if (status === 'racing' && leadD > 25 && (!tgt || leadD < tgt * 0.85)) {
+        const racers = curLanes
+          .map((m) => ({ serial: m.serial, d: samples.get(m.serial)?.d ?? 0 }))
+          .filter((r) => !tgt || r.d < tgt - 1)
+          .sort((a, b) => b.d - a.d);
+        let best: typeof racers = [];
+        let cur: typeof racers = [];
+        for (const r of racers) {
+          if (cur.length === 0 || cur[cur.length - 1].d - r.d <= CAM_GAP_M) cur.push(r);
+          else {
+            if (cur.length > best.length) best = cur;
+            cur = [r];
+          }
+        }
+        if (cur.length > best.length) best = cur;
+        if (best.length >= 2) clusterSerials = best.map((r) => r.serial);
+      }
+      if (clusterSerials && t >= camNextAt && t >= camActiveUntil) {
+        camActiveUntil = t + CAM_HOLD_MS;
+        camNextAt = t + CAM_EVERY_MS;
+      }
+      const camOn = t < camActiveUntil && clusterSerials !== null;
+      // 타깃 중심 — 클러스터 rig의 직전 프레임 기준 좌표(1프레임 지연은 LERP가 흡수)
+      if (camOn && clusterSerials) {
+        let sx = 0;
+        let sy = 0;
+        let cnt = 0;
+        for (const s of clusterSerials) {
+          const r = rigs.get(s);
+          if (r) {
+            sx += r.baseX;
+            sy += r.baseY;
+            cnt++;
+          }
+        }
+        if (cnt > 0) {
+          camTCx = sx / cnt;
+          camTCy = sy / cnt;
+        }
+      } else {
+        camTCx = W / 2;
+        camTCy = H / 2;
+      }
+      const camK = 1 - Math.pow(0.945, dtF / 16.7); // 방송 카메라 감속(부드러운 팬/줌)
+      camZoom += ((camOn ? CAM_ZOOM : 1) - camZoom) * camK;
+      camCx += (camTCx - camCx) * camK;
+      camCy += (camTCy - camCy) * camK;
 
       curLanes.forEach((meta, index) => {
         const rig = rigs.get(meta.serial);
@@ -997,6 +1066,12 @@ export function RaceStage3D({
           x = (xPct / 100) * W;
           yPx = (yPct / 100) * H;
         }
+        // 배틀 캠 적용 — 기준 좌표 저장 후 화면공간 줌(중심 camC, 배율 camZoom)
+        rig.baseX = x;
+        rig.baseY = yPx;
+        x = camCx + (x - camCx) * camZoom;
+        yPx = camCy + (yPx - camCy) * camZoom;
+        scl *= camZoom;
         const bob = Math.sin(t / 2800 * TAU + index * 1.3) * 5 * scl;
 
         rig.group.position.set(x, -yPx + bob, 0);
@@ -1301,9 +1376,9 @@ export function RaceStage3D({
         }
         const chipS = Math.max(0.72, scl) * charH;
         if (courseH) {
-          // 문장(紋章) 배너 — 보트 선수(오른쪽 끝)에 꼬리표처럼 부착. 부착 꼭짓점이 선수 부근
+          // 문장(紋章) 배너 — 보트 선수(오른쪽 끝) 밀착 부착(부착 꼭짓점 = 선수 첨단, 캡처 실측)
           rig.chip.scale.set(chipS * 0.98, chipS * 0.35, 1);
-          rig.chip.position.x = chipS * 1.36;
+          rig.chip.position.x = chipS * 0.9;
           rig.chip.position.y = 0;
         } else {
           rig.chip.scale.set(chipS * 1.35, chipS * 0.25, 1);
