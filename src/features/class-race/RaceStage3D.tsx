@@ -268,6 +268,8 @@ const BOOST_MIN_GAIN = 0.25; // 절대 여유(m/s) — 저속 노이즈 오발�
     본 스무딩 트레일(~0.4s) 포함 "1" 표시(+2s) 시점에 착석 완료되도록 1.7s(서버 카운트다운이 더 길어도 안전) */
 const BOARD_BACK_X = -0.95; // 기립 위치(보트 로컬, 선미 뒤)
 const DISMOUNT_FRONT_X = 1.05; // 하선 착지(보트 로컬, 선수 앞 — 카메라 쪽)
+/** 오어 전후 스윕 게인 — 손 추종 각도의 편차를 증폭해 캐치↔피니시 블레이드 이동을 과장(±1.05rad 캡) */
+const OAR_SWEEP_GAIN = 1.45;
 const BOARD_MS = 1700;
 /** 기립 자세 — 착석 rest 기준 역델타(다리 펴기·상체 세우기·팔 내리기) */
 const STAND_DELTA = {
@@ -777,19 +779,51 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           // 정준 스켈레톤 축: z=좌우축(전후 굽힘, −=전경) · y=수직축(수평 스윙, L−/R+ = 전방) · x=전후축(팔 하강, L−/R+)
           let slideX = 0; // 슬라이딩 시트 목표(보트 로컬 X 오프셋)
           if (pose === 'finish') {
-            // 세리머니 — 하선(unE) 후 기립 + 앞보기 만세(팔 V자) + 환호 바운스
+            // 세리머니 — 하선(unE) 후 기립 + 등수별 포즈(1위 만세·2위 주먹 펌프·3위 두 손 허리·4위+ 인사)
             const unE = b.finAt ? Math.min(1, (t - b.finAt) / 1200) : 0;
             const su = unE * unE * (3 - 2 * unE); // smoothstep — 기립 전개
             setT(b.thighL, 'z', STAND_DELTA.thigh * su);
             setT(b.thighR, 'z', STAND_DELTA.thigh * su);
             setT(b.calfL, 'z', STAND_DELTA.calf * su);
             setT(b.calfR, 'z', STAND_DELTA.calf * su);
-            setT(b.waist, 'z', STAND_DELTA.waist * su + 0.15 * su);
-            setT(b.neck, 'z', STAND_DELTA.neck * su + 0.14 * su);
-            setT(b.upperL, 'x', 1.5);
-            setT(b.upperR, 'x', -1.5);
-            setT(b.upperL, 'y', 0.42);
-            setT(b.upperR, 'y', -0.42);
+            const fRank = order.indexOf(meta.serial); // 0=1위 (-1=집계 전 — 만세 폴백)
+            if (fRank <= 0) {
+              // 1위 — 만세(팔 V자) + 상체 뒤로 (점프는 배치부)
+              setT(b.waist, 'z', STAND_DELTA.waist * su + 0.15 * su);
+              setT(b.neck, 'z', STAND_DELTA.neck * su + 0.14 * su);
+              setT(b.upperL, 'x', 1.5);
+              setT(b.upperR, 'x', -1.5);
+              setT(b.upperL, 'y', 0.42);
+              setT(b.upperR, 'y', -0.42);
+            } else if (fRank === 1) {
+              // 2위 — 오른팔 주먹 하늘로 펌프(리듬), 왼팔 내림
+              const pump = 0.15 * Math.sin(t / 260);
+              setT(b.waist, 'z', STAND_DELTA.waist * su + 0.08 * su);
+              setT(b.neck, 'z', STAND_DELTA.neck * su + 0.1 * su);
+              setT(b.upperR, 'x', -(1.6 + pump));
+              setT(b.upperR, 'y', -0.12);
+              setT(b.foreR, 'y', 0.5);
+              setT(b.upperL, 'x', -0.32);
+              setT(b.upperL, 'y', 0.25);
+            } else if (fRank === 2) {
+              // 3위 — 두 손 허리(당당), 고개 살짝 들기
+              setT(b.waist, 'z', STAND_DELTA.waist * su);
+              setT(b.neck, 'z', STAND_DELTA.neck * su + 0.08 * su);
+              setT(b.upperL, 'x', -0.55);
+              setT(b.upperR, 'x', 0.55);
+              setT(b.upperL, 'y', 0.15);
+              setT(b.upperR, 'y', -0.15);
+              setT(b.foreL, 'y', -1.25);
+              setT(b.foreR, 'y', 1.25);
+            } else {
+              // 4위 이하 — 팔 내리고 가벼운 목례(수고)
+              setT(b.waist, 'z', STAND_DELTA.waist * su - 0.18 * su);
+              setT(b.neck, 'z', STAND_DELTA.neck * su - 0.12 * su);
+              setT(b.upperL, 'x', -0.35);
+              setT(b.upperR, 'x', 0.35);
+              setT(b.upperL, 'y', 0.2);
+              setT(b.upperR, 'y', -0.2);
+            }
           } else if (stroke) {
             const sLeg = sAt(0);
             const sBack = sAt(0.05);
@@ -804,8 +838,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             // 상체: 캐치 전경 ↔ 피니시 레이백 (rest −0.25 기준 ±0.55 — 다이나믹 스윙)
             setT(b.waist, 'z', 0.55 * sBack);
             setT(b.neck, 'z', -0.28 * sBack); // 시선 전방 유지(상체 보상)
-            setT(b.upperL, 'y', 0.28 * sArm);
-            setT(b.upperR, 'y', -0.28 * sArm);
+            setT(b.upperL, 'y', 0.36 * sArm);
+            setT(b.upperR, 'y', -0.36 * sArm);
             setT(b.upperL, 'x', -0.12 * pull); // 드라이브 때 어깨로 끌어내리는 파워 감
             setT(b.upperR, 'x', 0.12 * pull);
             setT(b.foreL, 'y', -(0.12 * sArm + 0.65 * pull));
@@ -882,8 +916,14 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             pivot.parent.worldToLocal(IK_V);
             IK_V.sub(pivot.position);
             const len = IK_V.length() || 1;
-            const theta =
+            let theta =
               parked || pose === 'finish' ? (mirror ? Math.PI : 0) : Math.atan2(-IK_V.x, -IK_V.z);
+            if (!parked && pose !== 'finish') {
+              // 전후 스윕 증폭 — 미드(외측 수직) 기준 편차에 게인
+              const mid = mirror ? Math.PI : 0;
+              const dev = ((theta - mid + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+              theta = mid + Math.max(-1.05, Math.min(1.05, dev * OAR_SWEEP_GAIN));
+            }
             const cth = Math.cos(theta);
             const denom = Math.abs(cth) < 0.25 ? (cth < 0 ? -0.25 : 0.25) : cth;
             const sph = Math.max(-0.9, Math.min(0.9, IK_V.y / len / denom));
