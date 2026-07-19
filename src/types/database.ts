@@ -2061,6 +2061,7 @@ export type Database = {
         Row: {
           carryover_m: number
           coach_id: string | null
+          course_layout: string
           created_at: string
           description: string | null
           duration_minutes: number | null
@@ -2083,6 +2084,7 @@ export type Database = {
         Insert: {
           carryover_m?: number
           coach_id?: string | null
+          course_layout?: string
           created_at?: string
           description?: string | null
           duration_minutes?: number | null
@@ -2105,6 +2107,7 @@ export type Database = {
         Update: {
           carryover_m?: number
           coach_id?: string | null
+          course_layout?: string
           created_at?: string
           description?: string | null
           duration_minutes?: number | null

@@ -35,6 +35,8 @@
   (HEX 리터럴은 `src/styles/tokens.css`에만 존재)
 - 표준 컴포넌트(`src/components/ui/`) 밖에서 버튼/모달/입력 재구현 금지
 - Class/Race 화면: rAF + DOM 직접 조작(React 리렌더 우회), Display-Safe(부상/메모/정산 비노출)
+- Race TV 코스 2모드(세로/가로 — `race_events.course_layout`, 생성 시 결정)는 **기능 동등 유지**:
+  레이스 기능 추가/변경 시 두 레이아웃 모두 반영·검증 (표시 지오메트리 외 분기 금지)
 
 ## 명령어
 - `npm run dev` — 로컬 개발 (3000)

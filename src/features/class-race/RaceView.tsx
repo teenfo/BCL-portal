@@ -33,16 +33,20 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       ? { split500: pacerCfg.split_500m, startedAt: rt.startedAt, label: pacerCfg.label }
       : null;
 
-  // 가로 코스 비교 모드(?course=h) — SSR 마크업과의 hydration 불일치를 피해 마운트 후 반영
+  // 코스 레이아웃 — race_events.course_layout(생성 시 결정)이 기본, URL ?course=h|v가
+  //   데모/QA 오버라이드. SSR hydration 불일치를 피해 URL은 마운트 후 반영
   //   (effect 본문 직접 setState 금지 규약 — 비동기 콜백에서만)
-  const [courseH, setCourseH] = useState(false);
+  const [courseParam, setCourseParam] = useState<'h' | 'v' | null>(null);
   useEffect(() => {
-    const id = setTimeout(
-      () => setCourseH(new URLSearchParams(window.location.search).get('course') === 'h'),
-      0,
-    );
+    const id = setTimeout(() => {
+      const p = new URLSearchParams(window.location.search).get('course');
+      setCourseParam(p === 'h' || p === 'v' ? p : null);
+    }, 0);
     return () => clearTimeout(id);
   }, []);
+  const courseH = courseParam
+    ? courseParam === 'h'
+    : event.data?.course_layout === 'horizontal';
 
   const [ranks, setRanks] = useState<RankRow[]>([]);
   const animator = useRaceAnimator(rt.samplesRef, {
@@ -173,6 +177,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           lobbyStatus={rt.lobbyStatus}
           defaultDevice={defaultDeviceForTheme(theme)}
           finishOrder={finishOrder}
+          courseH={courseH}
         />
         {/* 배지 레일 — 세로 전용 상단 가로 레일 (가로 코스는 보트 선수 문장 배너가 diff 표시를 대체) */}
         {courseH ? null : (

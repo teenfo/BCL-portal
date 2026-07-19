@@ -538,6 +538,7 @@ erDiagram
 | description | TEXT | | | |
 | status | VARCHAR(15) | CHECK 4종 | 'scheduled' | |
 | lobby_status | VARCHAR(15) | CHECK 5종 | 'setup' | 진행 상태머신 |
+| course_layout | VARCHAR(10) | CHECK(vertical/horizontal) | 'vertical' | 🔄 TV 코스 레이아웃(표시 전용, 15 §5b). 생성 시 결정(admin 모달/`fn_prepare_race_session` p_options.course_layout), 두 모드 기능 동등 — 위치·집계·상태머신 미영향 |
 | created_at / updated_at | TIMESTAMPTZ | NOT NULL | now() | |
 
 인덱스: **부분 UNIQUE `uq_race_events_active_session(session_id) WHERE 미종료`** — 세션당 활성 이벤트 1개(R-8) / `(facility_id, event_date DESC)` / `status WHERE in_progress`(부분) / `parent_event_id`(부분, 히트 시리즈 집계).

@@ -14,7 +14,7 @@ function fetchEvent(eventId: string): Promise<Envelope<RaceEventWithPacer | null
   return query<RaceEventWithPacer | null>(getSupabaseBrowserClient(), 'race_events', (q) =>
     q
       .select(
-        'id,facility_id,session_id,coach_id,name,event_date,event_type,race_format,target_distance_m,duration_minutes,group_target_m,heat_no,description,status,lobby_status,created_at,pacer_config',
+        'id,facility_id,session_id,coach_id,name,event_date,event_type,race_format,course_layout,target_distance_m,duration_minutes,group_target_m,heat_no,description,status,lobby_status,created_at,pacer_config',
       )
       .eq('id', eventId)
       .maybeSingle(),

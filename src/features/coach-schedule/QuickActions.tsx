@@ -18,6 +18,12 @@ const RACE_FORMATS = [
   { value: 'relay', label: '릴레이' },
 ];
 
+// 코스 레이아웃(표시 전용, docs/15 §5b) — 두 모드 기능 동등, TV 표시 지오메트리만 상이
+const COURSE_LAYOUTS = [
+  { value: 'vertical', label: '세로 코스 (측면 뷰)' },
+  { value: 'horizontal', label: '가로 코스 (탑뷰)' },
+];
+
 const FOLLOWUP_TYPES = [
   { value: 'injury', label: '부상' },
   { value: 'trial_conversion', label: '체험 전환' },
@@ -45,6 +51,7 @@ export function QuickActions({
 
   const [raceOpen, setRaceOpen] = useState(false);
   const [raceFormat, setRaceFormat] = useState('individual');
+  const [raceCourse, setRaceCourse] = useState('vertical');
   const [raceBusy, setRaceBusy] = useState(false);
 
   const [fuOpen, setFuOpen] = useState(false);
@@ -60,6 +67,7 @@ export function QuickActions({
     const res = await rpc<{ event_id: string; created: boolean }>(supabase, 'fn_prepare_race_session', {
       p_session_id: sessionId,
       p_race_format: raceFormat,
+      p_options: { course_layout: raceCourse },
     });
     setRaceBusy(false);
     if (!res.success || !res.data?.event_id) {
@@ -122,14 +130,23 @@ export function QuickActions({
           </>
         }
       >
-        <Select
-          label="레이스 포맷"
-          native
-          value={raceFormat}
-          onChange={setRaceFormat}
-          options={RACE_FORMATS}
-          helper="생성 시점에 포맷이 확정됩니다."
-        />
+        <div className={styles.formCol}>
+          <Select
+            label="레이스 포맷"
+            native
+            value={raceFormat}
+            onChange={setRaceFormat}
+            options={RACE_FORMATS}
+            helper="생성 시점에 포맷이 확정됩니다."
+          />
+          <Select
+            label="코스 레이아웃 (TV 표시)"
+            native
+            value={raceCourse}
+            onChange={setRaceCourse}
+            options={COURSE_LAYOUTS}
+          />
+        </div>
       </Modal>
 
       <Modal

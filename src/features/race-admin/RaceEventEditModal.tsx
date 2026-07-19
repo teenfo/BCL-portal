@@ -13,6 +13,7 @@ import {
   type RaceEventType,
   type RaceFormat,
   type RaceStatus,
+  type CourseLayout,
   writeError,
 } from './types';
 import styles from './race-admin.module.css';
@@ -42,6 +43,7 @@ export function RaceEventEditModal({ event, onClose, onSaved }: Props) {
   const [eventDate, setEventDate] = useState(event?.event_date ?? today());
   const [eventType, setEventType] = useState<RaceEventType>(event?.event_type ?? 'rowing');
   const [raceFormat, setRaceFormat] = useState<RaceFormat>(event?.race_format ?? 'individual');
+  const [courseLayout, setCourseLayout] = useState<CourseLayout>(event?.course_layout ?? 'vertical');
   const [status, setStatus] = useState<RaceStatus>(event?.status ?? 'scheduled');
   const [targetDistance, setTargetDistance] = useState(
     event?.target_distance_m != null ? String(event.target_distance_m) : '',
@@ -96,6 +98,7 @@ export function RaceEventEditModal({ event, onClose, onSaved }: Props) {
       event_date: eventDate,
       event_type: eventType,
       race_format: raceFormat,
+      course_layout: courseLayout,
       status,
       target_distance_m: targetDistance.trim() ? Number(targetDistance) : null,
       duration_minutes: durationMin.trim() ? Number(durationMin) : null,
@@ -219,17 +222,28 @@ export function RaceEventEditModal({ event, onClose, onSaved }: Props) {
           </div>
         ) : null}
 
-        <Select
-          label="상태"
-          value={status}
-          onChange={(v) => setStatus(v as RaceStatus)}
-          options={[
-            { value: 'scheduled', label: '예정' },
-            { value: 'in_progress', label: '진행 중' },
-            { value: 'completed', label: '완료' },
-            { value: 'cancelled', label: '취소' },
-          ]}
-        />
+        <div className={styles.formRow}>
+          <Select
+            label="코스 레이아웃 (TV 표시)"
+            value={courseLayout}
+            onChange={(v) => setCourseLayout(v as CourseLayout)}
+            options={[
+              { value: 'vertical', label: '세로 코스 (측면 뷰)' },
+              { value: 'horizontal', label: '가로 코스 (탑뷰)' },
+            ]}
+          />
+          <Select
+            label="상태"
+            value={status}
+            onChange={(v) => setStatus(v as RaceStatus)}
+            options={[
+              { value: 'scheduled', label: '예정' },
+              { value: 'in_progress', label: '진행 중' },
+              { value: 'completed', label: '완료' },
+              { value: 'cancelled', label: '취소' },
+            ]}
+          />
+        </div>
 
         <Input
           label="설명 (선택)"

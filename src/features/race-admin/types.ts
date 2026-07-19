@@ -5,6 +5,8 @@ export type RaceEventType = 'rowing' | 'bike' | 'skierg' | 'run' | 'other';
 export type RaceFormat = 'individual' | 'team' | 'group' | 'relay';
 export type RaceStatus = 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
 export type LobbyStatus = 'setup' | 'lobby' | 'countdown' | 'racing' | 'finished';
+/** 코스 레이아웃(표시 전용, 15 §5b) — 세로(측면)/가로(사선 탑뷰). 두 모드 기능 동등 유지 필수 */
+export type CourseLayout = 'vertical' | 'horizontal';
 
 export interface RaceEvent {
   id: string;
@@ -22,6 +24,7 @@ export interface RaceEvent {
   description: string | null;
   status: RaceStatus;
   lobby_status: LobbyStatus;
+  course_layout: CourseLayout;
   created_at: string;
 }
 

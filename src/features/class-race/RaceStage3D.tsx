@@ -38,6 +38,8 @@ interface Props {
   defaultDevice: DeviceType;
   /** 도착 순서(serial 배열, RaceView 판정) — 인덱스+1 = 등수 */
   finishOrder: string[];
+  /** 가로 코스(사선 탑뷰) — RaceView가 이벤트 설정/URL 오버라이드로 결정. 변경 시 스테이지 재초기화 */
+  courseH: boolean;
 }
 
 /** CSS 변수 → 실색 (캔버스 텍스처는 var() 미해석) */
@@ -447,7 +449,15 @@ const POOL_H = {
   pitch: 1.2, // 약간 사선 조감(69°) — 정수리 위주 + 캐릭터·헐 측면이 살짝 보이는 각
 } as const;
 
-export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {
+export function RaceStage3D({
+  lanes,
+  samplesRef,
+  target,
+  lobbyStatus,
+  defaultDevice,
+  finishOrder,
+  courseH,
+}: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   // 렌더 루프가 최신 props를 읽도록 ref 경유(재초기화 없이 갱신)
   const propsRef = useRef({ lanes, target, lobbyStatus, defaultDevice, finishOrder });
@@ -518,8 +528,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
     const streakTex = makeStreakTexture();
     const placeTexCache = new Map<number, THREE.CanvasTexture>();
 
-    // 가로 코스 모드(?course=h) — 페이지 수명 동안 불변(CSR 전용 컴포넌트)
-    const courseH = new URLSearchParams(window.location.search).get('course') === 'h';
+    // 가로 코스 모드 — prop(이벤트 설정/URL 오버라이드). 변경 시 effect 재실행(스테이지 재구축)
     const baseYaw = courseH ? 0 : MODEL_YAW; // 가로: 뱃머리 +X(화면 오른쪽) 측면 프로파일
     const basePitch = courseH ? POOL_H.pitch : MODEL_PITCH;
 
@@ -1353,9 +1362,9 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
       streakTex.dispose();
       host.removeChild(renderer.domElement);
     };
-    // 마운트 1회 — 이후 변화는 propsRef 경유로 루프가 소비
+    // courseH 변경 시에만 재초기화(레이아웃 전환) — 그 외 변화는 propsRef 경유로 루프가 소비
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [courseH]);
 
   return <div ref={hostRef} className={styles.stageCanvas} aria-hidden />;
 }
