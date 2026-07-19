@@ -698,10 +698,17 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               opacity: 0,
             });
             rimMat.onBeforeCompile = (shader) => {
-              shader.vertexShader = shader.vertexShader.replace(
-                '#include <begin_vertex>',
-                'vec3 transformed = vec3( position ) + normal * 0.035;',
-              );
+              // 법선 3.5cm 팽창 + 카메라를 향한 면 폐기 — 오픈 콕핏 내부(오목면) 글로우 번짐 방지,
+              //   외곽 실루엣(카메라 반대편) 면만 남긴다
+              shader.vertexShader =
+                'varying float vRimFace;\n' +
+                shader.vertexShader.replace(
+                  '#include <begin_vertex>',
+                  'vec3 transformed = vec3( position ) + normal * 0.035;\nvRimFace = ( normalMatrix * normal ).z;',
+                );
+              shader.fragmentShader =
+                'varying float vRimFace;\n' +
+                shader.fragmentShader.replace('void main() {', 'void main() {\n\tif ( vRimFace > 0.08 ) discard;');
             };
             const rimSrc: THREE.Mesh[] = [];
             boatClone.traverse((o) => {
