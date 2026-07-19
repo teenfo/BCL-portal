@@ -296,7 +296,7 @@ const POOL_H = {
   yTop: 16, // 첫 레인 앵커(y%) — 탑뷰는 앵커 중심 배치라 톱바(8vh) 아래부터 사용
   yBottom: 89,
   scale: 0.55, // 전 레인 균일(원근 없음)
-  pitch: Math.PI / 2, // 완전 탑뷰 — 정수리·데크가 보이는 조감
+  pitch: 1.2, // 약간 사선 조감(69°) — 정수리 위주 + 캐릭터·헐 측면이 살짝 보이는 각
 } as const;
 
 export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDevice, finishOrder }: Props) {

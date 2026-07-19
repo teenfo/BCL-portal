@@ -33,6 +33,17 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       ? { split500: pacerCfg.split_500m, startedAt: rt.startedAt, label: pacerCfg.label }
       : null;
 
+  // 가로 코스 비교 모드(?course=h) — SSR 마크업과의 hydration 불일치를 피해 마운트 후 반영
+  //   (effect 본문 직접 setState 금지 규약 — 비동기 콜백에서만)
+  const [courseH, setCourseH] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(
+      () => setCourseH(new URLSearchParams(window.location.search).get('course') === 'h'),
+      0,
+    );
+    return () => clearTimeout(id);
+  }, []);
+
   const [ranks, setRanks] = useState<RankRow[]>([]);
   const animator = useRaceAnimator(rt.samplesRef, {
     targetDistance: target,
@@ -113,10 +124,6 @@ export function RaceView({ eventId }: { eventId: string | null }) {
     return () => clearInterval(t);
   }, [target, lanes, rt.lobbyStatus, rt.samplesRef]);
 
-  // 가로 코스 비교 모드(?course=h) — 탑다운 배경 + 좌→우 진행(스테이지가 동일 파라미터 해석)
-  const courseH =
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('course') === 'h';
-
   return (
     <div className={styles.raceRoot} data-race-theme={theme} data-course={courseH ? 'h' : 'v'}>
       <StatusStrip realtime={rt.connected ? 'connected' : 'connecting'} polling={rt.mode === 'polling'} />
@@ -167,14 +174,12 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           defaultDevice={defaultDeviceForTheme(theme)}
           finishOrder={finishOrder}
         />
-        {/* 배지 레일 — 가로 코스에선 숨김(순위·격차는 HUD 카드 담당, 레인 밴드 시야 확보) */}
-        {!courseH ? (
-          <div className={styles.badgeRail}>
-            {lanes.map((l, i) => (
-              <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} />
-            ))}
-          </div>
-        ) : null}
+        {/* 배지 레일 — 세로: 상단 가로 레일 / 가로 코스: 우측 데크 타일 밴드에 레인별 세로 정렬 */}
+        <div className={styles.badgeRail}>
+          {lanes.map((l, i) => (
+            <RailBadge key={l.serial} meta={l} index={i} count={lanes.length} animator={animator} courseH={courseH} />
+          ))}
+        </div>
       </div>
 
       {/* 응원 관중 실루엣 */}
@@ -269,11 +274,13 @@ function RailBadge({
   index,
   count,
   animator,
+  courseH,
 }: {
   meta: LaneMeta;
   index: number;
   count: number;
   animator: Animator;
+  courseH: boolean;
 }) {
   const dRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -281,10 +288,13 @@ function RailBadge({
   }, [meta.serial, animator]);
   if (meta.virtual) return null;
   const { xt } = poolLaneX(index, count);
+  // 가로 코스: 우측 데크 타일 밴드(x 96.5%)에 레인 행(y 16~89% — RaceStage3D POOL_H와 동기) 정렬
+  const laneY = 16 + (count > 1 ? (89 - 16) / (count - 1) : 0) * index;
+  const pos = courseH ? { left: '95%', top: `${laneY}%` } : { left: `${xt}%` };
   return (
     <span
       className={styles.railBadge}
-      style={{ left: `${xt}%`, ['--team-color' as string]: teamColorVar(index) }}
+      style={{ ...pos, ['--team-color' as string]: teamColorVar(index) }}
     >
       <em>ERG {meta.lane}</em>
       <b ref={dRef}>0m</b>
