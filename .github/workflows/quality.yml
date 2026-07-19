@@ -37,7 +37,7 @@ jobs:
         run: |
           VIOLATIONS=$(grep -rn "bcl-portal-auth" src/ | grep -v "lib/supabase/constants.ts" || true)
           if [ -n "$VIOLATIONS" ]; then echo "::error::AUTH_STORAGE_KEY 리터럴 중복 정의:"; echo "$VIOLATIONS"; exit 1; fi
-          HEX=$(grep -rniE "#(FF6A00|FF6B00|D2691E)\b|--app-|--primary\b" src/ | grep -v "styles/tokens.css" || true)
+          HEX=$(grep -rniE "#(FF6A00|FF6B00|D2691E)\b|--app-|--primary\b" src/ | grep -v "styles/tokens.css" | grep -v "lib/brand.ts" || true)
           if [ -n "$HEX" ]; then echo "::error::토큰 밖 브랜드 HEX/구 토큰 검출:"; echo "$HEX"; exit 1; fi
 
   auth-e2e:

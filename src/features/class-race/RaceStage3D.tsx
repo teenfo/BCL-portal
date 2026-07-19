@@ -21,6 +21,7 @@ import {
 import type { LaneMeta, RawSample, LobbyStatus } from './useRaceRealtime';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
+import { BRAND_ACCENT_HEX } from '@/lib/brand';
 
 const LERP_X = 0.08;
 const LERP_SPM = 0.1;
@@ -230,7 +231,7 @@ function makePlaceTexture(place: number): THREE.CanvasTexture {
       : place === 2
         ? cssColor('--bcl-text-muted', '#9e9e9e')
         : place === 3
-          ? cssColor('--bcl-accent', '#ff6a00')
+          ? cssColor('--bcl-accent', BRAND_ACCENT_HEX)
           : cssColor('--bcl-info', '#4da3ff');
   const c = document.createElement('canvas');
   c.width = 256;
@@ -604,7 +605,7 @@ export function RaceStage3D({
     const rigs = new Map<string, Rig>();
 
     const teamColorOf = (index: number) =>
-      cssColor(`--bcl-race-team-${(index % 8) + 1}`, '#ff6a00');
+      cssColor(`--bcl-race-team-${(index % 8) + 1}`, BRAND_ACCENT_HEX);
 
     function ensureCharTexture(rig: Rig, key: string, url: string | null, glyph: string) {
       if (rig.texKey === key) return;

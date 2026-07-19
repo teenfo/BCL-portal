@@ -4,6 +4,7 @@ import { ThemeScope } from '@/components/ThemeScope';
 import { AuthGuard } from '@/features/auth';
 import { ToastProvider } from '@/components/ui';
 import { MemberShell } from '@/features/member-shell';
+import { BRAND_ACCENT_HEX } from '@/lib/brand';
 
 // PWA — 회원 앱 전용 매니페스트(scope /apps) + iOS 홈화면 메타. 앱별 독립 설치.
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#ff6a00',
+  themeColor: BRAND_ACCENT_HEX,
 };
 
 export default function AppsLayout({ children }: { children: React.ReactNode }) {
