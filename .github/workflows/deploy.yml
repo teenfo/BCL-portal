@@ -7,23 +7,20 @@ on:
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # NAT(공유기)+유동IP 환경 — 서버 내 self-hosted runner가 로컬 배포.
+    #   인바운드 포트 개방/DDNS/고정IP 불필요(러너가 GitHub로 아웃바운드 연결 유지).
+    #   러너 설치: 서버에서 RUNNER_TOKEN=<토큰> bash scripts/server-setup.sh (라벨 bcl-portal)
+    #   러너 미설치 상태에서는 잡이 큐에 대기(실패 아님) — 러너 기동 시 즉시 실행.
+    runs-on: [self-hosted, bcl-portal]
+    timeout-minutes: 20
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT }}
-          command_timeout: 12m
-          # 서버 레포 체크아웃 최신화 후, 레포에 버전관리된 배포 스크립트 실행.
-          # (과거 사고 원인: /opt/bcl-portal/deploy.sh 부재 — 이제 scripts/deploy.sh 로 레포 관리)
-          script: |
-            set -euo pipefail
-            cd /opt/bcl-portal
-            git fetch --prune origin
-            git reset --hard origin/main
-            bash scripts/deploy.sh
+      - name: Deploy (local)
+        # 서버 레포 체크아웃 최신화 후, 레포에 버전관리된 배포 스크립트 실행.
+        # (과거 사고 원인: /opt/bcl-portal/deploy.sh 부재 — 이제 scripts/deploy.sh 로 레포 관리)
+        run: |
+          set -euo pipefail
+          cd /opt/bcl-portal
+          git fetch --prune origin
+          git reset --hard origin/main
+          bash scripts/deploy.sh
