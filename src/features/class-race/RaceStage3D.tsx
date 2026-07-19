@@ -589,10 +589,13 @@ export function RaceStage3D({
       oarOffset = new THREE.Vector3(-c.x, -c.y, -c.z + ASM.oarShift);
       oarTpl = g.scene;
     }, undefined, (e) => console.warn('[RaceStage3D] oar-red.glb 로드 실패', e));
-    // 스킨 모델 라이팅(스탠다드 머티리얼)
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.15));
+    // 스킨 모델 라이팅(스탠다드 머티리얼) — 레이어 1(배틀 캠 PiP 캐릭터 격리 렌더)에도 등록
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x8899bb, 1.15);
+    hemiLight.layers.enable(1);
+    scene.add(hemiLight);
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
     keyLight.position.set(0.4, 1, 0.8);
+    keyLight.layers.enable(1);
     scene.add(keyLight);
 
     // 앵커 = 하단 중앙(레인 접점) — 지오메트리를 +0.5y 이동
@@ -1448,9 +1451,9 @@ export function RaceStage3D({
 
       renderer.render(scene, camera);
 
-      // 배틀 캠 PiP — 메인(와이드) 위에 경합 2인 클로즈업 2분할 레이어(경기장 정중앙, 팝업 슬라이드).
-      //   보트/씬은 건드리지 않고 PiP 카메라만 선미 뒤에 궤도 배치 → 선수 방향을 바라보며
-      //   후향 로잉 캐릭터의 얼굴이 프레임에 담김(약 3/4 측면 + 하이앵글).
+      // 배틀 캠 PiP — 메인(와이드) 위에 경합 2인 2분할 레이어(경기장 정중앙, 팝업 슬라이드).
+      //   각 패널은 해당 캐릭터만(레이어 1 격리 — 보트·오어·옆 레인 제외) 전면 풀샷:
+      //   카메라를 캐릭터 정면(선미 방향)에 배치해 선수 쪽을 바라봄. 보트/씬 무회전.
       if (duelE > 0.02 && duelViewPair) {
         const rA = rigs.get(duelViewPair[0]);
         const rB = rigs.get(duelViewPair[1]);
@@ -1467,26 +1470,22 @@ export function RaceStage3D({
           renderer.setClearColor(new THREE.Color(cssColor('--bcl-bg', '#0b0e14')), 0.85);
           renderer.setScissorTest(true);
           const panelHFull = H * 0.3;
-          const viewYaw = baseYaw + 0.3; // 선수 방향 + 3/4 오프셋
-          const bowDir = new THREE.Vector3(Math.cos(viewYaw), 0, -Math.sin(viewYaw));
+          const bowDir = new THREE.Vector3(Math.cos(baseYaw), 0, -Math.sin(baseYaw));
+          duelCam.layers.set(1);
           [rA, rB].forEach((r, i) => {
             const vx = px + i * (halfWpx + gapPx);
             renderer.setViewport(vx, vy, halfWpx, panelH);
             renderer.setScissor(vx, vy, halfWpx, panelH);
-            // 캐릭터 신장 기준 자동 프레이밍 — 세로 창=신장 1.55배(캐릭터 중심 정렬), 가로 창은 패널 비율
+            // 전면 풀샷 프레이밍 — 세로 창=신장 0.85배(전신 꽉 참), 가로 창은 패널 비율
             const charHr = Math.min(0.29 * H, 258) * r.baseScl;
-            const worldHFull = charHr * 1.55;
+            const worldHFull = charHr * 0.85;
             const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
             const worldW = worldHFull * (halfWpx / panelHFull);
-            const target = IK_V.set(
-              r.group.position.x,
-              r.group.position.y + charHr * 0.35,
-              0,
-            );
+            const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.32, 0);
             const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
             duelCam.position.set(
               target.x - bowDir.x * D,
-              target.y + D * 0.3, // 하이앵글
+              target.y + D * 0.1, // 미세 하이앵글(정면 유지)
               target.z - bowDir.z * D,
             );
             duelCam.up.set(0, 1, 0);
@@ -1496,7 +1495,15 @@ export function RaceStage3D({
             duelCam.top = worldH / 2;
             duelCam.bottom = -worldH / 2;
             duelCam.updateProjectionMatrix();
+            // 캐릭터만 레이어 1에 임시 등록(3파트 모델은 charG, 폴백은 스프라이트) 후 렌더.
+            //   탑뷰용 조립체 피치를 PiP 동안만 0으로 — 캐릭터가 직립 전면으로 보임(메인 무영향)
+            const subject: THREE.Object3D = r.parts ? r.parts.charG : r.char;
+            const prevPitch = r.parts ? r.parts.inner.rotation.x : 0;
+            if (r.parts) r.parts.inner.rotation.x = 0;
+            subject.traverse((o) => o.layers.enable(1));
             renderer.render(scene, duelCam);
+            subject.traverse((o) => o.layers.disable(1));
+            if (r.parts) r.parts.inner.rotation.x = prevPitch;
           });
           renderer.setScissorTest(false);
           renderer.setViewport(0, 0, W, H);
