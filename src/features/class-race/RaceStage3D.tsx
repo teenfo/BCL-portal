@@ -324,9 +324,10 @@ interface Rig {
   texKey: string;
   d: number;
   spm: number;
-  /** 배틀 캠 기준 좌표(줌 변환 전 화면 px) — 경합 클러스터 중심 산출용 */
+  /** 카메라 기준 좌표(줌 변환 전 화면 px)·기본 스케일 — 피날레 중심/PiP 프레이밍 산출용 */
   baseX: number;
   baseY: number;
+  baseScl: number;
   /** 부스터 — 속도 빠른/느린 EMA(m/s)·발동/종료 시각. 급가속 감지 시 ~2s 연출.
       velF: 표시좌표 미분은 샘플 틱마다 톱니 스파이크 → ~0.4s EMA로 평활 후 비교 */
   velF: number;
@@ -448,7 +449,7 @@ const MODEL_YAW = -Math.PI / 2 + 0.35;
 /** 가로 코스(?course=h) — 탑다운 배경(pool-bg-h): 좌→우 진행, 레인 세로 적층, 준-조감 시점 */
 const POOL_H = {
   xStart: 25, // 출발선(x%) — 좌측 세로 HUD(관중석 밴드 ~21%) 우측
-  xFinish: 92, // 피니시(x%)
+  xFinish: 88, // 피니시(x%) — 보트 중심 기준. 뱃머리(+약 4.5%W)가 수면 끝(타일 경계 ~92.5%)에 닿는 값
   yTop: 16, // 첫 레인 앵커(y%) — 탑뷰는 앵커 중심 배치라 톱바(8vh) 아래부터 사용
   yBottom: 89,
   scale: 0.55, // 전 레인 균일(원근 없음)
@@ -749,6 +750,7 @@ export function RaceStage3D({
         spm: 0,
         baseX: 0,
         baseY: 0,
+        baseScl: 1,
         velF: 0,
         velS: 0,
         boostAt: 0,
@@ -760,15 +762,11 @@ export function RaceStage3D({
     // 승선 타이밍 — 카운트다운 진입 시각(전 레인 공유)
     let prevStatus: LobbyStatus | null = null;
     let countdownAt = 0;
-    // 배틀 캠 — 경합(인접 간격 ≤ CAM_GAP_M) 클러스터 자동 클로즈업: 5s 줌 인 후 와이드 복귀.
-    //   화면공간 줌(배경/HUD 고정, 표시 전용) — 위치 계산·집계·상태머신 미영향. 양 코스 모드 공통.
+    // 카메라 연출 — 메인 스테이지 줌은 피날레(선두 95%~결승선, 1위 단독)에만 사용.
+    //   배틀 캠은 메인을 건드리지 않고 별도 2분할 PiP 레이어(경합 2인 클로즈업)로 렌더.
+    //   보트 방향은 항상 진행 방향 유지(요 스윙 없음). 양 코스 모드 공통.
     const CAM_GAP_M = 4;
-    const CAM_ZOOM = 1.55;
-    const LEAD_ZOOM = 1.7; // 피날레(선두 95%↑) 1위 단독 클로즈업 배율
-    const CAM_HOLD_MS = 5000;
-    const CAM_EVERY_MS = 13000;
-    // 클로즈업 시선 — 선미에서 선수 쪽을 바라보는 각(후향 로잉 캐릭터의 얼굴이 화면을 향함)
-    const CLOSE_YAW = Math.PI / 2 - 0.35;
+    const LEAD_ZOOM = 1.7; // 피날레 1위 단독 클로즈업 배율
     let camZoom = 1;
     let camCx = 0;
     let camCy = 0;
@@ -777,8 +775,15 @@ export function RaceStage3D({
     // 스크린 앵커 — 클로즈업 피사체가 화면 중앙부(30~70%)에 오도록 팬. 와이드에선 camC와 일치(항등)
     let camSx = 0;
     let camSy = 0;
-    let camActiveUntil = 0;
-    let camNextAt = 0;
+    // 배틀 캠(2분할 PiP) — 최소 간격 경합 페어를 6s 표시, 15s 주기. 표시 중 페어 고정.
+    const DUEL_SHOW_MS = 6000;
+    const DUEL_EVERY_MS = 15000;
+    let duelPair: [string, string] | null = null;
+    let duelViewPair: [string, string] | null = null; // 페이드아웃 동안 유지되는 렌더 대상
+    let duelShowUntil = 0;
+    let duelNextAt = 0;
+    let duelE = 0;
+    const duelCam = new THREE.OrthographicCamera(0, 1, 0, -1, -4000, 4000);
     let lastLoopT = performance.now();
     const loop = () => {
       const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
@@ -829,63 +834,56 @@ export function RaceStage3D({
       }
       const dynamicMax = tgt && tgt > 0 ? tgt : Math.max(1, leadD);
 
-      // 피날레 캠 — 선두가 95% 통과 시 배틀 캠 해제, 1위(피니시 후엔 확정 우승자) 단독 클로즈업.
-      //   레이스 종료 세리머니까지 유지, 리셋(로비) 시 와이드 복귀.
+      // 피날레 캠 — 선두 95% 통과~결승선 도달 전까지만 1위 단독 클로즈업.
+      //   피니시(첫 도착 발생) 순간 와이드 복귀 — 세리머니는 전체 화면으로 관전.
       const finaleOn =
-        (status === 'racing' || status === 'finished') && !!tgt && leadD >= tgt * 0.95;
+        status === 'racing' && !!tgt && leadD >= tgt * 0.95 && order.length === 0;
 
-      // 배틀 캠 — 경합 클러스터 감지: 원시 d 내림차순에서 인접 간격 ≤ CAM_GAP_M 최대 그룹(≥2).
-      //   출발 직후(선두 25m 미만)·피날레(95%↑)·비레이싱 상태는 대상 아님.
-      let clusterSerials: string[] | null = null;
-      if (status === 'racing' && !finaleOn && leadD > 25 && (!tgt || leadD < tgt * 0.95)) {
+      // 배틀 캠(2분할 PiP) — 최소 간격 경합 페어 선정(출발 25m 이후, 피날레/피니시 제외)
+      if (status === 'racing' && !finaleOn && leadD > 25 && duelPair === null && t >= duelNextAt) {
         const racers = curLanes
           .map((m) => ({ serial: m.serial, d: samples.get(m.serial)?.d ?? 0 }))
           .filter((r) => !tgt || r.d < tgt - 1)
           .sort((a, b) => b.d - a.d);
-        let best: typeof racers = [];
-        let cur: typeof racers = [];
-        for (const r of racers) {
-          if (cur.length === 0 || cur[cur.length - 1].d - r.d <= CAM_GAP_M) cur.push(r);
-          else {
-            if (cur.length > best.length) best = cur;
-            cur = [r];
+        let bestGap = Infinity;
+        let pair: [string, string] | null = null;
+        for (let i = 0; i + 1 < racers.length; i++) {
+          const gap = racers[i].d - racers[i + 1].d;
+          if (gap < bestGap) {
+            bestGap = gap;
+            pair = [racers[i].serial, racers[i + 1].serial];
           }
         }
-        if (cur.length > best.length) best = cur;
-        if (best.length >= 2) clusterSerials = best.map((r) => r.serial);
+        if (pair && bestGap <= CAM_GAP_M) {
+          duelPair = pair;
+          duelViewPair = pair;
+          duelShowUntil = t + DUEL_SHOW_MS;
+          duelNextAt = t + DUEL_EVERY_MS;
+        }
       }
-      if (clusterSerials && t >= camNextAt && t >= camActiveUntil) {
-        camActiveUntil = t + CAM_HOLD_MS;
-        camNextAt = t + CAM_EVERY_MS;
+      // 유지 조건 — 시간 만료/상태 이탈/페어 중 피니시/간격 벌어짐이면 접기(페이드아웃)
+      if (duelPair) {
+        const dA = samples.get(duelPair[0])?.d ?? 0;
+        const dB = samples.get(duelPair[1])?.d ?? 0;
+        const finished = !!tgt && (dA >= tgt - 1 || dB >= tgt - 1);
+        if (
+          t >= duelShowUntil ||
+          status !== 'racing' ||
+          finaleOn ||
+          finished ||
+          Math.abs(dA - dB) > CAM_GAP_M * 2
+        )
+          duelPair = null;
       }
-      if (finaleOn) camActiveUntil = 0; // 배틀 캠 즉시 해제
-      const camOn = t < camActiveUntil && clusterSerials !== null;
-      // 타깃 중심 — rig의 직전 프레임 기준 좌표(1프레임 지연은 LERP가 흡수)
+
+      // 메인 스테이지 줌 — 피날레 전용. 타깃 중심은 직전 프레임 기준 좌표(1프레임 지연은 LERP 흡수)
       let camTZoom = 1;
       if (finaleOn) {
-        // 피날레: 확정 1위(도착 순서) > 현재 선두
         const winner = rigs.get(order[0] ?? leadSerial ?? '');
         if (winner) {
           camTCx = winner.baseX;
           camTCy = winner.baseY;
           camTZoom = LEAD_ZOOM;
-        }
-      } else if (camOn && clusterSerials) {
-        let sx = 0;
-        let sy = 0;
-        let cnt = 0;
-        for (const s of clusterSerials) {
-          const r = rigs.get(s);
-          if (r) {
-            sx += r.baseX;
-            sy += r.baseY;
-            cnt++;
-          }
-        }
-        if (cnt > 0) {
-          camTCx = sx / cnt;
-          camTCy = sy / cnt;
-          camTZoom = CAM_ZOOM;
         }
       } else {
         camTCx = W / 2;
@@ -900,8 +898,8 @@ export function RaceStage3D({
       camCy += (camTCy - camCy) * camK;
       camSx += (camTSx - camSx) * camK;
       camSy += (camTSy - camSy) * camK;
-      // 클로즈업 시선 전환도(0..1) — 줌 수렴에 비례해 요를 CLOSE_YAW로 스윙(카메라 오빗 연출)
-      const camE = Math.min(1, Math.max(0, (camZoom - 1) / 0.45));
+      duelE += ((duelPair ? 1 : 0) - duelE) * camK;
+      if (duelE < 0.02 && !duelPair) duelViewPair = null;
 
       curLanes.forEach((meta, index) => {
         const rig = rigs.get(meta.serial);
@@ -1102,6 +1100,7 @@ export function RaceStage3D({
         // 배틀 캠 적용 — 기준 좌표 저장 후 화면공간 줌(피사체 camC → 스크린 앵커 camS, 배율 camZoom)
         rig.baseX = x;
         rig.baseY = yPx;
+        rig.baseScl = scl;
         x = camSx + (x - camCx) * camZoom;
         yPx = camSy + (yPx - camCy) * camZoom;
         scl *= camZoom;
@@ -1119,8 +1118,6 @@ export function RaceStage3D({
           const ms = charH * 0.65;
           rig.model.scale.set(ms, ms, ms);
           const b = rig.parts;
-          // 클로즈업 캠 — 선미→선수 시점으로 요 스윙(줌과 동기, 와이드 복귀 시 원위치)
-          b.yawG.rotation.y = baseYaw + (CLOSE_YAW - baseYaw) * camE;
           const stroke = pose === 'race' && !idle;
           const dur = animationDurationSec(deviceType, rig.spm) * 1000;
           if (stroke) b.phase = (b.phase + dtF / dur) % 1;
@@ -1450,6 +1447,46 @@ export function RaceStage3D({
       });
 
       renderer.render(scene, camera);
+
+      // 배틀 캠 PiP — 메인(와이드) 위에 경합 2인 클로즈업 2분할 레이어(하단 중앙, 팝업 슬라이드)
+      if (duelE > 0.02 && duelViewPair) {
+        const rA = rigs.get(duelViewPair[0]);
+        const rB = rigs.get(duelViewPair[1]);
+        if (rA && rB) {
+          const panelW = Math.min(W * 0.46, 900);
+          const panelH = H * 0.3 * duelE;
+          const gapPx = 4;
+          const px = (W - panelW) / 2;
+          const vy = H * 0.06; // 캔버스 좌하단 기준 하단 여백
+          const halfWpx = (panelW - gapPx) / 2;
+          const prevClear = new THREE.Color();
+          renderer.getClearColor(prevClear);
+          const prevAlpha = renderer.getClearAlpha();
+          renderer.setClearColor(new THREE.Color(cssColor('--bcl-bg', '#0b0e14')), 0.85);
+          renderer.setScissorTest(true);
+          const panelHFull = H * 0.3;
+          [rA, rB].forEach((r, i) => {
+            const vx = px + i * (halfWpx + gapPx);
+            renderer.setViewport(vx, vy, halfWpx, panelH);
+            renderer.setScissor(vx, vy, halfWpx, panelH);
+            // 캐릭터 신장 기준 자동 프레이밍 — 세로 창=신장 1.75배(캐릭터 중심 정렬), 가로 창은 패널 비율
+            const charHr = Math.min(0.29 * H, 258) * r.baseScl;
+            const worldHFull = charHr * 1.75;
+            const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
+            const worldW = worldHFull * (halfWpx / panelHFull);
+            const cy = r.group.position.y + charHr * 0.5;
+            duelCam.left = r.group.position.x - worldW / 2;
+            duelCam.right = r.group.position.x + worldW / 2;
+            duelCam.top = cy + worldH / 2;
+            duelCam.bottom = cy - worldH / 2;
+            duelCam.updateProjectionMatrix();
+            renderer.render(scene, duelCam);
+          });
+          renderer.setScissorTest(false);
+          renderer.setViewport(0, 0, W, H);
+          renderer.setClearColor(prevClear, prevAlpha);
+        }
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
