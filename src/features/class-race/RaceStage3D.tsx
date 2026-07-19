@@ -672,7 +672,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
           const boatTpl = boatTpls[index % BOAT_URLS.length];
           if (!rig.model && boatTpl && charTpl && oarTpl) {
             const boatG = new THREE.Group();
-            boatG.add(boatTpl.clone(true));
+            const boatClone = boatTpl.clone(true);
+            boatG.add(boatClone);
             // 캐릭터 착석 + 포즈(포즈 적용 후 rest 캡처 — 애니메이션 기준자세)
             const char = cloneSkinned(charTpl.scene) as THREE.Group;
             char.position.copy(charTpl.offset);
@@ -686,8 +687,8 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               const b = char.getObjectByName(bn);
               if (b) b.rotation[ax] += rad;
             }
-            // 페이스 오로라 림 셸 — 캐릭터 메시만 법선 방향으로 부풀린 백사이드 클론(실루엣을 감싸는 글로우).
-            //   SkinnedMesh 클론은 스켈레톤을 공유하므로 스트로크 애니메이션을 그대로 따라간다. 보트는 제외
+            // 페이스 오로라 림 셸 — 보트 헐만 법선 방향으로 부풀린 백사이드 클론(외곽을 감싸는 글로우).
+            //   캐릭터·오어·리거는 제외(보트 클론 서브트리만 순회)
             const rimMat = new THREE.MeshBasicMaterial({
               color: new THREE.Color(cssColor('--bcl-info', '#4da3ff')),
               transparent: true,
@@ -703,7 +704,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
               );
             };
             const rimSrc: THREE.Mesh[] = [];
-            char.traverse((o) => {
+            boatClone.traverse((o) => {
               if ((o as THREE.Mesh).isMesh) rimSrc.push(o as THREE.Mesh);
             });
             for (const m of rimSrc) {
