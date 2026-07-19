@@ -1448,7 +1448,9 @@ export function RaceStage3D({
 
       renderer.render(scene, camera);
 
-      // 배틀 캠 PiP — 메인(와이드) 위에 경합 2인 클로즈업 2분할 레이어(하단 중앙, 팝업 슬라이드)
+      // 배틀 캠 PiP — 메인(와이드) 위에 경합 2인 클로즈업 2분할 레이어(경기장 정중앙, 팝업 슬라이드).
+      //   보트/씬은 건드리지 않고 PiP 카메라만 선미 뒤에 궤도 배치 → 선수 방향을 바라보며
+      //   후향 로잉 캐릭터의 얼굴이 프레임에 담김(약 3/4 측면 + 하이앵글).
       if (duelE > 0.02 && duelViewPair) {
         const rA = rigs.get(duelViewPair[0]);
         const rB = rigs.get(duelViewPair[1]);
@@ -1457,7 +1459,7 @@ export function RaceStage3D({
           const panelH = H * 0.3 * duelE;
           const gapPx = 4;
           const px = (W - panelW) / 2;
-          const vy = H * 0.06; // 캔버스 좌하단 기준 하단 여백
+          const vy = (H - panelH) / 2; // 경기장 정중앙(패널 중심 = 화면 중심)
           const halfWpx = (panelW - gapPx) / 2;
           const prevClear = new THREE.Color();
           renderer.getClearColor(prevClear);
@@ -1465,20 +1467,34 @@ export function RaceStage3D({
           renderer.setClearColor(new THREE.Color(cssColor('--bcl-bg', '#0b0e14')), 0.85);
           renderer.setScissorTest(true);
           const panelHFull = H * 0.3;
+          const viewYaw = baseYaw + 0.3; // 선수 방향 + 3/4 오프셋
+          const bowDir = new THREE.Vector3(Math.cos(viewYaw), 0, -Math.sin(viewYaw));
           [rA, rB].forEach((r, i) => {
             const vx = px + i * (halfWpx + gapPx);
             renderer.setViewport(vx, vy, halfWpx, panelH);
             renderer.setScissor(vx, vy, halfWpx, panelH);
-            // 캐릭터 신장 기준 자동 프레이밍 — 세로 창=신장 1.75배(캐릭터 중심 정렬), 가로 창은 패널 비율
+            // 캐릭터 신장 기준 자동 프레이밍 — 세로 창=신장 1.55배(캐릭터 중심 정렬), 가로 창은 패널 비율
             const charHr = Math.min(0.29 * H, 258) * r.baseScl;
-            const worldHFull = charHr * 1.75;
+            const worldHFull = charHr * 1.55;
             const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
             const worldW = worldHFull * (halfWpx / panelHFull);
-            const cy = r.group.position.y + charHr * 0.5;
-            duelCam.left = r.group.position.x - worldW / 2;
-            duelCam.right = r.group.position.x + worldW / 2;
-            duelCam.top = cy + worldH / 2;
-            duelCam.bottom = cy - worldH / 2;
+            const target = IK_V.set(
+              r.group.position.x,
+              r.group.position.y + charHr * 0.35,
+              0,
+            );
+            const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
+            duelCam.position.set(
+              target.x - bowDir.x * D,
+              target.y + D * 0.3, // 하이앵글
+              target.z - bowDir.z * D,
+            );
+            duelCam.up.set(0, 1, 0);
+            duelCam.lookAt(target);
+            duelCam.left = -worldW / 2;
+            duelCam.right = worldW / 2;
+            duelCam.top = worldH / 2;
+            duelCam.bottom = -worldH / 2;
             duelCam.updateProjectionMatrix();
             renderer.render(scene, duelCam);
           });
