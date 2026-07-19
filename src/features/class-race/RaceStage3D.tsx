@@ -699,7 +699,7 @@ export function RaceStage3D({ lanes, samplesRef, target, lobbyStatus, defaultDev
             rimMat.onBeforeCompile = (shader) => {
               shader.vertexShader = shader.vertexShader.replace(
                 '#include <begin_vertex>',
-                'vec3 transformed = vec3( position ) + normal * 0.05;',
+                'vec3 transformed = vec3( position ) + normal * 0.035;',
               );
             };
             const rimSrc: THREE.Mesh[] = [];
