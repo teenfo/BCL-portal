@@ -190,7 +190,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       {/* 상태 오버레이 */}
       {rt.lobbyStatus === 'lobby' ? <StateOverlay label="STARTING PEN" sub="참가자 대기 중" /> : null}
       {rt.lobbyStatus === 'countdown' ? <CountdownOverlay /> : null}
-      {rt.lobbyStatus === 'finished' ? <StateOverlay label="FINISH" sub="결과 집계 중" /> : null}
+      {rt.lobbyStatus === 'finished' ? <StateOverlay label="FINISH" sub="결과 집계 중" kind="finish" /> : null}
     </div>
   );
 }
@@ -285,9 +285,9 @@ function RailBadge({
   );
 }
 
-function StateOverlay({ label, sub }: { label: string; sub: string }) {
+function StateOverlay({ label, sub, kind }: { label: string; sub: string; kind?: 'finish' }) {
   return (
-    <div className={styles.stateOverlay}>
+    <div className={styles.stateOverlay} data-kind={kind}>
       <div className={styles.stateLabel}>{label}</div>
       <div className={styles.stateSub}>{sub}</div>
     </div>

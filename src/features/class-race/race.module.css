@@ -19,6 +19,7 @@
 /* ── 톱바 — 스타디움 타이틀 + 네온 언더라인 + 경과 타이머 ── */
 .topbar {
   position: relative;
+  z-index: 10; /* 전체 화면 스테이지 위 오버레이 */
   height: 8vh;
   display: flex;
   align-items: center;
@@ -86,6 +87,8 @@
 
 /* ── HUD 스탯 카드(레인별) — 팀컬러 탑 보더 + 1위 글로우 배지 ── */
 .hudRow {
+  position: relative;
+  z-index: 10; /* 전체 화면 스테이지(관중석) 위 오버레이 */
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
@@ -212,11 +215,12 @@
 }
 
 
-/* ── 수영장 아레나 스테이지(상단 출발 → 하단 피니시) ── */
+/* ── 수영장 아레나 스테이지(상단 출발 → 하단 피니시) ──
+   전체 화면 배경 레이어 — 톱바/HUD/배지 레일이 관중석 위를 덮고, 수면이 화면 대부분을 차지 */
 .stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   background: linear-gradient(
     var(--bcl-race-sky-horizon, var(--bcl-surface)) -70%,
     var(--bcl-race-surface, var(--bcl-surface-raised)) 34%,
@@ -280,7 +284,7 @@
 /* 상단 ERG 배지 레일 — 레인별 고정 슬롯(레퍼런스: 수면 위 배지 행) */
 .badgeRail {
   position: absolute;
-  top: var(--bcl-space-4);
+  top: 28vh; /* 스테이지가 전체 화면 — HUD 아래 관중석 구간(수면 위)에 부유 */
   left: 0;
   right: 0;
   height: 40px;
@@ -418,6 +422,17 @@
   gap: var(--bcl-space-4);
   background: var(--bcl-overlay);
   z-index: 30;
+}
+/* 피니시는 딤 없이 — 세리머니·등수 배지가 깨끗하게 보이도록 배너만 표시(HUD/배지 레일 아래 띠) */
+.stateOverlay[data-kind='finish'] {
+  background: none;
+  justify-content: flex-start;
+  padding-top: 31vh;
+  gap: var(--bcl-space-2);
+  pointer-events: none;
+}
+.stateOverlay[data-kind='finish'] .stateLabel {
+  font-size: 76px;
 }
 .stateLabel {
   font-size: 120px;
