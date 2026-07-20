@@ -8,8 +8,10 @@ on:
 
 jobs:
   quality:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 호스티드 러너 사용량 소진(월 한도) 대응 — 서버 self-hosted 러너로 실행(분 과금 없음).
+    # 한도 리셋 후 호스티드로 되돌리려면 runs-on을 ubuntu-latest로 변경.
+    runs-on: [self-hosted, bcl-portal]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -42,8 +44,9 @@ jobs:
 
   auth-e2e:
     # 인증 E2E = CI 필수 게이트 (docs/01-auth §7) — 실패 시 병합/배포 차단
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # self-hosted 러너: 브라우저 시스템 의존성은 server-setup.sh가 사전 설치(--with-deps 불필요)
+    runs-on: [self-hosted, bcl-portal]
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,7 +54,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - run: npx playwright install chromium
       - name: auth.smoke (S1~S8)
         run: npm run test:e2e -- auth.smoke
         env:
