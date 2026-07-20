@@ -26,9 +26,15 @@ RUNNER_VERSION="${RUNNER_VERSION:-2.321.0}"
 [ "$(id -u)" -eq 0 ] || { echo "❌ root(sudo)로 실행하세요"; exit 1; }
 export DEBIAN_FRONTEND=noninteractive
 
-echo "▶ [1/7] 기본 패키지 (git/curl/nginx 등)"
+echo "▶ [1/7] 기본 패키지 (git/curl/nginx/Node 등)"
 apt-get update -y
 apt-get install -y ca-certificates curl git gnupg nginx openssl
+# Node 22 — self-hosted 러너에서 CI(quality/auth-e2e) 실행용 + Playwright 시스템 의존성 사전 설치
+if ! command -v node >/dev/null 2>&1 || [ "$(node -v | cut -c2-3)" -lt 22 ]; then
+  curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+  apt-get install -y nodejs
+fi
+npx --yes playwright@1.61 install-deps chromium || echo "⚠️ playwright 시스템 의존성 설치 실패 — auth-e2e CI 실행 전 수동 확인 필요"
 
 echo "▶ [2/7] Docker 엔진 + compose 플러그인"
 if ! command -v docker >/dev/null 2>&1; then
