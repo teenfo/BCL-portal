@@ -7,6 +7,8 @@
 #
 # 파라미터 (환경변수로 오버라이드):
 #   REPO_URL      클론 주소 (프라이빗 레포 → https://<PAT>@github.com/teenfo/BCL-portal.git 형태 권장)
+#                 PAT는 repo 읽기 전용(fine-grained) 권장 — .git/config(remote.origin.url)에 저장되어
+#                 deploy.yml의 git fetch가 이 자격증명을 사용한다(파일은 600으로 보호).
 #   APP_DIR       기본 /opt/bcl-portal (deploy.yml 고정 경로 — 변경 시 deploy.yml도 수정 필요)
 #   DEPLOY_USER   기본 deploy (러너/배포 실행 계정)
 #   RUNNER_TOKEN  GitHub self-hosted runner 등록 토큰 — NAT(공유기)+유동IP 환경의 배포 경로.
@@ -55,12 +57,18 @@ id -u "${DEPLOY_USER}" >/dev/null 2>&1 || useradd -m -s /bin/bash "${DEPLOY_USER
 usermod -aG docker "${DEPLOY_USER}"
 
 echo "▶ [4/7] 레포 → ${APP_DIR}"
+# 재실행 멱등성: 1차 실행의 chown으로 소유자가 ${DEPLOY_USER}인 저장소를 root가 다시 만지면
+# git 2.35.2+ 소유권 검사(dubious ownership)로 중단됨 — git 명령 전 safe.directory 등록
+git config --global --get-all safe.directory 2>/dev/null | grep -qxF "${APP_DIR}" \
+  || git config --global --add safe.directory "${APP_DIR}"
 if [ -d "${APP_DIR}/.git" ]; then
   git -C "${APP_DIR}" fetch --prune origin
   echo "  기존 클론 감지 — fetch만 수행(체크아웃 갱신은 deploy.yml 담당)"
 else
   git clone "${REPO_URL}" "${APP_DIR}"
 fi
+# PAT 포함 REPO_URL은 .git/config(remote.origin.url)에 평문 저장됨 — 소유자 외 읽기 차단(644→600)
+chmod 600 "${APP_DIR}/.git/config"
 chown -R "${DEPLOY_USER}:${DEPLOY_USER}" "${APP_DIR}"
 
 echo "▶ [5/7] .env 준비"
@@ -83,8 +91,10 @@ systemctl reload nginx
 
 echo "▶ [7/7] GitHub self-hosted runner (NAT/유동IP 배포 경로 — 포트 개방 불필요)"
 RUNNER_DIR="/home/${DEPLOY_USER}/actions-runner"
+# 등록(config.sh)과 서비스 설치/기동(svc.sh)을 분리 — config.sh 성공 후 svc.sh 실패로 중단돼도
+# 재실행이 서비스 설치를 건너뛰지 않게(멱등).
 if [ -f "${RUNNER_DIR}/.runner" ]; then
-  echo "  러너 이미 등록됨 — 건너뜀 (재등록은 ${RUNNER_DIR}에서 ./config.sh remove 후 재실행)"
+  echo "  러너 이미 등록됨 — 등록 건너뜀 (재등록은 ${RUNNER_DIR}에서 ./config.sh remove 후 재실행)"
 elif [ -n "${RUNNER_TOKEN:-}" ]; then
   ARCH="$(dpkg --print-architecture)"; case "${ARCH}" in amd64) RARCH=x64;; arm64) RARCH=arm64;; *) RARCH=x64;; esac
   install -d -o "${DEPLOY_USER}" -g "${DEPLOY_USER}" "${RUNNER_DIR}"
@@ -99,12 +109,19 @@ elif [ -n "${RUNNER_TOKEN:-}" ]; then
     ./config.sh --unattended --url '${REPO_URL%.git}' --token '${RUNNER_TOKEN}' \
       --name bcl-server --labels bcl-portal --work _work --replace
   "
-  (cd "${RUNNER_DIR}" && ./svc.sh install "${DEPLOY_USER}" && ./svc.sh start)
-  echo "  ✅ 러너 서비스 기동(systemd) — Actions → Runners에서 Idle 확인"
 else
   echo "  ⚠️ RUNNER_TOKEN 미지정 — 러너 설치 건너뜀."
   echo "     레포 Settings → Actions → Runners → New self-hosted runner(Linux)에서 토큰 발급 후:"
   echo "     sudo RUNNER_TOKEN=<토큰> bash ${APP_DIR}/scripts/server-setup.sh"
+fi
+# 등록돼 있으면 매 실행마다 systemd 서비스 상태 보정: 미설치(svc.sh가 만드는 .service 부재)면 install,
+# 이후 start는 항상 수행(이미 기동 중이면 no-op) — '등록 성공 + 서비스 미설치/중지' 고착 방지
+if [ -f "${RUNNER_DIR}/.runner" ]; then
+  if ! ls "${RUNNER_DIR}/.service" >/dev/null 2>&1; then
+    (cd "${RUNNER_DIR}" && ./svc.sh install "${DEPLOY_USER}")
+  fi
+  (cd "${RUNNER_DIR}" && ./svc.sh start)
+  echo "  ✅ 러너 서비스 기동(systemd) — Actions → Runners에서 Idle 확인"
 fi
 
 if [ "${ENABLE_UFW:-0}" = "1" ]; then
@@ -129,6 +146,9 @@ cat <<GUIDE
 
 2) 러너 미등록이면(위 [7/7] 안내 참조) RUNNER_TOKEN으로 재실행
    — NAT(공유기)+유동IP라 포트포워딩/DDNS 불필요, 러너가 배포를 서버 안에서 실행
+
+※ 프라이빗 레포 PAT: repo 읽기 전용 fine-grained 권장 — ${APP_DIR}/.git/config에 저장(600)되며
+   deploy.yml의 git fetch가 이 자격증명을 사용. 만료/회수 시 remote.origin.url 갱신 필요.
 
 3) 첫 배포 (둘 중 하나):
    - GitHub Actions → "Deploy to Test Server" → Run workflow (main)

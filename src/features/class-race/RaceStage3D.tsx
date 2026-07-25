@@ -19,6 +19,7 @@ import {
   type RowerPose,
 } from './device-theme';
 import type { LaneMeta, RawSample, LobbyStatus } from './useRaceRealtime';
+import { pickDuelPair, finaleGate, courseScaleMax } from './race-camera';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
 import { BRAND_ACCENT_HEX } from '@/lib/brand';
@@ -328,6 +329,13 @@ interface Rig {
   baseX: number;
   baseY: number;
   baseScl: number;
+  /** rig 전용 생성 자원(머티리얼/지오메트리/텍스처) — 레인 제거 시 일괄 dispose(누수 방지).
+      공유 템플릿(centerPlane·공용 텍스처·GLB 템플릿 자원)은 포함 금지 */
+  disposables: Array<{ dispose(): void }>;
+  /** 비로워 스프라이트 스트로크 누적 위상(0..1) — t/dur 절대 위상은 SPM 변동 시 점프(금지 패턴) */
+  sprPhase: number;
+  /** 가로 문장 배너 최근 재생성 시각 — diff 1m 변화마다 캔버스+GPU 업로드 스래싱 방지(400ms 스로틀) */
+  chipAt: number;
   /** 부스터 — 속도 빠른/느린 EMA(m/s)·발동/종료 시각. 급가속 감지 시 ~2s 연출.
       velF: 표시좌표 미분은 샘플 틱마다 톱니 스파이크 → ~0.4s EMA로 평활 후 비교 */
   velF: number;
@@ -754,17 +762,42 @@ export function RaceStage3D({
         baseX: 0,
         baseY: 0,
         baseScl: 1,
+        // 공유 자원(centerPlane·공용 텍스처·GLB 템플릿·placeTexCache)은 제외 — 칩 텍스처는
+        // 교체 시마다 구본을 dispose하고 최종본은 disposeRig가 chip.material.map으로 해제
+        disposables: [
+          charMat,
+          glowMat,
+          auraMat,
+          streakMat,
+          ringMat,
+          chipMat,
+          placeMat,
+          char.geometry,
+          streak.geometry,
+        ],
         velF: 0,
         velS: 0,
         boostAt: 0,
         boostUntil: 0,
+        sprPhase: 0,
+        chipAt: 0,
       };
+    }
+
+    /** 레인 제거 시 rig 전용 자원 일괄 해제 — 상시 구동 TV의 히트 전환 누수 방지(감사 반영) */
+    function disposeRig(rig: Rig) {
+      scene.remove(rig.group);
+      (rig.chip.material as THREE.MeshBasicMaterial).map?.dispose();
+      for (const d of rig.disposables) d.dispose();
     }
 
     let raf = 0;
     // 승선 타이밍 — 카운트다운 진입 시각(전 레인 공유)
     let prevStatus: LobbyStatus | null = null;
     let countdownAt = 0;
+    // 레이싱 진입 시각 — 부스터 velS 워밍업 가드 기준(BOOST_WARMUP_MS)
+    let racingAt = 0;
+    const BOOST_WARMUP_MS = 8000;
     // 카메라 연출 — 메인 스테이지 줌은 피날레(선두 95%~결승선, 1위 단독)에만 사용.
     //   배틀 캠은 메인을 건드리지 않고 별도 2분할 PiP 레이어(경합 2인 클로즈업)로 렌더.
     //   보트 방향은 항상 진행 방향 유지(요 스윙 없음). 양 코스 모드 공통.
@@ -807,6 +840,7 @@ export function RaceStage3D({
       // 승선 진행도 — lobby 0(기립) → countdown 진입 후 BOARD_MS에 걸쳐 1(착석), racing 이후 1
       if (status !== prevStatus) {
         if (status === 'countdown') countdownAt = t;
+        if (status === 'racing') racingAt = t;
         prevStatus = status;
       }
       const boardRaw =
@@ -817,7 +851,7 @@ export function RaceStage3D({
       const liveSerials = new Set(curLanes.map((l) => l.serial));
       for (const [serial, rig] of rigs) {
         if (!liveSerials.has(serial)) {
-          scene.remove(rig.group);
+          disposeRig(rig);
           rigs.delete(serial);
         }
       }
@@ -835,45 +869,58 @@ export function RaceStage3D({
           leadSerial = meta.serial;
         }
       }
-      const dynamicMax = tgt && tgt > 0 ? tgt : Math.max(1, leadD);
+      // 시간제(목표 없음)는 선두×1.15 여유 스케일 — 선두 prog 1.0 고정(함대 피니시 압축) 방지
+      const dynamicMax = courseScaleMax(tgt ?? null, leadD);
 
-      // 피날레 캠 — 선두 95% 통과~결승선 도달 전까지만 1위 단독 클로즈업.
+      // 피날레 캠 — 선두 95% 통과~결승선 도달 전까지만 1위 단독 클로즈업(순수 로직 race-camera.ts).
       //   피니시(첫 도착 발생) 순간 와이드 복귀 — 세리머니는 전체 화면으로 관전.
-      const finaleOn =
-        status === 'racing' && !!tgt && leadD >= tgt * 0.95 && order.length === 0;
+      const finaleOn = finaleGate({
+        status,
+        target: tgt ?? null,
+        leadD,
+        finishedCount: order.length,
+      });
 
-      // 배틀 캠(2분할 PiP) — 최소 간격 경합 페어 선정(출발 25m 이후, 피날레/피니시 제외)
-      if (status === 'racing' && !finaleOn && leadD > 25 && duelPair === null && t >= duelNextAt) {
-        const racers = curLanes
-          .map((m) => ({ serial: m.serial, d: samples.get(m.serial)?.d ?? 0 }))
-          .filter((r) => !tgt || r.d < tgt - 1)
-          .sort((a, b) => b.d - a.d);
-        let bestGap = Infinity;
-        let pair: [string, string] | null = null;
-        for (let i = 0; i + 1 < racers.length; i++) {
-          const gap = racers[i].d - racers[i + 1].d;
-          if (gap < bestGap) {
-            bestGap = gap;
-            pair = [racers[i].serial, racers[i + 1].serial];
-          }
-        }
-        if (pair && bestGap <= CAM_GAP_M) {
+      // 배틀 캠(2분할 PiP) — 활동 레인(신선 샘플·최소 전진)만 대상, 최소 간격 페어 선정.
+      //   idle/미출발(DNS) 레인 배제(감사 반영), 첫 피니셔 이후 신규 발동 금지(피니시 와이드 보호)
+      if (
+        status === 'racing' &&
+        !finaleOn &&
+        order.length === 0 &&
+        leadD > 25 &&
+        duelPair === null &&
+        t >= duelNextAt
+      ) {
+        const pair = pickDuelPair(
+          curLanes.map((m) => {
+            const smp = samples.get(m.serial);
+            return { serial: m.serial, d: smp?.d ?? 0, lastAt: smp?.lastAt ?? null };
+          }),
+          now,
+          tgt ?? null,
+        );
+        if (pair) {
           duelPair = pair;
           duelViewPair = pair;
           duelShowUntil = t + DUEL_SHOW_MS;
           duelNextAt = t + DUEL_EVERY_MS;
         }
       }
-      // 유지 조건 — 시간 만료/상태 이탈/페어 중 피니시/간격 벌어짐이면 접기(페이드아웃)
+      // 유지 조건 — 시간 만료/상태 이탈/페어 중 피니시·idle/간격 벌어짐이면 접기(페이드아웃)
       if (duelPair) {
-        const dA = samples.get(duelPair[0])?.d ?? 0;
-        const dB = samples.get(duelPair[1])?.d ?? 0;
+        const smpA = samples.get(duelPair[0]);
+        const smpB = samples.get(duelPair[1]);
+        const dA = smpA?.d ?? 0;
+        const dB = smpB?.d ?? 0;
         const finished = !!tgt && (dA >= tgt - 1 || dB >= tgt - 1);
+        const stale =
+          !smpA || !smpB || now - smpA.lastAt > IDLE_MS || now - smpB.lastAt > IDLE_MS;
         if (
           t >= duelShowUntil ||
           status !== 'racing' ||
           finaleOn ||
           finished ||
+          stale ||
           Math.abs(dA - dB) > CAM_GAP_M * 2
         )
           duelPair = null;
@@ -921,7 +968,8 @@ export function RaceStage3D({
         const finished = !!tgt && rawD >= tgt - 1;
         const pose: RowerPose = waiting ? 'wait' : finished ? 'finish' : 'race';
 
-        // 부스터 감지 — 평활 속도(velF)가 기준선(velS, 느린 EMA) 대비 급증하면 발동
+        // 부스터 감지 — 평활 속도(velF)가 기준선(velS, 느린 EMA) 대비 급증하면 발동.
+        //   velS 워밍업(τ≈3.3s) 동안은 기준선이 낮아 15m 통과 직후 오발동 → 레이스 시작 8s 가드(감사 반영)
         const vel = ((rig.d - dPrev) * 1000) / dtGap;
         rig.velF += (vel - rig.velF) * (1 - Math.pow(0.96, dtF / 16.7));
         rig.velS += (rig.velF - rig.velS) * (1 - Math.pow(0.995, dtF / 16.7));
@@ -929,6 +977,7 @@ export function RaceStage3D({
           pose === 'race' &&
           !idle &&
           rig.d > 15 &&
+          t - racingAt > BOOST_WARMUP_MS &&
           rig.velF > rig.velS * BOOST_RATIO + BOOST_MIN_GAIN &&
           t >= rig.boostUntil + BOOST_COOLDOWN_MS
         ) {
@@ -986,6 +1035,7 @@ export function RaceStage3D({
                 'varying float vRimFace;\n' +
                 shader.fragmentShader.replace('void main() {', 'void main() {\n\tif ( vRimFace > 0.08 ) discard;');
             };
+            rig.disposables.push(rimMat);
             const rimSrc: THREE.Mesh[] = [];
             boatClone.traverse((o) => {
               if ((o as THREE.Mesh).isMesh) rimSrc.push(o as THREE.Mesh);
@@ -1004,6 +1054,7 @@ export function RaceStage3D({
               metalness: 0.75,
               roughness: 0.35,
             });
+            rig.disposables.push(riggerGeo, riggerMat);
             const addRiggerTube = (from: THREE.Vector3, to: THREE.Vector3) => {
               const dir = to.clone().sub(from);
               const len = dir.length();
@@ -1077,6 +1128,13 @@ export function RaceStage3D({
             rig.group.add(inner);
           }
         } else {
+          // 비로워 기기 — device_type 지연 병합으로 로워 모델이 먼저 붙었으면 제거(감사 반영:
+          //   제거 없이는 보트가 계속 렌더되고 글리프는 스케일 미갱신으로 비표시)
+          if (rig.model) {
+            rig.group.remove(rig.model);
+            rig.model = null;
+            rig.parts = null;
+          }
           rig.char.visible = true;
           const glyph = characterForDevice(deviceType).glyph;
           ensureCharTexture(rig, `glyph:${glyph}`, null, glyph);
@@ -1320,10 +1378,13 @@ export function RaceStage3D({
           rig.char.scale.set(charH * rig.aspect, charH, 1);
           // 스트로크 로킹 — 실측 SPM 주기(레이스 포즈만), idle 시 정지
           if (pose === 'race' && !idle) {
+            // 위상 누적(sprPhase += dt/dur) — t/dur 절대 위상은 SPM 변동 시 점프(파일 상단 규칙과 동일)
             const dur = animationDurationSec(deviceType, rig.spm) * 1000;
-            rig.char.rotation.z = Math.sin((t / dur) * TAU) * 0.04;
-            rig.char.position.y = Math.abs(Math.sin((t / dur) * TAU)) * -charH * 0.015;
-            drivePulse = 0.5 + 0.5 * Math.sin((t / dur) * TAU); // 스프라이트 경로 근사 펄스
+            rig.sprPhase = (rig.sprPhase + dtF / dur) % 1;
+            const ph = rig.sprPhase * TAU;
+            rig.char.rotation.z = Math.sin(ph) * 0.04;
+            rig.char.position.y = Math.abs(Math.sin(ph)) * -charH * 0.015;
+            drivePulse = 0.5 + 0.5 * Math.sin(ph); // 스프라이트 경로 근사 펄스
           } else {
             rig.char.rotation.z = 0;
             rig.char.position.y = 0;
@@ -1342,13 +1403,20 @@ export function RaceStage3D({
         );
         rig.ring.position.y = charH * 0.02;
         rig.ringMat.opacity = moving ? 0.14 + drivePulse * 0.34 + boostE * 0.28 : 0;
-        // 스트릭 — 캐릭터 위(진행 반대 방향)로 페이드(텍스처 자체가 상단 투명), 드라이브 때 길어짐
+        // 스트릭 — 진행 반대 방향으로 페이드(텍스처 상단 투명). 코스축 정렬(감사 반영):
+        //   세로 코스 진행=하단 → 스트릭 +Y(위) / 가로 코스 진행=+X → 스트릭 -X(왼쪽, z축 +90° 회전)
         rig.streak.scale.set(
           charH * (0.26 + boostE * 0.14),
           charH * (0.4 + drivePulse * 0.45 + pulse * 0.08 + boostE * 0.8),
           1,
         );
-        rig.streak.position.y = charH * (0.55 + boostE * 0.25);
+        if (courseH) {
+          rig.streak.rotation.z = Math.PI / 2; // 앵커(하단 중앙) 기준 -X로 신장
+          rig.streak.position.set(-charH * 0.55, 0, 0);
+        } else {
+          rig.streak.rotation.z = 0;
+          rig.streak.position.set(0, charH * (0.55 + boostE * 0.25), 0);
+        }
         rig.streakMat.opacity = moving ? 0.08 + drivePulse * 0.22 + boostE * 0.3 : 0;
 
         // 페이스 티어 오로라 — 500m 페이스 임계 돌파 시 캐릭터+보트 글로우(파랑→초록→노랑→빨강)
@@ -1375,7 +1443,7 @@ export function RaceStage3D({
             charH * (1.1 + 0.1 * Math.sin(t / 270 + index * 2.3)),
             1,
           );
-          rig.aura.position.y = charH * 0.42;
+          rig.aura.position.y = courseH ? 0 : charH * 0.42;
           rig.auraMat.opacity +=
             ((auraColor ? 0.55 + 0.16 * Math.sin(t / 300 + index) : 0) - rig.auraMat.opacity) * auraK;
           if (auraColor) rig.auraMat.color.lerp(auraColor, auraK);
@@ -1384,7 +1452,7 @@ export function RaceStage3D({
         // 리더 글로우(흰-시안 아우라)
         const isLead = meta.serial === leadSerial && status !== 'lobby' && status !== 'countdown' && leadD > 0;
         rig.glow.scale.set(charH * 1.7, charH * 1.7, 1);
-        rig.glow.position.y = charH * 0.45;
+        rig.glow.position.y = courseH ? 0 : charH * 0.45; // 탑뷰는 보트 중심(위 레인 침범 방지)
         (rig.glow.material as THREE.MeshBasicMaterial).opacity = isLead
           ? 0.3 + 0.14 * Math.sin(t / 420)
           : 0;
@@ -1400,7 +1468,8 @@ export function RaceStage3D({
                 ? '1위'
                 : `-${Math.max(0, Math.round(leadD - rawD))}m`
           : (meta.member_name ?? `레인 ${meta.lane || index + 1}`);
-        if (wantName !== rig.chipName) {
+        if (wantName !== rig.chipName && (!courseH || t - rig.chipAt > 400)) {
+          rig.chipAt = t;
           rig.chipName = wantName;
           const mat = rig.chip.material as THREE.MeshBasicMaterial;
           mat.map?.dispose();
@@ -1476,24 +1545,38 @@ export function RaceStage3D({
             const vx = px + i * (halfWpx + gapPx);
             renderer.setViewport(vx, vy, halfWpx, panelH);
             renderer.setScissor(vx, vy, halfWpx, panelH);
-            // 전면 풀샷 프레이밍 — 보트+오어 포함(오어 스윙 폭 감안해 창 소폭 확대), 가로 창은 패널 비율
-            const charHr = Math.min(0.29 * H, 258) * r.baseScl;
+            // 전면 풀샷 프레이밍 — 보트+오어 포함(오어 스윙 폭 감안해 창 소폭 확대), 가로 창은 패널 비율.
+            //   camZoom 반영: 피날레 줌 진입과 듀얼 페이드아웃이 겹치는 구간의 피사체 크롭 방지(감사)
+            const charHr = Math.min(0.29 * H, 258) * r.baseScl * camZoom;
             const worldHFull = charHr * 1.15;
             const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
             const worldW = worldHFull * (halfWpx / panelHFull);
-            const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.38, 0);
-            const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
-            duelCam.position.set(
-              target.x - bowDir.x * D,
-              target.y + D * 0.1, // 미세 하이앵글(정면 유지)
-              target.z - bowDir.z * D,
-            );
-            duelCam.up.set(0, 1, 0);
-            duelCam.lookAt(target);
-            duelCam.left = -worldW / 2;
-            duelCam.right = worldW / 2;
-            duelCam.top = worldH / 2;
-            duelCam.bottom = -worldH / 2;
+            if (r.parts) {
+              // 3파트 모델 — 선미 뒤 궤도 전면 카메라(얼굴 노출)
+              const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.38, 0);
+              const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
+              duelCam.position.set(
+                target.x - bowDir.x * D,
+                target.y + D * 0.1, // 미세 하이앵글(정면 유지)
+                target.z - bowDir.z * D,
+              );
+              duelCam.up.set(0, 1, 0);
+              duelCam.lookAt(target);
+              duelCam.left = -worldW / 2;
+              duelCam.right = worldW / 2;
+              duelCam.top = worldH / 2;
+              duelCam.bottom = -worldH / 2;
+            } else {
+              // 폴백 글리프 스프라이트(비로워 기기) — XY 빌보드 평면이 측면 카메라에서
+              // 모서리/후면 컬링되므로 화면 정렬 창으로 렌더(리뷰 지적 반영)
+              duelCam.position.set(0, 0, 0);
+              duelCam.rotation.set(0, 0, 0);
+              const cyS = r.group.position.y + charHr * 0.45;
+              duelCam.left = r.group.position.x - worldW / 2;
+              duelCam.right = r.group.position.x + worldW / 2;
+              duelCam.top = cyS + worldH / 2;
+              duelCam.bottom = cyS - worldH / 2;
+            }
             duelCam.updateProjectionMatrix();
             // 해당 레인 조립체(보트+캐릭터+오어)만 레이어 1에 임시 등록 후 렌더(옆 레인 제외).
             //   탑뷰용 조립체 피치를 PiP 동안만 0으로 — 직립 전면으로 보임(메인 무영향)
@@ -1518,10 +1601,16 @@ export function RaceStage3D({
       cancelAnimationFrame(raf);
       ro.disconnect();
       renderer.dispose();
+      draco.dispose(); // DRACO 디코더 워커/WASM — 재초기화(courseH 전환) 누적 방지
       scene.traverse((o) => {
         const mesh = o as THREE.Mesh;
         if (mesh.isMesh) {
-          (mesh.material as THREE.Material).dispose();
+          // material.dispose()는 map을 해제하지 않음 — GLB 임베디드/캔버스 텍스처까지 회수
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of mats) {
+            (m as THREE.MeshBasicMaterial).map?.dispose();
+            m.dispose();
+          }
           mesh.geometry.dispose();
         }
       });

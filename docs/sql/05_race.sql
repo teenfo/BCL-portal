@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS public.race_events (
                        CHECK (status IN ('scheduled','in_progress','completed','cancelled')),
     lobby_status       VARCHAR(15) NOT NULL DEFAULT 'setup'
                        CHECK (lobby_status IN ('setup','lobby','countdown','racing','finished')),
+    course_layout      VARCHAR(10) NOT NULL DEFAULT 'vertical'
+                       CHECK (course_layout IN ('vertical','horizontal')),   -- 🔄 TV 코스 레이아웃(표시 전용, 15 §5b — mig 20260719050000)
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -84,6 +86,8 @@ COMMENT ON COLUMN public.race_events.group_target_m IS '단체전 A안 공동 �
 COMMENT ON COLUMN public.race_events.heat_no IS '단체전 B안 히트 번호. 통합 랭킹은 COALESCE(parent_event_id,id) 시리즈 기준 집계 (15-race-system §4b.3)';
 COMMENT ON COLUMN public.race_events.parent_event_id IS '히트 시리즈 루트. 히트 전환은 이전 이벤트 종료 후 fn_prepare_race_session(next_heat_of)로 생성';
 COMMENT ON COLUMN public.race_events.carryover_m IS '공동목표 분할 진행 시 이전 히트 누계 이월(next_heat_of가 자동 계산)';
+COMMENT ON COLUMN public.race_events.course_layout IS
+    '코스 레이아웃(15 §5b) — vertical(측면 세로 코스)/horizontal(사선 탑뷰 가로 코스). 표시 전용: 위치 계산·집계·상태머신은 두 모드 동일. 생성 후 변경 허용(표시만 전환).';
 
 -- 히트 시리즈 통합 집계 조회용
 CREATE INDEX IF NOT EXISTS idx_race_events_parent ON public.race_events(parent_event_id)

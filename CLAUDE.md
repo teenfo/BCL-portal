@@ -32,7 +32,8 @@
 
 ### UI — 토큰만 사용
 - 색/간격/radius는 `--bcl-*` 토큰만. hex 하드코딩·인라인 스타일 재구현·수동 유틸 클래스 신설 금지
-  (HEX 리터럴은 `src/styles/tokens.css`에만 — 예외 1곳: `src/lib/brand.ts`(PWA themeColor·캔버스 폴백용 JS 미러))
+  (브랜드 HEX(FF6A00·FF6B00·D2691E)는 `src/styles/tokens.css`+`src/lib/brand.ts` 2곳만 — CI 게이트(quality.yml grep).
+  그 외 hex는 캔버스/three.js `cssColor()` 토큰 폴백 인자로만 허용)
 - 표준 컴포넌트(`src/components/ui/`) 밖에서 버튼/모달/입력 재구현 금지
 - Class/Race 화면: rAF + DOM 직접 조작(React 리렌더 우회), Display-Safe(부상/메모/정산 비노출)
 - Race TV 코스 2모드(세로/가로 — `race_events.course_layout`, 생성 시 결정)는 **기능 동등 유지**:

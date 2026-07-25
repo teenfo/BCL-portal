@@ -1,12 +1,17 @@
 name: Deploy to Test Server
 
 on:
-  push:
+  # main push 직행 배포 금지 — Quality Gate(lint/typecheck/Vitest/build/auth-e2e) 성공 후에만 배포.
+  workflow_run:
+    workflows: ["Quality Gate"]
+    types: [completed]
     branches: [main]
   workflow_dispatch:  # 수동 실행 가능
 
 jobs:
   deploy:
+    # 게이트: workflow_run 경유 시 Quality Gate 성공(conclusion == success)일 때만 실행. 수동(dispatch)은 통과.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     # NAT(공유기)+유동IP 환경 — 서버 내 self-hosted runner가 로컬 배포.
     #   인바운드 포트 개방/DDNS/고정IP 불필요(러너가 GitHub로 아웃바운드 연결 유지).
     #   러너 설치: 서버에서 RUNNER_TOKEN=<토큰> bash scripts/server-setup.sh (라벨 bcl-portal)

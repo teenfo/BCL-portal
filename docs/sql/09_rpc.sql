@@ -2697,6 +2697,9 @@ $$;
 --     🔄 모드 파라미터화(15-race-system §4b): individual/team/group/relay,
 --     group A안(group_target_m)/B안(heat_mode·next_heat_of) + carryover 자동 계산.
 --     advisory lock + 부분 유니크(uq_race_events_active_session) 이중 방어
+--     🔄 course_layout(15 §5b): p_options.course_layout 수용 — 신규 INSERT/히트 승계
+--        (mig 20260719050000) + 재개(resume) 시 명시 전달값 UPDATE 반영
+--        (mig 20260721030000_race_course_layout_rpcs, [course_layout-resume])
 CREATE OR REPLACE FUNCTION public.fn_prepare_race_session(
     p_session_id UUID,
     p_race_format TEXT DEFAULT 'individual',
@@ -2714,9 +2717,16 @@ DECLARE
     v_parent_id UUID;
     v_carryover NUMERIC := 0;
     v_next_heat_of UUID;
+    v_course TEXT; -- [course_layout]
 BEGIN
     IF p_race_format NOT IN ('individual','team','group','relay') THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_race_format');
+    END IF;
+
+    -- [course_layout] 옵션 검증 (미지정=NULL → 아래 COALESCE 폴백)
+    v_course := NULLIF(p_options->>'course_layout', '');
+    IF v_course IS NOT NULL AND v_course NOT IN ('vertical','horizontal') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_course_layout');
     END IF;
 
     SELECT id INTO v_coach_id FROM public.coaches WHERE user_id = auth.uid() LIMIT 1;
@@ -2775,7 +2785,7 @@ BEGIN
                 (facility_id, name, event_date, event_type, status, race_format,
                  session_id, coach_id, lobby_status,
                  target_distance_m, duration_minutes, group_target_m,
-                 heat_no, parent_event_id, carryover_m)
+                 heat_no, parent_event_id, carryover_m, course_layout)
             VALUES (
                 v_session.facility_id,
                 COALESCE(v_session.title, 'Class Race') || ' — ' || TO_CHAR(v_session.session_date, 'MM/DD')
@@ -2787,7 +2797,11 @@ BEGIN
                 (p_options->>'duration_minutes')::INT,
                 COALESCE((p_options->>'group_target_m')::INT,
                          CASE WHEN v_next_heat_of IS NOT NULL THEN v_prev.group_target_m END),
-                v_heat_no, v_parent_id, v_carryover)
+                v_heat_no, v_parent_id, v_carryover,
+                -- [course_layout] 명시 옵션 > 이전 히트 승계 > 기본 vertical
+                COALESCE(v_course,
+                         CASE WHEN v_next_heat_of IS NOT NULL THEN v_prev.course_layout END,
+                         'vertical'))
             RETURNING * INTO v_event;
             v_created := true;
         EXCEPTION WHEN unique_violation THEN
@@ -2799,6 +2813,18 @@ BEGIN
             ORDER BY re.created_at DESC
             LIMIT 1;
         END;
+    END IF;
+
+    -- [course_layout-resume] 재개 경로(ELSE 재개 + unique_violation 폴백 공통):
+    -- 명시 전달된 코스가 기존 이벤트와 다르면 반영 — 코치의 재시작 모달 선택이
+    -- 무통보 폐기되지 않게 한다. 표시 전용 컬럼이라 집계/순위/상태머신 무영향
+    -- (컬럼 COMMENT '생성 후 변경 허용'과 정합). 반환 envelope에도 갱신값 노출.
+    IF NOT v_created AND v_event.id IS NOT NULL
+       AND v_course IS NOT NULL AND v_event.course_layout IS DISTINCT FROM v_course THEN
+        UPDATE public.race_events
+        SET course_layout = v_course, updated_at = now()
+        WHERE id = v_event.id;
+        v_event.course_layout := v_course;
     END IF;
 
     RETURN jsonb_build_object('success', true,
@@ -2813,7 +2839,8 @@ BEGIN
             'group_target_m', v_event.group_target_m,
             'heat_no', v_event.heat_no,
             'parent_event_id', v_event.parent_event_id,
-            'carryover_m', v_event.carryover_m),
+            'carryover_m', v_event.carryover_m,
+            'course_layout', v_event.course_layout), -- [course_layout]
         'error', NULL);
 END;
 $$;
@@ -5646,6 +5673,8 @@ COMMENT ON FUNCTION public.fn_list_coach_race_events(text) IS
 '코치 Race 이벤트 목록(live/history), 시설/담당 스코프.';
 
 -- fn_create_coach_race_event(p_payload) — 세션 비연동 단독 Race 생성
+--   🔄 course_layout(15 §5b) 수용 (mig 20260721030000_race_course_layout_rpcs,
+--      [course_layout-create]): vertical/horizontal 검증, 미지정 시 'vertical'
 CREATE OR REPLACE FUNCTION public.fn_create_coach_race_event(p_payload JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -5655,6 +5684,7 @@ DECLARE
     v_facility_id UUID;
     v_name TEXT;
     v_format TEXT;
+    v_course TEXT; -- [course_layout-create]
     v_row public.race_events;
 BEGIN
     IF NOT public.is_admin_or_coach() THEN
@@ -5676,9 +5706,16 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_race_format');
     END IF;
 
+    -- [course_layout-create] 검증 — fn_prepare_race_session과 동일 규칙 (미지정 시 'vertical')
+    v_course := NULLIF(p_payload->>'course_layout', '');
+    IF v_course IS NOT NULL AND v_course NOT IN ('vertical','horizontal') THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'invalid_course_layout');
+    END IF;
+
     INSERT INTO public.race_events (
         facility_id, session_id, coach_id, name, event_date, event_type, race_format,
-        target_distance_m, duration_minutes, group_target_m, status, lobby_status)
+        target_distance_m, duration_minutes, group_target_m, status, lobby_status,
+        course_layout)
     VALUES (
         v_facility_id, NULL, v_coach_id, v_name,
         COALESCE(NULLIF(p_payload->>'event_date','')::DATE, CURRENT_DATE),
@@ -5686,18 +5723,20 @@ BEGIN
         NULLIF(p_payload->>'target_distance_m','')::INT,
         NULLIF(p_payload->>'duration_minutes','')::INT,
         NULLIF(p_payload->>'group_target_m','')::INT,
-        'scheduled', 'setup')
+        'scheduled', 'setup',
+        COALESCE(v_course, 'vertical')) -- [course_layout-create]
     RETURNING * INTO v_row;
 
     RETURN jsonb_build_object('success', true,
         'data', jsonb_build_object('event_id', v_row.id, 'name', v_row.name,
                                    'status', v_row.status, 'lobby_status', v_row.lobby_status,
-                                   'race_format', v_row.race_format),
+                                   'race_format', v_row.race_format,
+                                   'course_layout', v_row.course_layout), -- [course_layout-create]
         'error', NULL);
 END;
 $$;
 COMMENT ON FUNCTION public.fn_create_coach_race_event(jsonb) IS
-'세션 비연동 단독 Race 이벤트 생성(코치/admin).';
+'세션 비연동 단독 Race 이벤트 생성(코치/admin). p_payload.course_layout(vertical/horizontal, 미지정 시 vertical) 수용.';
 
 -- fn_finish_race_event(p_event_id) — 종료 처리 + finish_rank 계산
 CREATE OR REPLACE FUNCTION public.fn_finish_race_event(p_event_id UUID)

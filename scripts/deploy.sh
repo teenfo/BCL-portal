@@ -5,6 +5,8 @@
 # 범위: portal만 빌드·기동(race-service는 라이프사이클 분리 — docs/11 §2.4). git 최신화는 호출측(deploy.yml).
 set -euo pipefail
 
+# 포트는 compose와 동일 소스(.env)에서 읽는다 — 러너 프로세스 env 폴백으로 인한 소스 이원화 방지
+[ -f .env ] && set -a && . ./.env && set +a
 PORTAL_PORT="${PORTAL_HOST_PORT:-3001}"
 
 echo "▶ portal 이미지 빌드"
@@ -15,7 +17,7 @@ docker compose up -d portal
 
 echo "▶ 헬스체크 (최대 60s)"
 for i in $(seq 1 12); do
-  if curl -fsS -o /dev/null "http://127.0.0.1:${PORTAL_PORT}/"; then
+  if curl -fsS -o /dev/null "http://127.0.0.1:${PORTAL_PORT}/health"; then
     echo "✅ portal 정상 (127.0.0.1:${PORTAL_PORT})"
     docker image prune -f >/dev/null 2>&1 || true
     echo "✅ 배포 완료"

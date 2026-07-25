@@ -12,7 +12,13 @@ services:
         NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
         NEXT_PUBLIC_RACE_SERVICE_URL: ${NEXT_PUBLIC_RACE_SERVICE_URL:-}
     restart: unless-stopped
-    env_file: .env
+    # SRK 격리(docs/11 §2.4): .env 통째 주입(env_file) 금지 — SUPABASE_SERVICE_ROLE_KEY가
+    # portal 런타임에 섞이지 않도록 필요한 변수만 화이트리스트.
+    # NEXT_PUBLIC_*는 빌드타임 임베드가 기본이나 서버 런타임 참조 대비 유지.
+    environment:
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      NEXT_PUBLIC_RACE_SERVICE_URL: ${NEXT_PUBLIC_RACE_SERVICE_URL:-}
     ports:
       - "127.0.0.1:${PORTAL_HOST_PORT:-3001}:3000"
 

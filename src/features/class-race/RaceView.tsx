@@ -101,11 +101,17 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   }, [rt.lobbyStatus]);
 
   // 도착 순서(등수) — 원시 샘플 d ≥ target-1 최초 도달 순. 동시 도달은 d 내림차순.
-  //   리셋(로비 복귀) 시 초기화. setState는 interval 콜백에서만(규약).
+  //   리셋(로비 복귀)·재출발(startedAt 변경 — reset 없이 race_start 재발행) 시 초기화(감사 반영).
+  //   setState는 interval 콜백에서만(규약).
   const [finishOrder, setFinishOrder] = useState<string[]>([]);
+  const lastStartRef = useRef<number | null>(null);
   useEffect(() => {
     const t = setInterval(() => {
       setFinishOrder((prev) => {
+        if (lastStartRef.current !== rt.startedAt) {
+          lastStartRef.current = rt.startedAt;
+          if (prev.length) return [];
+        }
         if (rt.lobbyStatus === 'lobby' || rt.lobbyStatus === 'countdown') {
           return prev.length ? [] : prev;
         }
@@ -126,7 +132,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
       });
     }, 300);
     return () => clearInterval(t);
-  }, [target, lanes, rt.lobbyStatus, rt.samplesRef]);
+  }, [target, lanes, rt.lobbyStatus, rt.samplesRef, rt.startedAt]);
 
   return (
     <div className={styles.raceRoot} data-race-theme={theme} data-course={courseH ? 'h' : 'v'}>
