@@ -10,6 +10,7 @@ import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import type { DeviceType } from '@/features/race-admin/types';
 import { raceChannelName, type ErgUpdate, type LaneAssign } from './contract';
+import { planSerialPromotion } from './serial-promotion';
 
 export type LobbyStatus = 'setup' | 'lobby' | 'countdown' | 'racing' | 'finished';
 export type ConnectionMode = 'broadcast' | 'polling';
@@ -101,6 +102,18 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
 
   function upsertSample(u: ErgUpdate) {
     const serial = u.device_serial;
+    // [serial 승격] 스냅샷 dev:{device_id}·lane_assign device_id 대체 키를 브릿지 실시리얼로
+    //   치환(감사 P1 — 중도 접속 화면 동결). 매핑이 이미 실시리얼이면 no-op(기기당 1회).
+    const promo = planSerialPromotion(u.device_id, serial, serialByDeviceRef.current.get(u.device_id ?? ''));
+    if (promo && u.device_id) {
+      serialByDeviceRef.current.set(u.device_id, serial);
+      promo.staleKeys.forEach((k) => samplesRef.current.delete(k));
+      setLanes((prevLanes) =>
+        prevLanes.some((l) => promo.staleKeys.includes(l.serial))
+          ? prevLanes.map((l) => (promo.staleKeys.includes(l.serial) ? { ...l, serial } : l))
+          : prevLanes,
+      );
+    }
     const prev = samplesRef.current.get(serial);
     samplesRef.current.set(serial, {
       serial,
@@ -144,20 +157,25 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
       if (cancelled || !res.success || !res.data) return;
       const nextLanes: LaneMeta[] = [];
       for (const row of res.data) {
-        const serial = `dev:${row.device_id}`; // 스냅샷엔 serial 부재 → device_id 대체 키(M-2)
+        // 스냅샷엔 serial 부재 → device_id 대체 키(M-2). 단 브로드캐스트가 먼저 도착해 이미
+        //   실시리얼로 승격된 기기는 매핑을 따른다 — 늦은 스냅샷이 dev: 고스트 키를 재생성해
+        //   화면을 DB 시점 값으로 되돌리는 것을 방지(감사 P1).
+        const serial = serialByDeviceRef.current.get(row.device_id) ?? `dev:${row.device_id}`;
         serialByDeviceRef.current.set(row.device_id, serial);
-        samplesRef.current.set(serial, {
-          serial,
-          lane: row.lane_number,
-          d: Number(row.distance_m) || 0,
-          p: Number(row.power_w) || 0,
-          spm: Number(row.stroke_rate_spm) || 0,
-          hr: row.hr_bpm,
-          maxW: Number(row.max_watts) || 0,
-          virtual: false,
-          lastAt: Date.now(),
-          connection: row.connection_status,
-        });
+        if (!samplesRef.current.has(serial)) {
+          samplesRef.current.set(serial, {
+            serial,
+            lane: row.lane_number,
+            d: Number(row.distance_m) || 0,
+            p: Number(row.power_w) || 0,
+            spm: Number(row.stroke_rate_spm) || 0,
+            hr: row.hr_bpm,
+            maxW: Number(row.max_watts) || 0,
+            virtual: false,
+            lastAt: Date.now(),
+            connection: row.connection_status,
+          });
+        }
         const laneMeta = laneMetaByNumberRef.current.get(row.lane_number);
         nextLanes.push({
           lane: row.lane_number,
@@ -263,8 +281,11 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
           // 스냅샷(race_live_state)에 없는 레인 — Broadcast만으로 편성.
           //   실기기 없이 시뮬레이션하거나, 스냅샷 장애 시에도 화면이 레인을 그리게 한다.
           //   serial 은 erg_update.device_serial 과 일치해야 애니메이터가 카트를 매칭한다
-          //   → device_id 우선, 없으면 `lane:{n}` (시뮬레이터가 동일 규칙으로 프레임 발행).
-          const serial = a.device_id ?? `lane:${a.lane}`;
+          //   → 승격 매핑(실시리얼) > device_id > `lane:{n}` (시뮬레이터가 동일 규칙으로 프레임 발행).
+          const serial =
+            (a.device_id ? serialByDeviceRef.current.get(a.device_id) : undefined) ??
+            a.device_id ??
+            `lane:${a.lane}`;
           const meta = laneMetaByNumberRef.current.get(a.lane);
           const added: LaneMeta = {
             lane: a.lane,
