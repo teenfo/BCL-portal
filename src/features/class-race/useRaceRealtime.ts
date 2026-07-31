@@ -116,6 +116,20 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
     });
   }
 
+  // ── 0) 이벤트 전환 정리 — 같은 마운트에서 ?event=A→B 이동 시 이전 이벤트의 샘플/매핑 잔존이
+  //   고스트 레인·고스트 순위를 만드는 결함 방지(감사 반영). setState는 effect 본문 금지 규약에
+  //   따라 ref만 즉시 비우고, 표시 상태는 후속 스냅샷/브로드캐스트가 재구성한다.
+  useEffect(() => {
+    const samples = samplesRef.current;
+    const serialByDevice = serialByDeviceRef.current;
+    const laneMetaByNumber = laneMetaByNumberRef.current;
+    return () => {
+      samples.clear();
+      serialByDevice.clear();
+      laneMetaByNumber.clear();
+    };
+  }, [eventId]);
+
   // ── 1) 스냅샷 복원(경로2) ──
   useEffect(() => {
     if (!eventId) return;
