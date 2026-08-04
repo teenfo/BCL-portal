@@ -289,6 +289,13 @@ class RaceBridge:
                 self.lobby_status = "lobby"
             elif action == "countdown":
                 self.lobby_status = "countdown"
+                # TV 신호등·승선 연출 트리거 — broadcast 없이는 실이벤트에서 countdown 상태
+                # 도달 불가(데모 전용이 됨). TV CountdownOverlay는 3초 고정 표시 연출.
+                await self.io.broadcast(
+                    self.event_id,
+                    "race_countdown",
+                    {"event_id": self.event_id, "seconds": 3, "ts": int(time.time() * 1000)},
+                )
             elif action == "start":
                 await self._do_start()
             elif action == "stop":
