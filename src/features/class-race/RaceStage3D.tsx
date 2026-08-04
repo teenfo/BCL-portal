@@ -19,6 +19,7 @@ import {
   type RowerPose,
 } from './device-theme';
 import type { LaneMeta, RawSample, LobbyStatus } from './useRaceRealtime';
+import type { PacerLive } from './contract';
 import { pickDuelPair, finaleGate, courseScaleMax } from './race-camera';
 import type { DeviceType } from '@/features/race-admin/types';
 import styles from './race.module.css';
@@ -42,6 +43,8 @@ interface Props {
   finishOrder: string[];
   /** 가로 코스(사선 탑뷰) — RaceView가 이벤트 설정/URL 오버라이드로 결정. 변경 시 스테이지 재초기화 */
   courseH: boolean;
+  /** 버추얼 페이서(G-10, §4b.5) — 렌더 전용 목표 페이스 라인. null=비활성(라인 숨김) */
+  pacer: PacerLive | null;
 }
 
 /** CSS 변수 → 실색 (캔버스 텍스처는 var() 미해석) */
@@ -253,6 +256,39 @@ function makePlaceTexture(place: number): THREE.CanvasTexture {
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+/** 버추얼 페이서 라벨(G-10) — "{label} m:ss" 필. 라벨/스플릿 변경 시에만 재생성(프레임당 금지) */
+function makePacerTexture(
+  label: string | null,
+  split500: number,
+  accent: string,
+): { tex: THREE.CanvasTexture; aspect: number } {
+  const m = Math.floor(split500 / 60);
+  const s = Math.round(split500 % 60);
+  const text = `${label?.trim() || 'PACER'} ${m}:${s < 10 ? '0' + s : s}`;
+  const c = document.createElement('canvas');
+  c.width = 512;
+  c.height = 96;
+  const g = c.getContext('2d')!;
+  g.font = '700 44px Lexend, Pretendard, sans-serif';
+  const tw = Math.min(430, g.measureText(text).width);
+  const w = tw + 56;
+  const x = (c.width - w) / 2;
+  g.fillStyle = 'rgba(10,14,22,0.85)';
+  g.strokeStyle = accent;
+  g.lineWidth = 5;
+  g.beginPath();
+  g.roundRect(x, 12, w, 72, 36);
+  g.fill();
+  g.stroke();
+  g.fillStyle = accent;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, c.width / 2, 50, 430);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return { tex, aspect: c.width / c.height };
 }
 
 function makeGlyphTexture(glyph: string): THREE.CanvasTexture {
@@ -472,12 +508,13 @@ export function RaceStage3D({
   defaultDevice,
   finishOrder,
   courseH,
+  pacer,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   // 렌더 루프가 최신 props를 읽도록 ref 경유(재초기화 없이 갱신)
-  const propsRef = useRef({ lanes, target, lobbyStatus, defaultDevice, finishOrder });
+  const propsRef = useRef({ lanes, target, lobbyStatus, defaultDevice, finishOrder, pacer });
   useEffect(() => {
-    propsRef.current = { lanes, target, lobbyStatus, defaultDevice, finishOrder };
+    propsRef.current = { lanes, target, lobbyStatus, defaultDevice, finishOrder, pacer };
   });
 
   useEffect(() => {
@@ -613,6 +650,27 @@ export function RaceStage3D({
       return geo;
     };
     const centerPlane = new THREE.PlaneGeometry(1, 1);
+
+    // ── 버추얼 페이서(G-10, §4b.5) — 목표 페이스 라인 + 라벨(렌더 전용, 코스 2모드 동등) ──
+    //   cleanup은 scene.traverse가 일괄 처리(재질·맵·지오메트리)
+    const pacerColor = cssColor('--bcl-accent', BRAND_ACCENT_HEX);
+    const pacerLineMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(pacerColor),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    const pacerLine = new THREE.Mesh(centerPlane, pacerLineMat);
+    pacerLine.renderOrder = 350; // 배지(팝인)·문장 배너(500)보다 아래
+    pacerLine.visible = false;
+    scene.add(pacerLine);
+    const pacerLabelMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    const pacerLabel = new THREE.Mesh(centerPlane, pacerLabelMat);
+    pacerLabel.renderOrder = 351;
+    pacerLabel.visible = false;
+    scene.add(pacerLabel);
+    let pacerLabelKey = '';
+    let pacerLabelAspect = 512 / 96;
 
     const rigs = new Map<string, Rig>();
 
@@ -1479,6 +1537,10 @@ export function RaceStage3D({
           mat.needsUpdate = true;
         }
         const chipS = Math.max(0.72, scl) * charH;
+        // 가로 코스 — 하선 세리머니 착지 지점(선수 앞 +X)이 배너 위치와 정확히 겹침(감사 M5):
+        //   피니시 확정 시 배너 페이드아웃(등수는 머리 위 배지가 계속 표시). 세로 이름 칩은 유지.
+        const chipMatL = rig.chip.material as THREE.MeshBasicMaterial;
+        chipMatL.opacity += ((courseH && fin > 0 ? 0 : 1) - chipMatL.opacity) * auraK;
         if (courseH) {
           // 문장(紋章) 배너 — 보트 선수(오른쪽 끝) 밀착 부착(부착 꼭짓점 = 선수 첨단, 캡처 실측)
           rig.chip.scale.set(chipS * 0.98, chipS * 0.35, 1);
@@ -1511,12 +1573,81 @@ export function RaceStage3D({
           const pop = age < 0.35 ? 1.25 - 0.25 * (age / 0.35) : 1 + 0.03 * Math.sin(t / 300);
           const pw = charH * 0.62 * pop;
           rig.place.scale.set(pw, pw * 0.5, 1);
-          rig.place.position.y = charH * 1.12;
+          // 가로 코스 1번 레인 — 배지(y=1.12charH)가 불투명 톱바(8vh) 뒤로 나가 가려짐(감사 R6).
+          //   스크린 y(=-group.y) 기준 톱바 하단+여백까지 클램프하되, 이웃(2레인) 배지 영역까지
+          //   내려와야 하면 보트 아래로 반전 배치(겹침 방지). 세로(yTop 44%)는 비발생.
+          let placeY = charH * 1.12;
+          if (courseH) {
+            const maxY = -rig.group.position.y - (0.08 * H + pw * 0.25 + 6);
+            if (maxY < placeY) placeY = maxY >= charH * 0.7 ? maxY : -charH * 0.55;
+          }
+          rig.place.position.y = placeY;
           rig.placeMat.opacity = Math.min(1, age / 0.2);
         } else {
           rig.placeMat.opacity = 0;
         }
       });
+
+      // 버추얼 페이서(G-10) — race_start 기준 등속 전진(dist = 500/split500 × 경과초).
+      //   코스 2모드 동등: 세로=레인 폭 스팬 가로선(원근 추종) / 가로=레인 적층 스팬 세로선.
+      //   카메라 연출(피날레 줌) 변환을 레인과 동일하게 적용. 렌더 전용 — 순위·집계 무영향.
+      const pcr = propsRef.current.pacer;
+      const pacerK = 1 - Math.pow(0.88, dtF / 16.7);
+      if (pcr && pcr.split500 > 0 && pcr.startedAt != null && status === 'racing') {
+        const pDist = (500 / pcr.split500) * Math.max(0, (now - pcr.startedAt) / 1000);
+        const pProg = Math.min(1, pDist / dynamicMax);
+        const labelKey = `${pcr.label ?? ''}|${pcr.split500}`;
+        if (labelKey !== pacerLabelKey) {
+          pacerLabelKey = labelKey;
+          pacerLabelMat.map?.dispose();
+          const made = makePacerTexture(pcr.label ?? null, pcr.split500, pacerColor);
+          pacerLabelMat.map = made.tex;
+          pacerLabelAspect = made.aspect;
+          pacerLabelMat.needsUpdate = true;
+        }
+        const thick = Math.max(2, H * 0.004) * camZoom;
+        const labelH = Math.max(20, H * 0.028) * camZoom;
+        if (courseH) {
+          const x0 = ((POOL_H.xStart + (POOL_H.xFinish - POOL_H.xStart) * pProg) / 100) * W;
+          const ya = (POOL_H.yTop / 100) * H;
+          const yb = (POOL_H.yBottom / 100) * H;
+          const mar = n > 1 ? ((yb - ya) / (n - 1)) * 0.5 : H * 0.07;
+          const len = (yb - ya + mar * 2) * camZoom;
+          const fx = camSx + (x0 - camCx) * camZoom;
+          const fy = camSy + ((ya + yb) / 2 - camCy) * camZoom;
+          pacerLine.scale.set(thick, len, 1);
+          pacerLine.position.set(fx, -fy, 0);
+          // 라벨 — 라인 하단 끝 아래(레인·톱바와 비간섭)
+          pacerLabel.position.set(fx, -(fy + len / 2 + labelH * 0.75), 0);
+        } else {
+          const L0 = poolLaneX(0, n);
+          const L1 = poolLaneX(n - 1, n);
+          const xa = ((L0.xt + (L0.xb - L0.xt) * pProg) / 100) * W;
+          const xb2 = ((L1.xt + (L1.xb - L1.xt) * pProg) / 100) * W;
+          const y0 = ((POOL.yTop + (POOL.yBottom - POOL.yTop) * pProg) / 100) * H;
+          const mar = n > 1 ? (Math.abs(xb2 - xa) / (n - 1)) * 0.5 : W * 0.07;
+          const len = (Math.abs(xb2 - xa) + mar * 2) * camZoom;
+          const fx = camSx + ((xa + xb2) / 2 - camCx) * camZoom;
+          const fy = camSy + (y0 - camCy) * camZoom;
+          pacerLine.scale.set(len, thick, 1);
+          pacerLine.position.set(fx, -fy, 0);
+          // 라벨 — 라인 우측 끝 위(카트·이름 칩과 비간섭)
+          pacerLabel.position.set(fx + len / 2 - (labelH * pacerLabelAspect) * 0.4, -(fy - labelH * 0.9), 0);
+        }
+        pacerLabel.scale.set(labelH * pacerLabelAspect, labelH, 1);
+        pacerLine.visible = true;
+        pacerLabel.visible = true;
+        const pTarget = 0.5 + 0.18 * Math.sin(t / 480);
+        pacerLineMat.opacity += (pTarget - pacerLineMat.opacity) * pacerK;
+        pacerLabelMat.opacity += (0.92 - pacerLabelMat.opacity) * pacerK;
+      } else {
+        pacerLineMat.opacity += (0 - pacerLineMat.opacity) * pacerK;
+        pacerLabelMat.opacity += (0 - pacerLabelMat.opacity) * pacerK;
+        if (pacerLineMat.opacity < 0.02) {
+          pacerLine.visible = false;
+          pacerLabel.visible = false;
+        }
+      }
 
       renderer.render(scene, camera);
 

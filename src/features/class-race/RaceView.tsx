@@ -27,9 +27,21 @@ export function RaceView({ eventId }: { eventId: string | null }) {
   const target = isDemo ? demo.target : (event.data?.target_distance_m ?? null);
 
   // 버추얼 페이서(§4b.5) — split_500m 있고 enabled일 때만 페이스 라인 렌더(렌더 전용).
+  //   데모 QA: ?pacer=<500m 스플릿 초> (예: ?event=demo&pacer=100) — 실설정 없이 라인 검수
+  const [demoSplit, setDemoSplit] = useState<number | null>(null);
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const v = Number(new URLSearchParams(window.location.search).get('pacer'));
+      setDemoSplit(Number.isFinite(v) && v > 0 ? v : null);
+    }, 0);
+    return () => clearTimeout(id);
+  }, []);
   const pacerCfg = event.data?.pacer_config ?? null;
-  const pacerLive =
-    pacerCfg?.enabled && pacerCfg.split_500m && pacerCfg.split_500m > 0
+  const pacerLive = isDemo
+    ? demoSplit
+      ? { split500: demoSplit, startedAt: rt.startedAt, label: 'PACER' }
+      : null
+    : pacerCfg?.enabled && pacerCfg.split_500m && pacerCfg.split_500m > 0
       ? { split500: pacerCfg.split_500m, startedAt: rt.startedAt, label: pacerCfg.label }
       : null;
 
@@ -184,6 +196,7 @@ export function RaceView({ eventId }: { eventId: string | null }) {
           defaultDevice={defaultDeviceForTheme(theme)}
           finishOrder={finishOrder}
           courseH={courseH}
+          pacer={pacerLive}
         />
         {/* 배지 레일 — 세로 전용 상단 가로 레일 (가로 코스는 보트 선수 문장 배너가 diff 표시를 대체) */}
         {courseH ? null : (

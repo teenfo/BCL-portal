@@ -300,6 +300,11 @@ export function useRaceRealtime(eventId: string | null): RaceRealtime {
           return [...prev, added].sort((x, y) => x.lane - y.lane);
         });
       })
+      .on('broadcast', { event: 'race_countdown' }, () => {
+        // 브릿지 control('countdown') — 신호등 3·2·1 + 승선 연출 진입(데모와 동등).
+        //   이미 racing/finished면 스테일 방송으로 무시(재접속 시 과거 상태 역행 방지)
+        setLobbyStatus((s) => (s === 'racing' || s === 'finished' ? s : 'countdown'));
+      })
       .on('broadcast', { event: 'race_start' }, () => {
         setLobbyStatus('racing');
         setStartedAt(Date.now());

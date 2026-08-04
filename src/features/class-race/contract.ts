@@ -24,6 +24,7 @@ export interface ErgUpdate {
 
 export type RaceBroadcastEvent =
   | 'erg_update'
+  | 'race_countdown'
   | 'race_start'
   | 'race_finish'
   | 'race_reset'

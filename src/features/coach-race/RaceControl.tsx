@@ -52,14 +52,18 @@ export function RaceControl() {
     [eventId],
   );
 
-  // 이벤트 메타(지점 — 스크린 제어 채널 · 페이서 설정) — race_events anon/RLS SELECT
-  const meta = useQuery<{ facility_id: string | null; pacer_config: PacerConfig | null } | null>(
+  // 이벤트 메타(지점 — 스크린 제어 채널 · 페이서 설정 · 코스 레이아웃) — race_events anon/RLS SELECT
+  const meta = useQuery<{
+    facility_id: string | null;
+    pacer_config: PacerConfig | null;
+    course_layout: string | null;
+  } | null>(
     () =>
       eventId
-        ? query<{ facility_id: string | null; pacer_config: PacerConfig | null }>(
+        ? query<{ facility_id: string | null; pacer_config: PacerConfig | null; course_layout: string | null }>(
             supabase,
             'race_events',
-            (q) => q.select('facility_id,pacer_config').eq('id', eventId).maybeSingle(),
+            (q) => q.select('facility_id,pacer_config,course_layout').eq('id', eventId).maybeSingle(),
           )
         : Promise.resolve({ success: true, data: null, error: null }),
     [eventId],
@@ -97,6 +101,11 @@ export function RaceControl() {
             <div className={styles.controlMeta}>
               <Badge variant={isCompleted ? 'neutral' : 'success'} size="sm">{e.status}</Badge>
               <Badge variant="info" size="sm">{e.results.length}건 기록</Badge>
+              {meta.data?.course_layout ? (
+                <Badge variant="neutral" size="sm">
+                  {meta.data.course_layout === 'horizontal' ? '가로 코스 (탑뷰)' : '세로 코스 (측면 뷰)'}
+                </Badge>
+              ) : null}
             </div>
             <div className={styles.controlActions}>
               <Button variant="danger" loading={finishing} disabled={isCompleted} onClick={finish}>

@@ -145,6 +145,7 @@ export function QuickActions({
             value={raceCourse}
             onChange={setRaceCourse}
             options={COURSE_LAYOUTS}
+            helper="기존 이벤트 재개 시에도 선택한 코스로 전환됩니다 (표시 전용 — 기록·순위 무영향)."
           />
         </div>
       </Modal>

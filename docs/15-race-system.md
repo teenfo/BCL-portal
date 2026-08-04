@@ -162,6 +162,7 @@ pm5_devices (
 | event | payload 핵심 | 발행 주체 |
 |---|---|---|
 | `erg_update` | `{device_serial, device_id, lane, d, p, spm, hr, cal, max_w, ts, virtual_lane?}` — ⏳ `virtual_lane: true` = 페이스보트 가상 레인(§4b.5, 렌더 전용) | Python |
+| `race_countdown` | `{event_id, seconds, ts}` — control('countdown') 시 발행. TV 신호등·승선 연출 진입(racing/finished 상태에선 스테일 무시) | Python (control 명령 수행 시) |
 | `race_start` / `race_finish` / `race_reset` | `{event_id, ts}` (+finish: 최종 스냅샷) | Python (control 명령 수행 시) |
 | `state_snapshot` | 전 레인 상태(5s 주기, 경로2와 동일 내용) | Python |
 | `lane_assign` | `{lane, device_id, member_id, member_name, team_id}` | Portal(코치 편성)·회원 QR 배정 |
@@ -556,8 +557,16 @@ UNIQUE(event_id, member_id) — 멱등 적재 키
 | 상태 배지 | 우상단 | `[Reconnecting]`/`[Offline]` 레인 수, Broadcast/폴링 모드 표시 | 이벤트 시 |
 
 ### 5b.6 기술 아키텍처 (검증된 현행 패턴 승계)
-- **하이브리드 렌더**: CSS 3D Transform(트랙·카트 배치) + Canvas 2D(수면·웨이크·콘페티 파티클). PixiJS 등 중량 엔진 도입 금지(번들·유지보수)
-- **rAF 단일 루프**: `useRaceAnimator` 승계 — `Map<serial, AnimatedLane>`를 `useRef`로 보관, 프레임마다 LERP(`x: 0.08 / power: 0.15 / spm: 0.1` — 검증 계수 승계) 후 **DOM `transform`/`animationDuration` 직접 조작으로 React 리렌더 우회**. `useState`는 순위 스택·배너 등 저빈도 UI만
+- **스테이지 렌더 = three.js 0.185 WebGL**(`RaceStage3D`) — CSS 배경(수영장 아레나) 위에
+  정사영(Orthographic) 카메라를 **스크린 공간 1:1**(px 단위 frustum)로 두고 캐릭터(GLB 3파트
+  조립: 보트+오어+리깅 캐릭터, Draco)·이펙트(글로우/스트릭/오로라)·배너를 합성. 지오메트리는
+  `poolLaneX/POOL(%)`을 그대로 사상해 DOM 구현과 구도 동일(R-3). WebGL 미지원 TV는 빈
+  스테이지 폴백(HUD는 동작). 그 외 화면(HUD·순위 스택·게이지)은 DOM — PixiJS 등 별도
+  렌더 엔진 추가 도입 금지(three.js 단일)
+- **rAF 단일 루프**: `useRaceAnimator`(HUD/DOM) + `RaceStage3D` 자체 루프 — `Map<serial, …>`를
+  `useRef`로 보관, 프레임마다 LERP(`x: 0.08 / power: 0.15 / spm: 0.1` — 검증 계수 승계) 후
+  **DOM/3D 오브젝트 직접 조작으로 React 리렌더 우회**. `useState`는 순위 스택·배너 등 저빈도 UI만.
+  위상 누적(`phase += dt/dur`) 규칙 — 절대 위상(t/dur)은 SPM 변동 시 점프 금지
 - **단절 처리**: offline/disconnected 레인은 LERP 스킵(현행) + grayscale filter
 - **성능 게이트**: 20레인 60fps(프레임 16.6ms 내), 시뮬레이터 2Hz 입력→끊김 없는 보간(수용 3-2), 장시간(30분) 레이스 메모리 안정
 - **토큰 연동**: 배경·트랙·HUD 색은 `--bcl-bg/--bcl-surface/--bcl-accent(#FF6A00)/--bcl-text` + Race 전용 확장 `--bcl-race-team-1..8` + **테마 토큰 세트** `--bcl-race-surface/--bcl-race-trail/--bcl-race-bg-tint`(`data-race-theme=water|road|snow|track` 별 값 매핑 — §5b.3b, 12-design-system에 등록). Lexend + 숫자는 tabular-nums
