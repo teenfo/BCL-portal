@@ -53,3 +53,7 @@ next-env.d.ts
 
 # Claude personal permission overrides (not team-shared)
 .claude/settings.local.json
+
+# Python (race-service 로컬 컴파일 산출물)
+__pycache__/
+*.pyc
