@@ -9,11 +9,18 @@ set -euo pipefail
 [ -f .env ] && set -a && . ./.env && set +a
 PORTAL_PORT="${PORTAL_HOST_PORT:-3001}"
 
-echo "▶ portal 이미지 빌드"
-docker compose build portal
+echo "▶ portal·face-service 이미지 빌드"
+docker compose build portal face-service
 
 echo "▶ portal 기동 (127.0.0.1:${PORTAL_PORT} → 컨테이너 3000)"
 docker compose up -d portal
+
+echo "▶ face-service 기동 (갤러리 얼굴 매칭 워커 — SRK 미설정이면 건너뜀)"
+if [ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+  docker compose up -d face-service
+else
+  echo "  … SUPABASE_SERVICE_ROLE_KEY 없음 — face-service 건너뜀(.env 설정 후 재배포)"
+fi
 
 echo "▶ 헬스체크 (최대 60s)"
 for i in $(seq 1 12); do

@@ -33,3 +33,21 @@ services:
     ports:
       - "${RACE_HOST_PORT:-8001}:8001"
     profiles: ["race"]
+
+  # 갤러리 셀피 얼굴 매칭 워커(docs/07 §8.3b) — Supabase 아웃바운드 폴링만, 포트 없음.
+  # SRK 격리 규약 유지: env_file 통주입 대신 필요한 변수만 화이트리스트(SRK는 워커 필수).
+  face-service:
+    image: bcl-face-service:latest
+    build:
+      context: ./face-service
+    restart: unless-stopped
+    environment:
+      SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      FACE_MATCH_THRESHOLD: ${FACE_MATCH_THRESHOLD:-0.45}
+      POLL_INTERVAL_S: ${FACE_POLL_INTERVAL_S:-5}
+    volumes:
+      - face-models:/data
+
+volumes:
+  face-models:
