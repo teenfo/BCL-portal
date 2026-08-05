@@ -19,8 +19,14 @@ services:
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       NEXT_PUBLIC_RACE_SERVICE_URL: ${NEXT_PUBLIC_RACE_SERVICE_URL:-}
+      MEDIA_ROOT: /media
     ports:
       - "127.0.0.1:${PORTAL_HOST_PORT:-3001}:3000"
+    # 갤러리 미디어 원본(사진·동영상) — /api/gallery/*가 저장·서빙(docs/07 §8.3b v2).
+    #   MEDIA_HOST_DIR(.env)에 호스트 경로(예: /mnt/hdd/bcl-media)를 주면 HDD 바인드,
+    #   비우면 기본 Docker 볼륨. 바인드 경로는 최초 1회 chown 1001 필요(README 참조).
+    volumes:
+      - ${MEDIA_HOST_DIR:-gallery-media}:/media
 
   race-service:
     image: bcl-race-server:latest
@@ -46,8 +52,11 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
       FACE_MATCH_THRESHOLD: ${FACE_MATCH_THRESHOLD:-0.45}
       POLL_INTERVAL_S: ${FACE_POLL_INTERVAL_S:-5}
+      MEDIA_ROOT: /media
     volumes:
-      - face-models:/data
+      - face-models:/data                      # 모델 캐시 + 원시 임베딩 SQLite(faces.db — 파생 데이터, SSD 유지)
+      - ${MEDIA_HOST_DIR:-gallery-media}:/media # 미디어 원본(portal과 공유) — 분석 읽기·썸네일 쓰기·셀피 파기
 
 volumes:
   face-models:
+  gallery-media:

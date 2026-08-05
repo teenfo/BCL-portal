@@ -15,7 +15,8 @@ WORKDIR /app
 COPY worker.py ./
 
 # 모델(buffalo_l ~300MB)은 최초 기동 시 자동 다운로드 — 볼륨으로 영속(재시작 시 재다운로드 방지)
-ENV INSIGHTFACE_ROOT=/data/insightface
-RUN mkdir -p /data/insightface
+# /media는 portal(uid 1001 nextjs)과 공유 — 볼륨 최초 초기화 시 1001 소유 승계(portal 쓰기 보장)
+ENV INSIGHTFACE_ROOT=/data/insightface MEDIA_ROOT=/media DATA_DIR=/data
+RUN mkdir -p /data/insightface /media && chown 1001:1001 /media
 
 CMD ["python", "worker.py"]

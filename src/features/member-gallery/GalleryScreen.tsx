@@ -1,9 +1,8 @@
 'use client';
 
-// 비탭 gallery (/apps/gallery) — 시설 갤러리 + 셀피 얼굴 매칭 "내 사진" 필터 (docs/03).
-// 파일은 Storage 직접 업로드(테이블 접근 아님 — query()/rpc() 규칙 비접촉),
-// 행 등록·목록은 RPC(fn_register_gallery_photo/fn_get_gallery), 프로필 상태는 RLS SELECT.
-// 얼굴 분석·매칭은 face-service 워커(hosub)가 비동기 수행 — 화면은 face_status만 표시.
+// 비탭 gallery (/apps/gallery) — 시설 갤러리(사진·동영상) + 셀피 얼굴 매칭 "내 사진" 필터 (docs/03).
+// 미디어 원본은 실서버 볼륨 — 업로드/서빙은 /api/gallery/*(쿠키 세션+RLS), 목록·상태는 RPC/RLS.
+// 얼굴 분석·매칭은 face-service 워커가 비동기 수행 — 화면은 face_status만 표시.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Badge, Button, Card, Checkbox, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
@@ -13,9 +12,12 @@ import { BottomSheet, StackHeader, useMemberId } from '@/features/member-shell';
 import screen from '@/features/member-shell/screen.module.css';
 import styles from './gallery.module.css';
 
-interface GalleryPhoto {
+interface GalleryItem {
   id: string;
   storage_path: string;
+  media_type: 'photo' | 'video';
+  thumb_path: string | null;
+  duration_s: number | null;
   caption: string | null;
   taken_at: string | null;
   created_at: string;
@@ -30,9 +32,20 @@ interface FaceProfile {
 }
 
 const PAGE = 30;
-const SIGNED_TTL_S = 3600;
+const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
 
-/** 업로드 전 리사이즈(최대 변 1600px, JPEG) — 전송량·서버 분석 시간 절감. 실패 시 원본 폴백 */
+const mediaUrl = (p: GalleryItem) => `/api/gallery/media/${p.id}`;
+const thumbUrl = (p: GalleryItem) =>
+  p.media_type === 'video' ? `${mediaUrl(p)}?v=thumb` : mediaUrl(p);
+
+function formatDuration(s: number | null): string {
+  if (!s || s <= 0) return '';
+  const m = Math.floor(s / 60);
+  const ss = Math.round(s % 60);
+  return `${m}:${ss < 10 ? '0' + ss : ss}`;
+}
+
+/** 사진 업로드 전 리사이즈(최대 변 1600px, JPEG) — 전송량·분석 시간 절감. 실패 시 원본 폴백 */
 async function compressImage(file: File): Promise<Blob> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
@@ -47,19 +60,27 @@ async function compressImage(file: File): Promise<Blob> {
   );
 }
 
+async function postMedia(url: string, file: Blob, name: string, extra?: Record<string, string>) {
+  const form = new FormData();
+  form.append('file', file, name);
+  for (const [k, v] of Object.entries(extra ?? {})) form.append(k, v);
+  const res = await fetch(url, { method: 'POST', body: form });
+  const json = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+  if (!res.ok || !json?.success) throw new Error(json?.error ?? `업로드 실패 (${res.status})`);
+}
+
 export function GalleryScreen() {
   const toast = useToast();
   const memberId = useMemberId();
   const client = getSupabaseBrowserClient();
 
   const [mine, setMine] = useState(false);
-  const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
-  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [viewer, setViewer] = useState<GalleryPhoto | null>(null);
+  const [viewer, setViewer] = useState<GalleryItem | null>(null);
 
   // 셀피 등록 시트
   const [selfieOpen, setSelfieOpen] = useState(false);
@@ -67,17 +88,6 @@ export function GalleryScreen() {
   const [selfieBusy, setSelfieBusy] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const selfieRef = useRef<HTMLInputElement>(null);
-
-  // 업로드 경로 규약({facility_id}/...)용 시설 조회
-  const facility = useQuery<{ facility_id: string | null } | null>(
-    () =>
-      memberId
-        ? query<{ facility_id: string | null }>(client, 'members', (q) =>
-            q.select('facility_id').eq('id', memberId).maybeSingle(),
-          )
-        : Promise.resolve({ success: true, data: null, error: null }),
-    [memberId],
-  );
 
   // 얼굴 프로필 상태(본인 행 RLS) — 미등록이면 null
   const face = useQuery<FaceProfile | null>(
@@ -91,27 +101,13 @@ export function GalleryScreen() {
   );
   const faceStatus = face.data?.status ?? null;
 
-  const signPaths = useCallback(
-    async (paths: string[]) => {
-      if (paths.length === 0) return;
-      const { data } = await client.storage.from('gallery').createSignedUrls(paths, SIGNED_TTL_S);
-      if (!data) return;
-      setUrls((prev) => {
-        const next = { ...prev };
-        for (const d of data) if (d.signedUrl && d.path) next[d.path] = d.signedUrl;
-        return next;
-      });
-    },
-    [client],
-  );
-
   const load = useCallback(
     async (append: boolean, before?: string) => {
       if (!append) {
         setLoading(true);
         setLoadError(null);
       }
-      const res = await rpc<{ photos: GalleryPhoto[] }>(client, 'fn_get_gallery', {
+      const res = await rpc<{ photos: GalleryItem[] }>(client, 'fn_get_gallery', {
         p_payload: { mine, limit: PAGE, before: before ?? null },
       });
       setLoading(false);
@@ -121,11 +117,10 @@ export function GalleryScreen() {
         return;
       }
       const rows = res.data.photos;
-      setPhotos((prev) => (append ? [...prev, ...rows] : rows));
+      setItems((prev) => (append ? [...prev, ...rows] : rows));
       setHasMore(rows.length >= PAGE);
-      void signPaths(rows.map((r) => r.storage_path));
     },
-    [client, mine, signPaths],
+    [client, mine],
   );
 
   // 이펙트 본문 직접 setState 금지 규약 — 비동기 콜백으로 지연(courseParam 패턴과 동일)
@@ -136,39 +131,31 @@ export function GalleryScreen() {
 
   const onPickUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
-    const fac = facility.data?.facility_id;
-    if (!fac) {
-      toast.error('시설 정보가 없어 업로드할 수 없습니다.');
-      return;
-    }
     setUploading(true);
     let ok = 0;
+    let lastErr: string | null = null;
     for (const f of Array.from(files).slice(0, 10)) {
       try {
-        const blob = await compressImage(f).catch(() => f);
-        const ym = new Date().toISOString().slice(0, 7).replace('-', '');
-        const path = `${fac}/${ym}/${crypto.randomUUID()}.jpg`;
-        const up = await client.storage
-          .from('gallery')
-          .upload(path, blob, { contentType: 'image/jpeg', cacheControl: '3600' });
-        if (up.error) throw new Error(up.error.message);
-        const res = await rpc(client, 'fn_register_gallery_photo', {
-          p_payload: { storage_path: path },
-        });
-        if (!res.success) throw new Error(res.error ?? '등록 실패');
+        const isVideo = f.type.startsWith('video/');
+        if (isVideo) {
+          if (f.size > MAX_VIDEO_BYTES) throw new Error('동영상은 300MB 이하만 가능합니다.');
+          await postMedia('/api/gallery/upload', f, f.name);
+        } else {
+          const blob = await compressImage(f).catch(() => f);
+          await postMedia('/api/gallery/upload', blob, 'photo.jpg');
+        }
         ok += 1;
-      } catch {
-        // 개별 실패는 집계만 — 아래 토스트로 표면화
+      } catch (e) {
+        lastErr = e instanceof Error ? e.message : '업로드 실패';
       }
     }
     setUploading(false);
     if (uploadRef.current) uploadRef.current.value = '';
     if (ok > 0) {
-      toast.success(`${ok}장 업로드 완료 — 얼굴 분석이 끝나면 자동으로 매칭됩니다.`);
+      toast.success(`${ok}건 업로드 완료 — 얼굴 분석이 끝나면 자동으로 매칭됩니다.`);
       void load(false);
-    } else {
-      toast.error('업로드에 실패했습니다.');
     }
+    if (lastErr) toast.error(lastErr);
   };
 
   const onPickSelfie = async (files: FileList | null) => {
@@ -180,19 +167,8 @@ export function GalleryScreen() {
     }
     setSelfieBusy(true);
     try {
-      const { data: userData } = await client.auth.getUser();
-      const uid = userData.user?.id;
-      if (!uid) throw new Error('로그인이 필요합니다.');
       const blob = await compressImage(f).catch(() => f);
-      const path = `${uid}/selfie-${Date.now()}.jpg`;
-      const up = await client.storage
-        .from('selfies')
-        .upload(path, blob, { contentType: 'image/jpeg', upsert: true });
-      if (up.error) throw new Error(up.error.message);
-      const res = await rpc(client, 'fn_enroll_face_selfie', {
-        p_payload: { selfie_path: path, consent: true },
-      });
-      if (!res.success) throw new Error(res.error ?? '등록 실패');
+      await postMedia('/api/gallery/selfie', blob, 'selfie.jpg', { consent: 'true' });
       toast.success('셀피 등록 완료 — 분석이 끝나면 내 사진이 자동으로 모입니다.');
       setSelfieOpen(false);
       face.refetch();
@@ -251,12 +227,12 @@ export function GalleryScreen() {
             loading={uploading}
             onClick={() => uploadRef.current?.click()}
           >
-            사진 올리기
+            올리기
           </Button>
           <input
             ref={uploadRef}
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             multiple
             hidden
             onChange={(e) => void onPickUpload(e.target.files)}
@@ -278,7 +254,7 @@ export function GalleryScreen() {
                 <p className={screen.muted}>
                   {faceStatus === 'pending'
                     ? '분석이 끝나면 "내 사진" 필터가 열립니다.'
-                    : '셀피 1장을 등록하면 내 얼굴이 나온 사진만 골라 보여드립니다.'}
+                    : '셀피 1장을 등록하면 내 얼굴이 나온 사진·영상만 골라 보여드립니다.'}
                 </p>
               </div>
               {faceStatus !== 'pending' ? (
@@ -301,35 +277,40 @@ export function GalleryScreen() {
           <Card>
             <EmptyState variant="error" title="갤러리를 불러오지 못했습니다" description={loadError} onRetry={() => void load(false)} />
           </Card>
-        ) : photos.length === 0 ? (
+        ) : items.length === 0 ? (
           <Card>
             <EmptyState
               title={mine ? '내 얼굴이 나온 사진이 아직 없어요' : '첫 사진을 올려보세요'}
               description={
                 mine
-                  ? '새 사진이 올라오면 자동으로 여기에 모입니다.'
-                  : '수업·이벤트 사진을 올리면 시설 회원 모두가 볼 수 있습니다.'
+                  ? '새 사진·영상이 올라오면 자동으로 여기에 모입니다.'
+                  : '수업·이벤트 사진과 영상을 올리면 시설 회원 모두가 볼 수 있습니다.'
               }
             />
           </Card>
         ) : (
           <>
             <div className={styles.grid}>
-              {photos.map((p) => (
+              {items.map((p) => (
                 <button
                   key={p.id}
                   type="button"
                   className={styles.cell}
                   onClick={() => setViewer(p)}
-                  aria-label={p.caption ?? '사진 보기'}
+                  aria-label={p.caption ?? (p.media_type === 'video' ? '동영상 보기' : '사진 보기')}
                 >
-                  {urls[p.storage_path] ? (
-                    // Storage signed URL — next/image 외부 로더 미구성 환경이라 img 사용
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={urls[p.storage_path]} alt={p.caption ?? ''} loading="lazy" />
-                  ) : (
+                  {p.media_type === 'video' && !p.thumb_path ? (
                     <span className={styles.cellPending} aria-hidden />
+                  ) : (
+                    // 실서버 미디어 라우트(쿠키 인증) — next/image 외부 로더 미구성이라 img 사용
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={thumbUrl(p)} alt={p.caption ?? ''} loading="lazy" />
                   )}
+                  {p.media_type === 'video' ? (
+                    <span className={styles.playBadge} aria-hidden>
+                      ▶{p.duration_s ? ` ${formatDuration(p.duration_s)}` : ''}
+                    </span>
+                  ) : null}
                   {p.mine ? <span className={styles.mineDot} aria-label="내 사진" /> : null}
                   {p.face_status === 'pending' || p.face_status === 'processing' ? (
                     <span className={styles.analyzing}>분석 중</span>
@@ -341,7 +322,7 @@ export function GalleryScreen() {
               <Button
                 variant="soft"
                 block
-                onClick={() => void load(true, photos[photos.length - 1]?.created_at)}
+                onClick={() => void load(true, items[items.length - 1]?.created_at)}
               >
                 더 보기
               </Button>
@@ -350,14 +331,16 @@ export function GalleryScreen() {
         )}
       </div>
 
-      {/* 사진 뷰어 */}
+      {/* 뷰어 */}
       {viewer ? (
-        <BottomSheet open onClose={() => setViewer(null)} title={viewer.caption ?? '사진'} variant="full">
+        <BottomSheet open onClose={() => setViewer(null)} title={viewer.caption ?? (viewer.media_type === 'video' ? '동영상' : '사진')} variant="full">
           <div className={styles.viewer}>
-            {urls[viewer.storage_path] ? (
+            {viewer.media_type === 'video' ? (
+              <video controls playsInline preload="metadata" poster={viewer.thumb_path ? thumbUrl(viewer) : undefined} src={mediaUrl(viewer)} />
+            ) : (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={urls[viewer.storage_path]} alt={viewer.caption ?? ''} />
-            ) : null}
+              <img src={mediaUrl(viewer)} alt={viewer.caption ?? ''} />
+            )}
             <div className={styles.viewerMeta}>
               {viewer.mine ? <Badge variant="accent" size="sm">내 사진</Badge> : null}
               <span className={screen.muted}>
