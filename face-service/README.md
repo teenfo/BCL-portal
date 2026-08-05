@@ -26,6 +26,20 @@ BCL 실서버에서 **docker compose 서비스**로 상주(portal·race-service�
 | `SUPABASE_SERVICE_ROLE_KEY` | **필수** — 없으면 face-service는 건너뜀 (race-service와 공유) |
 | `FACE_MATCH_THRESHOLD` | 선택 — 코사인 유사도 임계 (기본 0.45, 오탐 많으면 ↑) |
 | `FACE_POLL_INTERVAL_S` | 선택 — 폴링 주기 초 (기본 5) |
+| `MEDIA_HOST_DIR` | 선택 — 미디어 원본을 저장할 호스트 경로(예: HDD `/mnt/hdd/bcl-media`). 비우면 Docker 볼륨 |
+
+### HDD에 미디어 저장 (선택)
+
+미디어는 순차 I/O 위주라 HDD로 충분하다(임베딩 SQLite·모델 캐시는 `face-models` 볼륨 = 시스템 SSD 유지).
+바인드 경로는 portal(uid 1001)이 쓸 수 있어야 하므로 **최초 1회**:
+
+```bash
+sudo mkdir -p /mnt/hdd/bcl-media && sudo chown 1001:1001 /mnt/hdd/bcl-media
+echo 'MEDIA_HOST_DIR=/mnt/hdd/bcl-media' >> .env && docker compose up -d portal face-service
+```
+
+⚠ v2부터 원본이 서버 디스크의 **유일본** — HDD 사용 시 RAID1 또는 주기 rsync 백업을 반드시 병행할 것.
+예: `0 4 * * * rsync -a --delete /mnt/hdd/bcl-media/ /mnt/backup/bcl-media/`
 
 수동 조작:
 
