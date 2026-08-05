@@ -33,10 +33,14 @@ from supabase import create_client  # noqa: E402
 
 sb = create_client(SUPABASE_URL, SERVICE_KEY)
 
-# insightface 초기화 — 최초 실행 시 모델 자동 다운로드(~/.insightface)
+# insightface 초기화 — 최초 실행 시 모델 자동 다운로드(INSIGHTFACE_ROOT, 컨테이너는 볼륨 영속)
 from insightface.app import FaceAnalysis  # noqa: E402
 
-fa = FaceAnalysis(name="buffalo_l", providers=["CPUExecutionProvider"])
+fa = FaceAnalysis(
+    name="buffalo_l",
+    root=os.environ.get("INSIGHTFACE_ROOT", os.path.expanduser("~/.insightface")),
+    providers=["CPUExecutionProvider"],
+)
 fa.prepare(ctx_id=-1, det_size=(960, 960))
 
 

@@ -1011,8 +1011,8 @@ Edge 호출 설정은 `system_config(edge_base_url, edge_service_key)` — as-is
 
 ### 8.3b 갤러리 얼굴 매칭 (20260805050000_gallery_face_match.sql)
 
-수업/이벤트 사진 갤러리 + 셀피 기반 "내 사진" 필터. 얼굴 분석은 **hosub 상주 워커
-`face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴링으로 수행 — 앱은 상태만 소비.
+수업/이벤트 사진 갤러리 + 셀피 기반 "내 사진" 필터. 얼굴 분석은 **BCL 실서버 docker compose
+서비스 `face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴링으로 수행 — 앱은 상태만 소비.
 
 | 테이블 | 용도 · RLS |
 |---|---|
