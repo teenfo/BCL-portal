@@ -998,7 +998,7 @@ p_options 키(15-race-system §4b): `target_distance_m`(개인/팀/릴레이) ·
 
 Edge 호출 설정은 `system_config(edge_base_url, edge_service_key)` — as-is의 `request.headers` 의존(크론 컨텍스트 불능) 제거. 미설정 시 인앱 알림만 남기고 발송 스킵.
 
-### 8.3 Storage 버킷 (00_extensions_helpers.sql)
+### 8.3 Storage 버킷 (00_extensions_helpers.sql + 20260805050000)
 
 | 버킷 | 공개 | 용도 | 쓰기 정책 |
 |---|---|---|---|
@@ -1006,6 +1006,26 @@ Edge 호출 설정은 `system_config(edge_base_url, edge_service_key)` — as-is
 | `facility-photos` | public read | 시설 사진 | staff |
 | `movement-media` | public read | 운동 썸네일/영상 | staff |
 | `uploads` | private | 티켓 첨부 등 | 본인 경로 RW + admin |
+| `gallery` | private(signed URL) | 갤러리 사진 | 본인 시설 경로(`{facility_id}/…`) 회원 + staff · 읽기 동일 스코프 |
+| `selfies` | private | 얼굴 매칭 셀피(임시) | 본인 경로(`{uid}/…`) RW — 워커가 임베딩 추출 후 파일 삭제 |
+
+### 8.3b 갤러리 얼굴 매칭 (20260805050000_gallery_face_match.sql)
+
+수업/이벤트 사진 갤러리 + 셀피 기반 "내 사진" 필터. 얼굴 분석은 **hosub 상주 워커
+`face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴링으로 수행 — 앱은 상태만 소비.
+
+| 테이블 | 용도 · RLS |
+|---|---|
+| `gallery_photos` | 사진 메타(`face_status` pending→done/no_faces/failed). SELECT=같은 시설 회원+staff, DELETE=admin, 쓰기=RPC |
+| `member_face_profiles` | 셀피 임베딩(`real[]` 512-d)+동의(consent_at 필수). SELECT=본인, 쓰기=RPC/워커 |
+| `gallery_photo_faces` | 사진 내 검출 얼굴(워커 전용 — 클라이언트 정책 없음) |
+| `gallery_photo_members` | 사진↔회원 매칭 사전 계산(코사인≥임계). SELECT=본인+staff — "내 사진" 필터 소스 |
+
+RPC(표준 envelope): `fn_register_gallery_photo(p_payload)`(경로 prefix=본인 시설 강제) ·
+`fn_enroll_face_selfie(p_payload)`(consent 필수, 재등록 시 pending 리셋) ·
+`fn_delete_face_profile()`(동의 철회 — 임베딩·매칭 삭제) · `fn_get_gallery(p_payload)`(mine/limit/before).
+설계: 임베딩은 pgvector 대신 `real[]` — 매칭이 워커(numpy)에서 일어나 DB 연산 불요, 시설당 수백 명 규모 충분.
+임베딩·원시 얼굴 데이터는 클라이언트에 비노출, 원본 셀피는 추출 즉시 파기.
 
 ### 8.4 Edge Functions
 

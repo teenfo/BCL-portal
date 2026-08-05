@@ -1,0 +1,92 @@
+/* 갤러리 (docs/12 토큰 전용 — 필터 칩은 ui Button soft/ghost 재사용) */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  margin-bottom: var(--bcl-space-3);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--bcl-space-1);
+  margin-bottom: var(--bcl-space-3);
+}
+
+.cell {
+  position: relative;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-sm);
+  overflow: hidden;
+  background: var(--bcl-bg);
+  cursor: pointer;
+}
+
+.cell img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cell:focus-visible {
+  outline: 2px solid var(--bcl-accent);
+  outline-offset: 1px;
+}
+
+.cellPending {
+  position: absolute;
+  inset: 0;
+  background: var(--bcl-bg);
+}
+
+.mineDot {
+  position: absolute;
+  top: var(--bcl-space-1);
+  right: var(--bcl-space-1);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bcl-accent);
+  box-shadow: 0 0 0 2px var(--bcl-surface);
+}
+
+.analyzing {
+  position: absolute;
+  left: var(--bcl-space-1);
+  bottom: var(--bcl-space-1);
+  padding: 0 var(--bcl-space-1);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-overlay);
+  color: var(--bcl-surface);
+  font-size: calc(11px * var(--bcl-font-scale));
+}
+
+.viewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}
+
+.viewer img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-bg);
+}
+
+.viewerMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+}
+
+.selfieBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-3);
+}

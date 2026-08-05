@@ -310,6 +310,18 @@ export function HomeScreen() {
             <p className={screen.muted}>코치가 공개한 오늘의 운동(WOD)을 확인하세요.</p>
           </Card>
 
+          {/* 갤러리 바로가기 — 셀피 얼굴 매칭 "내 사진" */}
+          <Card
+            title="갤러리"
+            action={
+              <Button variant="ghost" size="sm" onClick={() => router.push('/apps/gallery')}>
+                보러 가기
+              </Button>
+            }
+          >
+            <p className={screen.muted}>수업·이벤트 사진 — 셀피를 등록하면 내 사진만 모아볼 수 있어요.</p>
+          </Card>
+
           {/* 최근 PR 하이라이트 */}
           {data.pr ? (
             <Card
