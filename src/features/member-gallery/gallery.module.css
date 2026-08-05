@@ -43,6 +43,24 @@
   background: var(--bcl-bg);
 }
 
+.playBadge {
+  position: absolute;
+  right: var(--bcl-space-1);
+  bottom: var(--bcl-space-1);
+  padding: 0 var(--bcl-space-1);
+  border-radius: var(--bcl-radius-sm);
+  background: var(--bcl-overlay);
+  color: var(--bcl-surface);
+  font-size: calc(11px * var(--bcl-font-scale));
+}
+
+.viewer video {
+  width: 100%;
+  max-height: 70vh;
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-overlay);
+}
+
 .mineDot {
   position: absolute;
   top: var(--bcl-space-1);

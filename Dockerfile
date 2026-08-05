@@ -25,6 +25,8 @@ RUN addgroup -g 1001 nodejs && adduser -u 1001 -G nodejs -S nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# 갤러리 미디어 볼륨(gallery-media) 마운트 지점 — 최초 초기화 시 nextjs(1001) 소유 승계
+RUN mkdir -p /media && chown nextjs:nodejs /media
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

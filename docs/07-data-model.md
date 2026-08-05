@@ -1009,22 +1009,31 @@ Edge 호출 설정은 `system_config(edge_base_url, edge_service_key)` — as-is
 | `gallery` | private(signed URL) | 갤러리 사진 | 본인 시설 경로(`{facility_id}/…`) 회원 + staff · 읽기 동일 스코프 |
 | `selfies` | private | 얼굴 매칭 셀피(임시) | 본인 경로(`{uid}/…`) RW — 워커가 임베딩 추출 후 파일 삭제 |
 
-### 8.3b 갤러리 얼굴 매칭 (20260805050000_gallery_face_match.sql)
+### 8.3b 갤러리 얼굴 매칭 (20260805050000 + 20260805070000 v2)
 
-수업/이벤트 사진 갤러리 + 셀피 기반 "내 사진" 필터. 얼굴 분석은 **BCL 실서버 docker compose
-서비스 `face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴링으로 수행 — 앱은 상태만 소비.
+수업/이벤트 **사진·동영상** 갤러리 + 셀피 기반 "내 사진" 필터. 얼굴 분석은 **BCL 실서버 docker
+compose 서비스 `face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴링으로 수행 — 앱은 상태만 소비.
+
+**v2 저장 아키텍처(사용자 결정 — 대용량 서버 직저장)**:
+- **미디어 원본**은 Supabase Storage 대신 실서버 볼륨 `gallery-media`(`/media/gallery|selfies`) —
+  업로드/서빙은 portal 라우트 `/api/gallery/upload·selfie·media/{id}`(쿠키 세션 인증,
+  media GET 인가는 `gallery_photos` RLS SELECT가 시설 스코프 강제, 동영상은 HTTP Range 지원).
+  `storage_path` = 볼륨 상대 경로. gallery/selfies 버킷·Storage 정책은 미사용 유지(하위호환).
+- **원시 얼굴 임베딩**은 face-service 로컬 SQLite(`/data/faces.db`, `face-models` 볼륨) —
+  원본에서 재분석 가능한 파생 데이터. 클라우드 DB에는 매칭 결과·상태만 잔존
+  (`gallery_photo_faces` 테이블은 v2에서 DROP — 미배포·0행 확인 후).
+  예외: `member_face_profiles.embedding`은 셀피 파기 후 유일본이라 DB 보관.
 
 | 테이블 | 용도 · RLS |
 |---|---|
-| `gallery_photos` | 사진 메타(`face_status` pending→done/no_faces/failed). SELECT=같은 시설 회원+staff, DELETE=admin, 쓰기=RPC |
+| `gallery_photos` | 미디어 메타(media_type photo/video · thumb_path·duration_s는 워커 기록 · `face_status` pending→done/no_faces/failed). SELECT=같은 시설 회원+staff, DELETE=admin, 쓰기=RPC |
 | `member_face_profiles` | 셀피 임베딩(`real[]` 512-d)+동의(consent_at 필수). SELECT=본인, 쓰기=RPC/워커 |
-| `gallery_photo_faces` | 사진 내 검출 얼굴(워커 전용 — 클라이언트 정책 없음) |
-| `gallery_photo_members` | 사진↔회원 매칭 사전 계산(코사인≥임계). SELECT=본인+staff — "내 사진" 필터 소스 |
+| `gallery_photo_members` | 미디어↔회원 매칭 사전 계산(코사인≥임계). SELECT=본인+staff — "내 사진" 필터 소스 |
 
-RPC(표준 envelope): `fn_register_gallery_photo(p_payload)`(경로 prefix=본인 시설 강제) ·
+RPC(표준 envelope): `fn_register_gallery_photo(p_payload)`(경로 prefix=본인 시설 강제, media_type 검증) ·
 `fn_enroll_face_selfie(p_payload)`(consent 필수, 재등록 시 pending 리셋) ·
 `fn_delete_face_profile()`(동의 철회 — 임베딩·매칭 삭제) · `fn_get_gallery(p_payload)`(mine/limit/before).
-설계: 임베딩은 pgvector 대신 `real[]` — 매칭이 워커(numpy)에서 일어나 DB 연산 불요, 시설당 수백 명 규모 충분.
+동영상 분석 = 1초 간격 프레임 샘플링(≤90) + 프레임 간 동일 인물 병합(0.7) + 최다 얼굴 프레임 포스터 생성.
 임베딩·원시 얼굴 데이터는 클라이언트에 비노출, 원본 셀피는 추출 즉시 파기.
 
 ### 8.4 Edge Functions
