@@ -222,12 +222,29 @@ def process_selfies() -> int:
 
 
 def backfill_member(member_id: str, facility_id: str, emb: np.ndarray) -> None:
-    """새 프로필 ↔ 기존 미디어 얼굴(SQLite) 전수 매칭(시설 스코프)."""
+    """새 프로필 ↔ 기존 미디어 얼굴(SQLite) 전수 매칭(시설 스코프).
+
+    삭제된 미디어의 임베딩이 SQLite에 남을 수 있으므로(회원 삭제 기능) 현존 미디어
+    집합으로 필터 — 없으면 upsert가 FK 위반으로 셀피 처리 전체를 실패시킨다.
+    고아 행은 발견 즉시 정리.
+    """
+    valid = {
+        r["id"]
+        for r in sb.table("gallery_photos").select("id").eq("facility_id", facility_id).execute().data
+    }
     best: dict[str, float] = {}
+    orphans: set[str] = set()
     for photo_id, femb in _facility_faces(facility_id):
+        if photo_id not in valid:
+            orphans.add(photo_id)
+            continue
         s = _cos(emb, femb)
         if s >= THRESHOLD and s > best.get(photo_id, 0.0):
             best[photo_id] = s
+    if orphans:
+        db.executemany("DELETE FROM faces WHERE photo_id = ?", [(o,) for o in orphans])
+        db.commit()
+        log.info("고아 임베딩 정리 %d건(삭제된 미디어)", len(orphans))
     if best:
         sb.table("gallery_photo_members").upsert(
             [
