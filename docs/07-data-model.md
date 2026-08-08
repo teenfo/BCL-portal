@@ -1032,7 +1032,8 @@ compose 서비스 `face-service/`(insightface buffalo_l, CPU)** 가 Supabase 폴
 
 RPC(표준 envelope): `fn_register_gallery_photo(p_payload)`(경로 prefix=본인 시설 강제, media_type 검증) ·
 `fn_enroll_face_selfie(p_payload)`(consent 필수, 재등록 시 pending 리셋) ·
-`fn_delete_face_profile()`(동의 철회 — 임베딩·매칭 삭제) · `fn_get_gallery(p_payload)`(mine/limit/before).
+`fn_delete_face_profile()`(동의 철회 — 임베딩·매칭 삭제) · `fn_get_gallery(p_payload)`(mine/limit/before, is_uploader 반환) ·
+`fn_delete_gallery_photo(p_photo_id)`(본인 업로드 또는 admin — 행 삭제 후 경로 반환, 파일 정리는 portal DELETE 라우트).
 동영상 분석 = 1초 간격 프레임 샘플링(≤90) + 프레임 간 동일 인물 병합(0.7) + 최다 얼굴 프레임 포스터 생성.
 임베딩·원시 얼굴 데이터는 클라이언트에 비노출, 원본 셀피는 추출 즉시 파기.
 

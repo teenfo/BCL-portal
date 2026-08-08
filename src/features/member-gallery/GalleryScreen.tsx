@@ -4,7 +4,7 @@
 // 미디어 원본은 실서버 볼륨 — 업로드/서빙은 /api/gallery/*(쿠키 세션+RLS), 목록·상태는 RPC/RLS.
 // 얼굴 분석·매칭은 face-service 워커가 비동기 수행 — 화면은 face_status만 표시.
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Badge, Button, Card, Checkbox, EmptyState, Skeleton, useToast } from '@/components/ui';
+import { Badge, Button, Card, Checkbox, ConfirmModal, EmptyState, Skeleton, useToast } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
 import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
@@ -24,6 +24,7 @@ interface GalleryItem {
   face_status: string;
   face_count: number;
   uploader_name: string | null;
+  is_uploader: boolean;
   mine: boolean;
 }
 
@@ -81,6 +82,8 @@ export function GalleryScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [viewer, setViewer] = useState<GalleryItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<GalleryItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // 셀피 등록 시트
   const [selfieOpen, setSelfieOpen] = useState(false);
@@ -190,6 +193,24 @@ export function GalleryScreen() {
     setSelfieOpen(false);
     face.refetch();
     if (mine) setMine(false);
+  };
+
+  const deleteMedia = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/gallery/media/${deleteTarget.id}`, { method: 'DELETE' });
+      const json = (await res.json().catch(() => null)) as { success?: boolean; error?: string } | null;
+      if (!res.ok || !json?.success) throw new Error(json?.error ?? '삭제에 실패했습니다.');
+      toast.success('삭제했습니다.');
+      setItems((prev) => prev.filter((p) => p.id !== deleteTarget.id));
+      setViewer(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '삭제에 실패했습니다.');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
+    }
   };
 
   const switchMine = (next: boolean) => {
@@ -347,10 +368,32 @@ export function GalleryScreen() {
                 {viewer.uploader_name ? `${viewer.uploader_name} · ` : ''}
                 {new Date(viewer.taken_at ?? viewer.created_at).toLocaleDateString()}
               </span>
+              {viewer.is_uploader ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={styles.deleteBtn}
+                  onClick={() => setDeleteTarget(viewer)}
+                >
+                  삭제
+                </Button>
+              ) : null}
             </div>
           </div>
         </BottomSheet>
       ) : null}
+
+      {/* 삭제 확인 — 매칭 데이터 포함 영구 삭제 */}
+      <ConfirmModal
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => void deleteMedia()}
+        loading={deleting}
+        variant="danger"
+        title={deleteTarget?.media_type === 'video' ? '동영상을 삭제할까요?' : '사진을 삭제할까요?'}
+        message="삭제하면 얼굴 매칭 정보와 함께 복구할 수 없습니다."
+        confirmLabel="삭제"
+      />
 
       {/* 셀피 등록/관리 시트 */}
       {selfieOpen ? (

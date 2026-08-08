@@ -103,6 +103,11 @@
   gap: var(--bcl-space-2);
 }
 
+.deleteBtn {
+  margin-left: auto;
+  color: var(--bcl-danger);
+}
+
 .selfieBody {
   display: flex;
   flex-direction: column;
