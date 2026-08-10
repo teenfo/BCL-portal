@@ -5,9 +5,10 @@
 import { useState } from 'react';
 import { Tabs, Badge, Button, EmptyState, Skeleton } from '@/components/ui';
 import { useQuery } from '@/lib/data/useQuery';
-import { rpc } from '@/lib/supabase/query';
+import { query, rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { hhmm } from '@/features/coach-home/format';
+import { ScreenControlPanel } from '@/features/coach-race';
 import { AttendancePanel } from './AttendancePanel';
 import { WodPanel } from './WodPanel';
 import { RunbookPanel } from './RunbookPanel';
@@ -19,6 +20,7 @@ import styles from './session-board.module.css';
 const TAB_ITEMS = [
   { key: 'attendance', label: '출결' },
   { key: 'wod', label: 'WOD' },
+  { key: 'tv', label: 'TV 화면' },
   { key: 'runbook', label: '런시트' },
   { key: 'whiteboard', label: '화이트보드' },
 ];
@@ -80,6 +82,9 @@ export function SessionBoard({
               <AttendancePanel sessionId={sessionId} board={data} onChanged={board.refetch} />
             ) : null}
             {tab === 'wod' ? <WodPanel sessionId={sessionId} /> : null}
+            {tab === 'tv' ? (
+              <TvControlTab sessionId={sessionId} facilityId={data.session.facility_id} />
+            ) : null}
             {tab === 'runbook' ? (
               <RunbookPanel sessionId={sessionId} header={data.session} attendees={data.attendees} />
             ) : null}
@@ -96,5 +101,31 @@ export function SessionBoard({
         </footer>
       ) : null}
     </div>
+  );
+}
+
+// TV 화면 탭 — 스크린 원격제어(docs/05 §4.1)를 세션 보드에 상주(레이스 없는 일반 WOD 수업이
+// 주 사용처). 세션에 배정된 미종료 레이스가 있으면 "레이스 시작"(open_race)도 함께 노출.
+function TvControlTab({ sessionId, facilityId }: { sessionId: string; facilityId: string | null }) {
+  const supabase = getSupabaseBrowserClient();
+  const raceEvent = useQuery<{ id: string } | null>(
+    () =>
+      query<{ id: string }>(supabase, 'race_events', (q) =>
+        q
+          .select('id')
+          .eq('session_id', sessionId)
+          .not('status', 'in', '(completed,cancelled)')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ),
+    [sessionId],
+  );
+  return (
+    <ScreenControlPanel
+      facilityId={facilityId}
+      raceEventId={raceEvent.data?.id ?? null}
+      sessionId={sessionId}
+    />
   );
 }
