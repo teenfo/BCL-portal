@@ -168,6 +168,18 @@ button.eventRow {
   gap: var(--bcl-space-2);
 }
 
+.timerControl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  padding-top: var(--bcl-space-2);
+  border-top: 1px solid var(--bcl-border);
+}
+
+.timerControl .controlActions {
+  margin: 0;
+}
+
 .modeRow {
   display: flex;
   flex-wrap: wrap;

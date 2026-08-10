@@ -9,7 +9,11 @@ import {
   createConsolePublisher,
   type ConsolePublisher,
   type ConsoleMode,
+  type TimerCommand,
 } from '@/features/class-broadcast';
+import { useQuery } from '@/lib/data/useQuery';
+import { rpc } from '@/lib/supabase/query';
+import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import styles from './coach-race.module.css';
 
 const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
@@ -19,6 +23,49 @@ const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
   { value: 'screen', label: '스크린' },
   { value: 'split', label: '수업(2분할)' },
 ];
+
+interface PublishedWodMeta {
+  title: string | null;
+  format: string | null;
+  time_cap_minutes: number | null;
+  rounds: number | null;
+}
+
+/** 게시 WOD 포맷 → TV 타이머 구성(docs/05 §4.1 TimerCommand). 포맷별 기본값 포함 */
+function wodTimerConfig(wod: PublishedWodMeta): { cmd: TimerCommand; label: string } {
+  const cap = wod.time_cap_minutes ?? null;
+  switch (wod.format) {
+    case 'emom': {
+      const rounds = wod.rounds ?? cap ?? 10;
+      return {
+        cmd: { action: 'configure', mode: 'emom', intervalSeconds: 60, totalRounds: rounds },
+        label: `EMOM ${rounds}R`,
+      };
+    }
+    case 'tabata': {
+      const sets = wod.rounds ?? 8;
+      return {
+        cmd: { action: 'configure', mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: sets },
+        label: `TABATA 20/10 ×${sets}`,
+      };
+    }
+    case 'amrap': {
+      const min = cap ?? 20;
+      return {
+        cmd: { action: 'configure', mode: 'countdown', seconds: min * 60 },
+        label: `AMRAP ${min}분`,
+      };
+    }
+    default:
+      // for_time·chipper·strength·custom — 타임캡 있으면 카운트다운, 없으면 카운트업
+      return cap
+        ? {
+            cmd: { action: 'configure', mode: 'countdown', seconds: cap * 60 },
+            label: `${(wod.format ?? 'WOD').toUpperCase()} ${cap}분`,
+          }
+        : { cmd: { action: 'configure', mode: 'countup' }, label: '카운트업' };
+  }
+}
 
 /**
  * 시설 콘솔(TV) 원격제어 발행 UI. facilityId가 없으면 안내만 표시.
@@ -79,6 +126,38 @@ export function ScreenControlPanel({
     notify('레이스 관전 화면을 열었습니다.');
   };
 
+  // 게시된 WOD 메타(포맷·타임캡) — 포맷 연동 타이머 프리셋용. 세션 컨텍스트에서만 조회
+  const wodQ = useQuery<PublishedWodMeta | null>(
+    () =>
+      sessionId
+        ? rpc<PublishedWodMeta | null>(getSupabaseBrowserClient(), 'fn_get_class_display_wod', {
+            p_session_id: sessionId,
+          })
+        : Promise.resolve({ success: true, data: null, error: null }),
+    [sessionId],
+  );
+  const wod = wodQ.data ?? null;
+  const wodTimer = wod ? wodTimerConfig(wod) : null;
+
+  const sendTimer = async (cmd: TimerCommand, msg: string) => {
+    if (!pubRef.current) return;
+    await pubRef.current.timer(cmd);
+    notify(msg);
+  };
+  const startWodTimer = async () => {
+    if (!pubRef.current || !wodTimer) return;
+    // configure → start 순차 발행: TV는 timer(2분할이면 우측 유지) 화면으로 전환 후 즉시 구동
+    await pubRef.current.timer(wodTimer.cmd);
+    await pubRef.current.timer({ action: 'start' });
+    notify(`WOD 타이머 시작 — ${wodTimer.label}`);
+  };
+  const startCountdown = async (minutes: number) => {
+    if (!pubRef.current) return;
+    await pubRef.current.timer({ action: 'configure', mode: 'countdown', seconds: minutes * 60 });
+    await pubRef.current.timer({ action: 'start' });
+    notify(`${minutes}분 카운트다운 시작`);
+  };
+
   return (
     <Card title="스크린 제어">
       {!facilityId ? (
@@ -102,6 +181,48 @@ export function ScreenControlPanel({
               </Button>
             ))}
           </div>
+          {/* 타이머 제어 — 게시 WOD 포맷 연동 프리셋 + 수동 제어 */}
+          <div className={styles.timerControl}>
+            <p className={styles.muted}>타이머</p>
+            <div className={styles.controlActions}>
+              {wodTimer ? (
+                <Button variant="primary" size="sm" onClick={startWodTimer}>
+                  ▶ WOD 타이머 시작 · {wodTimer.label}
+                </Button>
+              ) : sessionId ? (
+                <span className={styles.muted}>게시된 WOD가 없어 포맷 타이머를 준비할 수 없습니다.</span>
+              ) : null}
+            </div>
+            <div className={styles.controlActions}>
+              {[10, 15, 20].map((m) => (
+                <Button key={m} variant="soft" size="sm" onClick={() => startCountdown(m)}>
+                  {m}분
+                </Button>
+              ))}
+              <Button
+                variant="soft"
+                size="sm"
+                onClick={() =>
+                  void (async () => {
+                    await sendTimer({ action: 'configure', mode: 'countup' }, '');
+                    await sendTimer({ action: 'start' }, '카운트업 시작');
+                  })()
+                }
+              >
+                카운트업
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => sendTimer({ action: 'pause' }, '타이머 일시정지')}>
+                일시정지
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => sendTimer({ action: 'start' }, '타이머 재개')}>
+                재개
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => sendTimer({ action: 'reset' }, '타이머 리셋')}>
+                리셋
+              </Button>
+            </div>
+          </div>
+
           {raceEventId ? (
             <div className={styles.controlActions}>
               <Button
