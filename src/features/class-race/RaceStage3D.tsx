@@ -291,6 +291,56 @@ function makePacerTexture(
   return { tex, aspect: c.width / c.height };
 }
 
+/** 배틀 캠 VS 엠블럼 — 이탤릭 대문자 + 액센트 글로우(격투 게임 대전 연출) */
+function makeVsTexture(accent: string): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = 256;
+  c.height = 256;
+  const g = c.getContext('2d')!;
+  g.translate(128, 128);
+  g.rotate(-0.08);
+  g.font = 'italic 900 120px Lexend, Pretendard, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.shadowColor = accent;
+  g.shadowBlur = 34;
+  g.lineWidth = 14;
+  g.strokeStyle = accent;
+  g.strokeText('VS', 0, 6);
+  g.shadowBlur = 0;
+  g.fillStyle = 'rgba(255,255,255,0.97)';
+  g.fillText('VS', 0, 6);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** 배틀 캠 실시간 격차 배지 — "Δ 0.8m". 0.1m 단위 변화 시에만 재생성(스로틀은 호출측) */
+function makeDuelGapTexture(text: string, color: string): { tex: THREE.CanvasTexture; aspect: number } {
+  const c = document.createElement('canvas');
+  c.width = 320;
+  c.height = 96;
+  const g = c.getContext('2d')!;
+  g.font = '800 52px Lexend, Pretendard, sans-serif';
+  const tw = Math.min(250, g.measureText(text).width);
+  const w = tw + 64;
+  const x = (c.width - w) / 2;
+  g.fillStyle = 'rgba(8,10,16,0.9)';
+  g.strokeStyle = color;
+  g.lineWidth = 5;
+  g.beginPath();
+  g.roundRect(x, 14, w, 68, 34);
+  g.fill();
+  g.stroke();
+  g.fillStyle = color;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(text, c.width / 2, 50, 250);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return { tex, aspect: c.width / c.height };
+}
+
 function makeGlyphTexture(glyph: string): THREE.CanvasTexture {
   const c = document.createElement('canvas');
   c.width = 256;
@@ -343,6 +393,8 @@ interface Rig {
   serial: string;
   index: number;
   deviceType: DeviceType;
+  /** 현재 프레임 드라이브 임팩트(0..1) — 배틀 캠 펀치 줌·셰이크 동기용 */
+  drive: number;
   group: THREE.Group;
   char: THREE.Mesh;
   charMat: THREE.MeshBasicMaterial;
@@ -839,6 +891,7 @@ export function RaceStage3D({
         boostUntil: 0,
         sprPhase: 0,
         chipAt: 0,
+        drive: 0,
       };
     }
 
@@ -878,6 +931,65 @@ export function RaceStage3D({
     let duelNextAt = 0;
     let duelE = 0;
     const duelCam = new THREE.OrthographicCamera(0, 1, 0, -1, -4000, 4000);
+    // ── 배틀 캠 FX 오버레이 — 격투 게임식 대전 연출(VS 엠블럼·중앙 스파크·등장 플래시·팀 바) ──
+    //   스크린 좌표 전용 별도 씬: 두 패널 렌더 후 메인 카메라로 PiP 영역(시저)에만 덧그린다.
+    //   cleanup은 fxScene.traverse가 일괄 처리. 코스 2모드 공통(배틀 캠 자체가 공유 경로).
+    const fxScene = new THREE.Scene();
+    const fxAccent = cssColor('--bcl-accent', BRAND_ACCENT_HEX);
+    const vsMat = new THREE.MeshBasicMaterial({
+      map: makeVsTexture(fxAccent),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+    });
+    const vsMesh = new THREE.Mesh(centerPlane, vsMat);
+    vsMesh.renderOrder = 3;
+    fxScene.add(vsMesh);
+    const duelGapMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+    const duelGapMesh = new THREE.Mesh(centerPlane, duelGapMat);
+    duelGapMesh.renderOrder = 3;
+    fxScene.add(duelGapMesh);
+    let duelGapKey = '';
+    let duelGapAspect = 320 / 96;
+    let duelGapAt = 0;
+    // 등장 임팩트 플래시(백색 가산) — duelE 진입 순간 250ms 감쇠
+    const flashMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(1, 1, 1),
+      transparent: true,
+      opacity: 0,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const flashMesh = new THREE.Mesh(centerPlane, flashMat);
+    flashMesh.renderOrder = 4;
+    fxScene.add(flashMesh);
+    // 중앙 세로 이음선에서 튀는 스파크 파티클(가산 글로우 콰드, 수명-스케일 페이드)
+    const SPARK_N = 26;
+    const sparkMat = new THREE.MeshBasicMaterial({
+      map: glowTex,
+      color: new THREE.Color(fxAccent),
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const sparks = Array.from({ length: SPARK_N }, () => {
+      const mesh = new THREE.Mesh(centerPlane, sparkMat);
+      mesh.renderOrder = 2;
+      fxScene.add(mesh);
+      return { mesh, x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, size: 6 };
+    });
+    // 패널 하단 팀 컬러 바(레인 식별) — 페어 확정 시 색 갱신
+    const teamBarMats = [0, 1].map(() => new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+    const teamBars = teamBarMats.map((m) => {
+      const mesh = new THREE.Mesh(centerPlane, m);
+      mesh.renderOrder = 2;
+      fxScene.add(mesh);
+      return mesh;
+    });
+    let duelFxKey = '';
+    let duelPrevE = 0;
+    let duelFlashAt = -1e9;
     let lastLoopT = performance.now();
     const loop = () => {
       const { lanes: curLanes, target: tgt, lobbyStatus: status, defaultDevice: defDev, finishOrder: order } = propsRef.current;
@@ -1449,6 +1561,8 @@ export function RaceStage3D({
           }
         }
 
+        rig.drive = drivePulse; // 배틀 캠 펀치 줌·셰이크 동기 소스
+
         // 이펙트 — 전진 중에만(대기·피니시·idle 제외), 드라이브 임팩트에 동기(스트로크 가시화)
         //   부스터(boostE): 급가속 2s — 스트릭 대폭 연장·링 플래시로 스퍼트 강조
         const moving = pose === 'race' && !idle;
@@ -1679,12 +1793,19 @@ export function RaceStage3D({
             // 전면 풀샷 프레이밍 — 보트+오어 포함(오어 스윙 폭 감안해 창 소폭 확대), 가로 창은 패널 비율.
             //   camZoom 반영: 피날레 줌 진입과 듀얼 페이드아웃이 겹치는 구간의 피사체 크롭 방지(감사)
             const charHr = Math.min(0.29 * H, 258) * r.baseScl * camZoom;
-            const worldHFull = charHr * 1.15;
+            // 스트로크 드라이브 동기 펀치 인(프레임 축소=줌) — 노 젓는 임팩트가 화면에 꽂히게
+            const punch = 1 - 0.06 * r.drive;
+            const worldHFull = charHr * 1.15 * punch;
             const worldH = worldHFull * duelE; // 팝인 동안 크롭 리빌
             const worldW = worldHFull * (halfWpx / panelHFull);
             if (r.parts) {
-              // 3파트 모델 — 선미 뒤 궤도 전면 카메라(얼굴 노출)
-              const target = IK_V.set(r.group.position.x, r.group.position.y + charHr * 0.38, 0);
+              // 3파트 모델 — 선미 뒤 궤도 전면 카메라(얼굴 노출) + 드라이브 셰이크
+              const shake = charHr * 0.014 * r.drive;
+              const target = IK_V.set(
+                r.group.position.x + Math.sin(t / 19 + i * 7) * shake,
+                r.group.position.y + charHr * 0.38 + Math.sin(t / 23 + i * 3) * shake,
+                0,
+              );
               const D = 1200; // 궤도 반경(오소 — 프레이밍은 frustum이 결정)
               duelCam.position.set(
                 target.x - bowDir.x * D,
@@ -1719,11 +1840,101 @@ export function RaceStage3D({
             subject.traverse((o) => o.layers.disable(1));
             if (r.parts) r.parts.inner.rotation.x = prevPitch;
           });
+
+          // ── FX 오버레이 패스 — 두 패널 위에 VS·스파크·플래시·팀 바(스크린 좌표) ──
+          const seamX = px + halfWpx + gapPx / 2;
+          const cy = H / 2; // 패널 정중앙 배치라 화면 중앙과 일치
+          const fxKey = `${duelViewPair[0]}|${duelViewPair[1]}`;
+          if (fxKey !== duelFxKey) {
+            duelFxKey = fxKey;
+            // 페어 확정 시 1회: 팀 컬러 바 색 + 격차 배지 초기화
+            [rA, rB].forEach((r, i) => teamBarMats[i].color.set(teamColorOf(r.index)));
+            duelGapKey = '';
+          }
+          if (duelPrevE <= 0.05 && duelE > 0.05) duelFlashAt = t; // 등장 임팩트
+
+          // VS 엠블럼 — 심장박동 펄스 + 미세 로테이션 워블
+          const vsS = Math.min(halfWpx, panelHFull) * 0.46 * duelE * (1 + 0.06 * Math.sin(t / 170));
+          vsMesh.position.set(seamX, -cy, 0);
+          vsMesh.rotation.z = 0.05 * Math.sin(t / 240);
+          vsMesh.scale.set(vsS, vsS, 1);
+          vsMat.opacity = 0.95 * duelE;
+
+          // 실시간 격차 배지 — 0.1m 변화·300ms 스로틀 재생성, 1m 미만 접전은 위험색
+          const gapM = Math.abs(rA.d - rB.d);
+          const gapText = `Δ ${gapM.toFixed(1)}m`;
+          if (gapText !== duelGapKey && t - duelGapAt > 300) {
+            duelGapKey = gapText;
+            duelGapAt = t;
+            duelGapMat.map?.dispose();
+            const made = makeDuelGapTexture(
+              gapText,
+              gapM < 1 ? cssColor('--bcl-danger', '#ff4d4f') : fxAccent,
+            );
+            duelGapMat.map = made.tex;
+            duelGapAspect = made.aspect;
+            duelGapMat.needsUpdate = true;
+          }
+          const gapH = Math.max(20, H * 0.03) * duelE;
+          duelGapMesh.position.set(seamX, -(cy + vsS * 0.62 + gapH * 0.6), 0);
+          duelGapMesh.scale.set(gapH * duelGapAspect, gapH, 1);
+          duelGapMat.opacity = 0.95 * duelE;
+
+          // 중앙 스파크 — 이음선에서 좌우로 튀며 낙하(수명-스케일 페이드). 접전일수록 격렬
+          const intensity = gapM < 1 ? 1 : gapM < 2.5 ? 0.7 : 0.45;
+          for (const s of sparks) {
+            s.life -= dtF;
+            if (s.life <= 0) {
+              s.max = 320 + Math.random() * 380;
+              s.life = s.max * (0.3 + Math.random() * 0.7);
+              s.x = seamX + (Math.random() - 0.5) * 6;
+              s.y = cy + (Math.random() - 0.5) * panelH * 0.85;
+              const dir = Math.random() < 0.5 ? -1 : 1;
+              const sp = (0.18 + Math.random() * 0.5) * intensity;
+              s.vx = dir * sp;
+              s.vy = -(0.1 + Math.random() * 0.3) * intensity; // 상방(스크린) 초기 분출
+              s.size = (3.5 + Math.random() * 6) * intensity;
+            }
+            s.vy += 0.0011 * dtF; // 중력(스크린 하방)
+            s.x += s.vx * dtF;
+            s.y += s.vy * dtF;
+            const k = Math.max(0, s.life / s.max);
+            s.mesh.position.set(s.x, -s.y, 0);
+            const sz = s.size * (0.5 + k) * duelE;
+            s.mesh.scale.set(sz * (1 + Math.abs(s.vx) * 2), sz, 1); // 진행 방향 신장
+            s.mesh.rotation.z = Math.atan2(-s.vy, s.vx);
+          }
+          sparkMat.opacity = 0.85 * duelE;
+
+          // 팀 컬러 바 — 각 패널 하단 에지, 드라이브에 맞춰 명멸
+          const barH = Math.max(3, H * 0.005);
+          const panelBottom = cy + panelH / 2;
+          [rA, rB].forEach((r, i) => {
+            const bx = px + i * (halfWpx + gapPx) + halfWpx / 2;
+            teamBars[i].position.set(bx, -(panelBottom - barH / 2), 0);
+            teamBars[i].scale.set(halfWpx, barH, 1);
+            teamBarMats[i].opacity = duelE * (0.55 + 0.45 * Math.max(r.drive, 0.25 + 0.2 * Math.sin(t / 300 + i)));
+          });
+
+          // 등장 플래시 — 250ms 백색 감쇠(가산)
+          flashMesh.position.set(px + panelW / 2, -cy, 0);
+          flashMesh.scale.set(panelW, panelH, 1);
+          flashMat.opacity = Math.max(0, 1 - (t - duelFlashAt) / 250) * 0.5;
+
+          // FX 오버레이 패스 — 방금 그린 PiP 패널 위 가산 합성이므로 클리어 금지
+          //   (autoClear=true면 시저 영역이 지워져 패널 자체가 소거된다)
+          renderer.setViewport(0, 0, W, H);
+          renderer.setScissor(px, vy, panelW, panelH);
+          renderer.autoClear = false;
+          renderer.render(fxScene, camera);
+          renderer.autoClear = true;
+
           renderer.setScissorTest(false);
           renderer.setViewport(0, 0, W, H);
           renderer.setClearColor(prevClear, prevAlpha);
         }
       }
+      duelPrevE = duelE;
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -1743,6 +1954,16 @@ export function RaceStage3D({
             m.dispose();
           }
           mesh.geometry.dispose();
+        }
+      });
+      fxScene.traverse((o) => {
+        const mesh = o as THREE.Mesh;
+        if (mesh.isMesh) {
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          for (const m of mats) {
+            (m as THREE.MeshBasicMaterial).map?.dispose();
+            m.dispose();
+          }
         }
       });
       for (const { tex } of charTexCache.values()) tex.dispose();
