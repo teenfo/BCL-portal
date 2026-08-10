@@ -23,12 +23,18 @@ function fmtLabel(f: string | null): string {
 
 function movementLine(m: WodMovement): { name: string; detail: string; rx: string } {
   const name = String(m.name ?? m.movement ?? '').trim();
+  // 정본 스냅샷 키(WodPanel: target_value/target_unit·load_*_rx) 우선, 구 키(reps/target·rx_*) 폴백
+  //   — 키 불일치로 TV에서 수량·중량이 통째로 빠지던 결함 수정
+  const tv =
+    m.target_value != null && String(m.target_value).trim() !== ''
+      ? `${m.target_value}${m.target_unit ?? ''}`
+      : '';
   const reps = m.reps != null ? String(m.reps) : '';
   const target = m.target ? String(m.target) : '';
-  const detail = [reps, target].filter(Boolean).join(' · ');
-  const rxM = m.rx_male ? `♂ ${m.rx_male}` : '';
-  const rxF = m.rx_female ? `♀ ${m.rx_female}` : '';
-  const rx = [rxM, rxF].filter(Boolean).join('   ');
+  const detail = tv || [reps, target].filter(Boolean).join(' · ');
+  const loadM = m.load_male_rx ?? m.rx_male;
+  const loadF = m.load_female_rx ?? m.rx_female;
+  const rx = [loadM ? `♂ ${loadM}` : '', loadF ? `♀ ${loadF}` : ''].filter(Boolean).join('   ');
   return { name, detail, rx };
 }
 

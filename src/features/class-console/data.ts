@@ -26,6 +26,12 @@ export interface DisplayWod {
 
 export interface WodMovement {
   name?: string;
+  /** 정본 스냅샷 키(WodPanel buildPayload) — 목표 수량/단위·RX 중량 */
+  target_value?: string | number | null;
+  target_unit?: string | null;
+  load_male_rx?: string | null;
+  load_female_rx?: string | null;
+  /** 구 스냅샷 키 폴백(초기 데이터 호환) */
   reps?: string | number | null;
   target?: string | null;
   rx_male?: string | null;
@@ -70,9 +76,18 @@ export interface ScreenPr {
   source: 'benchmark' | 'race';
 }
 
+/** TV(시설) 로컬 날짜 YYYY-MM-DD — 서버 CURRENT_DATE(UTC)와의 시차로 KST 오전에
+ *  오늘 세션 WOD가 안 잡히던 결함 방지(날짜는 항상 클라이언트가 명시 전달) */
+function localDate(): string {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function fetchDisplayWod(facilityId: string): Promise<Envelope<DisplayWod | null>> {
   return rpc<DisplayWod | null>(getSupabaseBrowserClient(), 'fn_get_class_display_wod', {
     p_facility_id: facilityId,
+    p_date: localDate(),
   });
 }
 
