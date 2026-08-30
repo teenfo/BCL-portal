@@ -8,6 +8,13 @@
   font-family: var(--bcl-font);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
+  /* flow 모드 카드 레이아웃 지오메트리 — flowStrip/flowTicker/flowLeft/timerSlot[flow]가 공유
+     (timerSlot은 flowRoot의 형제라 공통 조상에 선언) */
+  --flow-pad: 28px;
+  --flow-pad-top: 60px; /* StatusStrip(연결 배지) 클리어런스 — 카드와 겹침 방지 */
+  --flow-gap: 18px;
+  --flow-strip-h: 92px;
+  --flow-ticker-h: 88px;
 }
 
 /* ── 모드 크로스페이드 스택 ── */
@@ -285,6 +292,62 @@
 .timerRoot[data-phase='emom'] {
   background: var(--bcl-accent-soft);
 }
+/* 프리 카운트다운(READY 3-2-1-GO) — 시작 전 준비 신호는 경고색 */
+.timerRoot[data-phase='pre'] {
+  background: var(--bcl-warning-soft);
+}
+/* 페이즈 컬러 숫자·라벨 — 목업 정합(초록=WORK/적=REST/앰버=READY). 라벨은 한 톤 낮게 */
+.timerRoot[data-phase='work'] .timerTime,
+.timerRoot[data-phase='work'] .timerLabel {
+  color: var(--bcl-success);
+}
+.timerRoot[data-phase='rest'] .timerTime,
+.timerRoot[data-phase='rest'] .timerLabel {
+  color: var(--bcl-danger);
+}
+.timerRoot[data-phase='pre'] .timerTime,
+.timerRoot[data-phase='pre'] .timerLabel {
+  color: var(--bcl-warning);
+}
+.timerRoot[data-phase='work'] .timerLabel,
+.timerRoot[data-phase='rest'] .timerLabel,
+.timerRoot[data-phase='pre'] .timerLabel {
+  opacity: 0.78;
+  letter-spacing: 0.1em;
+}
+.timerType {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--bcl-text-muted);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-5);
+  min-height: 1.2em;
+}
+.timerType:empty {
+  display: none;
+}
+.timerRoot[data-phase='work'] .timerType {
+  color: var(--bcl-success);
+  border-color: var(--bcl-success);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='rest'] .timerType {
+  color: var(--bcl-danger);
+  border-color: var(--bcl-danger);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='pre'] .timerType {
+  color: var(--bcl-warning);
+  border-color: var(--bcl-warning);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='emom'] .timerType {
+  color: var(--bcl-accent);
+  border-color: var(--bcl-accent);
+  opacity: 0.9;
+}
 .timerLabel {
   font-size: 72px;
   font-weight: 800;
@@ -306,9 +369,13 @@
   inset: 0;
   opacity: 0;
   pointer-events: none;
+  /* full↔split↔flow 슬롯 지오메트리 전환 — 네 방향 모두 애니메이션(스냅 방지) */
   transition:
     opacity 400ms ease,
-    left 300ms ease;
+    left 300ms ease,
+    right 300ms ease,
+    top 300ms ease,
+    bottom 300ms ease;
 }
 .timerSlot[data-slot='full'] {
   inset: 0;
@@ -329,6 +396,44 @@
 }
 .timerSlot[data-slot='split'] .timerLabel {
   font-size: 52px;
+}
+.timerSlot[data-slot='split'] .timerType {
+  font-size: 26px;
+}
+/* 타이머 카드 보더 — 페이즈 컬러 추종(목업의 초록 보더). :has 미지원 시 기본 보더 */
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='work']) {
+  border-color: var(--bcl-success);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='rest']) {
+  border-color: var(--bcl-danger);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='pre']) {
+  border-color: var(--bcl-warning);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='emom']) {
+  border-color: var(--bcl-accent);
+}
+
+/* flow 우측 타이머 카드 — 스트립·티커 사이 우측 반쪽(카드 지오메트리, 목업 정합) */
+.timerSlot[data-slot='flow'] {
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: calc(50% + var(--flow-gap) / 2);
+  right: var(--flow-pad);
+  opacity: 1;
+  pointer-events: auto;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  overflow: hidden;
+}
+.timerSlot[data-slot='flow'] .timerTime {
+  font-size: 170px;
+}
+.timerSlot[data-slot='flow'] .timerLabel {
+  font-size: 40px;
+}
+.timerSlot[data-slot='flow'] .timerType {
+  font-size: 24px;
 }
 
 /* 좌측 페인 — WOD 보드 + 하단 레이스 배정 패널 */
@@ -424,6 +529,27 @@
   background: var(--bcl-surface-raised);
   border-radius: var(--bcl-radius-lg);
 }
+/* flow 하단 스트립 내장 — 자체 배경/높이 없이 흐름에 맞춤 */
+.prTicker[data-compact='1'] {
+  height: 100%;
+  flex: 1 1 auto;
+  background: none;
+  border-radius: 0;
+  justify-content: flex-start;
+}
+.prTicker[data-compact='1'] .prName {
+  font-size: 36px;
+}
+.prTicker[data-compact='1'] .prLabel {
+  font-size: 32px;
+  color: var(--bcl-accent-ink);
+}
+.prTicker[data-compact='1'] .prIdle {
+  font-size: 30px;
+}
+.prTicker[data-compact='1'] .prBadge {
+  font-size: 28px;
+}
 .prItem {
   display: flex;
   align-items: center;
@@ -459,4 +585,270 @@
 .prIdle {
   font-size: 40px;
   color: var(--bcl-text-muted);
+}
+
+/* ── FLOW 모드 (수업 진행 — Class TV 2.0 플랜 목업 정합: 라운드 카드 4장 + 간격) ── */
+.flowRoot {
+  position: absolute;
+  inset: 0;
+}
+.flowStrip {
+  position: absolute;
+  top: var(--flow-pad-top);
+  left: var(--flow-pad);
+  right: var(--flow-pad);
+  height: var(--flow-strip-h);
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-7);
+  padding: 0 var(--bcl-space-7);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+}
+.flowSegNow {
+  /* 긴 세그먼트명이 진행 바·체크인 라벨을 밀어내지 않도록 축소 허용 + 내부 ellipsis */
+  flex: 0 1 auto;
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-3);
+  min-width: 0;
+  letter-spacing: 0.1em;
+}
+.flowSegCount {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--bcl-accent);
+  font-variant-numeric: tabular-nums;
+}
+.flowSegDot {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--bcl-text-muted);
+}
+.flowSegTitle {
+  font-size: 36px;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.flowSegNext {
+  align-self: center;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
+}
+.flowBarTrack {
+  flex: 1 1 auto;
+  max-width: 520px;
+  height: 16px;
+  min-width: 120px;
+  margin: 0 auto;
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  overflow: hidden;
+}
+.flowBarFill {
+  height: 100%;
+  width: 0%;
+  background: var(--bcl-accent);
+  border-radius: var(--bcl-radius-lg);
+}
+/* 타이머 없는 세그먼트(브리핑 등) — 저채도 정적 채움(빈 트랙 방지) */
+.flowBarFill[data-idle='1'] {
+  background: var(--bcl-border);
+}
+.flowCheckin {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bcl-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 타이머 없는 세그먼트의 우측 시계 카드 — timerSlot(flow)과 동일 지오메트리 */
+.flowClockCard {
+  position: absolute;
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: calc(50% + var(--flow-gap) / 2);
+  right: var(--flow-pad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+
+/* 좌측 WOD 카드 */
+.flowLeft {
+  position: absolute;
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: var(--flow-pad);
+  width: calc(50% - var(--flow-pad) - var(--flow-gap) / 2);
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+.flowWodPane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--bcl-space-6) var(--bcl-space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+/* 하단 상시 티커 카드 — LIVE 화이트보드(기록 세그먼트) 또는 PR·생일 축하 */
+.flowTicker {
+  position: absolute;
+  left: var(--flow-pad);
+  right: var(--flow-pad);
+  bottom: var(--flow-pad);
+  height: var(--flow-ticker-h);
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-5);
+  padding: 0 var(--bcl-space-7);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+.flowBirthday {
+  flex: 0 0 auto;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--bcl-accent-ink);
+  white-space: nowrap;
+}
+.flowBoardTag {
+  flex: 0 0 auto;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-accent);
+}
+.flowBoardEmpty {
+  font-size: 30px;
+  color: var(--bcl-text-muted);
+}
+.flowBoardList {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-7);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+}
+.flowBoardRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-2);
+  font-size: 30px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.flowBoardRank {
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.flowBoardName {
+  font-weight: 700;
+}
+.flowBoardRx {
+  font-size: 20px;
+  font-weight: 800;
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  color: var(--bcl-bg);
+  background: var(--bcl-success);
+  align-self: center;
+}
+.flowBoardRx[data-rx='rx_plus'] {
+  background: var(--bcl-accent);
+}
+.flowBoardRx[data-rx='scaled'] {
+  background: var(--bcl-text-muted);
+}
+.flowBoardScore {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* flow WOD 빈 상태 — 중앙 안내 + 보조 문구 */
+.flowWodEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-3);
+  text-align: center;
+}
+.flowWodEmptyTitle {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+}
+.flowWodEmptySub {
+  font-size: 26px;
+  color: var(--bcl-text-muted);
+  opacity: 0.7;
+}
+
+/* flow 카드 내 WOD 보드 축소 스케일 — 전체화면용 타이포를 반폭 카드에 맞춤 */
+.flowLeft .wodFormat {
+  font-size: 26px;
+  padding: 2px var(--bcl-space-3);
+}
+.flowLeft .wodTitle {
+  font-size: 60px;
+}
+.flowLeft .wodMeta {
+  font-size: 30px;
+}
+.flowLeft .wodDesc {
+  font-size: 28px;
+}
+.flowLeft .wodItemName {
+  font-size: 38px;
+}
+.flowLeft .wodItemDetail {
+  font-size: 30px;
+}
+.flowLeft .wodItemRx {
+  font-size: 26px;
+}
+.flowLeft .wodGroupTag {
+  font-size: 24px;
+}
+.flowLeft .wodNotes {
+  font-size: 26px;
 }

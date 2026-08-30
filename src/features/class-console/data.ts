@@ -66,6 +66,8 @@ export interface LiveBoard {
   server_time: string;
   current: LiveSessionCurrent | null;
   next: LiveSessionNext | null;
+  /** 오늘 생일 회원 이름(활성·옵트인만 — Display-Safe: 이름만, 생년 미노출) */
+  today_birthdays?: string[];
 }
 
 export interface ScreenPr {
@@ -91,9 +93,18 @@ export function fetchDisplayWod(facilityId: string): Promise<Envelope<DisplayWod
   });
 }
 
+/** 세션 스코프 WOD 조회 — flow 명령의 session_id 기준. 같은 날 복수 세션이 게시된 시설에서
+ *  시설+날짜 조회(최신 세션 우선)가 다른 세션 WOD를 집어오는 것을 방지(화이트보드와 세션 정합) */
+export function fetchSessionDisplayWod(sessionId: string): Promise<Envelope<DisplayWod | null>> {
+  return rpc<DisplayWod | null>(getSupabaseBrowserClient(), 'fn_get_class_display_wod', {
+    p_session_id: sessionId,
+  });
+}
+
 export function fetchLiveBoard(facilityId: string): Promise<Envelope<LiveBoard>> {
   return rpc<LiveBoard>(getSupabaseBrowserClient(), 'fn_get_class_live_board', {
     p_facility_id: facilityId,
+    p_today: localDate(), // 생일 판정 기준 — 시설 로컬 날짜(서버 UTC CURRENT_DATE 시차 방지)
   });
 }
 

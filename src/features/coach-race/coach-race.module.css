@@ -226,3 +226,35 @@ button.eventRow {
     grid-column: 1 / -1;
   }
 }
+
+/* 수업 플로우 세그먼트 칩 — 스크린 제어 패널 */
+.flowChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-1);
+}
+.flowChip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--bcl-space-1);
+  font-size: calc(12px * var(--bcl-font-scale));
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-2);
+}
+.flowChip[data-state='active'] {
+  color: var(--bcl-text);
+  border-color: var(--bcl-accent);
+  background: var(--bcl-accent-soft);
+}
+.flowChip[data-state='done'] {
+  opacity: 0.5;
+}
+.flowChip em {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--bcl-text-muted);
+  font-size: calc(11px * var(--bcl-font-scale));
+}

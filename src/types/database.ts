@@ -3446,7 +3446,7 @@ export type Database = {
         Returns: Json
       }
       fn_get_class_live_board: {
-        Args: { p_facility_id: string }
+        Args: { p_facility_id: string; p_today?: string }
         Returns: Json
       }
       fn_get_class_race_result: { Args: { p_event_id: string }; Returns: Json }

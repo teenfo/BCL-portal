@@ -12,6 +12,8 @@ export type {
   ConsoleMode,
   TimerMode,
   TimerCommand,
+  FlowSegment,
+  FlowCommand,
   ConsoleCmd,
   ConsoleCommandPayload,
 } from './contract';

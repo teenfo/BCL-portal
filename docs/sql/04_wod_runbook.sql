@@ -148,6 +148,9 @@ CREATE TABLE IF NOT EXISTS public.session_wods (
     time_cap_override     INT,
     description_override  TEXT,
     movements_snapshot    JSONB NOT NULL DEFAULT '[]'::jsonb,   -- 발행 시점 동결 라인 배열
+    segments              JSONB NOT NULL DEFAULT '[]'::jsonb,   -- 수업 세그먼트 플랜 FlowSegment[]
+                                                                -- (계약 SSOT: class-broadcast/contract.ts,
+                                                                --  20260830050000 · 빈 배열=자동 제안 폴백)
     coach_notes           TEXT,
     class_display_notes   TEXT,
     edited_by             UUID REFERENCES auth.users(id) ON DELETE SET NULL,

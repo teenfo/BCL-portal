@@ -1,4 +1,5 @@
 // 회원 앱 공용 포맷터 (표시 전용 — 토큰/숫자 규약)
+import { formatRoundsReps } from '@/lib/score';
 
 export const krw = (n: number | null | undefined): string =>
   `${Math.round(n ?? 0).toLocaleString('ko-KR')}원`;
@@ -62,11 +63,9 @@ export function formatScore(
   switch (scoreType) {
     case 'time':
       return secToClock(value);
-    case 'rounds_reps': {
-      const rounds = Math.floor(value);
-      const reps = Math.round((value - rounds) * 100);
-      return reps ? `${rounds}R+${reps}` : `${rounds}R`;
-    }
+    case 'rounds_reps':
+      // 인코딩 해석은 src/lib/score.ts 계약 단일 소스(TV 화이트보드와 동일)
+      return formatRoundsReps(value);
     case 'reps':
       return `${value} reps`;
     case 'weight':

@@ -85,6 +85,16 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | Display-Safe | 해당 없음(개인 데이터 없음) |
 | 상태 | 타이머 ✅ / **원격제어 ⏳ → 본 설계로 정식화(§4)**. as-is는 TV 앞에서 직접 클릭해야 했음(운영 불가 지점) — 콘솔 통합의 1차 동기 |
 
+#### `flow` 모드 — 수업 진행 세그먼트 타임라인 ✅ (1차 스프린트 신설)
+| 항목 | 내용 |
+|---|---|
+| 목적 | 수업 50분을 TV가 이끈다 — 세그먼트 체인(브리핑→웜업→본운동→쿨다운)을 코치 리모컨 "다음" 한 버튼으로 진행 |
+| 기능 | 상단 세그먼트 스트립(진행 상태 칩+체크인 수) · 좌측 WOD 보드 · 우측 타이머(세그먼트 진입 시 바인딩 타이머 자동 configure+start, `preSeconds` READY 카운트다운) · 기록 세그먼트(`showBoard`)에서 좌측 하단 **라이브 화이트보드 스트립**(top 6, 20s 폴링) |
+| 데이터 | 세그먼트 플랜 = **Broadcast `flow` 명령 수신만**(코치가 매 전환마다 전체 플랜+인덱스 재전송 — 멱등, TV 무상태). 플랜 영속 = `session_wods.segments` JSONB(코치 WodPanel 작성, 미설정 시 포맷 기반 자동 제안 `deriveFlowSegments`). 화이트보드 = 기존 `fn_get_class_wod_board`(anon) 재사용 — **신규 공개 표면 없음** |
+| 갱신 주기 | WOD/체크인 60s 폴링 + 화이트보드 20s(showBoard 세그먼트만) + flow 명령 즉시 |
+| Display-Safe | 화이트보드는 이름+점수+rx 배지만(기존 RPC 보장). 세그먼트 플랜은 타이머 구성만 |
+| 제약 | TV 새로고침 시 flow 상태는 다음 코치 명령까지 유실(Broadcast 무상태) — 코치 패널 "다음/이전"이 전체 재전송이므로 즉시 복구 |
+
 #### `screen` 모드 — 현장 공개 보드 (as-is `/class/screen` ✅ P24 승계)
 | 항목 | 내용 |
 |---|---|
@@ -109,18 +119,25 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 ### 4.1 채널·메시지 계약
 - **채널**: `class-console:{facility_id}` — 시설 내 모든 콘솔이 구독. 특정 TV만 제어할 때는 메시지에 `target_console_id` 지정(생략=전체)
 - **송신 주체**: 코치 앱(`/coach/schedule` 세션 보드 내 "스크린 제어" 시트 🔄) 및 Admin. 송신은 **인증 클라이언트만**(coach/admin role 검증 후 UI 노출) — 수신(TV)은 anon 구독
-- **메시지 스키마**:
+- **메시지 스키마** (정본 = `src/features/class-broadcast/contract.ts`):
 ```jsonc
 { "event": "console_cmd",
   "payload": {
-    "cmd": "set_mode" | "timer" | "refresh" | "identify",
-    "target_console_id": null,          // null = 시설 전체
-    "mode": "wod|live|timer|screen",    // cmd=set_mode
-    "timer": {                          // cmd=timer
+    "cmd": "set_mode" | "timer" | "flow" | "refresh" | "identify" | "open_race",
+    "target_console_id": null,               // null = 시설 전체
+    "mode": "wod|live|timer|screen|split|flow", // cmd=set_mode
+    "timer": {                               // cmd=timer (v2)
       "action": "configure|start|pause|reset",
-      "mode": "countdown|countup|emom|tabata",
-      "seconds": 600, "intervalSeconds": 60, "totalRounds": 10,
-      "workSeconds": 20, "restSeconds": 10
+      "mode": "countdown|countup|emom|tabata|interval",
+      "seconds": 600, "capSeconds": 720,     // countup 자동 종료 캡
+      "intervalSeconds": 60, "totalRounds": 10,
+      "workSeconds": 20, "restSeconds": 10, "totalSets": 8,
+      "preSeconds": 10                       // READY 3-2-1-GO 프리 카운트다운
+    },
+    "flow": {                                // cmd=flow — 수업 세그먼트 타임라인
+      "action": "start|set|stop",
+      "segments": [{ "name": "웜업", "timer": { /* TimerCommand */ }, "showBoard": false }],
+      "index": 0, "session_id": "..."        // 화이트보드 조회 대상
     },
     "ts": 1780000000000, "sender": "coach"
   } }
@@ -180,6 +197,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | `fn_get_class_live_board` 🔄 | RPC EXECUTE | 세션 메타+집계+체크인 이름만 | as-is의 `sessions`/`checkins` 테이블 직접 SELECT를 **회수**하고 RPC로 좁힘 |
 | `fn_get_class_screen_prs` 🔄 | RPC EXECUTE | 공개 동의 회원의 이름+달성 항목 | screen 모드 PR 티커 |
 | `fn_get_class_leaderboard` 🔄 | RPC EXECUTE | 이름+기록 랭킹. ⏳ `p_scope='daily_wod'` 확장: 이름+점수+rx_status 배지만 반환(`note`·플래그 미SELECT — G-1·G-2, 16 문서) | leaderboard(벤치마크·일일 WOD 화이트보드) |
+| `fn_get_class_wod_board` | RPC EXECUTE | 세션 일일 WOD 화이트보드 — 이름+점수+rx 배지+기록시각만(`note`·member_id 미SELECT) | 전체화면 화이트보드 + flow 라이브 스트립(§3.2) 공용 |
 | `session_rotation_states` | 테이블 SELECT | 전행(서킷 상태 — 민감정보 없음) | 현행 의도적 공개 승계 ✅ |
 | `race_events`·`race_teams`·`race_live_state`·`race_records` | 테이블 SELECT | 🔄 anon SELECT 허용(이름·기록 수준) — Race TV 화면 미인증 구동 | as-is는 authenticated 한정이라 TV에 로그인 필요했음(운영 결함) → 공개로 전환. 쓰기는 종전대로 coach/admin/SRK |
 | Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}` | 수신만 | Broadcast는 DB 비경유 |
