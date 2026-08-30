@@ -16,8 +16,9 @@ export const TimerMode = forwardRef<TimerModeHandle>(function TimerMode(_props, 
   const rootRef = useRef<HTMLDivElement>(null);
   const timeRef = useRef<HTMLDivElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
+  const typeRef = useRef<HTMLDivElement>(null);
 
-  const timer = useConsoleTimer({ time: timeRef, label: labelRef, phaseRoot: rootRef });
+  const timer = useConsoleTimer({ time: timeRef, label: labelRef, type: typeRef, phaseRoot: rootRef });
 
   useImperativeHandle(ref, () => ({ apply: timer.apply }), [timer]);
 
@@ -26,9 +27,10 @@ export const TimerMode = forwardRef<TimerModeHandle>(function TimerMode(_props, 
     if (timeRef.current && !timeRef.current.textContent) timeRef.current.textContent = '00:00';
   }, []);
 
-  // 표기 순서: 숫자 → 라벨(하단) — Class TV 2.0 목업 정합
+  // 표기 순서: 타입 배지 → 숫자 → 라벨(하단) — Class TV 2.0 목업 정합
   return (
     <div ref={rootRef} className={styles.timerRoot} data-phase="">
+      <div ref={typeRef} className={styles.timerType} />
       <div ref={timeRef} className={styles.timerTime} />
       <div ref={labelRef} className={styles.timerLabel} />
     </div>

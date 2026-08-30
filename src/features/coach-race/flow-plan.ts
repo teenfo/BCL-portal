@@ -21,21 +21,21 @@ export function wodTimerConfig(wod: WodTimerMeta): { cmd: TimerCommand; label: s
     case 'emom': {
       const rounds = wod.rounds ?? cap ?? 10;
       return {
-        cmd: { action: 'configure', mode: 'emom', intervalSeconds: 60, totalRounds: rounds },
+        cmd: { action: 'configure', mode: 'emom', intervalSeconds: 60, totalRounds: rounds, typeLabel: 'EMOM' },
         label: `EMOM ${rounds}R`,
       };
     }
     case 'tabata': {
       const sets = wod.rounds ?? 8;
       return {
-        cmd: { action: 'configure', mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: sets },
+        cmd: { action: 'configure', mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: sets, typeLabel: 'TABATA' },
         label: `TABATA 20/10 ×${sets}`,
       };
     }
     case 'amrap': {
       const min = cap ?? 20;
       return {
-        cmd: { action: 'configure', mode: 'countdown', seconds: min * 60 },
+        cmd: { action: 'configure', mode: 'countdown', seconds: min * 60, typeLabel: 'AMRAP' },
         label: `AMRAP ${min}분`,
       };
     }
@@ -43,7 +43,12 @@ export function wodTimerConfig(wod: WodTimerMeta): { cmd: TimerCommand; label: s
       // for_time·chipper·strength·custom — 타임캡 있으면 카운트업+캡 자동 종료, 없으면 카운트업
       return cap
         ? {
-            cmd: { action: 'configure', mode: 'countup', capSeconds: cap * 60 },
+            cmd: {
+              action: 'configure',
+              mode: 'countup',
+              capSeconds: cap * 60,
+              typeLabel: (wod.format ?? 'for_time').replace('_', ' ').toUpperCase(),
+            },
             label: `${(wod.format ?? 'WOD').toUpperCase()} CAP ${cap}분`,
           }
         : { cmd: { action: 'configure', mode: 'countup' }, label: '카운트업' };
@@ -62,7 +67,13 @@ export function deriveFlowSegments(wod: WodTimerMeta | null): FlowSegment[] {
     { name: '브리핑', timer: null },
     {
       name: '웜업',
-      timer: { action: 'configure', mode: 'countdown', seconds: 8 * 60, preSeconds: FLOW_PRE_SECONDS },
+      timer: {
+        action: 'configure',
+        mode: 'countdown',
+        seconds: 8 * 60,
+        preSeconds: FLOW_PRE_SECONDS,
+        typeLabel: '웜업',
+      },
     },
     {
       name: wod?.title?.trim() || '본운동',
@@ -71,7 +82,7 @@ export function deriveFlowSegments(wod: WodTimerMeta | null): FlowSegment[] {
     },
     {
       name: '쿨다운',
-      timer: { action: 'configure', mode: 'countdown', seconds: 5 * 60 },
+      timer: { action: 'configure', mode: 'countdown', seconds: 5 * 60, typeLabel: '쿨다운' },
     },
   ];
 }

@@ -22,6 +22,8 @@ export interface TimerEngineConfig {
   totalSets: number;
   /** 시작 전 준비 카운트다운 초(0=즉시) */
   preSeconds: number;
+  /** 표시용 타이머 타입명('' = mode에서 유도) */
+  typeLabel: string;
 }
 
 export const DEFAULT_ENGINE_CFG: TimerEngineConfig = {
@@ -34,6 +36,7 @@ export const DEFAULT_ENGINE_CFG: TimerEngineConfig = {
   restSeconds: 10,
   totalSets: 8,
   preSeconds: 0,
+  typeLabel: '',
 };
 
 /**
@@ -51,7 +54,25 @@ export function configFromCommand(cmd: TimerCommand, prevMode: TimerMode): Timer
     restSeconds: cmd.restSeconds ?? DEFAULT_ENGINE_CFG.restSeconds,
     totalSets: cmd.totalSets ?? DEFAULT_ENGINE_CFG.totalSets,
     preSeconds: cmd.preSeconds ?? DEFAULT_ENGINE_CFG.preSeconds,
+    typeLabel: cmd.typeLabel ?? DEFAULT_ENGINE_CFG.typeLabel,
   };
+}
+
+/** 표시용 타이머 타입명 — 코치 지정(typeLabel) 우선, 없으면 mode 관례명 */
+export function timerTypeLabel(cfg: TimerEngineConfig): string {
+  if (cfg.typeLabel) return cfg.typeLabel;
+  switch (cfg.mode) {
+    case 'countdown':
+      return 'COUNTDOWN';
+    case 'countup':
+      return cfg.capSeconds > 0 ? 'FOR TIME' : 'COUNT-UP';
+    case 'emom':
+      return 'EMOM';
+    case 'tabata':
+      return 'TABATA';
+    case 'interval':
+      return 'INTERVAL';
+  }
 }
 
 /** 전체 구동 길이(초, pre 포함). 무제한(캡 없는 countup)은 null — 자동 종료 없음 */

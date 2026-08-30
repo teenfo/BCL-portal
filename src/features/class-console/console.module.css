@@ -315,6 +315,39 @@
   opacity: 0.78;
   letter-spacing: 0.1em;
 }
+.timerType {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--bcl-text-muted);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-5);
+  min-height: 1.2em;
+}
+.timerType:empty {
+  display: none;
+}
+.timerRoot[data-phase='work'] .timerType {
+  color: var(--bcl-success);
+  border-color: var(--bcl-success);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='rest'] .timerType {
+  color: var(--bcl-danger);
+  border-color: var(--bcl-danger);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='pre'] .timerType {
+  color: var(--bcl-warning);
+  border-color: var(--bcl-warning);
+  opacity: 0.9;
+}
+.timerRoot[data-phase='emom'] .timerType {
+  color: var(--bcl-accent);
+  border-color: var(--bcl-accent);
+  opacity: 0.9;
+}
 .timerLabel {
   font-size: 72px;
   font-weight: 800;
@@ -360,6 +393,9 @@
 .timerSlot[data-slot='split'] .timerLabel {
   font-size: 52px;
 }
+.timerSlot[data-slot='split'] .timerType {
+  font-size: 26px;
+}
 /* 타이머 카드 보더 — 페이즈 컬러 추종(목업의 초록 보더). :has 미지원 시 기본 보더 */
 .timerSlot[data-slot='flow']:has(.timerRoot[data-phase='work']) {
   border-color: var(--bcl-success);
@@ -391,6 +427,9 @@
 }
 .timerSlot[data-slot='flow'] .timerLabel {
   font-size: 40px;
+}
+.timerSlot[data-slot='flow'] .timerType {
+  font-size: 24px;
 }
 
 /* 좌측 페인 — WOD 보드 + 하단 레이스 배정 패널 */

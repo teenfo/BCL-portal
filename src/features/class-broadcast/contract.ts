@@ -59,6 +59,8 @@ export interface TimerCommand {
   totalSets?: number;
   /** 시작 전 준비 카운트다운 초(미지정/0 = 즉시 본 타이머) — "READY 3-2-1-GO" */
   preSeconds?: number;
+  /** 표시용 타이머 타입명(예: AMRAP·FOR TIME) — 미지정 시 TV가 mode에서 유도(EMOM 등) */
+  typeLabel?: string;
 }
 
 // ── 수업 플로우(세그먼트 타임라인) — docs/05 §3.2 flow 모드 ──────────────────

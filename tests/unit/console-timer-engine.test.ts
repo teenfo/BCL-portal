@@ -5,6 +5,7 @@ import {
   DEFAULT_ENGINE_CFG,
   computeTimerFrame,
   configFromCommand,
+  timerTypeLabel,
   totalDuration,
   type TimerEngineConfig,
 } from '@/features/class-console/timer-engine';
@@ -105,6 +106,27 @@ describe('totalDuration — 자동 종료 종점(pre 포함)', () => {
   });
   it('tabata (20+10)×8 = 240', () => {
     expect(totalDuration(cfg({ mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: 8 }))).toBe(240);
+  });
+});
+
+describe('timerTypeLabel — 타입 배지(코치 지정 우선, mode 폴백)', () => {
+  it('typeLabel 지정 시 그대로(AMRAP은 countdown 모드지만 배지는 AMRAP)', () => {
+    expect(timerTypeLabel(cfg({ mode: 'countdown', typeLabel: 'AMRAP' }))).toBe('AMRAP');
+  });
+  it('mode 폴백 — countdown/emom/tabata/interval 관례명', () => {
+    expect(timerTypeLabel(cfg({ mode: 'countdown' }))).toBe('COUNTDOWN');
+    expect(timerTypeLabel(cfg({ mode: 'emom' }))).toBe('EMOM');
+    expect(timerTypeLabel(cfg({ mode: 'tabata' }))).toBe('TABATA');
+    expect(timerTypeLabel(cfg({ mode: 'interval' }))).toBe('INTERVAL');
+  });
+  it('countup은 캡 유무로 분기 — 캡 있음 FOR TIME, 없음 COUNT-UP', () => {
+    expect(timerTypeLabel(cfg({ mode: 'countup', capSeconds: 720 }))).toBe('FOR TIME');
+    expect(timerTypeLabel(cfg({ mode: 'countup', capSeconds: 0 }))).toBe('COUNT-UP');
+  });
+  it('configure에 typeLabel 미지정 → 리셋(직전 배지 비승계 — 멱등 규약)', () => {
+    const c = configFromCommand({ action: 'configure', mode: 'tabata' }, 'countdown');
+    expect(c.typeLabel).toBe('');
+    expect(timerTypeLabel(c)).toBe('TABATA');
   });
 });
 
