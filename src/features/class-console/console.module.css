@@ -326,8 +326,9 @@
   font-size: 34px;
   font-weight: 800;
   letter-spacing: 0.14em;
-  color: var(--bcl-text-muted);
-  border: 2px solid var(--bcl-border);
+  /* 페이즈 없을 때도 타이머 면(초록 틴트)과 같은 계열로 — 기획서 보조 라벨 톤 */
+  color: var(--bcl-tv-timer-label);
+  border: 2px solid var(--bcl-tv-timer-border);
   border-radius: var(--bcl-radius-md);
   padding: 2px var(--bcl-space-5);
   min-height: 1.2em;
