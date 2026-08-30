@@ -19,7 +19,7 @@ import {
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { deriveFlowSegments, describeSegmentTimer, wodTimerConfig } from './flow-plan';
+import { deriveFlowSegments, describeSegmentTimer, wodTimerConfig, type WodTimerMeta } from './flow-plan';
 import styles from './coach-race.module.css';
 
 const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
@@ -30,13 +30,22 @@ const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
   { value: 'split', label: '수업(2분할)' },
 ];
 
-interface PublishedWodMeta {
-  title: string | null;
-  format: string | null;
-  time_cap_minutes: number | null;
-  rounds: number | null;
+/** fn_get_session_wod 반환(session_wods 행 + template 중첩) 중 패널이 쓰는 필드.
+ *  코치 인증 RPC라 draft 플랜도 조회됨 — Draft만 저장한 세그먼트 플랜이 조용히
+ *  자동 제안으로 폴백되던 결함 방지(적대적 리뷰 확정). 행 없음 = publish_state 'none'. */
+interface SessionWodRow {
+  publish_state?: 'none' | 'draft' | 'published' | 'archived';
+  title_override?: string | null;
+  format_override?: string | null;
+  time_cap_override?: number | null;
   /** 코치 저장 세그먼트 플랜(session_wods.segments) — 빈 배열=미설정(자동 제안 폴백) */
-  segments: FlowSegment[] | null;
+  segments?: FlowSegment[] | null;
+  template?: {
+    title?: string | null;
+    format_type?: string | null;
+    time_cap_minutes?: number | null;
+    rounds?: number | null;
+  } | null;
 }
 
 /** sessionStorage에 영속된 플로우 진행 인덱스 읽기(storage 불가 환경은 null) */
@@ -135,22 +144,36 @@ export function ScreenControlPanel({
     notify('레이스 관전 화면을 열었습니다.');
   };
 
-  // 게시된 WOD 메타(포맷·타임캡·세그먼트 플랜) — 세션 컨텍스트에서만 조회
-  const wodQ = useQuery<PublishedWodMeta | null>(
+  // 세션 WOD(draft 포함 — 코치 인증 fn_get_session_wod). 세션 컨텍스트에서만 조회
+  const wodQ = useQuery<SessionWodRow | null>(
     () =>
       sessionId
-        ? rpc<PublishedWodMeta | null>(getSupabaseBrowserClient(), 'fn_get_class_display_wod', {
+        ? rpc<SessionWodRow | null>(getSupabaseBrowserClient(), 'fn_get_session_wod', {
             p_session_id: sessionId,
           })
         : Promise.resolve({ success: true, data: null, error: null }),
     [sessionId],
   );
-  const wod = wodQ.data ?? null;
+  const wodRow = wodQ.data ?? null;
+  const wodState = wodRow?.publish_state ?? 'none';
+  // archived(폐기)는 none과 동일 취급 — 종전 published-only 조회의 제외 의미론 유지
+  const wod: WodTimerMeta | null =
+    wodRow && (wodState === 'draft' || wodState === 'published')
+      ? {
+          title: wodRow.title_override ?? wodRow.template?.title ?? null,
+          format: wodRow.format_override ?? wodRow.template?.format_type ?? null,
+          time_cap_minutes: wodRow.time_cap_override ?? wodRow.template?.time_cap_minutes ?? null,
+          rounds: wodRow.template?.rounds ?? null,
+        }
+      : null;
   const wodTimer = wod ? wodTimerConfig(wod) : null;
 
-  // 플로우 플랜 — 저장분 우선, 없으면 자동 제안. 세션 없으면 플로우 비노출
+  // 플로우 플랜 — 저장분(draft 포함, archived 제외) 우선, 없으면 자동 제안. 세션 없으면 플로우 비노출
+  const savedSegments = wod ? wodRow?.segments : null;
   const segments: FlowSegment[] =
-    wod?.segments && wod.segments.length > 0 ? wod.segments : deriveFlowSegments(wod);
+    Array.isArray(savedSegments) && savedSegments.length > 0
+      ? savedSegments
+      : deriveFlowSegments(wod);
   const flowAvailable = Boolean(sessionId);
 
   const sendFlow = async (index: number, action: 'start' | 'set' = 'set', sort = boardSort) => {
@@ -235,6 +258,11 @@ export function ScreenControlPanel({
           {flowAvailable ? (
             <div className={styles.timerControl}>
               <p className={styles.muted}>수업 플로우</p>
+              {wodState === 'draft' ? (
+                <p className={styles.muted}>
+                  Draft 플랜 사용 중 — TV의 WOD 카드는 게시(Publish) 후 표시됩니다.
+                </p>
+              ) : null}
               <div className={styles.flowChips}>
                 {segments.map((s, i) => (
                   <span
