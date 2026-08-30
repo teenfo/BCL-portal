@@ -7,7 +7,7 @@
 // (기록 세그먼트 showBoard → 라이브 화이트보드, 그 외 → PR 축하 티커 공용 컴포넌트).
 // 진행 바는 세그먼트 진입 시각 기준 rAF 근사(타이머 일시정지는 미반영 — 연출용 표시).
 import { useEffect, useRef, useState } from 'react';
-import { usePolling } from '@/features/class-common';
+import { TvClock, usePolling } from '@/features/class-common';
 import type { FlowSegment } from '@/features/class-broadcast';
 import {
   RX_BADGE_LABEL,
@@ -69,10 +69,15 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
       const el = barRef.current;
       if (el) {
         const dur = durationRef.current;
-        const pct = dur
-          ? Math.min(100, ((performance.now() - enteredAtRef.current) / 1000 / dur) * 100)
-          : 0;
-        el.style.width = `${pct}%`;
+        if (dur) {
+          const pct = Math.min(100, ((performance.now() - enteredAtRef.current) / 1000 / dur) * 100);
+          el.style.width = `${pct}%`;
+          delete el.dataset.idle;
+        } else {
+          // 타이머 없는 세그먼트(브리핑 등) — 저채도 정적 채움
+          el.style.width = '100%';
+          el.dataset.idle = '1';
+        }
       }
       raf = requestAnimationFrame(loop);
     };
@@ -119,6 +124,13 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
         {checkinLabel ? <span className={styles.flowCheckin}>{checkinLabel}</span> : null}
       </header>
 
+      {/* 타이머 없는 세그먼트(브리핑 등) — 우측 카드는 대형 현재 시각(잔여 타이머 잔상 방지) */}
+      {!seg?.timer ? (
+        <div className={styles.flowClockCard}>
+          <TvClock large showSeconds={false} />
+        </div>
+      ) : null}
+
       <div className={styles.flowLeft}>
         {wod.initialLoading ? (
           <div className={styles.flowWodPane} />
@@ -126,7 +138,10 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
           <WodBoard data={wod.data} className={styles.flowWodPane} />
         ) : (
           <div className={styles.flowWodPane}>
-            <div className={styles.wodEmptyTitle}>오늘 등록된 WOD가 없습니다</div>
+            <div className={styles.flowWodEmpty}>
+              <div className={styles.flowWodEmptyTitle}>오늘 등록된 WOD가 없습니다</div>
+              <div className={styles.flowWodEmptySub}>코치 앱에서 WOD를 게시하면 이 자리에 표시됩니다</div>
+            </div>
           </div>
         )}
       </div>

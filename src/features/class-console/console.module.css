@@ -11,6 +11,7 @@
   /* flow 모드 카드 레이아웃 지오메트리 — flowStrip/flowTicker/flowLeft/timerSlot[flow]가 공유
      (timerSlot은 flowRoot의 형제라 공통 조상에 선언) */
   --flow-pad: 28px;
+  --flow-pad-top: 60px; /* StatusStrip(연결 배지) 클리어런스 — 카드와 겹침 방지 */
   --flow-gap: 18px;
   --flow-strip-h: 92px;
   --flow-ticker-h: 88px;
@@ -295,7 +296,7 @@
 .timerRoot[data-phase='pre'] {
   background: var(--bcl-warning-soft);
 }
-/* 페이즈 컬러 숫자·라벨 — 목업 정합(초록=WORK/적=REST/앰버=READY) */
+/* 페이즈 컬러 숫자·라벨 — 목업 정합(초록=WORK/적=REST/앰버=READY). 라벨은 한 톤 낮게 */
 .timerRoot[data-phase='work'] .timerTime,
 .timerRoot[data-phase='work'] .timerLabel {
   color: var(--bcl-success);
@@ -307,6 +308,12 @@
 .timerRoot[data-phase='pre'] .timerTime,
 .timerRoot[data-phase='pre'] .timerLabel {
   color: var(--bcl-warning);
+}
+.timerRoot[data-phase='work'] .timerLabel,
+.timerRoot[data-phase='rest'] .timerLabel,
+.timerRoot[data-phase='pre'] .timerLabel {
+  opacity: 0.78;
+  letter-spacing: 0.1em;
 }
 .timerLabel {
   font-size: 72px;
@@ -353,9 +360,23 @@
 .timerSlot[data-slot='split'] .timerLabel {
   font-size: 52px;
 }
+/* 타이머 카드 보더 — 페이즈 컬러 추종(목업의 초록 보더). :has 미지원 시 기본 보더 */
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='work']) {
+  border-color: var(--bcl-success);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='rest']) {
+  border-color: var(--bcl-danger);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='pre']) {
+  border-color: var(--bcl-warning);
+}
+.timerSlot[data-slot='flow']:has(.timerRoot[data-phase='emom']) {
+  border-color: var(--bcl-accent);
+}
+
 /* flow 우측 타이머 카드 — 스트립·티커 사이 우측 반쪽(카드 지오메트리, 목업 정합) */
 .timerSlot[data-slot='flow'] {
-  top: calc(var(--flow-pad) + var(--flow-strip-h) + var(--flow-gap));
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
   bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
   left: calc(50% + var(--flow-gap) / 2);
   right: var(--flow-pad);
@@ -478,6 +499,7 @@
 }
 .prTicker[data-compact='1'] .prLabel {
   font-size: 32px;
+  color: var(--bcl-accent-ink);
 }
 .prTicker[data-compact='1'] .prIdle {
   font-size: 30px;
@@ -529,7 +551,7 @@
 }
 .flowStrip {
   position: absolute;
-  top: var(--flow-pad);
+  top: var(--flow-pad-top);
   left: var(--flow-pad);
   right: var(--flow-pad);
   height: var(--flow-strip-h);
@@ -561,26 +583,32 @@
   color: var(--bcl-text-muted);
 }
 .flowSegTitle {
-  font-size: 30px;
+  font-size: 36px;
   font-weight: 800;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .flowSegNext {
-  font-size: 22px;
+  align-self: center;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.04em;
   color: var(--bcl-text-muted);
   white-space: nowrap;
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-3);
+  background: var(--bcl-surface-raised);
 }
 .flowBarTrack {
   flex: 1 1 auto;
   max-width: 520px;
-  height: 14px;
+  height: 16px;
   min-width: 120px;
   margin: 0 auto;
   border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
   overflow: hidden;
 }
 .flowBarFill {
@@ -588,6 +616,10 @@
   width: 0%;
   background: var(--bcl-accent);
   border-radius: var(--bcl-radius-lg);
+}
+/* 타이머 없는 세그먼트(브리핑 등) — 저채도 정적 채움(빈 트랙 방지) */
+.flowBarFill[data-idle='1'] {
+  background: var(--bcl-border);
 }
 .flowCheckin {
   flex: 0 0 auto;
@@ -599,10 +631,26 @@
   white-space: nowrap;
 }
 
+/* 타이머 없는 세그먼트의 우측 시계 카드 — timerSlot(flow)과 동일 지오메트리 */
+.flowClockCard {
+  position: absolute;
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: calc(50% + var(--flow-gap) / 2);
+  right: var(--flow-pad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+
 /* 좌측 WOD 카드 */
 .flowLeft {
   position: absolute;
-  top: calc(var(--flow-pad) + var(--flow-strip-h) + var(--flow-gap));
+  top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
   bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
   left: var(--flow-pad);
   width: calc(50% - var(--flow-pad) - var(--flow-gap) / 2);
@@ -702,6 +750,27 @@
 .flowBoardScore {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* flow WOD 빈 상태 — 중앙 안내 + 보조 문구 */
+.flowWodEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--bcl-space-3);
+  text-align: center;
+}
+.flowWodEmptyTitle {
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+}
+.flowWodEmptySub {
+  font-size: 26px;
+  color: var(--bcl-text-muted);
+  opacity: 0.7;
 }
 
 /* flow 카드 내 WOD 보드 축소 스케일 — 전체화면용 타이포를 반폭 카드에 맞춤 */

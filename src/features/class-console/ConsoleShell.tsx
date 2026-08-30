@@ -168,7 +168,13 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
         <div
           className={styles.timerSlot}
           data-slot={
-            mode === 'timer' ? 'full' : mode === 'split' ? 'split' : mode === 'flow' ? 'flow' : 'hidden'
+            mode === 'timer'
+              ? 'full'
+              : mode === 'split'
+                ? 'split'
+                : mode === 'flow' && flow?.segments[flow.index]?.timer
+                  ? 'flow'
+                  : 'hidden'
           }
           aria-hidden={!TIMER_VISIBLE_MODES.includes(mode)}
         >
