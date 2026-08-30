@@ -90,7 +90,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 |---|---|
 | 목적 | 수업 50분을 TV가 이끈다 — 세그먼트 체인(브리핑→웜업→본운동→쿨다운)을 코치 리모컨 "다음" 한 버튼으로 진행 |
 | 기능 | 상단 세그먼트 스트립(진행 상태 칩+체크인 명단) · 좌측 WOD 보드 · 우측 타이머(세그먼트 진입 시 바인딩 타이머 자동 configure+start, `preSeconds` READY 카운트다운) · 기록 세그먼트(`showBoard`)에서 하단 **라이브 화이트보드 스트립**(4행 8s 페이지 로테이션 + 축하 페이지 1장, 20s 폴링) |
-| 기능(2차) | ① **구간별 콘텐츠 바인딩** `movementIdx` — 그 구간에 쓸 동작만 크게 표시(미지정=전체) ② **동작 시범 카드** — 바인딩 첫 동작의 코칭 포인트·영상(`movement_library` 조인, 자료 없으면 생략, 카드가 좁으면 접힘) ③ **시차 출발(waterfall)** `heats` — 조별 출발 카운트다운/경과를 우측 타이머 아래 밴드에 표시(별도 엔진 없이 세그먼트 타이머 경과를 읽어 `pre + n×stagger`와 비교) ④ **협동 모드** `boardView:'coop'` — 개인 순위 대신 클래스 합산 목표 진행 바 |
+| 기능(2차) | ① **구간별 콘텐츠 바인딩** `movementIdx` — 그 구간에 쓸 동작만 크게 표시(미지정=전체) ② **동작 시범 카드** — 바인딩 첫 동작의 코칭 포인트·영상(`movement_library` 조인, 자료 없으면 생략, 카드가 좁으면 접힘) ③ **시차 출발(waterfall)** `heats` — 조별 출발 카운트다운/경과를 우측 타이머 아래 밴드에 표시(별도 엔진 없이 세그먼트 타이머 경과를 읽어 `pre + n×stagger`와 비교) ④ **협동 모드** `boardView:'coop'` — 개인 순위 대신 클래스 합산 목표 진행 바(합계·목표·달성률·1인 평균, 계획서 2-3) |
 | 데이터 | 세그먼트 플랜 = **Broadcast `flow` 명령 수신만**(코치가 매 전환마다 전체 플랜+인덱스 재전송 — 멱등, TV 무상태). 플랜 영속 = `session_wods.segments` JSONB(코치 WodPanel 작성, 미설정 시 포맷 기반 자동 제안 `deriveFlowSegments`). 화이트보드 = 기존 `fn_get_class_wod_board`(anon) 재사용. 협동 집계 = `fn_get_class_coop_board`(anon 신설), 목표는 `session_wods.coop_target/coop_unit/coop_label` |
 | 갱신 주기 | WOD/체크인 60s 폴링 + 화이트보드·협동 20s(해당 세그먼트만, `board_dirty` 신호 시 즉시) + flow 명령 즉시 |
 | Display-Safe | 화이트보드·협동 모두 이름+점수만(기존 RPC 보장). 시범 자료는 운동 사전(개인정보 없음). 세그먼트 플랜은 타이머·표시 구성만 |

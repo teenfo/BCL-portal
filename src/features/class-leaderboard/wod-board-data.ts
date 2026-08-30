@@ -98,6 +98,12 @@ export function formatCoopValue(value: number, unit: CoopUnit): string {
   return `${Math.round(value).toLocaleString('ko-KR')}${COOP_UNIT_LABEL[unit] === 'reps' ? ' ' : ''}${COOP_UNIT_LABEL[unit]}`;
 }
 
+/** 1인 평균 기여량 — 참여 인원이 0이면 null(0 나눗셈 방지). 계획서 2-3 '그룹 평균' */
+export function coopAverage(data: CoopBoardData): number | null {
+  if (!(data.contributors > 0)) return null;
+  return data.total / data.contributors;
+}
+
 /** 목표 대비 달성률(0~100, 목표 0/음수는 0 취급) */
 export function coopPercent(data: CoopBoardData): number {
   if (!(data.target > 0)) return 0;

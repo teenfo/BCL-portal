@@ -1,6 +1,7 @@
 // 라이브 화이트보드 데이터 계층 — 정렬 옵션·점수 표기 (Class TV 2.0 플랜 2-1)
 import { describe, expect, it } from 'vitest';
 import {
+  coopAverage,
   coopPercent,
   formatBoardScore,
   formatCoopValue,
@@ -91,5 +92,14 @@ describe('coopPercent — 목표 대비 달성률', () => {
   it('목표 0/음수는 0% — 0 나눗셈으로 NaN이 화면에 뜨지 않게', () => {
     expect(coopPercent(coop({ target: 0 }))).toBe(0);
     expect(coopPercent(coop({ target: -10 }))).toBe(0);
+  });
+});
+
+describe('coopAverage — 그룹 평균(계획서 2-3)', () => {
+  it('참여 인원으로 나눈 1인 평균', () => {
+    expect(coopAverage(coop({ total: 13400, contributors: 8 }))).toBe(1675);
+  });
+  it('참여 0명이면 null — 0 나눗셈으로 Infinity가 화면에 뜨지 않게', () => {
+    expect(coopAverage(coop({ contributors: 0 }))).toBeNull();
   });
 });

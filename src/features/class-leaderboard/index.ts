@@ -3,6 +3,7 @@ export { Leaderboard } from './Leaderboard';
 export { WodBoard } from './WodBoard';
 export {
   RX_BADGE_LABEL,
+  coopAverage,
   coopPercent,
   fetchCoopBoard,
   fetchWodBoard,

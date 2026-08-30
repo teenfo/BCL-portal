@@ -11,6 +11,7 @@ import { TvClock, usePolling } from '@/features/class-common';
 import { useBoardSignal, type FlowSegment } from '@/features/class-broadcast';
 import {
   RX_BADGE_LABEL,
+  coopAverage,
   coopPercent,
   fetchCoopBoard,
   fetchWodBoard,
@@ -314,6 +315,7 @@ function CoopBand({ data }: { data: CoopBoardData | null }) {
     );
   }
   const pct = coopPercent(data);
+  const avg = coopAverage(data);
   const top = data.leaders[0] ?? null;
   return (
     <>
@@ -328,10 +330,14 @@ function CoopBand({ data }: { data: CoopBoardData | null }) {
             <em className={styles.coopTarget}> / {formatCoopValue(data.target, data.unit)}</em>
           </span>
           <span className={styles.coopPct}>{Math.round(pct)}%</span>
+          {/* 평균은 계획서가 요구한 값이라 밴드가 좁아져도 남도록 앞쪽(주요 수치)에 둔다 */}
+          {avg != null ? (
+            <span className={styles.coopAvg}>평균 {formatCoopValue(avg, data.unit)}</span>
+          ) : null}
           <span className={styles.coopMeta}>
             {data.contributors}명 참여
+            {top ? ` · 선두 ${top.member_name}` : ''}
             {data.excluded > 0 ? ` · 단위 불일치 ${data.excluded}건 제외` : ''}
-            {top ? ` · 선두 ${top.member_name} ${formatCoopValue(top.value, data.unit)}` : ''}
           </span>
         </div>
         <div className={styles.coopTrack} aria-hidden="true">

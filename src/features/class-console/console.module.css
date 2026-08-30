@@ -1273,6 +1273,14 @@
 .coopFill[data-full='1'] {
   background: var(--bcl-success);
 }
+.coopAvg {
+  flex: 0 0 auto;
+  font-size: 26px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+}
 .coopMeta {
   margin-left: auto;
   flex: 0 1 auto;
