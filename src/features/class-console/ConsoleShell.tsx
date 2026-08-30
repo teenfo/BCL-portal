@@ -78,7 +78,12 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
           const segments = Array.isArray(f.segments) ? f.segments : [];
           if (segments.length === 0) break;
           const index = Math.min(Math.max(f.index ?? 0, 0), segments.length - 1);
-          setFlow({ segments, index, sessionId: f.session_id ?? null });
+          setFlow({
+            segments,
+            index,
+            sessionId: f.session_id ?? null,
+            boardSort: f.board_sort ?? 'rank',
+          });
           setRaceEventId(null);
           setMode('flow');
           // 세그먼트 진입 = 바인딩 타이머 자동 구성(+기본 자동 시작, preSeconds가 전환 여유)

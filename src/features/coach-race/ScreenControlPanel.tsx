@@ -12,6 +12,7 @@ import {
   createConsolePublisher,
   type ConsolePublisher,
   type ConsoleMode,
+  type FlowCommand,
   type FlowSegment,
   type TimerCommand,
 } from '@/features/class-broadcast';
@@ -61,6 +62,8 @@ export function ScreenControlPanel({
   const [flash, setFlash] = useState<string | null>(null);
   // 수업 플로우 진행 상태(코치 패널이 SSOT — TV는 수신 렌더만). null=미시작
   const [flowIndex, setFlowIndex] = useState<number | null>(null);
+  // 라이브 화이트보드 정렬(2-1 경쟁 강도 옵션 — 짐 문화에 맞게 선택)
+  const [boardSort, setBoardSort] = useState<NonNullable<FlowCommand['board_sort']>>('rank');
 
   useEffect(() => {
     if (!facilityId) return;
@@ -117,9 +120,9 @@ export function ScreenControlPanel({
     wod?.segments && wod.segments.length > 0 ? wod.segments : deriveFlowSegments(wod);
   const flowAvailable = Boolean(sessionId);
 
-  const sendFlow = async (index: number, action: 'start' | 'set' = 'set') => {
+  const sendFlow = async (index: number, action: 'start' | 'set' = 'set', sort = boardSort) => {
     if (!pubRef.current || !sessionId) return;
-    await pubRef.current.flow({ action, segments, index, session_id: sessionId });
+    await pubRef.current.flow({ action, segments, index, session_id: sessionId, board_sort: sort });
     setFlowIndex(index);
     setActive('flow');
   };
@@ -132,6 +135,10 @@ export function ScreenControlPanel({
     if (next === flowIndex) return;
     await sendFlow(next);
     notify(`세그먼트: ${segments[next]?.name ?? next + 1}`);
+  };
+  const changeBoardSort = async (sort: NonNullable<FlowCommand['board_sort']>) => {
+    setBoardSort(sort);
+    if (flowIndex != null) await sendFlow(flowIndex, 'set', sort); // 진행 중이면 즉시 재전송
   };
   const stopFlow = async () => {
     if (!pubRef.current) return;
@@ -200,6 +207,25 @@ export function ScreenControlPanel({
                     {i + 1}. {s.name}
                     <em>{describeSegmentTimer(s)}</em>
                   </span>
+                ))}
+              </div>
+              <div className={styles.controlActions}>
+                <span className={styles.muted}>화이트보드 정렬</span>
+                {(
+                  [
+                    { v: 'rank', label: '점수순' },
+                    { v: 'recent', label: '기록순' },
+                    { v: 'name', label: '이름순' },
+                  ] as const
+                ).map((o) => (
+                  <Button
+                    key={o.v}
+                    variant={boardSort === o.v ? 'soft' : 'ghost'}
+                    size="sm"
+                    onClick={() => changeBoardSort(o.v)}
+                  >
+                    {o.label}
+                  </Button>
                 ))}
               </div>
               <div className={styles.controlActions}>

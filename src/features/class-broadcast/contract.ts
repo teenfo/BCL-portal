@@ -85,6 +85,8 @@ export interface FlowCommand {
   index?: number;
   /** 화이트보드 조회 대상 세션(showBoard 세그먼트에서 fn_get_class_wod_board 호출용) */
   session_id?: string | null;
+  /** 라이브 화이트보드 정렬(2-1 경쟁 강도 옵션): rank=점수순(기본) · recent=기록순 · name=이름순 */
+  board_sort?: 'rank' | 'recent' | 'name';
 }
 
 export type ConsoleCmd = 'set_mode' | 'timer' | 'flow' | 'refresh' | 'identify' | 'open_race';

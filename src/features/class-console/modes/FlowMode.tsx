@@ -6,13 +6,15 @@
 // 좌측 = 오늘의 WOD 보드, 우측 = 타이머(ConsoleShell timerSlot), 하단 = 상시 티커
 // (기록 세그먼트 showBoard → 라이브 화이트보드, 그 외 → PR 축하 티커 공용 컴포넌트).
 // 진행 바는 세그먼트 진입 시각 기준 rAF 근사(타이머 일시정지는 미반영 — 연출용 표시).
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePolling } from '@/features/class-common';
 import type { FlowSegment } from '@/features/class-broadcast';
 import {
   RX_BADGE_LABEL,
   fetchWodBoard,
   formatBoardScore,
+  sortBoardRows,
+  type BoardSort,
   type WodBoardData,
 } from '@/features/class-leaderboard';
 import { fetchDisplayWod, fetchLiveBoard } from '../data';
@@ -25,6 +27,8 @@ export interface FlowViewState {
   segments: FlowSegment[];
   index: number;
   sessionId: string | null;
+  /** 라이브 화이트보드 정렬(코치 선택 — 2-1) */
+  boardSort: BoardSort;
 }
 
 /** 세그먼트 타이머의 전체 길이(초) — 진행 바 분모. 타이머 없음/무제한이면 null */
@@ -86,7 +90,17 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
         ? `체크인 ${checkinCount} · ${names[0]}${names.length > 1 ? ' 외' : ''}`
         : `체크인 ${checkinCount}`;
 
-  const rows = boardOn ? (board.data?.results ?? []).slice(0, 4) : [];
+  // 정렬(코치 선택) + 넘침 자동 로테이션(8s 페이지 — auto-scroll 등가, 2-1)
+  const PAGE = 4;
+  const allRows = boardOn ? sortBoardRows(board.data?.results ?? [], flow.boardSort) : [];
+  const pages = Math.max(1, Math.ceil(allRows.length / PAGE));
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    if (pages <= 1) return;
+    const id = setInterval(() => setPage((v) => (v + 1) % pages), 8000);
+    return () => clearInterval(id);
+  }, [pages]);
+  const rows = allRows.slice((page % pages) * PAGE, (page % pages) * PAGE + PAGE);
 
   return (
     <div className={styles.flowRoot}>
@@ -121,7 +135,9 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
       <div className={styles.flowTicker}>
         {boardOn ? (
           <>
-            <span className={styles.flowBoardTag}>LIVE</span>
+            <span className={styles.flowBoardTag}>
+              LIVE{pages > 1 ? ` ${(page % pages) + 1}/${pages}` : ''}
+            </span>
             {rows.length === 0 ? (
               <span className={styles.flowBoardEmpty}>첫 기록을 기다리는 중</span>
             ) : (

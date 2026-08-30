@@ -13,6 +13,21 @@ export interface WodBoardResult {
   score: number;
   score_type: ScoreType;
   rx_status: RxStatus;
+  /** 기록 시각 — 기록순 정렬 옵션용(2-1) */
+  created_at?: string;
+}
+
+/** 리더보드 정렬 옵션(2-1, SugarWOD 패턴) — rank=점수순(서버 계층 정렬) / recent=기록순 / name=이름순 */
+export type BoardSort = 'rank' | 'recent' | 'name';
+
+export function sortBoardRows(rows: WodBoardResult[], sort: BoardSort): WodBoardResult[] {
+  if (sort === 'recent') {
+    return [...rows].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
+  }
+  if (sort === 'name') {
+    return [...rows].sort((a, b) => a.member_name.localeCompare(b.member_name, 'ko'));
+  }
+  return rows; // rank — 서버 계층 정렬(Rx+→Rx→Scaled + score_type 방향) 그대로
 }
 
 export interface WodBoardData {
