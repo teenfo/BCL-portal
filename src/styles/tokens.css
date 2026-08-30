@@ -22,61 +22,106 @@
   --bcl-font-scale: 1;
 }
 
-/* ---- 색 토큰: 다크 (Admin·Class·Kiosk 기본) ---- */
+/* ---- 색 토큰: 다크 (Admin·Class·Kiosk 기본) ----
+   팔레트 정본 = Class TV 2.0 기획서 색 체계(청색 슬레이트 3단 표면 + 3단 텍스트 계층).
+   종전 무채색 그레이(#161616 계열)에서 전면 교체 — 어두운 화면에서 깊이가 생기고
+   표면·경계·텍스트가 서로 구분된다. */
 :root,
 :root[data-theme='dark'] {
-  --bcl-bg: #161616;
-  --bcl-surface: #1f1f1f;
-  --bcl-surface-raised: #2a2a2a;
-  --bcl-border: #3a3a3a;
-  --bcl-text: #f5f5f5;
-  --bcl-text-muted: #9e9e9e;
+  --bcl-bg: #0e141c;
+  --bcl-surface: #151d28;
+  --bcl-surface-raised: #1b2634;
+  --bcl-border: #2a3644;
+  --bcl-border-soft: #222d3a;
+  --bcl-text: #e9edf3;
+  --bcl-text-muted: #97a3b4;
+  --bcl-text-faint: #6b7789;
 
   --bcl-accent: #ff6a00;
-  --bcl-accent-ink: #ff8a3d;
-  --bcl-accent-soft: rgba(255, 106, 0, 0.16);
+  --bcl-accent-ink: #ffb27a;
+  --bcl-accent-soft: rgba(255, 106, 0, 0.13);
   --bcl-accent-border: rgba(255, 106, 0, 0.4);
+  /* 강조 배지(오렌지 채움) 위에 얹는 글자색 */
+  --bcl-chip-ink: #0d1117;
+  --bcl-code-bg: #101823;
 
-  --bcl-success: #34c759;
-  --bcl-success-soft: rgba(52, 199, 89, 0.16);
-  --bcl-warning: #f5a623;
-  --bcl-warning-soft: rgba(245, 166, 35, 0.16);
-  --bcl-danger: #ff4d4f;
-  --bcl-danger-soft: rgba(255, 77, 79, 0.16);
+  --bcl-success: #37c871;
+  --bcl-success-soft: rgba(55, 200, 113, 0.16);
+  --bcl-warning: #ffab2e;
+  --bcl-warning-soft: rgba(255, 171, 46, 0.16);
+  --bcl-danger: #ff5a5f;
+  --bcl-danger-soft: rgba(255, 90, 95, 0.16);
   --bcl-info: #4da3ff;
   --bcl-info-soft: rgba(77, 163, 255, 0.16);
 
   --bcl-overlay: rgba(0, 0, 0, 0.6);
-  --bcl-focus-ring: rgba(255, 138, 61, 0.55);
+  --bcl-focus-ring: rgba(255, 178, 122, 0.55);
   --bcl-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
 }
 
-/* ---- 색 토큰: 라이트 (User·Coach 기본) ---- */
+/* ---- 색 토큰: 라이트 (User·Coach 기본) ----
+   기획서 라이트 팔레트 정합. accent는 밝은 배경 가독을 위해 브랜드 오렌지를 한 단계
+   낮춘 값을 쓴다(기획서 규정) — 브랜드 원색 #ff6a00은 다크·brand.ts에서 유지. */
 :root[data-theme='light'] {
-  --bcl-bg: #f7f7f5;
+  --bcl-bg: #f5f6f8;
   --bcl-surface: #ffffff;
   --bcl-surface-raised: #ffffff;
-  --bcl-border: #e4e4e0;
-  --bcl-text: #1c1c1c;
-  --bcl-text-muted: #6e6e6b;
+  --bcl-border: #d9dfe7;
+  --bcl-border-soft: #e5eaf0;
+  --bcl-text: #1b2432;
+  --bcl-text-muted: #5a6677;
+  --bcl-text-faint: #8894a5;
 
-  --bcl-accent: #ff6a00;
-  --bcl-accent-ink: #c24e00;
-  --bcl-accent-soft: rgba(255, 106, 0, 0.1);
-  --bcl-accent-border: rgba(255, 106, 0, 0.35);
+  --bcl-accent: #e85f00;
+  --bcl-accent-ink: #b64a00;
+  --bcl-accent-soft: rgba(232, 95, 0, 0.09);
+  --bcl-accent-border: rgba(232, 95, 0, 0.35);
+  --bcl-chip-ink: #ffffff;
+  --bcl-code-bg: #eef1f5;
 
-  --bcl-success: #1e9e4a;
-  --bcl-success-soft: rgba(30, 158, 74, 0.12);
-  --bcl-warning: #b97508;
-  --bcl-warning-soft: rgba(185, 117, 8, 0.12);
-  --bcl-danger: #d6383a;
-  --bcl-danger-soft: rgba(214, 56, 58, 0.12);
-  --bcl-info: #1d6fd6;
-  --bcl-info-soft: rgba(29, 111, 214, 0.12);
+  --bcl-success: #199b52;
+  --bcl-success-soft: rgba(25, 155, 82, 0.12);
+  --bcl-warning: #d98a00;
+  --bcl-warning-soft: rgba(217, 138, 0, 0.12);
+  --bcl-danger: #e03e44;
+  --bcl-danger-soft: rgba(224, 62, 68, 0.12);
+  --bcl-info: #1f7fe8;
+  --bcl-info-soft: rgba(31, 127, 232, 0.12);
 
-  --bcl-overlay: rgba(20, 20, 20, 0.45);
-  --bcl-focus-ring: rgba(194, 78, 0, 0.45);
-  --bcl-shadow-md: 0 4px 16px rgba(28, 28, 28, 0.1);
+  --bcl-overlay: rgba(20, 30, 45, 0.45);
+  --bcl-focus-ring: rgba(182, 74, 0, 0.45);
+  --bcl-shadow-md: 0 4px 16px rgba(20, 30, 45, 0.1);
+}
+
+/* ---- 심박/강도 존 5단 (기획서 색 체계 z1~z5) ----
+   Class TV 심박 디스플레이·강도 표기 공용. 다크/라이트 각각 정의. */
+:root,
+:root[data-theme='dark'] {
+  --bcl-zone-1: #8b95a5;
+  --bcl-zone-2: #4da3ff;
+  --bcl-zone-3: #37c871;
+  --bcl-zone-4: #ffab2e;
+  --bcl-zone-5: #ff5a5f;
+}
+:root[data-theme='light'] {
+  --bcl-zone-1: #7d8797;
+  --bcl-zone-2: #1f7fe8;
+  --bcl-zone-3: #199b52;
+  --bcl-zone-4: #d98a00;
+  --bcl-zone-5: #e03e44;
+}
+
+/* ---- Class TV 표면 (기획서 수업 진행 모드 목업 정합) ----
+   TV는 어두운 체육관에 걸린 대형 화면이라 일반 다크보다 한 단계 더 가라앉히고,
+   카드 경계를 또렷하게 띄운다. 타이머 카드는 페이즈 색이 없을 때도 초록 틴트를 유지. */
+:root {
+  --bcl-tv-bg: #0a0e14;
+  --bcl-tv-card: #121a25;
+  --bcl-tv-card-border: #2c3a4c;
+  --bcl-tv-timer-bg: #101d16;
+  --bcl-tv-timer-border: #2b4a38;
+  /* 타이머 숫자 아래 보조 라벨(라운드·페이즈) — 숫자보다 채도를 낮춘 초록 계열 */
+  --bcl-tv-timer-label: #8fa89a;
 }
 
 /* ---- 밀도 프로파일 (docs/12 §2.5) — 컴포넌트는 이 변수만 소비 ---- */

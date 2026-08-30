@@ -3,7 +3,11 @@
 .consoleRoot {
   position: fixed;
   inset: 0;
-  background: var(--bcl-bg);
+  /* Class TV 표면 — 기획서 목업 정합. 토큰 재바인딩이라 하위 카드가 일괄 적용된다
+     (컴포넌트는 계속 --bcl-surface/--bcl-border만 소비 — HEX 하드코딩 없음) */
+  --bcl-surface: var(--bcl-tv-card);
+  --bcl-border: var(--bcl-tv-card-border);
+  background: var(--bcl-tv-bg);
   color: var(--bcl-text);
   font-family: var(--bcl-font);
   font-variant-numeric: tabular-nums;
@@ -57,7 +61,7 @@
   font-size: 40px;
   font-weight: 800;
   letter-spacing: 0.08em;
-  color: var(--bcl-bg);
+  color: var(--bcl-chip-ink);
   background: var(--bcl-accent);
   padding: var(--bcl-space-1) var(--bcl-space-5);
   border-radius: var(--bcl-radius-md);
@@ -273,6 +277,8 @@
 }
 
 /* ── TIMER 모드 ── */
+/* 타이머 면 — 기획서 목업의 타이머 박스는 페이즈와 무관하게 초록 틴트를 기본으로 갖는다
+   (계측기처럼 보이게 하는 장치). 페이즈가 잡히면 아래 규칙이 덮어쓴다. */
 .timerRoot {
   position: absolute;
   inset: 0;
@@ -281,6 +287,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--bcl-space-6);
+  background: var(--bcl-tv-timer-bg);
   transition: background 300ms ease;
 }
 .timerRoot[data-phase='work'] {
@@ -352,7 +359,7 @@
   font-size: 72px;
   font-weight: 800;
   letter-spacing: 0.06em;
-  color: var(--bcl-accent-ink);
+  color: var(--bcl-tv-timer-label);
   min-height: 1.1em;
 }
 .timerTime {
@@ -360,6 +367,8 @@
   font-weight: 800;
   line-height: 0.9;
   letter-spacing: 0.01em;
+  /* 기획서 목업의 타이머 숫자 기본색 — 페이즈가 잡히면 위 규칙이 덮어쓴다 */
+  color: var(--bcl-success);
 }
 
 /* ── SPLIT 모드 (수업 2분할) ── */
@@ -422,7 +431,8 @@
   right: var(--flow-pad);
   opacity: 1;
   pointer-events: auto;
-  border: 2px solid var(--bcl-border);
+  background: var(--bcl-tv-timer-bg);
+  border: 2px solid var(--bcl-tv-timer-border);
   border-radius: var(--bcl-radius-lg);
   overflow: hidden;
 }
@@ -569,7 +579,7 @@
 .prBadge {
   font-size: 36px;
   font-weight: 800;
-  color: var(--bcl-bg);
+  color: var(--bcl-chip-ink);
   background: var(--bcl-accent);
   padding: var(--bcl-space-1) var(--bcl-space-4);
   border-radius: var(--bcl-radius-md);
@@ -735,6 +745,8 @@
   border: 2px solid var(--bcl-border);
   border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface);
+  /* 축하 티커는 따뜻한 앰버 톤 — 기획서 목업의 ticker 색 */
+  color: var(--bcl-accent-ink);
   overflow: hidden;
 }
 .flowBirthday {
@@ -787,7 +799,7 @@
   font-weight: 800;
   padding: 0 var(--bcl-space-2);
   border-radius: var(--bcl-radius-sm);
-  color: var(--bcl-bg);
+  color: var(--bcl-chip-ink);
   background: var(--bcl-success);
   align-self: center;
 }
