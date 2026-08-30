@@ -62,7 +62,7 @@ describe('computeTimerFrame — tabata/interval(work·rest 사이클)', () => {
   it('tabata 20/10 · 25초 경과 → REST 페이즈, SET 1', () => {
     const f = computeTimerFrame(cfg({ mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: 8 }), 25);
     expect(f.phase).toBe('rest');
-    expect(f.label).toBe('REST · SET 1/8');
+    expect(f.label).toBe('SET 1/8 · REST');
     expect(f.secRemainInPhase).toBe(5);
   });
   it('interval 40/20×6 · 60초 경과 → 2라운드 WORK 시작', () => {
@@ -71,7 +71,7 @@ describe('computeTimerFrame — tabata/interval(work·rest 사이클)', () => {
       60,
     );
     expect(f.phase).toBe('work');
-    expect(f.label).toBe('WORK · ROUND 2/6');
+    expect(f.label).toBe('ROUND 2/6 · WORK');
   });
   it('rest=0 인터벌은 항상 WORK(0 나눗셈·즉시 REST 진입 방지)', () => {
     const f = computeTimerFrame(

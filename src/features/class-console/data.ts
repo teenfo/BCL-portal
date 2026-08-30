@@ -66,6 +66,8 @@ export interface LiveBoard {
   server_time: string;
   current: LiveSessionCurrent | null;
   next: LiveSessionNext | null;
+  /** 오늘 생일 회원 이름(활성·옵트인만 — Display-Safe: 이름만, 생년 미노출) */
+  today_birthdays?: string[];
 }
 
 export interface ScreenPr {

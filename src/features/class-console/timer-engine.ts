@@ -159,7 +159,7 @@ export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): Time
   const remain = isWork ? work - inCycle : cycle - inCycle;
   return {
     display: fmtClock(remain),
-    label: `${isWork ? 'WORK' : 'REST'} · ${unitLabel} ${n}/${units}`,
+    label: `${unitLabel} ${n}/${units} · ${isWork ? 'WORK' : 'REST'}`,
     phase: isWork ? 'work' : 'rest',
     secRemainInPhase: Math.ceil(remain),
     done: t >= cycle * units,

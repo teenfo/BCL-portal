@@ -26,10 +26,11 @@ export const TimerMode = forwardRef<TimerModeHandle>(function TimerMode(_props, 
     if (timeRef.current && !timeRef.current.textContent) timeRef.current.textContent = '00:00';
   }, []);
 
+  // 표기 순서: 숫자 → 라벨(하단) — Class TV 2.0 목업 정합
   return (
     <div ref={rootRef} className={styles.timerRoot} data-phase="">
-      <div ref={labelRef} className={styles.timerLabel} />
       <div ref={timeRef} className={styles.timerTime} />
+      <div ref={labelRef} className={styles.timerLabel} />
     </div>
   );
 });

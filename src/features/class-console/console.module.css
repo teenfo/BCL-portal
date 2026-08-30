@@ -8,8 +8,11 @@
   font-family: var(--bcl-font);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
-  /* flow 모드 상·하단 스트립 높이 — flowStrip/flowTicker/flowLeft/timerSlot[flow]가 공유 */
-  --flow-strip-h: 96px;
+  /* flow 모드 카드 레이아웃 지오메트리 — flowStrip/flowTicker/flowLeft/timerSlot[flow]가 공유
+     (timerSlot은 flowRoot의 형제라 공통 조상에 선언) */
+  --flow-pad: 28px;
+  --flow-gap: 18px;
+  --flow-strip-h: 92px;
   --flow-ticker-h: 88px;
 }
 
@@ -292,6 +295,19 @@
 .timerRoot[data-phase='pre'] {
   background: var(--bcl-warning-soft);
 }
+/* 페이즈 컬러 숫자·라벨 — 목업 정합(초록=WORK/적=REST/앰버=READY) */
+.timerRoot[data-phase='work'] .timerTime,
+.timerRoot[data-phase='work'] .timerLabel {
+  color: var(--bcl-success);
+}
+.timerRoot[data-phase='rest'] .timerTime,
+.timerRoot[data-phase='rest'] .timerLabel {
+  color: var(--bcl-danger);
+}
+.timerRoot[data-phase='pre'] .timerTime,
+.timerRoot[data-phase='pre'] .timerLabel {
+  color: var(--bcl-warning);
+}
 .timerLabel {
   font-size: 72px;
   font-weight: 800;
@@ -337,20 +353,23 @@
 .timerSlot[data-slot='split'] .timerLabel {
   font-size: 52px;
 }
-/* flow 우측 페인 — 세그먼트 스트립 높이만큼 내려온 우측 반쪽 */
+/* flow 우측 타이머 카드 — 스트립·티커 사이 우측 반쪽(카드 지오메트리, 목업 정합) */
 .timerSlot[data-slot='flow'] {
-  top: var(--flow-strip-h, 96px);
-  bottom: var(--flow-ticker-h, 88px);
-  left: 50%;
-  right: 0;
+  top: calc(var(--flow-pad) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: calc(50% + var(--flow-gap) / 2);
+  right: var(--flow-pad);
   opacity: 1;
   pointer-events: auto;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  overflow: hidden;
 }
 .timerSlot[data-slot='flow'] .timerTime {
-  font-size: 190px;
+  font-size: 170px;
 }
 .timerSlot[data-slot='flow'] .timerLabel {
-  font-size: 48px;
+  font-size: 40px;
 }
 
 /* 좌측 페인 — WOD 보드 + 하단 레이스 배정 패널 */
@@ -503,56 +522,63 @@
   color: var(--bcl-text-muted);
 }
 
-/* ── FLOW 모드 (수업 진행 세그먼트 타임라인 — Class TV 2.0 플랜 목업 정합) ── */
-/* 상단 스트립 = SEG n/m·현재 세그먼트·진행 바·체크인 요약. 좌 WOD / 우 timerSlot(flow).
-   하단 = 상시 티커(LIVE 화이트보드 또는 PR 축하) */
+/* ── FLOW 모드 (수업 진행 — Class TV 2.0 플랜 목업 정합: 라운드 카드 4장 + 간격) ── */
 .flowRoot {
   position: absolute;
   inset: 0;
 }
 .flowStrip {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--flow-strip-h, 96px);
+  top: var(--flow-pad);
+  left: var(--flow-pad);
+  right: var(--flow-pad);
+  height: var(--flow-strip-h);
   display: flex;
   align-items: center;
-  gap: var(--bcl-space-6);
-  padding: 0 var(--bcl-space-8);
-  border-bottom: 2px solid var(--bcl-border);
+  gap: var(--bcl-space-7);
+  padding: 0 var(--bcl-space-7);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface);
 }
 .flowSegNow {
   flex: 0 0 auto;
   display: flex;
   align-items: baseline;
-  gap: var(--bcl-space-4);
+  gap: var(--bcl-space-3);
   min-width: 0;
+  letter-spacing: 0.1em;
 }
 .flowSegCount {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
-  letter-spacing: 0.08em;
   color: var(--bcl-accent);
   font-variant-numeric: tabular-nums;
 }
-.flowSegTitle {
-  font-size: 40px;
+.flowSegDot {
+  font-size: 28px;
   font-weight: 800;
-  letter-spacing: 0.02em;
+  color: var(--bcl-text-muted);
+}
+.flowSegTitle {
+  font-size: 30px;
+  font-weight: 800;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 .flowSegNext {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--bcl-text-muted);
   white-space: nowrap;
 }
 .flowBarTrack {
   flex: 1 1 auto;
-  height: 10px;
+  max-width: 520px;
+  height: 14px;
   min-width: 120px;
+  margin: 0 auto;
   border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface-raised);
   overflow: hidden;
@@ -565,47 +591,60 @@
 }
 .flowCheckin {
   flex: 0 0 auto;
-  font-size: 26px;
+  margin-left: auto;
+  font-size: 28px;
   font-weight: 700;
-  color: var(--bcl-text-muted);
+  color: var(--bcl-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+/* 좌측 WOD 카드 */
 .flowLeft {
   position: absolute;
-  top: var(--flow-strip-h, 96px);
-  bottom: var(--flow-ticker-h, 88px);
-  left: 0;
-  width: 50%;
+  top: calc(var(--flow-pad) + var(--flow-strip-h) + var(--flow-gap));
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  left: var(--flow-pad);
+  width: calc(50% - var(--flow-pad) - var(--flow-gap) / 2);
   display: flex;
   flex-direction: column;
-  border-right: 2px solid var(--bcl-border);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
 }
 .flowWodPane {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  padding: var(--bcl-space-6) var(--bcl-space-8);
+  padding: var(--bcl-space-6) var(--bcl-space-7);
   display: flex;
   flex-direction: column;
   gap: var(--bcl-space-4);
 }
 
-/* 하단 상시 티커 — 전폭. LIVE 화이트보드(기록 세그먼트) 또는 PR 축하 */
+/* 하단 상시 티커 카드 — LIVE 화이트보드(기록 세그먼트) 또는 PR·생일 축하 */
 .flowTicker {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: var(--flow-ticker-h, 88px);
+  left: var(--flow-pad);
+  right: var(--flow-pad);
+  bottom: var(--flow-pad);
+  height: var(--flow-ticker-h);
   display: flex;
   align-items: center;
   gap: var(--bcl-space-5);
-  padding: 0 var(--bcl-space-8);
-  border-top: 4px solid var(--bcl-accent);
+  padding: 0 var(--bcl-space-7);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface);
   overflow: hidden;
+}
+.flowBirthday {
+  flex: 0 0 auto;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--bcl-accent-ink);
+  white-space: nowrap;
 }
 .flowBoardTag {
   flex: 0 0 auto;
@@ -663,4 +702,34 @@
 .flowBoardScore {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
+}
+
+/* flow 카드 내 WOD 보드 축소 스케일 — 전체화면용 타이포를 반폭 카드에 맞춤 */
+.flowLeft .wodFormat {
+  font-size: 26px;
+  padding: 2px var(--bcl-space-3);
+}
+.flowLeft .wodTitle {
+  font-size: 60px;
+}
+.flowLeft .wodMeta {
+  font-size: 30px;
+}
+.flowLeft .wodDesc {
+  font-size: 28px;
+}
+.flowLeft .wodItemName {
+  font-size: 38px;
+}
+.flowLeft .wodItemDetail {
+  font-size: 30px;
+}
+.flowLeft .wodItemRx {
+  font-size: 26px;
+}
+.flowLeft .wodGroupTag {
+  font-size: 24px;
+}
+.flowLeft .wodNotes {
+  font-size: 26px;
 }

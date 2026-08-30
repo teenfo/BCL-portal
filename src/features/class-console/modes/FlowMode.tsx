@@ -78,12 +78,13 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
 
   const checkinCount = live.data?.current?.checkin_count ?? null;
   const names = live.data?.current?.checked_in_names ?? [];
+  const birthdays = live.data?.today_birthdays ?? [];
   const checkinLabel =
     checkinCount == null
       ? null
       : names.length > 0
-        ? `체크인 ${checkinCount}명 · ${names[0]}${names.length > 1 ? ` 외 ${names.length - 1}` : ''}`
-        : `체크인 ${checkinCount}명`;
+        ? `체크인 ${checkinCount} · ${names[0]}${names.length > 1 ? ' 외' : ''}`
+        : `체크인 ${checkinCount}`;
 
   const rows = boardOn ? (board.data?.results ?? []).slice(0, 4) : [];
 
@@ -94,6 +95,7 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
           <span className={styles.flowSegCount}>
             SEG {flow.index + 1}/{flow.segments.length}
           </span>
+          <span className={styles.flowSegDot}>·</span>
           <span className={styles.flowSegTitle}>{seg?.name ?? '—'}</span>
           {nextSeg ? <span className={styles.flowSegNext}>다음 · {nextSeg.name}</span> : null}
         </div>
@@ -140,7 +142,14 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
             )}
           </>
         ) : (
-          <PrTicker facilityId={facilityId} compact />
+          <>
+            <PrTicker facilityId={facilityId} compact />
+            {birthdays.length > 0 ? (
+              <span className={styles.flowBirthday}>
+                오늘 생일: {birthdays.join(', ')} 🎂
+              </span>
+            ) : null}
+          </>
         )}
       </div>
     </div>
