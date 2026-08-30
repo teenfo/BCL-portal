@@ -619,7 +619,9 @@
 }
 .flowSegNow {
   /* 긴 세그먼트명이 진행 바·체크인 라벨을 밀어내지 않도록 축소 허용 + 내부 ellipsis */
-  flex: 0 1 auto;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  min-width: 430px;
   display: flex;
   align-items: baseline;
   gap: var(--bcl-space-3);
@@ -627,6 +629,7 @@
   letter-spacing: 0.1em;
 }
 .flowSegCount {
+  white-space: nowrap;
   font-size: 28px;
   font-weight: 800;
   color: var(--bcl-accent);
@@ -663,9 +666,9 @@
 }
 .flowBarTrack {
   flex: 1 1 auto;
-  max-width: 520px;
+  max-width: 420px;
   height: 16px;
-  min-width: 120px;
+  min-width: 200px;
   margin: 0 auto;
   border-radius: var(--bcl-radius-lg);
   background: var(--bcl-surface-raised);
@@ -682,13 +685,69 @@
 .flowBarFill[data-idle='1'] {
   background: var(--bcl-border);
 }
+/* 체크인 스트립 — 인원수 + 명단 칩(축하 아이콘 포함, 기능 1-4).
+   폭 경쟁에서 가장 먼저 양보한다: 칩 목록만 잘리고 인원수·+N은 항상 남는다. */
 .flowCheckin {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   margin-left: auto;
+  min-width: 0;
+  max-width: 44%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--bcl-space-3);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+.flowCheckinCount {
+  flex: 0 0 auto;
+  white-space: nowrap;
   font-size: 28px;
   font-weight: 700;
   color: var(--bcl-text);
-  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.flowRoster {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
+.flowRosterChip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--bcl-space-1);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--bcl-text-muted);
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  padding: 2px var(--bcl-space-3);
+  white-space: nowrap;
+}
+/* 생일·가입 기념일 칩은 축하 톤으로 승격 */
+.flowRosterChip:has(.flowRosterMark) {
+  color: var(--bcl-accent-ink);
+  border-color: var(--bcl-accent-border);
+  background: var(--bcl-accent-soft);
+}
+.flowRosterMark {
+  font-size: 20px;
+  line-height: 1;
+}
+.flowRosterMore {
+  flex: 0 0 auto;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--bcl-text-faint);
   white-space: nowrap;
 }
 
@@ -726,10 +785,20 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  padding: var(--bcl-space-6) var(--bcl-space-7);
+  padding: var(--bcl-space-5) var(--bcl-space-7);
   display: flex;
   flex-direction: column;
-  gap: var(--bcl-space-4);
+  gap: var(--bcl-space-3);
+}
+/* 반폭 카드는 세로가 귀하다 — 행 높이·목록 간격을 줄여 한 페이지에 더 담는다 */
+.flowLeft .wodList {
+  gap: var(--bcl-space-1);
+}
+.flowLeft .wodItem {
+  padding: var(--bcl-space-2) 0;
+}
+.flowLeft .wodHead {
+  gap: var(--bcl-space-1);
 }
 
 /* 하단 상시 티커 카드 — LIVE 화이트보드(기록 세그먼트) 또는 PR·생일 축하 */
@@ -842,7 +911,7 @@
   padding: 2px var(--bcl-space-3);
 }
 .flowLeft .wodTitle {
-  font-size: 60px;
+  font-size: 44px;
 }
 .flowLeft .wodMeta {
   font-size: 30px;
@@ -864,4 +933,15 @@
 }
 .flowLeft .wodNotes {
   font-size: 26px;
+}
+
+/* 동작이 많으면 반폭 카드에 다 담기지 않는다 — TV는 스크롤이 없으므로
+   라이브 보드와 같은 페이지 로테이션으로 전량을 순환 노출한다(WodBoard pageSize). */
+.wodPageTag {
+  align-self: center;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--bcl-text-faint);
+  font-variant-numeric: tabular-nums;
 }

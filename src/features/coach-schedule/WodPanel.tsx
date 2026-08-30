@@ -499,21 +499,23 @@ function WodEditor({
                     <Input
                       label={s.mode === 'countdown' ? '분' : '캡(분, 공백=무제한)'}
                       type="number"
+                      step={1}
+                      min={s.mode === 'countdown' ? 1 : 0}
                       value={s.minutes}
                       onChange={(e) => updateSegment(i, { minutes: e.target.value })}
                     />
                   ) : null}
                   {s.mode === 'emom' ? (
                     <>
-                      <Input label="인터벌(초)" type="number" value={s.work} onChange={(e) => updateSegment(i, { work: e.target.value })} />
-                      <Input label="라운드" type="number" value={s.rounds} onChange={(e) => updateSegment(i, { rounds: e.target.value })} />
+                      <Input label="인터벌(초)" type="number" step={1} min={1} value={s.work} onChange={(e) => updateSegment(i, { work: e.target.value })} />
+                      <Input label="라운드" type="number" step={1} min={1} value={s.rounds} onChange={(e) => updateSegment(i, { rounds: e.target.value })} />
                     </>
                   ) : null}
                   {s.mode === 'tabata' || s.mode === 'interval' ? (
                     <>
-                      <Input label="WORK(초)" type="number" value={s.work} onChange={(e) => updateSegment(i, { work: e.target.value })} />
-                      <Input label="REST(초)" type="number" value={s.rest} onChange={(e) => updateSegment(i, { rest: e.target.value })} />
-                      <Input label={s.mode === 'tabata' ? '세트' : '라운드'} type="number" value={s.rounds} onChange={(e) => updateSegment(i, { rounds: e.target.value })} />
+                      <Input label="WORK(초)" type="number" step={1} min={1} value={s.work} onChange={(e) => updateSegment(i, { work: e.target.value })} />
+                      <Input label="REST(초)" type="number" step={1} min={0} value={s.rest} onChange={(e) => updateSegment(i, { rest: e.target.value })} />
+                      <Input label={s.mode === 'tabata' ? '세트' : '라운드'} type="number" step={1} min={1} value={s.rounds} onChange={(e) => updateSegment(i, { rounds: e.target.value })} />
                     </>
                   ) : null}
                 </div>

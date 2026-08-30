@@ -3,6 +3,7 @@
 // WOD 보드 표시 전용 컴포넌트 (docs/05 §3.2) — 데이터 페치 없음(순수 프레젠테이션).
 // WodMode(전체화면)와 SplitMode(좌측 페인)가 공유한다. Display-Safe: 공개 스냅샷만.
 import type { DisplayWod, WodMovement } from '../data';
+import { useEffect, useRef, useState } from 'react';
 import styles from '../console.module.css';
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -59,8 +60,73 @@ function segmentMovements(movements: WodMovement[]): Segment[] {
 }
 
 /** WOD 보드 마크업. className으로 컨테이너 배치 제어(전체화면 vs 좌측 페인) */
-export function WodBoard({ data, className }: { data: DisplayWod; className?: string }) {
+/**
+ * WOD 보드.
+ * @param pageSize 한 화면에 보일 줄 수 — 넘치면 8초 간격 페이지 로테이션(TV는 스크롤이 없어
+ *                 잘린 동작이 영영 안 보인다). 미지정=전량 표시(전체화면 모드).
+ */
+export function WodBoard({
+  data,
+  className,
+  pageSize,
+  autoFit,
+}: {
+  data: DisplayWod;
+  className?: string;
+  pageSize?: number;
+  /** 카드 높이를 실측해 들어갈 줄 수를 스스로 정한다(WOD 길이·설명 유무와 무관) */
+  autoFit?: boolean;
+}) {
   const movements = Array.isArray(data.movements_snapshot) ? data.movements_snapshot : [];
+  const groups = segmentMovements(movements);
+
+  // 실측 자동 맞춤 — 목록 시작점부터 카드 바닥까지의 가용 높이 ÷ 행 높이.
+  // 헤드는 목록 위에 고정이라 가용 높이는 페이지 줄 수와 무관 → 되먹임 진동 없음.
+  const listRef = useRef<HTMLOListElement>(null);
+  const [fit, setFit] = useState<number | null>(null);
+  useEffect(() => {
+    if (!autoFit) return;
+    const list = listRef.current;
+    const pane = list?.parentElement;
+    if (!list || !pane) return;
+    const measure = () => {
+      const row = list.querySelector('li');
+      if (!row) return;
+      const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
+      const rowH = row.getBoundingClientRect().height + gap;
+      if (rowH <= 0) return;
+      // 목록 아래 블록(코치 메모)은 '위치'가 아니라 '높이'로 예약한다 —
+      // margin-top:auto라 위치는 목록 길이에 따라 움직여 되먹임이 생긴다(높이는 불변).
+      const after = list.nextElementSibling as HTMLElement | null;
+      const paneStyle = getComputedStyle(pane);
+      const reserve = after
+        ? after.getBoundingClientRect().height + (parseFloat(paneStyle.rowGap) || 0)
+        : 0;
+      const avail =
+        pane.getBoundingClientRect().bottom -
+        (parseFloat(paneStyle.paddingBottom) || 0) -
+        list.getBoundingClientRect().top -
+        reserve;
+      const n = Math.max(1, Math.floor(avail / rowH));
+      setFit((prev) => (prev === n ? prev : n));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(pane);
+    return () => ro.disconnect();
+  }, [autoFit, movements.length, data.description, data.title, data.class_display_notes]);
+
+  const limit = fit ?? (pageSize && pageSize > 0 ? pageSize : null);
+  const size = limit && limit > 0 ? limit : groups.length || 1;
+  const pages = Math.max(1, Math.ceil(groups.length / size));
+  const [page, setPage] = useState(0);
+  useEffect(() => {
+    if (pages <= 1) return;
+    const id = setInterval(() => setPage((v) => (v + 1) % pages), 8000);
+    return () => clearInterval(id);
+  }, [pages]);
+  const cur = page % pages;
+  const shown = groups.slice(cur * size, cur * size + size);
 
   return (
     <div className={className ?? styles.wodBoard}>
@@ -70,13 +136,18 @@ export function WodBoard({ data, className }: { data: DisplayWod; className?: st
         <div className={styles.wodMeta}>
           {data.time_cap_minutes ? <span>TIME CAP {data.time_cap_minutes}′</span> : null}
           {data.rounds ? <span>{data.rounds} ROUNDS</span> : null}
+          {pages > 1 ? (
+            <span className={styles.wodPageTag}>
+              {cur + 1}/{pages}
+            </span>
+          ) : null}
         </div>
       </div>
 
       {data.description ? <p className={styles.wodDesc}>{data.description}</p> : null}
 
-      <ol className={styles.wodList}>
-        {segmentMovements(movements).map((seg, si) => {
+      <ol ref={listRef} className={styles.wodList}>
+        {shown.map((seg, si) => {
           if (seg.group == null) {
             const line = movementLine(seg.items[0]);
             return (

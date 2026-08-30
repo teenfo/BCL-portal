@@ -109,6 +109,24 @@ describe('computeTimerFrame — preSeconds(READY 카운트다운)', () => {
   });
 });
 
+describe('GO 시각 신호 — pre 종료 직후 라벨(기획서 1-2)', () => {
+  it('pre 직후 1.5초 동안 라벨이 GO (시간·페이즈는 본 타이머 그대로)', () => {
+    const c = cfg({ mode: 'countdown', seconds: 600, preSeconds: 10 });
+    const go = computeTimerFrame(c, 10.4);
+    expect(go.label).toBe('GO');
+    expect(go.display).toBe('10:00');
+    expect(go.phase).toBe('');
+  });
+  it('GO 유지 시간이 지나면 원래 라벨로 복귀', () => {
+    const c = cfg({ mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: 8, preSeconds: 10 });
+    expect(computeTimerFrame(c, 10.2).label).toBe('GO');
+    expect(computeTimerFrame(c, 12).label).toBe('SET 1/8 · WORK');
+  });
+  it('pre 없는 타이머는 GO를 띄우지 않는다', () => {
+    expect(computeTimerFrame(cfg({ mode: 'countdown', seconds: 600 }), 0.2).label).toBe('');
+  });
+});
+
 describe('잔여시간 표시 올림 규약 — 표시·비프(ceil) 정합', () => {
   it('countdown: 초 경계 직후(N+ε)에도 표시=ceil — 3-2-1 비프와 같은 숫자', () => {
     const f = computeTimerFrame(cfg({ mode: 'countdown', seconds: 600 }), 597.4);

@@ -59,35 +59,39 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
     [boardOn, flow.sessionId],
   );
 
-  // 세그먼트 진행 바 — 진입 시각 기준 rAF 직접 갱신(리렌더 우회, docs/05 §2)
-  // 리셋 판정은 구성 시그니처 기준: 동일 세그먼트 재동기(정렬 변경 등 flow 재전송은 매번
-  // 새 객체를 만든다)에는 바를 0%로 되돌리지 않는다
+  // 수업 전체 타임라인 진행 바 (기능 1-1) — 분모는 플랜 전체다.
+  // 세그먼트 길이를 알면 그 비중대로, 모르면(타이머 없는 구간) 세그먼트 1칸을 균등 배분해
+  // 누적 진행률을 만든다. 단계가 바뀌어도 0%로 되돌아가지 않는다.
   const segSig = `${flow.index}|${seg?.timer ? JSON.stringify(seg.timer) : ''}`;
   const segDur = segmentDuration(seg);
+  const durations = flow.segments.map((s) => segmentDuration(s));
+  // 길이 미상 구간의 대체 가중치 — 알려진 구간 평균(전부 미상이면 균등 분할)
+  const known = durations.filter((d): d is number => d != null && d > 0);
+  const fallbackDur = known.length ? known.reduce((a, b) => a + b, 0) / known.length : 1;
+  const weights = durations.map((d) => (d != null && d > 0 ? d : fallbackDur));
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  const doneWeight = weights.slice(0, flow.index).reduce((a, b) => a + b, 0);
+  const curWeight = weights[flow.index] ?? fallbackDur;
+
   const barRef = useRef<HTMLDivElement>(null);
   const enteredAtRef = useRef(0);
-  const durationRef = useRef<number | null>(null);
+  const progressRef = useRef({ done: 0, cur: 0, total: 1, dur: null as number | null });
   useEffect(() => {
     enteredAtRef.current = performance.now();
-    durationRef.current = segDur;
-    // 진입 즉시 0으로 리셋(직전 세그먼트 잔상 제거)
-    if (barRef.current) barRef.current.style.width = '0%';
-  }, [segSig, segDur]);
+    progressRef.current = { done: doneWeight, cur: curWeight, total: totalWeight, dur: segDur };
+  }, [segSig, segDur, doneWeight, curWeight, totalWeight]);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
       const el = barRef.current;
       if (el) {
-        const dur = durationRef.current;
-        if (dur) {
-          const pct = Math.min(100, ((performance.now() - enteredAtRef.current) / 1000 / dur) * 100);
-          el.style.width = `${pct}%`;
-          delete el.dataset.idle;
-        } else {
-          // 타이머 없는 세그먼트(브리핑 등) — 저채도 정적 채움
-          el.style.width = '100%';
-          el.dataset.idle = '1';
-        }
+        const { done, cur, total, dur } = progressRef.current;
+        // 현재 구간 내 진행분 — 타이머가 있으면 경과/길이, 없으면 0(구간 시작점 고정)
+        const frac = dur ? Math.min(1, (performance.now() - enteredAtRef.current) / 1000 / dur) : 0;
+        const pct = Math.min(100, ((done + cur * frac) / total) * 100);
+        el.style.width = `${pct}%`;
+        if (dur) delete el.dataset.idle;
+        else el.dataset.idle = '1'; // 길이 미상 구간은 저채도(진행 중이나 계측 불가 표시)
       }
       raf = requestAnimationFrame(loop);
     };
@@ -95,15 +99,15 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // 체크인 명단 스트립 (기능 1-4) — 인원수 + 이름 칩. 축하 아이콘은 칩에 직접 붙인다.
   const checkinCount = live.data?.current?.checkin_count ?? null;
   const names = live.data?.current?.checked_in_names ?? [];
   const birthdays = live.data?.today_birthdays ?? [];
-  const checkinLabel =
-    checkinCount == null
-      ? null
-      : names.length > 0
-        ? `체크인 ${checkinCount} · ${names[0]}${names.length > 1 ? ' 외' : ''}`
-        : `체크인 ${checkinCount}`;
+  const anniversaries = live.data?.today_anniversaries ?? [];
+  const anniversaryYears = new Map(anniversaries.map((a) => [a.name, a.years]));
+  const ROSTER_MAX = 4; // 스트립 폭 한계 — 나머지는 +N으로 접는다
+  const rosterShown = names.slice(0, ROSTER_MAX);
+  const rosterRest = Math.max(0, names.length - rosterShown.length);
 
   // 정렬(코치 선택) + 넘침 자동 로테이션(8s 페이지 — auto-scroll 등가, 2-1)
   const PAGE = 4;
@@ -131,7 +135,35 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
         <div className={styles.flowBarTrack} aria-hidden="true">
           <div ref={barRef} className={styles.flowBarFill} />
         </div>
-        {checkinLabel ? <span className={styles.flowCheckin}>{checkinLabel}</span> : null}
+        {checkinCount != null ? (
+          <div className={styles.flowCheckin}>
+            <span className={styles.flowCheckinCount}>체크인 {checkinCount}</span>
+            {rosterShown.length > 0 ? (
+              <ul className={styles.flowRoster}>
+                {rosterShown.map((n) => {
+                  const years = anniversaryYears.get(n);
+                  return (
+                    <li key={n} className={styles.flowRosterChip}>
+                      {n}
+                      {birthdays.includes(n) ? (
+                        <span className={styles.flowRosterMark} title="오늘 생일">
+                          🎂
+                        </span>
+                      ) : null}
+                      {years ? (
+                        <span className={styles.flowRosterMark} title={`가입 ${years}주년`}>
+                          🎉
+                        </span>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+            {/* +N은 목록 밖에 둔다 — 목록이 넘쳐 잘려도 남은 인원수는 항상 보이도록 */}
+            {rosterRest > 0 ? <span className={styles.flowRosterMore}>+{rosterRest}</span> : null}
+          </div>
+        ) : null}
       </header>
 
       {/* 타이머 없는 세그먼트(브리핑 등) — 우측 카드는 대형 현재 시각(잔여 타이머 잔상 방지) */}
@@ -145,7 +177,8 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
         {wod.initialLoading ? (
           <div className={styles.flowWodPane} />
         ) : wod.data ? (
-          <WodBoard data={wod.data} className={styles.flowWodPane} />
+          // autoFit: 카드 높이를 실측해 들어갈 줄만 표시, 초과분은 8초 페이지 로테이션
+          <WodBoard data={wod.data} className={styles.flowWodPane} autoFit />
         ) : wod.error ? (
           // 로딩 실패는 '미게시'로 위장하지 않고 표면화(CLAUDE.md 에러 표면화 규칙)
           <div className={styles.flowWodPane}>

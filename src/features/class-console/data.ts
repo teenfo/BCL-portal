@@ -68,6 +68,8 @@ export interface LiveBoard {
   next: LiveSessionNext | null;
   /** 오늘 생일 회원 이름(활성·옵트인만 — Display-Safe: 이름만, 생년 미노출) */
   today_birthdays?: string[];
+  /** 오늘 가입 n주년 회원(이름 + 연차만 — Display-Safe: 가입일 원값 미노출) */
+  today_anniversaries?: { name: string; years: number }[];
 }
 
 export interface ScreenPr {

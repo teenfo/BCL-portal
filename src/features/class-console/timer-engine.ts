@@ -124,8 +124,24 @@ function fmtRemain(sec: number): string {
   return fmtClock(Math.ceil(sec));
 }
 
-/** 경과 초(elapsed, 시작부터 연속) → 표시 프레임. 순수 함수 — 비프/DOM은 훅이 담당. */
+/** pre 종료 직후 화면에 'GO'를 유지하는 시간(초) — 소리 신호와 짝을 이루는 시각 신호 */
+const GO_HOLD_SEC = 1.5;
+
+/**
+ * 경과 초(elapsed, 시작부터 연속) → 표시 프레임. 순수 함수 — 비프/DOM은 훅이 담당.
+ * pre 카운트다운을 쓴 경우 본 타이머 진입 직후 잠시 라벨을 'GO'로 덮는다(표시 전용 —
+ * 시간·페이즈·종료 판정은 그대로).
+ */
 export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): TimerFrame {
+  const frame = baseTimerFrame(cfg, elapsed);
+  if (cfg.preSeconds > 0) {
+    const t = elapsed - cfg.preSeconds;
+    if (t >= 0 && t < GO_HOLD_SEC && !frame.done) return { ...frame, label: 'GO' };
+  }
+  return frame;
+}
+
+function baseTimerFrame(cfg: TimerEngineConfig, elapsed: number): TimerFrame {
   // 프리 카운트다운 — 본 타이머와 독립된 준비 구간(READY 3-2-1-GO)
   if (cfg.preSeconds > 0 && elapsed < cfg.preSeconds) {
     const remain = cfg.preSeconds - elapsed;
