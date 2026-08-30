@@ -2873,15 +2873,17 @@ $$;
 --     내부에서 민감 컬럼(연락처/메모/판정)을 SELECT 자체를 하지 않는다.
 -- ============================================================================
 
--- L.1 fn_get_class_live_board(p_facility_id) — 현재/다음 수업 + 체크인 "이름만"
+-- L.1 fn_get_class_live_board(p_facility_id, p_today) — 현재/다음 수업 + 체크인 "이름만"
 --     today_birthdays = 오늘 생일 회원 이름 배열(월일 비교만 — 생년 미노출, 옵트인 존중,
---     20260830060000). flow 티커 생일 축하용.
-CREATE OR REPLACE FUNCTION public.fn_get_class_live_board(p_facility_id UUID)
+--     20260830060000). flow 티커 생일 축하용. p_today = 시설 로컬 날짜(클라이언트 명시
+--     전달 — 서버 CURRENT_DATE(UTC) 시차 방지, 20260830090000).
+CREATE OR REPLACE FUNCTION public.fn_get_class_live_board(p_facility_id UUID, p_today DATE DEFAULT NULL)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public
 AS $$
 DECLARE
     v_now TIMESTAMPTZ := now();
+    v_today DATE := COALESCE(p_today, CURRENT_DATE);
     v_current JSONB;
     v_next JSONB;
     v_birthdays JSONB;
@@ -2930,7 +2932,7 @@ BEGIN
     ORDER BY s.start_time
     LIMIT 1;
 
-    -- 오늘 생일 회원 이름(활성·옵트인만, 월일 비교 — 생년 미노출)
+    -- 오늘 생일 회원 이름(활성·옵트인만, 월일 비교 — 생년 미노출) — 시설 로컬 날짜 기준
     SELECT COALESCE(jsonb_agg(m.name ORDER BY m.name), '[]'::jsonb)
     INTO v_birthdays
     FROM public.members m
@@ -2938,7 +2940,7 @@ BEGIN
     WHERE m.facility_id = p_facility_id
       AND m.status = 'active'
       AND m.birthday IS NOT NULL
-      AND to_char(m.birthday, 'MM-DD') = to_char(CURRENT_DATE, 'MM-DD')
+      AND to_char(m.birthday, 'MM-DD') = to_char(v_today, 'MM-DD')
       AND COALESCE(np.celebrate_opt_in, true);
 
     RETURN jsonb_build_object('success', true,
@@ -4312,7 +4314,7 @@ BEGIN
     FOR v_fn IN VALUES
         ('public.fn_kiosk_checkin(jsonb)'),
         ('public.fn_get_class_display_wod(uuid,date,uuid)'),
-        ('public.fn_get_class_live_board(uuid)'),
+        ('public.fn_get_class_live_board(uuid,date)'),
         ('public.fn_get_class_screen_prs(uuid,int)'),
         ('public.fn_get_class_leaderboard(uuid,text)')
     LOOP

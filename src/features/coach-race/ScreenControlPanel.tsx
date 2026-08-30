@@ -193,11 +193,12 @@ export function ScreenControlPanel({
     notify(`세그먼트: ${segments[next]?.name ?? next + 1}`);
   };
   // 상태를 잃은 TV(전원 순단·재부팅) 재동기 — 현재 세그먼트 전체 플랜 재전송.
-  // 계약상 수신 TV는 세그먼트 타이머를 0부터 재시작하므로 복구 용도로만 사용.
+  // 수신측 동일 세그먼트 판정으로 진행 중인 TV의 타이머는 유지되고,
+  // 상태 없는 TV만 세그먼트 타이머를 새로 구동한다(0초부터 — 경과는 프로토콜상 미전달).
   const resyncFlow = async () => {
     if (flowIndex == null) return;
     await sendFlow(flowIndex);
-    notify('현재 세그먼트를 TV에 재전송했습니다 (타이머 재시작).');
+    notify('현재 세그먼트를 TV에 재전송했습니다 (상태 잃은 TV 복구).');
   };
   const changeBoardSort = async (sort: NonNullable<FlowCommand['board_sort']>) => {
     setBoardSort(sort);
@@ -309,7 +310,7 @@ export function ScreenControlPanel({
                     <Button variant="primary" size="sm" onClick={() => stepFlow(1)}>
                       다음 세그먼트 ▶
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={resyncFlow} title="상태를 잃은 TV 복구 — 현재 세그먼트 재전송(타이머 재시작)">
+                    <Button variant="ghost" size="sm" onClick={resyncFlow} title="상태를 잃은 TV 복구 — 현재 세그먼트 재전송(진행 중 TV는 영향 없음)">
                       TV 재동기
                     </Button>
                     <Button variant="ghost" size="sm" onClick={stopFlow}>

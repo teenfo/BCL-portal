@@ -104,6 +104,7 @@ export function fetchSessionDisplayWod(sessionId: string): Promise<Envelope<Disp
 export function fetchLiveBoard(facilityId: string): Promise<Envelope<LiveBoard>> {
   return rpc<LiveBoard>(getSupabaseBrowserClient(), 'fn_get_class_live_board', {
     p_facility_id: facilityId,
+    p_today: localDate(), // 생일 판정 기준 — 시설 로컬 날짜(서버 UTC CURRENT_DATE 시차 방지)
   });
 }
 

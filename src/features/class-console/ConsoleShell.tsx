@@ -86,6 +86,15 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
           const segments = Array.isArray(f.segments) ? f.segments : [];
           if (segments.length === 0) break;
           const index = Math.min(Math.max(f.index ?? 0, 0), segments.length - 1);
+          // 동일 세그먼트 재수신(화이트보드 정렬 변경·수업 시작 이중 탭·재동기 재전송)은
+          // 타이머를 건드리지 않는다 — 진행 중 워크아웃이 0초로 리셋되는 것 방지.
+          // 상태를 잃은 TV(재부팅 — prev=null)는 정상 재적용되어 복구된다.
+          const prev = flowRef.current;
+          const sameSegment =
+            prev != null &&
+            prev.index === index &&
+            prev.sessionId === (f.session_id ?? null) &&
+            JSON.stringify(prev.segments) === JSON.stringify(segments);
           const next: FlowViewState = {
             segments,
             index,
@@ -96,11 +105,17 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
           setFlow(next);
           setRaceEventId(null);
           setMode('flow');
-          // 세그먼트 진입 = 바인딩 타이머 자동 구성(+기본 자동 시작, preSeconds가 전환 여유)
-          const seg = segments[index];
-          if (seg?.timer) {
-            applyTimer({ ...seg.timer, action: 'configure' });
-            if (seg.autoStart !== false) applyTimer({ action: 'start' });
+          if (!sameSegment) {
+            // 세그먼트 진입 = 바인딩 타이머 자동 구성(+기본 자동 시작, preSeconds가 전환 여유)
+            const seg = segments[index];
+            if (seg?.timer) {
+              applyTimer({ ...seg.timer, action: 'configure' });
+              if (seg.autoStart !== false) applyTimer({ action: 'start' });
+            } else {
+              // 무타이머 세그먼트(브리핑 등) 진입 = 이전 타이머 정지 — 시계 카드 뒤에서
+              // 구동 중이던 엔진의 비프(카운트다운·전환·엔드 차임)가 계속 울리는 것 방지
+              applyTimer({ action: 'reset' });
+            }
           }
           break;
         }
