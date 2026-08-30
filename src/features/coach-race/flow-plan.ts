@@ -101,6 +101,7 @@ export function describeSegmentTimer(seg: FlowSegment): string {
     case 'tabata':
       return `TABATA ${t.workSeconds ?? 20}/${t.restSeconds ?? 10}×${t.totalSets ?? 8}`;
     case 'interval':
-      return `인터벌 ${t.workSeconds ?? 60}/${t.restSeconds ?? 30}×${t.totalRounds ?? 5}`;
+      // 폴백은 엔진 DEFAULT_ENGINE_CFG와 동일해야 함(미지정 세그먼트에서 칩 표시≠실구동 방지)
+      return `인터벌 ${t.workSeconds ?? 20}/${t.restSeconds ?? 10}×${t.totalRounds ?? 10}`;
   }
 }

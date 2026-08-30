@@ -115,13 +115,22 @@ export function fmtClock(totalSec: number): string {
   return `${m < 10 ? '0' + m : m}:${r < 10 ? '0' + r : r}`;
 }
 
+/**
+ * 잔여시간 표시는 올림(ceil) — rAF는 초 경계 직후(N+ε)에 갱신되므로 내림이면 시작값이
+ * 한 번도 안 보이고(10:00→즉시 09:59) 마지막 1초 내내 00:00이 표시된다. 올림이면
+ * 표시·비프(secRemainInPhase=ceil)가 같은 숫자를 가리킨다. 경과 표시(countup)는 내림 유지.
+ */
+function fmtRemain(sec: number): string {
+  return fmtClock(Math.ceil(sec));
+}
+
 /** 경과 초(elapsed, 시작부터 연속) → 표시 프레임. 순수 함수 — 비프/DOM은 훅이 담당. */
 export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): TimerFrame {
   // 프리 카운트다운 — 본 타이머와 독립된 준비 구간(READY 3-2-1-GO)
   if (cfg.preSeconds > 0 && elapsed < cfg.preSeconds) {
     const remain = cfg.preSeconds - elapsed;
     return {
-      display: fmtClock(remain),
+      display: fmtRemain(remain),
       label: 'READY',
       phase: 'pre',
       secRemainInPhase: Math.ceil(remain),
@@ -145,7 +154,7 @@ export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): Time
   if (cfg.mode === 'countdown') {
     const remain = cfg.seconds - t;
     return {
-      display: fmtClock(remain),
+      display: fmtRemain(remain),
       label: '',
       phase: '',
       secRemainInPhase: Math.ceil(remain),
@@ -160,7 +169,7 @@ export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): Time
     const inRound = t - (round - 1) * iv;
     const remain = iv - inRound;
     return {
-      display: fmtClock(remain),
+      display: fmtRemain(remain),
       label: `ROUND ${round} / ${cfg.totalRounds}`,
       phase: `emom-${round}`,
       secRemainInPhase: Math.ceil(remain),
@@ -175,13 +184,17 @@ export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): Time
   const units = cfg.mode === 'tabata' ? cfg.totalSets : cfg.totalRounds;
   const unitLabel = cfg.mode === 'tabata' ? 'SET' : 'ROUND';
   const n = Math.min(Math.floor(t / cycle) + 1, units);
-  const inCycle = t % cycle;
+  // 마지막 사이클로 클램프(emom inRound 방식) — 종점에서 t%cycle=0 랩으로
+  // 'WORK 풀타임' 동결 화면이 되는 것을 방지(종료 프레임 = 00:00 · 마지막 페이즈)
+  const inCycle = t - (n - 1) * cycle;
   const isWork = rest === 0 || inCycle < work;
   const remain = isWork ? work - inCycle : cycle - inCycle;
   return {
-    display: fmtClock(remain),
+    display: fmtRemain(remain),
     label: `${unitLabel} ${n}/${units} · ${isWork ? 'WORK' : 'REST'}`,
-    phase: isWork ? 'work' : 'rest',
+    // rest=0(work-only)은 페이즈가 'work' 고정이라 라운드 경계 전환(색·롱비프)이 사라지므로
+    // emom-N과 동일하게 라운드 번호를 페이즈 키에 포함한다(CSS data-phase는 훅에서 'work'로 정규화)
+    phase: isWork ? (rest === 0 ? `work-${n}` : 'work') : 'rest',
     secRemainInPhase: Math.ceil(remain),
     done: t >= cycle * units,
   };

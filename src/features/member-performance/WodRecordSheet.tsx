@@ -6,6 +6,7 @@ import { Button, Input, Select, useToast } from '@/components/ui';
 import { BottomSheet } from '@/features/member-shell';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { encodeRoundsReps } from '@/lib/score';
 import styles from './performance.module.css';
 
 const SCORE_TYPES = [
@@ -54,7 +55,7 @@ export function WodRecordSheet({
       const r = parseInt(rounds || '0', 10);
       const rp = parseInt(reps || '0', 10);
       if (r <= 0 && rp <= 0) return null;
-      return r + Math.min(99, rp) / 100; // rounds.reps 인코딩(reps 2자리)
+      return encodeRoundsReps(r, rp); // 인코딩 계약 = src/lib/score.ts 단일 소스
     }
     const v = parseFloat(value);
     return Number.isFinite(v) && v > 0 ? v : null;

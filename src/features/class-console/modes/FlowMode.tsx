@@ -17,7 +17,7 @@ import {
   type BoardSort,
   type WodBoardData,
 } from '@/features/class-leaderboard';
-import { fetchDisplayWod, fetchLiveBoard } from '../data';
+import { fetchDisplayWod, fetchLiveBoard, fetchSessionDisplayWod } from '../data';
 import { totalDuration, configFromCommand } from '../timer-engine';
 import { PrTicker } from '../PrTicker';
 import { WodBoard } from './WodBoard';
@@ -38,7 +38,13 @@ function segmentDuration(seg: FlowSegment | null): number | null {
 }
 
 export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowViewState }) {
-  const wod = usePolling(() => fetchDisplayWod(facilityId), 60_000, [facilityId]);
+  // 좌측 WOD — flow가 지정한 세션 기준(화이트보드와 동일 세션 보장). 세션 미지정 시 시설+오늘 폴백
+  const wodSessionId = flow.sessionId;
+  const wod = usePolling(
+    () => (wodSessionId ? fetchSessionDisplayWod(wodSessionId) : fetchDisplayWod(facilityId)),
+    60_000,
+    [facilityId, wodSessionId],
+  );
   const live = usePolling(() => fetchLiveBoard(facilityId), 60_000, [facilityId]);
 
   const seg = flow.segments[flow.index] ?? null;
@@ -54,15 +60,19 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
   );
 
   // 세그먼트 진행 바 — 진입 시각 기준 rAF 직접 갱신(리렌더 우회, docs/05 §2)
+  // 리셋 판정은 구성 시그니처 기준: 동일 세그먼트 재동기(정렬 변경 등 flow 재전송은 매번
+  // 새 객체를 만든다)에는 바를 0%로 되돌리지 않는다
+  const segSig = `${flow.index}|${seg?.timer ? JSON.stringify(seg.timer) : ''}`;
+  const segDur = segmentDuration(seg);
   const barRef = useRef<HTMLDivElement>(null);
   const enteredAtRef = useRef(0);
   const durationRef = useRef<number | null>(null);
   useEffect(() => {
     enteredAtRef.current = performance.now();
-    durationRef.current = segmentDuration(seg);
+    durationRef.current = segDur;
     // 진입 즉시 0으로 리셋(직전 세그먼트 잔상 제거)
     if (barRef.current) barRef.current.style.width = '0%';
-  }, [flow.index, seg]);
+  }, [segSig, segDur]);
   useEffect(() => {
     let raf = 0;
     const loop = () => {
@@ -136,6 +146,14 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
           <div className={styles.flowWodPane} />
         ) : wod.data ? (
           <WodBoard data={wod.data} className={styles.flowWodPane} />
+        ) : wod.error ? (
+          // 로딩 실패는 '미게시'로 위장하지 않고 표면화(CLAUDE.md 에러 표면화 규칙)
+          <div className={styles.flowWodPane}>
+            <div className={styles.flowWodEmpty}>
+              <div className={styles.flowWodEmptyTitle}>WOD를 불러오지 못했습니다</div>
+              <div className={styles.flowWodEmptySub}>{wod.error}</div>
+            </div>
+          </div>
         ) : (
           <div className={styles.flowWodPane}>
             <div className={styles.flowWodEmpty}>

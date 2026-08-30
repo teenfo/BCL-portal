@@ -30,6 +30,8 @@ interface MovementLine {
 type SegTimerMode = '' | TimerMode;
 
 interface SegmentDraft {
+  /** 리스트 안정 키(행 이동/삭제 시 React DOM 재사용으로 입력 상태가 섞이는 것 방지) */
+  key: string;
   name: string;
   mode: SegTimerMode;
   /** countdown·countup: 분 */
@@ -42,6 +44,9 @@ interface SegmentDraft {
   rounds: string;
   showBoard: boolean;
 }
+
+let segDraftSeq = 0;
+const nextSegKey = () => `seg-${++segDraftSeq}`;
 
 const SEG_MODE_OPTS = [
   { value: 'none', label: '타이머 없음' },
@@ -56,6 +61,7 @@ function segmentToDraft(seg: FlowSegment): SegmentDraft {
   const t = seg.timer ?? null;
   const mode: SegTimerMode = t?.mode ?? '';
   return {
+    key: nextSegKey(),
     name: seg.name,
     mode,
     minutes:
@@ -86,6 +92,12 @@ function draftToSegment(d: SegmentDraft): FlowSegment {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : fallback;
   };
+  // rest는 0이 유효값(work-only 인터벌 — 엔진 명시 지원). 빈 입력만 폴백.
+  const numRest = (v: string, fallback: number) => {
+    if (v.trim() === '') return fallback;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : fallback;
+  };
   let timer: TimerCommand | null = null;
   if (d.mode === 'countdown') {
     timer = { action: 'configure', mode: 'countdown', seconds: num(d.minutes, 10) * 60, preSeconds: FLOW_PRE_SECONDS };
@@ -110,7 +122,7 @@ function draftToSegment(d: SegmentDraft): FlowSegment {
       action: 'configure',
       mode: 'tabata',
       workSeconds: num(d.work, 20),
-      restSeconds: num(d.rest, 10),
+      restSeconds: numRest(d.rest, 10),
       totalSets: num(d.rounds, 8),
       preSeconds: FLOW_PRE_SECONDS,
     };
@@ -119,7 +131,7 @@ function draftToSegment(d: SegmentDraft): FlowSegment {
       action: 'configure',
       mode: 'interval',
       workSeconds: num(d.work, 60),
-      restSeconds: num(d.rest, 30),
+      restSeconds: numRest(d.rest, 30),
       totalRounds: num(d.rounds, 5),
       preSeconds: FLOW_PRE_SECONDS,
     };
@@ -333,7 +345,7 @@ function WodEditor({
   const addSegment = () => {
     setSegments((prev) => [
       ...prev,
-      { name: '', mode: '', minutes: '', work: '', rest: '', rounds: '', showBoard: false },
+      { key: nextSegKey(), name: '', mode: '', minutes: '', work: '', rest: '', rounds: '', showBoard: false },
     ]);
   };
 
@@ -467,7 +479,7 @@ function WodEditor({
         ) : (
           <div className={styles.movementList}>
             {segments.map((s, i) => (
-              <Card key={i}>
+              <Card key={s.key}>
                 <div className={styles.movementRow}>
                   <span className={styles.movementName}>{i + 1}.</span>
                   <Button variant="ghost" size="sm" onClick={() => moveSegment(i, -1)} aria-label="위로">↑</Button>

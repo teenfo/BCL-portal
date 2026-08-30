@@ -3,6 +3,7 @@
 // 동일 타입·페처·포맷터를 공유한다(중복 정의 금지 — 이 파일이 단일 소스).
 import { rpc, type Envelope } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { formatRoundsReps } from '@/lib/score';
 
 export type RxStatus = 'rx_plus' | 'rx' | 'scaled';
 export type ScoreType = 'time' | 'reps' | 'rounds_reps' | 'weight' | 'distance' | 'calories';
@@ -45,7 +46,7 @@ export const RX_BADGE_LABEL: Record<RxStatus, string> = {
   scaled: 'SC',
 };
 
-/** 점수 표시 — score_type별 해석(rounds_reps는 rounds + reps/100 소수 인코딩, WodRecordSheet 정합) */
+/** 점수 표시 — score_type별 해석. rounds_reps 인코딩 해석은 src/lib/score.ts 계약 단일 소스 */
 export function formatBoardScore(score: number, type: ScoreType): string {
   switch (type) {
     case 'time': {
@@ -59,11 +60,8 @@ export function formatBoardScore(score: number, type: ScoreType): string {
       return `${Math.round(score)}m`;
     case 'calories':
       return `${Math.round(score)}cal`;
-    case 'rounds_reps': {
-      const rounds = Math.floor(score);
-      const reps = Math.round((score - rounds) * 100);
-      return reps > 0 ? `${rounds}R+${reps}` : `${rounds}R`;
-    }
+    case 'rounds_reps':
+      return formatRoundsReps(score);
     case 'reps':
     default:
       return `${score} reps`;

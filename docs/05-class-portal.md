@@ -197,6 +197,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | `fn_get_class_live_board` 🔄 | RPC EXECUTE | 세션 메타+집계+체크인 이름만 | as-is의 `sessions`/`checkins` 테이블 직접 SELECT를 **회수**하고 RPC로 좁힘 |
 | `fn_get_class_screen_prs` 🔄 | RPC EXECUTE | 공개 동의 회원의 이름+달성 항목 | screen 모드 PR 티커 |
 | `fn_get_class_leaderboard` 🔄 | RPC EXECUTE | 이름+기록 랭킹. ⏳ `p_scope='daily_wod'` 확장: 이름+점수+rx_status 배지만 반환(`note`·플래그 미SELECT — G-1·G-2, 16 문서) | leaderboard(벤치마크·일일 WOD 화이트보드) |
+| `fn_get_class_wod_board` | RPC EXECUTE | 세션 일일 WOD 화이트보드 — 이름+점수+rx 배지+기록시각만(`note`·member_id 미SELECT) | 전체화면 화이트보드 + flow 라이브 스트립(§3.2) 공용 |
 | `session_rotation_states` | 테이블 SELECT | 전행(서킷 상태 — 민감정보 없음) | 현행 의도적 공개 승계 ✅ |
 | `race_events`·`race_teams`·`race_live_state`·`race_records` | 테이블 SELECT | 🔄 anon SELECT 허용(이름·기록 수준) — Race TV 화면 미인증 구동 | as-is는 authenticated 한정이라 TV에 로그인 필요했음(운영 결함) → 공개로 전환. 쓰기는 종전대로 coach/admin/SRK |
 | Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}` | 수신만 | Broadcast는 DB 비경유 |

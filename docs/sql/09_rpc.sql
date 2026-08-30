@@ -1305,6 +1305,9 @@ END;
 $$;
 
 -- E.8 fn_upsert_session_wod(p_session_id, p_payload) — draft 작성/오버라이드
+--     segments = 수업 세그먼트 플랜 FlowSegment[](계약 SSOT: class-broadcast/contract.ts).
+--     형태 검증(배열+요소 객체) 후 저장 — 비정형 JSONB의 anon 표면 반사 방지.
+--     (20260830050000 segments 추가 · 20260830080000 검증)
 CREATE OR REPLACE FUNCTION public.fn_upsert_session_wod(p_session_id UUID, p_payload JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -1312,12 +1315,27 @@ AS $$
 DECLARE
     v_user_id UUID;
     v_id UUID;
+    v_segments JSONB;
 BEGIN
     v_user_id := public._assert_coach_can_edit_session(p_session_id);
 
+    -- 세그먼트 플랜 형태 검증 — 계약 FlowSegment[](contract.ts) 최소 보장: 배열 + 요소 객체
+    v_segments := COALESCE(p_payload->'segments', '[]'::jsonb);
+    IF jsonb_typeof(v_segments) <> 'array' THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL,
+            'error', 'segments는 배열이어야 합니다');
+    END IF;
+    IF EXISTS (
+        SELECT 1 FROM jsonb_array_elements(v_segments) e
+        WHERE jsonb_typeof(e.value) <> 'object'
+    ) THEN
+        RETURN jsonb_build_object('success', false, 'data', NULL,
+            'error', 'segments 항목은 객체여야 합니다');
+    END IF;
+
     INSERT INTO public.session_wods (
         session_id, template_id, publish_state, title_override, format_override,
-        time_cap_override, description_override, movements_snapshot,
+        time_cap_override, description_override, movements_snapshot, segments,
         coach_notes, class_display_notes, edited_by)
     VALUES (
         p_session_id,
@@ -1328,6 +1346,7 @@ BEGIN
         (p_payload->>'time_cap_override')::INT,
         p_payload->>'description_override',
         COALESCE(p_payload->'movements_snapshot','[]'::jsonb),
+        v_segments,
         p_payload->>'coach_notes',
         p_payload->>'class_display_notes',
         v_user_id)
@@ -1338,6 +1357,7 @@ BEGIN
         time_cap_override    = EXCLUDED.time_cap_override,
         description_override = EXCLUDED.description_override,
         movements_snapshot   = EXCLUDED.movements_snapshot,
+        segments             = EXCLUDED.segments,
         coach_notes          = EXCLUDED.coach_notes,
         class_display_notes  = EXCLUDED.class_display_notes,
         edited_by            = v_user_id,
@@ -1398,6 +1418,7 @@ BEGIN
         'rounds', wt.rounds,
         'description', COALESCE(sw.description_override, wt.description),
         'movements_snapshot', sw.movements_snapshot,
+        'segments', sw.segments,
         'class_display_notes', sw.class_display_notes,
         'published_at', sw.published_at)
     INTO v_data
@@ -2853,6 +2874,8 @@ $$;
 -- ============================================================================
 
 -- L.1 fn_get_class_live_board(p_facility_id) — 현재/다음 수업 + 체크인 "이름만"
+--     today_birthdays = 오늘 생일 회원 이름 배열(월일 비교만 — 생년 미노출, 옵트인 존중,
+--     20260830060000). flow 티커 생일 축하용.
 CREATE OR REPLACE FUNCTION public.fn_get_class_live_board(p_facility_id UUID)
 RETURNS JSONB
 LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public
@@ -2861,6 +2884,7 @@ DECLARE
     v_now TIMESTAMPTZ := now();
     v_current JSONB;
     v_next JSONB;
+    v_birthdays JSONB;
 BEGIN
     IF p_facility_id IS NULL THEN
         RETURN jsonb_build_object('success', false, 'data', NULL, 'error', 'facility_required');
@@ -2906,8 +2930,20 @@ BEGIN
     ORDER BY s.start_time
     LIMIT 1;
 
+    -- 오늘 생일 회원 이름(활성·옵트인만, 월일 비교 — 생년 미노출)
+    SELECT COALESCE(jsonb_agg(m.name ORDER BY m.name), '[]'::jsonb)
+    INTO v_birthdays
+    FROM public.members m
+    LEFT JOIN public.notification_preferences np ON np.user_id = m.user_id
+    WHERE m.facility_id = p_facility_id
+      AND m.status = 'active'
+      AND m.birthday IS NOT NULL
+      AND to_char(m.birthday, 'MM-DD') = to_char(CURRENT_DATE, 'MM-DD')
+      AND COALESCE(np.celebrate_opt_in, true);
+
     RETURN jsonb_build_object('success', true,
-        'data', jsonb_build_object('server_time', v_now, 'current', v_current, 'next', v_next),
+        'data', jsonb_build_object('server_time', v_now, 'current', v_current, 'next', v_next,
+                                   'today_birthdays', v_birthdays),
         'error', NULL);
 END;
 $$;
@@ -5947,7 +5983,7 @@ BEGIN
                             r.created_at ASC
                ) AS rank,
                m.name AS member_name,
-               r.score, r.score_type, r.rx_status
+               r.score, r.score_type, r.rx_status, r.created_at
         FROM public.session_wod_results r
         JOIN public.members m ON m.id = r.member_id
         WHERE r.session_wod_id = v_wod.id
@@ -5962,7 +5998,7 @@ BEGIN
 END;
 $$;
 COMMENT ON FUNCTION public.fn_get_class_wod_board(uuid) IS
-'ANON Class TV 일일 WOD 화이트보드(이름+점수+rx 배지, Rx+→Rx→Scaled 정렬). 개인 메모 미포함.';
+'ANON Class TV 일일 WOD 화이트보드(이름+점수+rx 배지+기록시각, Rx+→Rx→Scaled 정렬). 개인 메모 미포함. created_at은 기록순 정렬 옵션용(2-1)';
 
 
 -- ============================================================================

@@ -39,6 +39,18 @@ interface PublishedWodMeta {
   segments: FlowSegment[] | null;
 }
 
+/** sessionStorage에 영속된 플로우 진행 인덱스 읽기(storage 불가 환경은 null) */
+function readStoredFlowIndex(key: string | null): number | null {
+  if (!key || typeof window === 'undefined') return null;
+  try {
+    const v = sessionStorage.getItem(key);
+    const n = v == null ? NaN : Number(v);
+    return Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * 시설 콘솔(TV) 원격제어 발행 UI. facilityId가 없으면 안내만 표시.
  * 발행은 인증 클라이언트(코치)에서만 — 계약 §4.1 송신 주체 규칙.
@@ -60,8 +72,29 @@ export function ScreenControlPanel({
   const pubRef = useRef<ConsolePublisher | null>(null);
   const [active, setActive] = useState<ConsoleMode | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
-  // 수업 플로우 진행 상태(코치 패널이 SSOT — TV는 수신 렌더만). null=미시작
-  const [flowIndex, setFlowIndex] = useState<number | null>(null);
+  // 수업 플로우 진행 상태(코치 패널이 SSOT — TV는 수신 렌더만). null=미시작.
+  // 세션 보드 탭 전환이 이 패널을 언마운트하므로 sessionStorage에 세션 단위로 영속 —
+  // 재진입 시 '수업 시작'으로 오인해 index 0 재전송(TV 되감기)하는 사고 방지.
+  const flowStoreKey = sessionId ? `bcl.flow-index:${sessionId}` : null;
+  const [flowSync, setFlowSync] = useState<{ key: string | null; index: number | null }>(() => ({
+    key: flowStoreKey,
+    index: readStoredFlowIndex(flowStoreKey),
+  }));
+  // 마운트 유지 중 세션 변경 → 렌더 중 재적재(derived-state 패턴 — effect 경유 setState 금지 규칙)
+  if (flowSync.key !== flowStoreKey) {
+    setFlowSync({ key: flowStoreKey, index: readStoredFlowIndex(flowStoreKey) });
+  }
+  const flowIndex = flowSync.index;
+  const setFlowIndex = (v: number | null) => {
+    setFlowSync({ key: flowStoreKey, index: v });
+    try {
+      if (!flowStoreKey) return;
+      if (v == null) sessionStorage.removeItem(flowStoreKey);
+      else sessionStorage.setItem(flowStoreKey, String(v));
+    } catch {
+      /* storage 불가 환경 — 로컬 상태만 유지 */
+    }
+  };
   // 라이브 화이트보드 정렬(2-1 경쟁 강도 옵션 — 짐 문화에 맞게 선택)
   const [boardSort, setBoardSort] = useState<NonNullable<FlowCommand['board_sort']>>('rank');
 
@@ -135,6 +168,13 @@ export function ScreenControlPanel({
     if (next === flowIndex) return;
     await sendFlow(next);
     notify(`세그먼트: ${segments[next]?.name ?? next + 1}`);
+  };
+  // 상태를 잃은 TV(전원 순단·재부팅) 재동기 — 현재 세그먼트 전체 플랜 재전송.
+  // 계약상 수신 TV는 세그먼트 타이머를 0부터 재시작하므로 복구 용도로만 사용.
+  const resyncFlow = async () => {
+    if (flowIndex == null) return;
+    await sendFlow(flowIndex);
+    notify('현재 세그먼트를 TV에 재전송했습니다 (타이머 재시작).');
   };
   const changeBoardSort = async (sort: NonNullable<FlowCommand['board_sort']>) => {
     setBoardSort(sort);
@@ -240,6 +280,9 @@ export function ScreenControlPanel({
                     </Button>
                     <Button variant="primary" size="sm" onClick={() => stepFlow(1)}>
                       다음 세그먼트 ▶
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={resyncFlow} title="상태를 잃은 TV 복구 — 현재 세그먼트 재전송(타이머 재시작)">
+                      TV 재동기
                     </Button>
                     <Button variant="ghost" size="sm" onClick={stopFlow}>
                       종료

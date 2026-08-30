@@ -369,9 +369,13 @@
   inset: 0;
   opacity: 0;
   pointer-events: none;
+  /* full↔split↔flow 슬롯 지오메트리 전환 — 네 방향 모두 애니메이션(스냅 방지) */
   transition:
     opacity 400ms ease,
-    left 300ms ease;
+    left 300ms ease,
+    right 300ms ease,
+    top 300ms ease,
+    bottom 300ms ease;
 }
 .timerSlot[data-slot='full'] {
   inset: 0;
@@ -603,7 +607,8 @@
   background: var(--bcl-surface);
 }
 .flowSegNow {
-  flex: 0 0 auto;
+  /* 긴 세그먼트명이 진행 바·체크인 라벨을 밀어내지 않도록 축소 허용 + 내부 ellipsis */
+  flex: 0 1 auto;
   display: flex;
   align-items: baseline;
   gap: var(--bcl-space-3);
@@ -626,6 +631,9 @@
   font-weight: 800;
   text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .flowSegNext {
   align-self: center;
@@ -634,6 +642,9 @@
   letter-spacing: 0.04em;
   color: var(--bcl-text-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
   border: 1px solid var(--bcl-border);
   border-radius: var(--bcl-radius-md);
   padding: 2px var(--bcl-space-3);

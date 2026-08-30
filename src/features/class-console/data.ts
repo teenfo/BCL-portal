@@ -93,6 +93,14 @@ export function fetchDisplayWod(facilityId: string): Promise<Envelope<DisplayWod
   });
 }
 
+/** 세션 스코프 WOD 조회 — flow 명령의 session_id 기준. 같은 날 복수 세션이 게시된 시설에서
+ *  시설+날짜 조회(최신 세션 우선)가 다른 세션 WOD를 집어오는 것을 방지(화이트보드와 세션 정합) */
+export function fetchSessionDisplayWod(sessionId: string): Promise<Envelope<DisplayWod | null>> {
+  return rpc<DisplayWod | null>(getSupabaseBrowserClient(), 'fn_get_class_display_wod', {
+    p_session_id: sessionId,
+  });
+}
+
 export function fetchLiveBoard(facilityId: string): Promise<Envelope<LiveBoard>> {
   return rpc<LiveBoard>(getSupabaseBrowserClient(), 'fn_get_class_live_board', {
     p_facility_id: facilityId,
