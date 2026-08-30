@@ -3,7 +3,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ENGINE_CFG,
+  computeHeatFrames,
   computeTimerFrame,
+  heatCount,
   configFromCommand,
   timerTypeLabel,
   totalDuration,
@@ -109,6 +111,24 @@ describe('computeTimerFrame — preSeconds(READY 카운트다운)', () => {
   });
 });
 
+describe('GO 시각 신호 — pre 종료 직후 라벨(기획서 1-2)', () => {
+  it('pre 직후 1.5초 동안 라벨이 GO (시간·페이즈는 본 타이머 그대로)', () => {
+    const c = cfg({ mode: 'countdown', seconds: 600, preSeconds: 10 });
+    const go = computeTimerFrame(c, 10.4);
+    expect(go.label).toBe('GO');
+    expect(go.display).toBe('10:00');
+    expect(go.phase).toBe('');
+  });
+  it('GO 유지 시간이 지나면 원래 라벨로 복귀', () => {
+    const c = cfg({ mode: 'tabata', workSeconds: 20, restSeconds: 10, totalSets: 8, preSeconds: 10 });
+    expect(computeTimerFrame(c, 10.2).label).toBe('GO');
+    expect(computeTimerFrame(c, 12).label).toBe('SET 1/8 · WORK');
+  });
+  it('pre 없는 타이머는 GO를 띄우지 않는다', () => {
+    expect(computeTimerFrame(cfg({ mode: 'countdown', seconds: 600 }), 0.2).label).toBe('');
+  });
+});
+
 describe('잔여시간 표시 올림 규약 — 표시·비프(ceil) 정합', () => {
   it('countdown: 초 경계 직후(N+ε)에도 표시=ceil — 3-2-1 비프와 같은 숫자', () => {
     const f = computeTimerFrame(cfg({ mode: 'countdown', seconds: 600 }), 597.4);
@@ -165,5 +185,49 @@ describe('configFromCommand — configure 멱등(미지정 필드 DEFAULT 리셋
   it('mode 미지정 → 직전 mode 유지(start/pause 전 재구성 관례)', () => {
     const c = configFromCommand({ action: 'configure', seconds: 300 }, 'emom');
     expect(c.mode).toBe('emom');
+  });
+});
+
+// ── 시차 출발(waterfall) — 세그먼트 타이머 시계 위의 파생 계산 (기획서 1-3) ──
+describe('computeHeatFrames — 조 시차 출발', () => {
+  const plan = { count: 3, staggerSeconds: 30 };
+
+  it('조 수 2 미만 = 시차 출발 아님(빈 배열)', () => {
+    expect(heatCount({ count: 1, staggerSeconds: 30 })).toBe(0);
+    expect(computeHeatFrames({ count: 1, staggerSeconds: 30 }, 0, 0)).toEqual([]);
+    expect(heatCount(null)).toBe(0);
+  });
+
+  it('출발 전 — 각 조가 pre + n×stagger 기준 잔여를 센다', () => {
+    const f = computeHeatFrames(plan, 10, 0); // READY 10초 + 30초 간격
+    expect(f.map((h) => h.state)).toEqual(['waiting', 'waiting', 'waiting']);
+    expect(f.map((h) => h.display)).toEqual(['00:10', '00:40', '01:10']);
+    expect(f[2].secToStart).toBe(70);
+  });
+
+  it('1조 출발 순간 = GO 상태(짧은 유지), 나머지는 대기', () => {
+    const f = computeHeatFrames(plan, 10, 10.2);
+    expect(f[0].state).toBe('go');
+    expect(f[1].state).toBe('waiting');
+  });
+
+  it('출발 후 = 조별 경과 시간(GO 유지 구간 이후)', () => {
+    const f = computeHeatFrames(plan, 10, 100); // 1조 +90s · 2조 +60s · 3조 +30s
+    expect(f.map((h) => h.state)).toEqual(['running', 'running', 'running']);
+    expect(f.map((h) => h.display)).toEqual(['01:30', '01:00', '00:30']);
+  });
+
+  it('조 이름 — labels 우선, 부족분은 HEAT n', () => {
+    const f = computeHeatFrames({ count: 3, staggerSeconds: 30, labels: ['A조', ' '] }, 0, 0);
+    expect(f.map((h) => h.label)).toEqual(['A조', 'HEAT 2', 'HEAT 3']);
+  });
+
+  it('조 수 상한 12 — 잘못 큰 값이 TV를 채우지 않는다', () => {
+    expect(computeHeatFrames({ count: 50, staggerSeconds: 15 }, 0, 0)).toHaveLength(12);
+  });
+
+  it('stagger 0/음수 = 최소 1초로 보정(모든 조가 같은 시각에 겹치지 않게)', () => {
+    const f = computeHeatFrames({ count: 2, staggerSeconds: 0 }, 0, 0);
+    expect(f[1].secToStart).toBe(1);
   });
 });

@@ -35,25 +35,48 @@
 
 ### 2.1 색 — 테마 매핑 표
 
+팔레트 정본 = **Class TV 2.0 기획서 색 체계**. 종전 무채색 그레이(`#161616` 계열)를
+청색 슬레이트로 전면 교체했다 — 표면 3단·경계 2단·텍스트 3단이 서로 구분되어 어두운
+화면에서 깊이가 생긴다.
+
 | 토큰 | dark | light | 용도 |
 |---|---|---|---|
-| `--bcl-bg` | `#161616` | `#F7F7F5` | 페이지 배경 |
-| `--bcl-surface` | `#1F1F1F` | `#FFFFFF` | 카드·패널 기본면 |
-| `--bcl-surface-raised` | `#2A2A2A` | `#FFFFFF` + `--bcl-shadow-md` | 모달·팝오버·띄운 면 |
-| `--bcl-border` | `#3A3A3A` | `#E4E4E0` | 구분선·외곽선 |
-| `--bcl-text` | `#F5F5F5` | `#1C1C1C` | 본문 텍스트 |
-| `--bcl-text-muted` | `#9E9E9E` | `#6E6E6B` | 보조 텍스트·라벨 |
-| `--bcl-accent` | `#FF6A00` | `#FF6A00` | 브랜드 액센트 **단일 값**(면·아이콘·게이지) |
-| `--bcl-accent-ink` ⏳보조 | `#FF8A3D` | `#C24E00` | 액센트 **텍스트/링크 전용** — #FF6A00은 소형 텍스트 대비 미달(흰 배경 2.9:1)이므로 텍스트에는 이 파생 토큰만 사용. 브랜드 값은 accent 1개, ink는 접근성 파생 |
-| `--bcl-accent-soft` | `rgba(255,106,0,.16)` | `rgba(255,106,0,.10)` | 액센트 연한 배경(선택 상태·soft 버튼) |
-| `--bcl-accent-border` | `rgba(255,106,0,.40)` | `rgba(255,106,0,.35)` | 액센트 외곽선 |
-| `--bcl-success` / `-soft` | `#34C759` / `rgba(52,199,89,.16)` | `#1E9E4A` / `rgba(30,158,74,.12)` | 성공·출석·활성 |
-| `--bcl-warning` / `-soft` | `#F5A623` / `rgba(245,166,35,.16)` | `#B97508` / `rgba(185,117,8,.12)` | 주의·대기·만료 임박 |
-| `--bcl-danger` / `-soft` | `#FF4D4F` / `rgba(255,77,79,.16)` | `#D6383A` / `rgba(214,56,58,.12)` | 위험·삭제·노쇼 |
-| `--bcl-info` / `-soft` | `#4DA3FF` / `rgba(77,163,255,.16)` | `#1D6FD6` / `rgba(29,111,214,.12)` | 안내·정보 배지 |
-| `--bcl-overlay` ⏳보조 | `rgba(0,0,0,.60)` | `rgba(20,20,20,.45)` | 모달/바텀시트 딤 |
-| `--bcl-focus-ring` ⏳보조 | `rgba(255,138,61,.55)` | `rgba(194,78,0,.45)` | 포커스 링(전 컴포넌트 공통) |
-| `--bcl-shadow-md` ⏳보조 | `0 4px 16px rgba(0,0,0,.45)` | `0 4px 16px rgba(28,28,28,.10)` | raised 면 그림자 |
+| `--bcl-bg` | `#0E141C` | `#F5F6F8` | 페이지 배경 |
+| `--bcl-surface` | `#151D28` | `#FFFFFF` | 카드·패널 기본면 |
+| `--bcl-surface-raised` | `#1B2634` | `#FFFFFF` + `--bcl-shadow-md` | 모달·팝오버·띄운 면 |
+| `--bcl-border` | `#2A3644` | `#D9DFE7` | 구분선·외곽선 |
+| `--bcl-border-soft` | `#222D3A` | `#E5EAF0` | 약한 구분선(표 행 경계 등) |
+| `--bcl-text` | `#E9EDF3` | `#1B2432` | 본문 텍스트 |
+| `--bcl-text-muted` | `#97A3B4` | `#5A6677` | 보조 텍스트·라벨 |
+| `--bcl-text-faint` | `#6B7789` | `#8894A5` | 3단계 텍스트(캡션·비활성) |
+| `--bcl-accent` | `#FF6A00` | `#E85F00` | 브랜드 액센트(면·아이콘·게이지). 라이트는 밝은 배경 가독을 위해 한 단계 낮춘 값 |
+| `--bcl-accent-ink` ⏳보조 | `#FFB27A` | `#B64A00` | 액센트 **텍스트/링크 전용** — 소형 텍스트 대비 확보용 파생 토큰 |
+| `--bcl-accent-soft` | `rgba(255,106,0,.13)` | `rgba(232,95,0,.09)` | 액센트 연한 배경(선택 상태·soft 버튼) |
+| `--bcl-accent-border` | `rgba(255,106,0,.40)` | `rgba(232,95,0,.35)` | 액센트 외곽선 |
+| `--bcl-chip-ink` | `#0D1117` | `#FFFFFF` | 채움 배지(오렌지·상태색) 위에 얹는 글자색 |
+| `--bcl-code-bg` | `#101823` | `#EEF1F5` | 코드·모노스페이스 블록 배경 |
+| `--bcl-success` / `-soft` | `#37C871` / `rgba(55,200,113,.16)` | `#199B52` / `rgba(25,155,82,.12)` | 성공·출석·활성 · 타이머 WORK |
+| `--bcl-warning` / `-soft` | `#FFAB2E` / `rgba(255,171,46,.16)` | `#D98A00` / `rgba(217,138,0,.12)` | 주의·대기 · 타이머 READY |
+| `--bcl-danger` / `-soft` | `#FF5A5F` / `rgba(255,90,95,.16)` | `#E03E44` / `rgba(224,62,68,.12)` | 위험·노쇼 · 타이머 REST |
+| `--bcl-info` / `-soft` | `#4DA3FF` / `rgba(77,163,255,.16)` | `#1F7FE8` / `rgba(31,127,232,.12)` | 안내·정보 배지 |
+| `--bcl-zone-1` ~ `-5` | `#8B95A5` `#4DA3FF` `#37C871` `#FFAB2E` `#FF5A5F` | `#7D8797` `#1F7FE8` `#199B52` `#D98A00` `#E03E44` | 심박·강도 존 5단(Class TV 심박 디스플레이) |
+| `--bcl-overlay` ⏳보조 | `rgba(0,0,0,.60)` | `rgba(20,30,45,.45)` | 모달/바텀시트 딤 |
+| `--bcl-focus-ring` ⏳보조 | `rgba(255,178,122,.55)` | `rgba(182,74,0,.45)` | 포커스 링(전 컴포넌트 공통) |
+| `--bcl-shadow-md` ⏳보조 | `0 4px 16px rgba(0,0,0,.45)` | `0 4px 16px rgba(20,30,45,.10)` | raised 면 그림자 |
+
+#### Class TV 표면 (테마 무관 — 어두운 체육관 대형 화면 전용)
+
+`.consoleRoot`가 `--bcl-surface`·`--bcl-border`를 아래 값으로 재바인딩한다. 컴포넌트는
+평소대로 표준 토큰만 소비하므로 HEX 하드코딩이 생기지 않는다.
+
+| 토큰 | 값 | 용도 |
+|---|---|---|
+| `--bcl-tv-bg` | `#0A0E14` | TV 페이지 바탕(일반 다크보다 한 단계 더 가라앉힘) |
+| `--bcl-tv-card` | `#121A25` | 스트립·WOD·티커 카드면 |
+| `--bcl-tv-card-border` | `#2C3A4C` | 카드 경계(멀리서도 구획이 보이도록 또렷하게) |
+| `--bcl-tv-timer-bg` | `#101D16` | 타이머 면 기본 틴트(페이즈 없을 때도 초록 계열 유지) |
+| `--bcl-tv-timer-border` | `#2B4A38` | 타이머 카드 경계 |
+| `--bcl-tv-timer-label` | `#8FA89A` | 타이머 숫자 아래 보조 라벨 |
 
 규칙:
 - 상태색 텍스트는 각 테마에서 배경 대비 4.5:1 이상이 되도록 위 값 고정(라이트는 어두운 톤 채택).
@@ -296,7 +319,7 @@ CI에서 사용된 `--bcl-*` 목록과 정의 목록 diff 검사(스크립트) �
 | 4 | 그라디언트 `#ff6a00→#ff8533` | 다크 히어로·버튼 | 폐지 → 단색 accent | 연출 예외는 Race 에셋만(15 문서) |
 | 5 | `--app-accent-bg` **미정의 토큰 참조** | apps 선택 상태(버그) | `--bcl-accent-soft` | 미정의 참조 CI 가드(§3)로 재발 차단 |
 | 6 | admin 수동 유틸리티(`.admin-filter-btn`/`.admin-search-input`/`.admin-action-btn`, globals.css 수제 클래스) | admin 전 화면 | Button(ghost/soft)·Input(search)·Button(primary) 컴포넌트 | 글로벌 클래스 강제 규약 자체를 폐지 — 컴포넌트가 규약 |
-| 7 | admin 다크 배경 `#1a1a1a` 계열 직접 지정 | admin | `--bcl-bg`(dark=`#161616`) | 값은 토큰으로만 |
+| 7 | admin 다크 배경 `#1a1a1a` 계열 직접 지정 | admin | `--bcl-bg`(dark=`#0E141C`) | 값은 토큰으로만 |
 | 8 | glass `rgba(38,38,38,.8)+blur(10px)` 산재 | admin·class | `.bcl-glass` 유틸 1개(surface 기반) | TV 연출 한정 |
 | 9 | `.app-page` 라이트 페이지 토큰 세트 | apps/coach | `data-theme="light"` 전환 | 페이지 클래스 → html 속성 |
 | 10 | radius 8px 단일(문서) vs 화면별 임의값(실태) | 전 앱 | `--bcl-radius-sm/md/lg` 3단계 | |

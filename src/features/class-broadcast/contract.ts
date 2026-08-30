@@ -28,6 +28,19 @@ export function raceChannelName(eventId: string): string {
   return `race:${eventId}`;
 }
 
+/**
+ * 기록 보드 갱신 신호 채널 — 세션 단위.
+ * 회원 앱이 WOD 기록을 저장한 직후 "다시 읽어라"는 신호만 보내고(데이터 미포함),
+ * TV는 기존 anon RPC(fn_get_class_wod_board)로 재조회한다. 신규 데이터 표면이 늘지 않는다
+ * — 폴링(20s) 대기 없이 즉시 반영하기 위한 최소 장치(기획서 2-1).
+ */
+export function boardChannelName(sessionId: string): string {
+  return `wod-board:${sessionId}`;
+}
+
+/** 보드 갱신 신호 이벤트명(고정) — 페이로드는 ts뿐(기록 내용은 싣지 않는다) */
+export const BOARD_DIRTY_EVENT = 'board_dirty' as const;
+
 /** 콘솔 명령 Broadcast 이벤트명(고정) */
 export const CONSOLE_CMD_EVENT = 'console_cmd' as const;
 
@@ -67,6 +80,21 @@ export interface TimerCommand {
 //   코치가 세그먼트 배열+현재 인덱스를 통째로 재전송한다(멱등 — TV는 수신 상태만
 //   렌더, 중간 합류/재접속 TV도 다음 명령에서 동기화). 플랜 영속은 session_wods.segments.
 
+/**
+ * 히트(조) 시차 출발 플랜 — waterfall start (기획서 1-3).
+ * 장비가 인원보다 적은 수업에서 조를 나눠 stagger 간격으로 순차 출발시킨다.
+ * TV는 세그먼트 타이머와 같은 시계 위에서 각 조의 출발 카운트다운/경과를 함께 표시한다
+ * (별도 타이머 엔진 없음 — 조 h의 출발 시각 = preSeconds + h × staggerSeconds).
+ */
+export interface HeatPlan {
+  /** 조 수(2 이상에서 의미 있음) */
+  count: number;
+  /** 조 간 출발 간격(초) */
+  staggerSeconds: number;
+  /** 조 이름(미지정/부족분은 'HEAT n') */
+  labels?: string[];
+}
+
 export interface FlowSegment {
   /** 표시 이름(예: 브리핑·웜업·METCON·쿨다운) */
   name: string;
@@ -76,6 +104,19 @@ export interface FlowSegment {
   autoStart?: boolean;
   /** 라이브 화이트보드(기록 랭킹 스트립) 표시 여부(기본 false — 기록 세그먼트에서만) */
   showBoard?: boolean;
+  /**
+   * 화이트보드 표시 방식(showBoard=true일 때만): rank=개인 순위(기본) ·
+   * coop=클래스 합산 목표 진행(협동 모드, 기획서 2-3 — 목표는 session_wods.coop_*)
+   */
+  boardView?: 'rank' | 'coop';
+  /**
+   * 이 구간에 띄울 WOD 동작 인덱스(movements_snapshot 기준, 기획서 1-1 콘텐츠 바인딩).
+   * 미지정/빈 배열 = 오늘 WOD 전체 표시(종전 동작). 지정 시 해당 동작만 좌측에 뜨고,
+   * 첫 동작의 시범 자료(영상·코칭 포인트)가 함께 표시된다.
+   */
+  movementIdx?: number[];
+  /** 시차 출발(waterfall) 플랜 — 미지정/count<2 = 전원 동시 출발(종전 동작) */
+  heats?: HeatPlan | null;
 }
 
 export interface FlowCommand {

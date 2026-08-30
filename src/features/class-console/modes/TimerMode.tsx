@@ -9,6 +9,8 @@ import styles from '../console.module.css';
 
 export interface TimerModeHandle {
   apply: (cmd: TimerCommand) => void;
+  /** 현재 경과 초 — 같은 시계를 쓰는 파생 표시(시차 출발 조 카운트다운)용 */
+  getElapsed: () => number;
 }
 
 /** 상위(ConsoleShell)가 원격 timer 명령을 ref.apply()로 주입 */
@@ -20,7 +22,7 @@ export const TimerMode = forwardRef<TimerModeHandle>(function TimerMode(_props, 
 
   const timer = useConsoleTimer({ time: timeRef, label: labelRef, type: typeRef, phaseRoot: rootRef });
 
-  useImperativeHandle(ref, () => ({ apply: timer.apply }), [timer]);
+  useImperativeHandle(ref, () => ({ apply: timer.apply, getElapsed: timer.getElapsed }), [timer]);
 
   // 초기 표시값 세팅(명령 도착 전 00:00)
   useEffect(() => {

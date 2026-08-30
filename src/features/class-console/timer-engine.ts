@@ -2,7 +2,7 @@
 // useConsoleTimer(rAF 훅)에서 분리한 프레임 계산 단일 소스. DOM·부수효과 없음(단위 테스트 대상).
 // 모드 5종: countdown / countup(+capSeconds 자동 종료) / emom(가변 인터벌) / tabata / interval
 // 공통: preSeconds(시작 전 READY 카운트다운) — 본 타이머 경과는 pre 종료 후 0부터.
-import type { TimerCommand, TimerMode } from '@/features/class-broadcast';
+import type { HeatPlan, TimerCommand, TimerMode } from '@/features/class-broadcast';
 
 export interface TimerEngineConfig {
   mode: TimerMode;
@@ -124,8 +124,81 @@ function fmtRemain(sec: number): string {
   return fmtClock(Math.ceil(sec));
 }
 
-/** 경과 초(elapsed, 시작부터 연속) → 표시 프레임. 순수 함수 — 비프/DOM은 훅이 담당. */
+/** pre 종료 직후 화면에 'GO'를 유지하는 시간(초) — 소리 신호와 짝을 이루는 시각 신호 */
+const GO_HOLD_SEC = 1.5;
+
+/**
+ * 경과 초(elapsed, 시작부터 연속) → 표시 프레임. 순수 함수 — 비프/DOM은 훅이 담당.
+ * pre 카운트다운을 쓴 경우 본 타이머 진입 직후 잠시 라벨을 'GO'로 덮는다(표시 전용 —
+ * 시간·페이즈·종료 판정은 그대로).
+ */
 export function computeTimerFrame(cfg: TimerEngineConfig, elapsed: number): TimerFrame {
+  const frame = baseTimerFrame(cfg, elapsed);
+  if (cfg.preSeconds > 0) {
+    const t = elapsed - cfg.preSeconds;
+    if (t >= 0 && t < GO_HOLD_SEC && !frame.done) return { ...frame, label: 'GO' };
+  }
+  return frame;
+}
+
+// ── 시차 출발(waterfall) — 세그먼트 타이머와 같은 시계 위의 파생 표시 ──────────
+
+export interface HeatFrame {
+  /** 0-based 조 번호 */
+  index: number;
+  label: string;
+  /** waiting=출발 대기 · go=출발 순간(짧게) · running=진행 중 */
+  state: 'waiting' | 'go' | 'running';
+  /** waiting: 출발까지 남은 MM:SS · go/running: 출발 후 경과 MM:SS */
+  display: string;
+  /** 출발까지 남은 초(음수 = 이미 출발) — 비프·강조 판정용 */
+  secToStart: number;
+}
+
+/** 조 이름 — labels 우선, 부족분은 HEAT n */
+function heatLabel(plan: HeatPlan, i: number): string {
+  const l = plan.labels?.[i];
+  return l && l.trim() ? l.trim() : `HEAT ${i + 1}`;
+}
+
+/** 유효 조 수(1 이하 = 시차 출발 아님) */
+export function heatCount(plan: HeatPlan | null | undefined): number {
+  if (!plan) return 0;
+  const n = Math.floor(plan.count);
+  return Number.isFinite(n) && n >= 2 ? Math.min(n, 12) : 0;
+}
+
+/**
+ * 조별 출발 상태. 조 h의 출발 시각 = preSeconds + h × staggerSeconds (elapsed 축).
+ * 순수 함수 — TV는 rAF에서 이 결과만 DOM에 반영한다.
+ */
+export function computeHeatFrames(
+  plan: HeatPlan,
+  preSeconds: number,
+  elapsed: number,
+): HeatFrame[] {
+  const n = heatCount(plan);
+  if (n === 0) return [];
+  const stagger = Math.max(1, Math.floor(plan.staggerSeconds) || 0);
+  const pre = Math.max(0, preSeconds);
+  const frames: HeatFrame[] = [];
+  for (let i = 0; i < n; i++) {
+    const startAt = pre + i * stagger;
+    const secToStart = startAt - elapsed;
+    const state: HeatFrame['state'] =
+      secToStart > 0 ? 'waiting' : -secToStart < GO_HOLD_SEC ? 'go' : 'running';
+    frames.push({
+      index: i,
+      label: heatLabel(plan, i),
+      state,
+      display: state === 'waiting' ? fmtRemain(secToStart) : fmtClock(-secToStart),
+      secToStart,
+    });
+  }
+  return frames;
+}
+
+function baseTimerFrame(cfg: TimerEngineConfig, elapsed: number): TimerFrame {
   // 프리 카운트다운 — 본 타이머와 독립된 준비 구간(READY 3-2-1-GO)
   if (cfg.preSeconds > 0 && elapsed < cfg.preSeconds) {
     const remain = cfg.preSeconds - elapsed;

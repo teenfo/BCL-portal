@@ -2423,6 +2423,23 @@ $$;
 
 COMMENT ON FUNCTION public.fn_record_session_wod_result(UUID, NUMERIC, TEXT, TEXT, TEXT) IS 'G-1: 본인 일일 WOD 점수 기록(upsert). published WOD + 세션 참가자만';
 
+-- [공용] _rank_session_wod_results — WOD 결과 순위 규칙 단일 정의(내부 전용, anon/authenticated REVOKE)
+--   코치 화이트보드·TV 화이트보드가 이 헬퍼로만 순위를 매긴다(정렬 규칙 복제 금지, mig 20260830110000)
+CREATE OR REPLACE FUNCTION public._rank_session_wod_results(p_session_wod_id UUID)
+RETURNS TABLE (result_id UUID, rank INT)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
+AS $$
+    SELECT r.id,
+           (ROW_NUMBER() OVER (
+               ORDER BY CASE r.rx_status WHEN 'rx_plus' THEN 0 WHEN 'rx' THEN 1 ELSE 2 END,
+                        CASE WHEN r.score_type = 'time' THEN r.score END ASC NULLS LAST,
+                        CASE WHEN r.score_type <> 'time' THEN r.score END DESC NULLS LAST,
+                        r.created_at ASC
+           ))::INT
+    FROM public.session_wod_results r
+    WHERE r.session_wod_id = p_session_wod_id;
+$$;
+
 -- I2.2 fn_get_session_wod_whiteboard(p_session_id) — 세션 전원 결과, Rx+→Rx→Scaled 계층 정렬
 --      정렬 규칙: ① rx 계층(rx_plus=0, rx=1, scaled=2) ② score_type 방향(time=오름차순, 그 외=내림차순)
 CREATE OR REPLACE FUNCTION public.fn_get_session_wod_whiteboard(p_session_id UUID)
@@ -2452,15 +2469,11 @@ BEGIN
 
     SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.rank), '[]'::jsonb) INTO v_results
     FROM (
-        SELECT ROW_NUMBER() OVER (
-                   ORDER BY CASE r.rx_status WHEN 'rx_plus' THEN 0 WHEN 'rx' THEN 1 ELSE 2 END,
-                            CASE WHEN r.score_type = 'time' THEN r.score END ASC NULLS LAST,
-                            CASE WHEN r.score_type <> 'time' THEN r.score END DESC NULLS LAST,
-                            r.created_at ASC
-               ) AS rank,
+        SELECT k.rank,
                m.name AS member_name, m.avatar_url,
                r.member_id, r.score, r.score_type, r.rx_status, r.note, r.created_at
         FROM public.session_wod_results r
+        JOIN public._rank_session_wod_results(v_wod.id) k ON k.result_id = r.id
         JOIN public.members m ON m.id = r.member_id
         WHERE r.session_wod_id = v_wod.id
     ) t;
@@ -5978,15 +5991,11 @@ BEGIN
 
     SELECT COALESCE(jsonb_agg(to_jsonb(t) ORDER BY t.rank), '[]'::jsonb) INTO v_data
     FROM (
-        SELECT ROW_NUMBER() OVER (
-                   ORDER BY CASE r.rx_status WHEN 'rx_plus' THEN 0 WHEN 'rx' THEN 1 ELSE 2 END,
-                            CASE WHEN r.score_type = 'time' THEN r.score END ASC NULLS LAST,
-                            CASE WHEN r.score_type <> 'time' THEN r.score END DESC NULLS LAST,
-                            r.created_at ASC
-               ) AS rank,
+        SELECT k.rank,
                m.name AS member_name,
                r.score, r.score_type, r.rx_status, r.created_at
         FROM public.session_wod_results r
+        JOIN public._rank_session_wod_results(v_wod.id) k ON k.result_id = r.id
         JOIN public.members m ON m.id = r.member_id
         WHERE r.session_wod_id = v_wod.id
     ) t;

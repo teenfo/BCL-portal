@@ -19,7 +19,13 @@ import {
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { deriveFlowSegments, describeSegmentTimer, wodTimerConfig, type WodTimerMeta } from './flow-plan';
+import {
+  FLOW_PRE_SECONDS,
+  deriveFlowSegments,
+  describeSegmentTimer,
+  wodTimerConfig,
+  type WodTimerMeta,
+} from './flow-plan';
 import styles from './coach-race.module.css';
 
 const MODE_OPTS: { value: ConsoleMode; label: string }[] = [
@@ -224,11 +230,18 @@ export function ScreenControlPanel({
     await pubRef.current.timer({ action: 'start' });
     notify(`WOD 타이머 시작 — ${wodTimer.label}`);
   };
+  // 수동 버튼도 세그먼트 진입과 동일하게 READY 카운트다운을 붙인다
+  // (종전에는 즉시 시작이라 회원이 준비할 틈이 없었다 — 기획서 1-2 프리 카운트다운)
   const startCountdown = async (minutes: number) => {
     if (!pubRef.current) return;
-    await pubRef.current.timer({ action: 'configure', mode: 'countdown', seconds: minutes * 60 });
+    await pubRef.current.timer({
+      action: 'configure',
+      mode: 'countdown',
+      seconds: minutes * 60,
+      preSeconds: FLOW_PRE_SECONDS,
+    });
     await pubRef.current.timer({ action: 'start' });
-    notify(`${minutes}분 카운트다운 시작`);
+    notify(`${minutes}분 카운트다운 시작 (READY ${FLOW_PRE_SECONDS}초)`);
   };
 
   return (
@@ -345,8 +358,11 @@ export function ScreenControlPanel({
                 size="sm"
                 onClick={() =>
                   void (async () => {
-                    await sendTimer({ action: 'configure', mode: 'countup' }, '');
-                    await sendTimer({ action: 'start' }, '카운트업 시작');
+                    await sendTimer(
+                      { action: 'configure', mode: 'countup', preSeconds: FLOW_PRE_SECONDS },
+                      '',
+                    );
+                    await sendTimer({ action: 'start' }, '카운트업 시작 (READY 대기)');
                   })()
                 }
               >

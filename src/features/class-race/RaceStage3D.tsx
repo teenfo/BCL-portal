@@ -233,7 +233,7 @@ function makePlaceTexture(place: number): THREE.CanvasTexture {
     place === 1
       ? cssColor('--bcl-warning', '#f5a623')
       : place === 2
-        ? cssColor('--bcl-text-muted', '#9e9e9e')
+        ? cssColor('--bcl-text-muted', '#97a3b4')
         : place === 3
           ? cssColor('--bcl-accent', BRAND_ACCENT_HEX)
           : cssColor('--bcl-info', '#4da3ff');
@@ -1220,7 +1220,7 @@ export function RaceStage3D({
             //   윙 리거(노 거치대)는 절차 생성 — 헐 모델 교체와 무관하게 피벗 위치와 항상 정합
             const riggerGeo = new THREE.CylinderGeometry(0.016, 0.016, 1, 8);
             const riggerMat = new THREE.MeshStandardMaterial({
-              color: new THREE.Color(cssColor('--bcl-text-muted', '#9e9e9e')),
+              color: new THREE.Color(cssColor('--bcl-text-muted', '#97a3b4')),
               metalness: 0.75,
               roughness: 0.35,
             });

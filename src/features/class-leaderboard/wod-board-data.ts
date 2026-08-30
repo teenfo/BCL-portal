@@ -68,6 +68,55 @@ export function formatBoardScore(score: number, type: ScoreType): string {
   }
 }
 
+// ── 협동 모드(팀 합산 목표) — 2-3 ───────────────────────────────────────────
+
+/** 협동 목표 단위 — 기록 score_type과 매칭되는 계열만(서버 화이트리스트와 동일) */
+export type CoopUnit = 'reps' | 'm' | 'cal' | 'kg';
+
+export interface CoopBoardData {
+  session_id: string;
+  label: string;
+  unit: CoopUnit;
+  target: number;
+  total: number;
+  /** 합산에 들어간 인원 */
+  contributors: number;
+  /** 단위가 달라 합산에서 빠진 기록 수(0이 아니면 TV가 밝힌다) */
+  excluded: number;
+  leaders: { member_name: string; value: number }[];
+}
+
+const COOP_UNIT_LABEL: Record<CoopUnit, string> = {
+  reps: 'reps',
+  m: 'm',
+  cal: 'cal',
+  kg: 'kg',
+};
+
+/** 합계·목표 표기 — 천 단위 구분 + 단위 */
+export function formatCoopValue(value: number, unit: CoopUnit): string {
+  return `${Math.round(value).toLocaleString('ko-KR')}${COOP_UNIT_LABEL[unit] === 'reps' ? ' ' : ''}${COOP_UNIT_LABEL[unit]}`;
+}
+
+/** 1인 평균 기여량 — 참여 인원이 0이면 null(0 나눗셈 방지). 계획서 2-3 '그룹 평균' */
+export function coopAverage(data: CoopBoardData): number | null {
+  if (!(data.contributors > 0)) return null;
+  return data.total / data.contributors;
+}
+
+/** 목표 대비 달성률(0~100, 목표 0/음수는 0 취급) */
+export function coopPercent(data: CoopBoardData): number {
+  if (!(data.target > 0)) return 0;
+  return Math.max(0, Math.min(100, (data.total / data.target) * 100));
+}
+
+/** 목표 미설정 세션은 data=null 성공 — '협동 모드 아님'(오류 아님) */
+export function fetchCoopBoard(sessionId: string): Promise<Envelope<CoopBoardData | null>> {
+  return rpc<CoopBoardData | null>(getSupabaseBrowserClient(), 'fn_get_class_coop_board', {
+    p_session_id: sessionId,
+  });
+}
+
 export function fetchWodBoard(sessionId: string): Promise<Envelope<WodBoardData>> {
   return rpc<WodBoardData>(getSupabaseBrowserClient(), 'fn_get_class_wod_board', {
     p_session_id: sessionId,
