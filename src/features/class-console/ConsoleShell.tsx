@@ -23,6 +23,7 @@ import { ScreenMode } from './modes/ScreenMode';
 import { SplitMode } from './modes/SplitMode';
 import { FlowMode, type FlowViewState } from './modes/FlowMode';
 import { TimerMode, type TimerModeHandle } from './modes/TimerMode';
+import { CelebrationOverlay } from './CelebrationOverlay';
 import styles from './console.module.css';
 
 const VALID_MODES: ConsoleMode[] = ['wod', 'live', 'timer', 'screen', 'split', 'flow'];
@@ -51,6 +52,10 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
     if (timerRef.current) timerRef.current.apply(cmd);
     else pendingTimerRef.current.push(cmd);
   }, []);
+
+  // 시차 출발 조 패널이 타이머와 같은 시계를 읽도록 경과 초를 넘긴다(별도 엔진 금지 —
+  // 두 시계가 각자 돌면 조 출발 시각이 타이머와 어긋난다)
+  const getTimerElapsed = useCallback(() => timerRef.current?.getElapsed() ?? 0, []);
 
   const onCommand = useCallback(
     (payload: ConsoleCommandPayload) => {
@@ -190,7 +195,9 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
         </ModeLayer>
         {/* flow 모드: 세그먼트 스트립+좌측 WOD/화이트보드. 우측은 timerSlot(flow 슬롯) */}
         <ModeLayer active={mode === 'flow'}>
-          {mode === 'flow' && flow ? <FlowMode facilityId={facilityId} flow={flow} /> : null}
+          {mode === 'flow' && flow ? (
+            <FlowMode facilityId={facilityId} flow={flow} getTimerElapsed={getTimerElapsed} />
+          ) : null}
         </ModeLayer>
 
         {/*
@@ -209,6 +216,8 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
                   ? 'flow'
                   : 'hidden'
           }
+          /* 시차 출발 밴드가 뜨는 세그먼트에서는 타이머 카드를 그만큼 짧게(밴드 자리 확보) */
+          data-heats={mode === 'flow' && flow?.segments[flow.index]?.heats ? '1' : undefined}
           aria-hidden={!TIMER_VISIBLE_MODES.includes(mode)}
         >
           <TimerMode ref={timerRef} />
@@ -217,6 +226,10 @@ export function ConsoleShell({ initialMode = 'screen' }: { initialMode?: Console
 
       {/* open_race: 관전 화면으로 전환(full-bleed, anon·쓰기 없음) */}
       {raceEventId ? <RaceView eventId={raceEventId} /> : null}
+
+      {/* 축하 오버레이 — 모드와 무관하게 상시(수업 중 PR·배지는 어느 화면에서든 축하한다).
+          refreshKey 재마운트 대상 밖에 둬서 새로고침 중 축하가 끊기지 않는다 */}
+      <CelebrationOverlay facilityId={facilityId} sessionId={flow?.sessionId ?? null} />
 
       {identify ? <IdentifyOverlay consoleId={consoleId} /> : null}
     </div>

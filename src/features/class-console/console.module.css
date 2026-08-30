@@ -19,6 +19,7 @@
   --flow-gap: 18px;
   --flow-strip-h: 92px;
   --flow-ticker-h: 88px;
+  --flow-heat-h: 132px; /* 시차 출발 밴드(우측 하단) — 있을 때만 타이머 카드가 그만큼 짧아진다 */
 }
 
 /* ── 모드 크로스페이드 스택 ── */
@@ -79,9 +80,13 @@
   color: var(--bcl-accent-ink);
 }
 .wodDesc {
+  /* p 기본 마진(1em)이 카드 높이를 갉아먹어 목록 배분이 줄던 것을 제거 — 간격은 카드 gap이 준다 */
+  margin: 0;
   font-size: 36px;
   color: var(--bcl-text-muted);
 }
+/* 카드 안에서 유일한 가변 블록 — 남은 높이를 목록이 가져가고, 넘치는 줄은
+   페이지 로테이션으로 돈다(autoFit이 이 배분 높이를 실측한다) */
 .wodList {
   list-style: none;
   display: flex;
@@ -89,6 +94,9 @@
   gap: var(--bcl-space-3);
   margin: 0;
   padding: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 .wodItem {
   display: flex;
@@ -138,12 +146,62 @@
   border-bottom: none;
 }
 
+/* margin-top:auto를 쓰지 않는다 — 주축 auto 마진이 남는 공간을 먼저 흡수해
+   목록(flex:1)이 0으로 눌린다. 목록이 늘어나면서 메모는 자연히 바닥으로 밀린다. */
 .wodNotes {
-  margin-top: auto;
   font-size: 32px;
   color: var(--bcl-text-muted);
   border-left: 4px solid var(--bcl-accent);
   padding-left: var(--bcl-space-4);
+}
+
+/* ── 동작 시범 카드(세그먼트 바인딩 시에만) ── */
+.wodDemo {
+  display: flex;
+  align-items: stretch;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-3);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface-raised);
+}
+.wodDemoMedia {
+  flex: 0 0 auto;
+  width: 22%;
+  max-width: 260px;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-code-bg);
+}
+.wodDemoBody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  justify-content: center;
+}
+.wodDemoTag {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--bcl-accent);
+}
+.wodDemoPoints {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  font-size: 30px;
+  line-height: 1.25;
+  color: var(--bcl-text-muted);
+}
+.wodDemoPoints li::before {
+  content: '· ';
+  color: var(--bcl-accent-ink);
 }
 .wodEmpty,
 .wodEmptyTitle {
@@ -425,6 +483,11 @@
 }
 
 /* flow 우측 타이머 카드 — 스트립·티커 사이 우측 반쪽(카드 지오메트리, 목업 정합) */
+.timerSlot[data-slot='flow'][data-heats='1'] {
+  bottom: calc(
+    var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap) + var(--flow-heat-h) + var(--flow-gap)
+  );
+}
 .timerSlot[data-slot='flow'] {
   top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
   bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
@@ -621,11 +684,11 @@
   /* 긴 세그먼트명이 진행 바·체크인 라벨을 밀어내지 않도록 축소 허용 + 내부 ellipsis */
   flex: 1 1 auto;
   flex-wrap: nowrap;
+  /* 축소 하한 — 이 값이 없으면(min-width:0) 세그먼트명이 두세 글자에서 잘린다 */
   min-width: 430px;
   display: flex;
   align-items: baseline;
   gap: var(--bcl-space-3);
-  min-width: 0;
   letter-spacing: 0.1em;
 }
 .flowSegCount {
@@ -752,6 +815,11 @@
 }
 
 /* 타이머 없는 세그먼트의 우측 시계 카드 — timerSlot(flow)과 동일 지오메트리 */
+.flowClockCard[data-heats='1'] {
+  bottom: calc(
+    var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap) + var(--flow-heat-h) + var(--flow-gap)
+  );
+}
 .flowClockCard {
   position: absolute;
   top: calc(var(--flow-pad-top) + var(--flow-strip-h) + var(--flow-gap));
@@ -799,6 +867,94 @@
 }
 .flowLeft .wodHead {
   gap: var(--bcl-space-1);
+}
+
+/* 시차 출발(waterfall) 밴드 — 우측 타이머 카드 아래(같은 시계 축) */
+.flowHeatBand {
+  position: absolute;
+  left: calc(50% + var(--flow-gap) / 2);
+  right: var(--flow-pad);
+  bottom: calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap));
+  height: var(--flow-heat-h);
+  display: flex;
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+.heatStrip {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-3) var(--bcl-space-5);
+}
+.heatHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-3);
+}
+.heatTag {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-accent);
+}
+.heatMeta {
+  font-size: 22px;
+  color: var(--bcl-text-faint);
+}
+.heatList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--bcl-space-2);
+}
+.heatRow {
+  flex: 1 1 auto;
+  min-width: 150px;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--bcl-space-3);
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border: 2px solid var(--bcl-border);
+  border-radius: var(--bcl-radius-md);
+  background: var(--bcl-surface-raised);
+}
+.heatName {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+}
+.heatTime {
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-text);
+}
+/* 출발 대기 = 저채도 · GO = 강조 채움 · 진행 중 = 성공색 경과 */
+.heatRow[data-state='waiting'] .heatTime {
+  color: var(--bcl-text-faint);
+}
+.heatRow[data-state='go'] {
+  border-color: var(--bcl-accent);
+  background: var(--bcl-accent);
+}
+.heatRow[data-state='go'] .heatName,
+.heatRow[data-state='go'] .heatTime {
+  color: var(--bcl-chip-ink);
+}
+.heatRow[data-state='running'] {
+  border-color: var(--bcl-tv-timer-border);
+}
+.heatRow[data-state='running'] .heatTime {
+  color: var(--bcl-success);
 }
 
 /* 하단 상시 티커 카드 — LIVE 화이트보드(기록 세그먼트) 또는 PR·생일 축하 */
@@ -944,4 +1100,185 @@
   letter-spacing: 0.08em;
   color: var(--bcl-text-faint);
   font-variant-numeric: tabular-nums;
+}
+
+/* 세그먼트 바인딩(부분 표시) 표식 — 전체 WOD가 아님을 밝힌다 */
+.wodFocusTag {
+  align-self: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--bcl-chip-ink);
+  background: var(--bcl-accent);
+  padding: 2px var(--bcl-space-3);
+  border-radius: var(--bcl-radius-sm);
+}
+
+/* 반폭 카드 축소 — 시범 카드는 세로를 가장 많이 먹는다 */
+.flowLeft .wodDemo {
+  padding: var(--bcl-space-2);
+  gap: var(--bcl-space-3);
+}
+.flowLeft .wodDemoTag {
+  font-size: 20px;
+}
+.flowLeft .wodDemoPoints {
+  font-size: 22px;
+  gap: 0;
+}
+.flowLeft .wodFocusTag {
+  font-size: 20px;
+}
+
+/* ── 인클래스 셀레브레이션 오버레이(2-2) — 수업 중 PR·배지 즉시 축하 ── */
+.celebrateLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  /* 좌측 하단(WOD 카드 위)에 띄운다 — 화면 전체를 덮으면 진행 중인 타이머가 가려진다.
+     수업 중 시계는 항상 보여야 하므로 우측 타이머 영역은 건드리지 않는다. */
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding: 0 0 calc(var(--flow-pad) + var(--flow-ticker-h) + var(--flow-gap)) var(--flow-pad);
+  animation: celebrateIn 320ms ease;
+  /* 화면 위 표시만 — 조작 대상이 아니므로 아래 화면의 rAF 연출을 가리지 않는다 */
+  pointer-events: none;
+}
+.celebrateCard {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-6);
+  max-width: calc(50% - var(--flow-pad));
+  padding: var(--bcl-space-5) var(--bcl-space-7);
+  border: 4px solid var(--bcl-accent);
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface-raised);
+  box-shadow: var(--bcl-shadow-md);
+}
+.celebrateCard[data-kind='badge'] {
+  border-color: var(--bcl-info);
+}
+.celebrateCard[data-kind='race'] {
+  border-color: var(--bcl-success);
+}
+.celebrateGlyph {
+  font-size: 96px;
+  line-height: 1;
+  animation: celebratePop 600ms ease;
+}
+.celebrateBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-2);
+  min-width: 0;
+}
+.celebrateTag {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--bcl-accent);
+}
+.celebrateCard[data-kind='badge'] .celebrateTag {
+  color: var(--bcl-info);
+}
+.celebrateCard[data-kind='race'] .celebrateTag {
+  color: var(--bcl-success);
+}
+.celebrateName {
+  font-size: 72px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+.celebrateItem {
+  font-size: 34px;
+  color: var(--bcl-text-muted);
+}
+@keyframes celebrateIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes celebratePop {
+  0% {
+    transform: scale(0.4) rotate(-12deg);
+  }
+  60% {
+    transform: scale(1.15) rotate(6deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+/* ── 협동 모드 밴드(2-3) — 하단 티커 자리에서 클래스 합산 목표를 보여준다 ── */
+.coopBand {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+}
+.coopHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-4);
+  min-width: 0;
+}
+.coopLabel {
+  flex: 0 1 auto;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.coopTotal {
+  font-size: 34px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-text);
+  white-space: nowrap;
+}
+.coopTarget {
+  font-size: 26px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--bcl-text-faint);
+}
+.coopPct {
+  font-size: 30px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--bcl-accent);
+}
+.coopTrack {
+  height: 14px;
+  border-radius: var(--bcl-radius-lg);
+  background: var(--bcl-surface-raised);
+  border: 1px solid var(--bcl-border);
+  overflow: hidden;
+}
+.coopFill {
+  height: 100%;
+  width: 0%;
+  background: var(--bcl-accent);
+  border-radius: var(--bcl-radius-lg);
+}
+/* 목표 달성 = 성공색으로 전환(멀리서도 "다 찼다"가 즉시 읽히도록) */
+.coopFill[data-full='1'] {
+  background: var(--bcl-success);
+}
+.coopMeta {
+  margin-left: auto;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 24px;
+  color: var(--bcl-text-faint);
+  white-space: nowrap;
 }

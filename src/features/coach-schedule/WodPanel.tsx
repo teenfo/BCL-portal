@@ -9,7 +9,7 @@ import { Card, Button, Input, Select, Badge, Checkbox, EmptyState, Skeleton, use
 import { useQuery } from '@/lib/data/useQuery';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import type { FlowSegment, TimerCommand, TimerMode } from '@/features/class-broadcast';
+import type { FlowSegment, HeatPlan, TimerCommand, TimerMode } from '@/features/class-broadcast';
 import { FLOW_PRE_SECONDS, deriveFlowSegments } from '@/features/coach-race';
 
 import styles from './session-board.module.css';
@@ -43,6 +43,16 @@ interface SegmentDraft {
   /** emom·interval: 라운드 / tabata: 세트 */
   rounds: string;
   showBoard: boolean;
+  /** 화이트보드 표시 방식 — rank=개인 순위 / coop=클래스 합산 목표(2-3) */
+  boardView: 'rank' | 'coop';
+  /** 이 구간에 TV로 띄울 동작 인덱스(movements 기준). 빈 배열 = 오늘 WOD 전체 */
+  movementIdx: number[];
+  /** 시차 출발 조 수('' 또는 2 미만 = 동시 출발) */
+  heats: string;
+  /** 조 간 출발 간격(초) */
+  stagger: string;
+  /** 조 이름(쉼표 구분, 옵션 — 비우면 HEAT 1·2…) */
+  heatLabels: string;
 }
 
 let segDraftSeq = 0;
@@ -84,10 +94,16 @@ function segmentToDraft(seg: FlowSegment): SegmentDraft {
           ? String(t?.totalSets ?? 8)
           : '',
     showBoard: Boolean(seg.showBoard),
+    boardView: seg.boardView === 'coop' ? 'coop' : 'rank',
+    movementIdx: Array.isArray(seg.movementIdx) ? seg.movementIdx : [],
+    heats: seg.heats?.count ? String(seg.heats.count) : '',
+    stagger: seg.heats?.staggerSeconds ? String(seg.heats.staggerSeconds) : '',
+    heatLabels: seg.heats?.labels?.join(', ') ?? '',
   };
 }
 
-function draftToSegment(d: SegmentDraft): FlowSegment {
+/** @param movementCount 현재 동작 수 — 편집 중 동작이 줄면 범위 밖 인덱스를 저장하지 않는다 */
+function draftToSegment(d: SegmentDraft, movementCount: number): FlowSegment {
   const num = (v: string, fallback: number) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : fallback;
@@ -136,7 +152,30 @@ function draftToSegment(d: SegmentDraft): FlowSegment {
       preSeconds: FLOW_PRE_SECONDS,
     };
   }
-  return { name: d.name.trim() || '세그먼트', timer, showBoard: d.showBoard || undefined };
+  const idx = d.movementIdx.filter((i) => i >= 0 && i < movementCount).sort((a, b) => a - b);
+  // 시차 출발 — 2조 이상일 때만 플랜을 만든다(1조 = 전원 동시 출발이므로 표시할 것이 없다)
+  const heatN = Number(d.heats);
+  const labels = d.heatLabels
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const heats: HeatPlan | null =
+    Number.isFinite(heatN) && heatN >= 2
+      ? {
+          count: Math.floor(heatN),
+          staggerSeconds: num(d.stagger, 30),
+          labels: labels.length > 0 ? labels : undefined,
+        }
+      : null;
+  return {
+    name: d.name.trim() || '세그먼트',
+    timer,
+    showBoard: d.showBoard || undefined,
+    // 보드를 안 켠 구간에는 표시 방식을 싣지 않는다(의미 없는 필드 전파 방지)
+    boardView: d.showBoard && d.boardView === 'coop' ? 'coop' : undefined,
+    movementIdx: idx.length > 0 ? idx : undefined,
+    heats,
+  };
 }
 
 interface SessionWod {
@@ -150,6 +189,10 @@ interface SessionWod {
   description_override?: string | null;
   movements_snapshot?: MovementLine[];
   segments?: FlowSegment[] | null;
+  /** 협동 모드(2-3) 목표 — 미설정(null)이면 협동 세그먼트에서도 안내만 표시된다 */
+  coop_target?: number | null;
+  coop_unit?: string | null;
+  coop_label?: string | null;
   coach_notes?: string | null;
   class_display_notes?: string | null;
   updated_at?: string | null;
@@ -185,6 +228,15 @@ interface MovementHit {
   id: string;
   name_ko: string;
 }
+
+/** 협동 목표 단위 — 서버 화이트리스트(fn_upsert_session_wod)와 동일 집합 */
+const COOP_UNIT_OPTS = [
+  { value: '', label: '사용 안 함' },
+  { value: 'reps', label: '횟수(reps)' },
+  { value: 'm', label: '거리(m)' },
+  { value: 'cal', label: '칼로리(cal)' },
+  { value: 'kg', label: '중량(kg)' },
+];
 
 const FORMAT_OPTS = [
   { value: 'amrap', label: 'AMRAP' },
@@ -251,6 +303,12 @@ function WodEditor({
   const [segments, setSegments] = useState<SegmentDraft[]>(
     Array.isArray(initial.segments) ? initial.segments.map(segmentToDraft) : [],
   );
+  // 협동 모드 목표(2-3) — WOD 단위 속성. 세그먼트의 '협동' 보드가 이 값을 읽는다.
+  const [coopTarget, setCoopTarget] = useState(
+    initial.coop_target != null ? String(initial.coop_target) : '',
+  );
+  const [coopUnit, setCoopUnit] = useState(initial.coop_unit ?? '');
+  const [coopLabel, setCoopLabel] = useState(initial.coop_label ?? '');
 
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -300,6 +358,14 @@ function WodEditor({
 
   const removeMovement = (i: number) => {
     setMovements((prev) => prev.filter((_, idx) => idx !== i));
+    // 세그먼트 바인딩은 인덱스 참조다 — 삭제분은 빼고 뒤 인덱스를 한 칸 당긴다
+    // (재매핑이 없으면 삭제 이후 모든 구간이 엉뚱한 동작을 띄운다)
+    setSegments((prev) =>
+      prev.map((s) => ({
+        ...s,
+        movementIdx: s.movementIdx.filter((v) => v !== i).map((v) => (v > i ? v - 1 : v)),
+      })),
+    );
   };
 
   const buildPayload = () => ({
@@ -312,7 +378,11 @@ function WodEditor({
       ...m,
       superset_group: m.superset_group?.trim() || null,
     })),
-    segments: segments.map(draftToSegment),
+    segments: segments.map((s) => draftToSegment(s, movements.length)),
+    // 단위 미선택 = 협동 모드 미사용 — 목표 수치가 남아 있어도 함께 비운다(반쪽 설정 방지)
+    coop_target: coopUnit && coopTarget ? Number(coopTarget) : null,
+    coop_unit: coopUnit || null,
+    coop_label: coopUnit ? coopLabel || null : null,
     coach_notes: coachNotes || null,
     class_display_notes: displayNotes || null,
   });
@@ -345,7 +415,21 @@ function WodEditor({
   const addSegment = () => {
     setSegments((prev) => [
       ...prev,
-      { key: nextSegKey(), name: '', mode: '', minutes: '', work: '', rest: '', rounds: '', showBoard: false },
+      {
+        key: nextSegKey(),
+        name: '',
+        mode: '',
+        minutes: '',
+        work: '',
+        rest: '',
+        rounds: '',
+        showBoard: false,
+        boardView: 'rank',
+        movementIdx: [],
+        heats: '',
+        stagger: '',
+        heatLabels: '',
+      },
     ]);
   };
 
@@ -424,6 +508,37 @@ function WodEditor({
         <Input label="타임캡(분)" type="number" value={timeCap} onChange={(e) => setTimeCap(e.target.value)} />
       </div>
       <Input label="설명" multiline rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
+
+      {/* 협동 모드 목표(2-3) — 세그먼트 화이트보드를 '협동'으로 두면 TV가 이 목표를 띄운다 */}
+      <div className={styles.movementBlock}>
+        <h3 className={styles.groupTitle}>협동 목표(클래스 합산)</h3>
+        <div className={styles.twoCol}>
+          <Select
+            label="단위"
+            native
+            value={coopUnit || ''}
+            onChange={setCoopUnit}
+            options={COOP_UNIT_OPTS}
+          />
+          <Input
+            label="목표 수량"
+            type="number"
+            min={1}
+            value={coopTarget}
+            onChange={(e) => setCoopTarget(e.target.value)}
+            disabled={!coopUnit}
+          />
+        </div>
+        {coopUnit ? (
+          <Input
+            label="표시명"
+            value={coopLabel}
+            onChange={(e) => setCoopLabel(e.target.value)}
+            placeholder="예: 클래스 합계 로잉"
+            helper="같은 단위로 기록된 회원 점수만 합산됩니다(다른 단위 기록은 제외 건수로 표시)"
+          />
+        ) : null}
+      </div>
 
       {/* 동작 라인 */}
       <div className={styles.movementBlock}>
@@ -524,6 +639,74 @@ function WodEditor({
                   checked={s.showBoard}
                   onChange={(e) => updateSegment(i, { showBoard: e.target.checked })}
                 />
+                {s.showBoard ? (
+                  <Select
+                    label="화이트보드 표시"
+                    native
+                    value={s.boardView}
+                    onChange={(v) => updateSegment(i, { boardView: v === 'coop' ? 'coop' : 'rank' })}
+                    options={[
+                      { value: 'rank', label: '개인 순위' },
+                      { value: 'coop', label: '협동 목표(클래스 합산)' },
+                    ]}
+                    helper={
+                      s.boardView === 'coop' && !coopUnit
+                        ? '위 "협동 목표"에 단위·수량을 먼저 입력하세요'
+                        : undefined
+                    }
+                  />
+                ) : null}
+                {/* 구간별 표시 동작 — 미선택이면 TV에 오늘 WOD 전체가 뜬다(종전 동작).
+                    선택 시 그 동작만 크게 뜨고 첫 동작의 시범 자료가 함께 표시된다. */}
+                {movements.length > 0 ? (
+                  <Select
+                    label="TV 표시 동작"
+                    multiple
+                    placeholder="미선택 = 오늘 WOD 전체"
+                    helper="이 구간에 띄울 동작만 고릅니다. 첫 동작의 시범(코칭 포인트·영상)이 함께 나옵니다."
+                    value={s.movementIdx.map(String)}
+                    onChange={(vals) =>
+                      updateSegment(i, {
+                        movementIdx: vals.map(Number).filter(Number.isInteger).sort((a, b) => a - b),
+                      })
+                    }
+                    options={movements.map((m, mi) => ({ value: String(mi), label: `${mi + 1}. ${m.name}` }))}
+                  />
+                ) : null}
+                {/* 시차 출발(waterfall) — 장비가 인원보다 적을 때 조를 나눠 순차 출발 */}
+                <div className={styles.movementInputs}>
+                  <Input
+                    label="시차 출발 조 수"
+                    type="number"
+                    step={1}
+                    min={0}
+                    value={s.heats}
+                    onChange={(e) => updateSegment(i, { heats: e.target.value })}
+                    helper="2 이상일 때만 TV에 조별 출발 카운트다운이 뜹니다"
+                  />
+                  <Input
+                    label="출발 간격(초)"
+                    type="number"
+                    step={1}
+                    min={1}
+                    value={s.stagger}
+                    onChange={(e) => updateSegment(i, { stagger: e.target.value })}
+                    placeholder="30"
+                  />
+                </div>
+                {Number(s.heats) >= 2 ? (
+                  <Input
+                    label="조 이름(쉼표 구분, 선택)"
+                    value={s.heatLabels}
+                    onChange={(e) => updateSegment(i, { heatLabels: e.target.value })}
+                    placeholder="예: A조, B조, C조"
+                    helper={
+                      s.mode === ''
+                        ? '타이머 없는 구간은 카운트다운이 진행되지 않습니다 — 타이머를 지정하세요'
+                        : undefined
+                    }
+                  />
+                ) : null}
               </Card>
             ))}
           </div>

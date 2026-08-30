@@ -31,6 +31,11 @@ export interface TimerDisplayRefs {
 
 interface TimerApi {
   apply: (cmd: TimerCommand) => void;
+  /**
+   * 현재 경과 초(pre 포함, 정지 중이면 고정값). 같은 시계 위에 얹는 파생 표시
+   * (시차 출발 조별 카운트다운 등)가 별도 엔진 없이 읽어 쓴다.
+   */
+  getElapsed: () => number;
 }
 
 /** 타이머 엔진 훅 — 표시 ref를 받아 rAF로 직접 갱신. React state 미사용. */
@@ -149,5 +154,10 @@ export function useConsoleTimer(refs: TimerDisplayRefs): TimerApi {
     }
   };
 
-  return { apply };
+  const getElapsed = () =>
+    runningRef.current
+      ? baseElapsedRef.current + (performance.now() - startAtRef.current) / 1000
+      : baseElapsedRef.current;
+
+  return { apply, getElapsed };
 }

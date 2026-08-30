@@ -15,6 +15,7 @@ export type {
   TimerMode,
   TimerCommand,
   FlowSegment,
+  HeatPlan,
   FlowCommand,
   ConsoleCmd,
   ConsoleCommandPayload,

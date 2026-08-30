@@ -38,6 +38,10 @@ export interface WodMovement {
   rx_female?: string | null;
   /** 컴파운드 세트 그룹 태그. 연속 동일 값 = 한 세트로 묶어 표시. null/부재 = 단독. */
   superset_group?: string | null;
+  /** 시범 자료(movement_library 조인 — 없으면 필드 자체가 없다) */
+  demo_video_url?: string;
+  demo_thumb_url?: string;
+  demo_points?: string;
   [k: string]: unknown;
 }
 
@@ -107,6 +111,27 @@ export function fetchLiveBoard(facilityId: string): Promise<Envelope<LiveBoard>>
   return rpc<LiveBoard>(getSupabaseBrowserClient(), 'fn_get_class_live_board', {
     p_facility_id: facilityId,
     p_today: localDate(), // 생일 판정 기준 — 시설 로컬 날짜(서버 UTC CURRENT_DATE 시차 방지)
+  });
+}
+
+/** 인클래스 축하 이벤트(최근 N분) — PR·Race PR·배지 공용 표면(2-2) */
+export interface Celebration {
+  member_name: string;
+  item_label: string;
+  result_label: string;
+  achieved_at: string;
+  kind: 'pr' | 'race' | 'badge';
+  /** 배지 아이콘 키(badgeGlyph로 변환) 또는 이모지 */
+  icon: string;
+}
+
+export function fetchCelebrations(
+  facilityId: string,
+  minutes = 15,
+): Promise<Envelope<Celebration[]>> {
+  return rpc<Celebration[]>(getSupabaseBrowserClient(), 'fn_get_class_celebrations', {
+    p_facility_id: facilityId,
+    p_minutes: minutes,
   });
 }
 

@@ -85,15 +85,25 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | Display-Safe | 해당 없음(개인 데이터 없음) |
 | 상태 | 타이머 ✅ / **원격제어 ⏳ → 본 설계로 정식화(§4)**. as-is는 TV 앞에서 직접 클릭해야 했음(운영 불가 지점) — 콘솔 통합의 1차 동기 |
 
-#### `flow` 모드 — 수업 진행 세그먼트 타임라인 ✅ (1차 스프린트 신설)
+#### `flow` 모드 — 수업 진행 세그먼트 타임라인 ✅ (1차 스프린트 신설 · 2차 확장)
 | 항목 | 내용 |
 |---|---|
 | 목적 | 수업 50분을 TV가 이끈다 — 세그먼트 체인(브리핑→웜업→본운동→쿨다운)을 코치 리모컨 "다음" 한 버튼으로 진행 |
-| 기능 | 상단 세그먼트 스트립(진행 상태 칩+체크인 수) · 좌측 WOD 보드 · 우측 타이머(세그먼트 진입 시 바인딩 타이머 자동 configure+start, `preSeconds` READY 카운트다운) · 기록 세그먼트(`showBoard`)에서 좌측 하단 **라이브 화이트보드 스트립**(top 6, 20s 폴링) |
-| 데이터 | 세그먼트 플랜 = **Broadcast `flow` 명령 수신만**(코치가 매 전환마다 전체 플랜+인덱스 재전송 — 멱등, TV 무상태). 플랜 영속 = `session_wods.segments` JSONB(코치 WodPanel 작성, 미설정 시 포맷 기반 자동 제안 `deriveFlowSegments`). 화이트보드 = 기존 `fn_get_class_wod_board`(anon) 재사용 — **신규 공개 표면 없음** |
-| 갱신 주기 | WOD/체크인 60s 폴링 + 화이트보드 20s(showBoard 세그먼트만) + flow 명령 즉시 |
-| Display-Safe | 화이트보드는 이름+점수+rx 배지만(기존 RPC 보장). 세그먼트 플랜은 타이머 구성만 |
-| 제약 | TV 새로고침 시 flow 상태는 다음 코치 명령까지 유실(Broadcast 무상태) — 코치 패널 "다음/이전"이 전체 재전송이므로 즉시 복구 |
+| 기능 | 상단 세그먼트 스트립(진행 상태 칩+체크인 명단) · 좌측 WOD 보드 · 우측 타이머(세그먼트 진입 시 바인딩 타이머 자동 configure+start, `preSeconds` READY 카운트다운) · 기록 세그먼트(`showBoard`)에서 하단 **라이브 화이트보드 스트립**(4행 8s 페이지 로테이션 + 축하 페이지 1장, 20s 폴링) |
+| 기능(2차) | ① **구간별 콘텐츠 바인딩** `movementIdx` — 그 구간에 쓸 동작만 크게 표시(미지정=전체) ② **동작 시범 카드** — 바인딩 첫 동작의 코칭 포인트·영상(`movement_library` 조인, 자료 없으면 생략, 카드가 좁으면 접힘) ③ **시차 출발(waterfall)** `heats` — 조별 출발 카운트다운/경과를 우측 타이머 아래 밴드에 표시(별도 엔진 없이 세그먼트 타이머 경과를 읽어 `pre + n×stagger`와 비교) ④ **협동 모드** `boardView:'coop'` — 개인 순위 대신 클래스 합산 목표 진행 바 |
+| 데이터 | 세그먼트 플랜 = **Broadcast `flow` 명령 수신만**(코치가 매 전환마다 전체 플랜+인덱스 재전송 — 멱등, TV 무상태). 플랜 영속 = `session_wods.segments` JSONB(코치 WodPanel 작성, 미설정 시 포맷 기반 자동 제안 `deriveFlowSegments`). 화이트보드 = 기존 `fn_get_class_wod_board`(anon) 재사용. 협동 집계 = `fn_get_class_coop_board`(anon 신설), 목표는 `session_wods.coop_target/coop_unit/coop_label` |
+| 갱신 주기 | WOD/체크인 60s 폴링 + 화이트보드·협동 20s(해당 세그먼트만, `board_dirty` 신호 시 즉시) + flow 명령 즉시 |
+| Display-Safe | 화이트보드·협동 모두 이름+점수만(기존 RPC 보장). 시범 자료는 운동 사전(개인정보 없음). 세그먼트 플랜은 타이머·표시 구성만 |
+| 제약 | TV 새로고침 시 flow 상태는 다음 코치 명령까지 유실(Broadcast 무상태) — 코치 패널 "다음/이전"·"TV 재동기"가 전체 재전송이므로 즉시 복구 |
+
+#### 셀레브레이션 오버레이 ✅ (2차 스프린트 신설 — 모드 공통)
+| 항목 | 내용 |
+|---|---|
+| 목적 | 수업 중 나온 PR·배지를 그 자리에서 축하(기획서 2-2) |
+| 기능 | 최근 15분 내 신규 이벤트를 좌측 하단 카드로 7초씩 순차 노출(트로피/배지 글리프 + 이름 + 항목). **우측 타이머는 가리지 않는다** — 진행 중 시계가 최우선 |
+| 데이터 | `fn_get_class_celebrations(p_facility_id, p_minutes)`(anon 신설) 20s 폴링 + `board_dirty` 신호 시 즉시. **축하 내용을 Broadcast로 싣지 않는다** — anon 발행이 가능한 채널이라 남의 이름을 사칭한 가짜 축하가 가능하기 때문(신호는 재조회 트리거로만) |
+| Display-Safe | 이름·항목·결과 라벨만. `celebrate_opt_in=false` 회원 제외(기록은 남고 공개 화면에만 미표시) |
+| 제약 | TV 부팅 직후 첫 조회분은 '이미 본 것'으로만 기록(과거 15분치가 한꺼번에 쏟아지지 않게) |
 
 #### `screen` 모드 — 현장 공개 보드 (as-is `/class/screen` ✅ P24 승계)
 | 항목 | 내용 |
@@ -140,8 +150,15 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
     },
     "flow": {                                // cmd=flow — 수업 세그먼트 타임라인
       "action": "start|set|stop",
-      "segments": [{ "name": "웜업", "timer": { /* TimerCommand */ }, "showBoard": false }],
-      "index": 0, "session_id": "..."        // 화이트보드 조회 대상
+      "segments": [{
+        "name": "METCON",
+        "timer": { /* TimerCommand */ }, "autoStart": true,
+        "showBoard": true, "boardView": "rank|coop",   // coop = 클래스 합산 목표(2-3)
+        "movementIdx": [0, 1],                          // 이 구간에 띄울 동작(미지정=전체, 1-1)
+        "heats": { "count": 3, "staggerSeconds": 30, "labels": ["A조","B조","C조"] } // 시차 출발(1-3)
+      }],
+      "index": 0, "session_id": "...",       // 화이트보드·협동 조회 대상
+      "board_sort": "rank|recent|name"
     },
     "ts": 1780000000000, "sender": "coach"
   } }
@@ -201,7 +218,9 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | `fn_get_class_live_board` 🔄 | RPC EXECUTE | 세션 메타+집계+체크인 이름만 | as-is의 `sessions`/`checkins` 테이블 직접 SELECT를 **회수**하고 RPC로 좁힘 |
 | `fn_get_class_screen_prs` 🔄 | RPC EXECUTE | 공개 동의 회원의 이름+달성 항목 | screen 모드 PR 티커 |
 | `fn_get_class_leaderboard` 🔄 | RPC EXECUTE | 이름+기록 랭킹. ⏳ `p_scope='daily_wod'` 확장: 이름+점수+rx_status 배지만 반환(`note`·플래그 미SELECT — G-1·G-2, 16 문서) | leaderboard(벤치마크·일일 WOD 화이트보드) |
-| `fn_get_class_wod_board` | RPC EXECUTE | 세션 일일 WOD 화이트보드 — 이름+점수+rx 배지+기록시각만(`note`·member_id 미SELECT) | 전체화면 화이트보드 + flow 라이브 스트립(§3.2) 공용 |
+| `fn_get_class_wod_board` | RPC EXECUTE | 세션 일일 WOD 화이트보드 — 이름+점수+rx 배지+기록시각만(`note`·member_id 미SELECT) | 전체화면 화이트보드 + flow 라이브 스트립(§3.2) 공용. 순위 규칙은 코치용 RPC와 `_rank_session_wod_results` 헬퍼로 단일 공유(내부 전용, anon REVOKE) |
+| `fn_get_class_coop_board` 🔄 | RPC EXECUTE | 협동 목표·합계·참여 인원·상위 기여자(이름+값) — 목표 단위와 같은 계열 기록만 합산, 제외 건수 동반 반환 | flow 협동 모드(§3.2, 기획서 2-3) |
+| `fn_get_class_celebrations` 🔄 | RPC EXECUTE | 최근 N분(≤6h) PR·Race PR·배지 — 이름+항목+결과 라벨만, `celebrate_opt_in` 존중 | 셀레브레이션 오버레이(§3.2, 기획서 2-2) |
 | `session_rotation_states` | 테이블 SELECT | 전행(서킷 상태 — 민감정보 없음) | 현행 의도적 공개 승계 ✅ |
 | `race_events`·`race_teams`·`race_live_state`·`race_records` | 테이블 SELECT | 🔄 anon SELECT 허용(이름·기록 수준) — Race TV 화면 미인증 구동 | as-is는 authenticated 한정이라 TV에 로그인 필요했음(운영 결함) → 공개로 전환. 쓰기는 종전대로 coach/admin/SRK |
 | Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}`, `wod-board:{session_id}` | 수신만(보드 신호는 회원 앱이 발행) | Broadcast는 DB 비경유 — 신호에 기록 내용 미포함 |

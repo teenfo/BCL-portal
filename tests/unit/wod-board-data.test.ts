@@ -1,8 +1,11 @@
 // 라이브 화이트보드 데이터 계층 — 정렬 옵션·점수 표기 (Class TV 2.0 플랜 2-1)
 import { describe, expect, it } from 'vitest';
 import {
+  coopPercent,
   formatBoardScore,
+  formatCoopValue,
   sortBoardRows,
+  type CoopBoardData,
   type WodBoardResult,
 } from '@/features/class-leaderboard/wod-board-data';
 
@@ -48,5 +51,45 @@ describe('formatBoardScore — score_type별 표기', () => {
     expect(formatBoardScore(60, 'weight')).toBe('60kg');
     expect(formatBoardScore(2000, 'distance')).toBe('2000m');
     expect(formatBoardScore(35, 'calories')).toBe('35cal');
+  });
+});
+
+// ── 협동 모드(2-3) — 합계 표기·달성률 ──
+const coop = (patch: Partial<CoopBoardData>): CoopBoardData => ({
+  session_id: 's1',
+  label: '클래스 합계 로잉',
+  unit: 'm',
+  target: 5000,
+  total: 4000,
+  contributors: 2,
+  excluded: 0,
+  leaders: [],
+  ...patch,
+});
+
+describe('formatCoopValue — 단위별 합계 표기', () => {
+  it('거리·칼로리·중량은 값에 단위를 붙인다(천 단위 구분)', () => {
+    expect(formatCoopValue(12345, 'm')).toBe('12,345m');
+    expect(formatCoopValue(320, 'cal')).toBe('320cal');
+    expect(formatCoopValue(1250, 'kg')).toBe('1,250kg');
+  });
+  it('reps는 공백을 두어 읽히게 한다', () => {
+    expect(formatCoopValue(1500, 'reps')).toBe('1,500 reps');
+  });
+  it('소수는 반올림(회원 기록이 소수여도 TV는 정수로 읽힌다)', () => {
+    expect(formatCoopValue(999.6, 'm')).toBe('1,000m');
+  });
+});
+
+describe('coopPercent — 목표 대비 달성률', () => {
+  it('부분 달성 → 비율', () => {
+    expect(coopPercent(coop({ total: 4000, target: 5000 }))).toBe(80);
+  });
+  it('초과 달성은 100%로 캡(진행 바가 넘치지 않게)', () => {
+    expect(coopPercent(coop({ total: 7000, target: 5000 }))).toBe(100);
+  });
+  it('목표 0/음수는 0% — 0 나눗셈으로 NaN이 화면에 뜨지 않게', () => {
+    expect(coopPercent(coop({ target: 0 }))).toBe(0);
+    expect(coopPercent(coop({ target: -10 }))).toBe(0);
   });
 });
