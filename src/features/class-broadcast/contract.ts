@@ -28,6 +28,19 @@ export function raceChannelName(eventId: string): string {
   return `race:${eventId}`;
 }
 
+/**
+ * 기록 보드 갱신 신호 채널 — 세션 단위.
+ * 회원 앱이 WOD 기록을 저장한 직후 "다시 읽어라"는 신호만 보내고(데이터 미포함),
+ * TV는 기존 anon RPC(fn_get_class_wod_board)로 재조회한다. 신규 데이터 표면이 늘지 않는다
+ * — 폴링(20s) 대기 없이 즉시 반영하기 위한 최소 장치(기획서 2-1).
+ */
+export function boardChannelName(sessionId: string): string {
+  return `wod-board:${sessionId}`;
+}
+
+/** 보드 갱신 신호 이벤트명(고정) — 페이로드는 ts뿐(기록 내용은 싣지 않는다) */
+export const BOARD_DIRTY_EVENT = 'board_dirty' as const;
+
 /** 콘솔 명령 Broadcast 이벤트명(고정) */
 export const CONSOLE_CMD_EVENT = 'console_cmd' as const;
 

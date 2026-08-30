@@ -8,7 +8,7 @@
 // 진행 바는 세그먼트 진입 시각 기준 rAF 근사(타이머 일시정지는 미반영 — 연출용 표시).
 import { useEffect, useRef, useState } from 'react';
 import { TvClock, usePolling } from '@/features/class-common';
-import type { FlowSegment } from '@/features/class-broadcast';
+import { useBoardSignal, type FlowSegment } from '@/features/class-broadcast';
 import {
   RX_BADGE_LABEL,
   fetchWodBoard,
@@ -58,6 +58,9 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
     20_000, // 기록 유입 반영 — 수업 중 라이브 체감 주기
     [boardOn, flow.sessionId],
   );
+
+  // 회원이 기록을 저장하면 폴링(20s)을 기다리지 않고 즉시 재조회 (기능 2-1)
+  useBoardSignal(boardOn ? flow.sessionId : null, board.refetch);
 
   // 수업 전체 타임라인 진행 바 (기능 1-1) — 분모는 플랜 전체다.
   // 세그먼트 길이를 알면 그 비중대로, 모르면(타이머 없는 구간) 세그먼트 1칸을 균등 배분해
@@ -109,17 +112,22 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
   const rosterShown = names.slice(0, ROSTER_MAX);
   const rosterRest = Math.max(0, names.length - rosterShown.length);
 
-  // 정렬(코치 선택) + 넘침 자동 로테이션(8s 페이지 — auto-scroll 등가, 2-1)
+  // 정렬(코치 선택) + 넘침 자동 로테이션(8s 페이지 — auto-scroll 등가, 2-1).
+  // 기록 세그먼트에서도 축하(PR·생일)가 사라지지 않도록 마지막에 축하 페이지를 한 장 끼운다
+  // — 목업의 "하단 한 줄에 PR·생일 축하" 요구를 라이브 보드와 번갈아 충족.
   const PAGE = 4;
   const allRows = boardOn ? sortBoardRows(board.data?.results ?? [], flow.boardSort) : [];
-  const pages = Math.max(1, Math.ceil(allRows.length / PAGE));
+  const boardPages = Math.max(1, Math.ceil(allRows.length / PAGE));
+  const pages = boardOn ? boardPages + 1 : 1; // +1 = 축하 페이지
   const [page, setPage] = useState(0);
   useEffect(() => {
     if (pages <= 1) return;
     const id = setInterval(() => setPage((v) => (v + 1) % pages), 8000);
     return () => clearInterval(id);
   }, [pages]);
-  const rows = allRows.slice((page % pages) * PAGE, (page % pages) * PAGE + PAGE);
+  const cur = page % pages;
+  const onCelebratePage = boardOn && cur === boardPages; // 마지막 장 = 축하
+  const rows = allRows.slice(cur * PAGE, cur * PAGE + PAGE);
 
   return (
     <div className={styles.flowRoot}>
@@ -199,10 +207,10 @@ export function FlowMode({ facilityId, flow }: { facilityId: string; flow: FlowV
 
       {/* 하단 상시 티커 — 기록 세그먼트: 라이브 화이트보드 / 그 외: PR 축하(목업 정합) */}
       <div className={styles.flowTicker}>
-        {boardOn ? (
+        {boardOn && !onCelebratePage ? (
           <>
             <span className={styles.flowBoardTag}>
-              LIVE{pages > 1 ? ` ${(page % pages) + 1}/${pages}` : ''}
+              LIVE {cur + 1}/{boardPages}
             </span>
             {rows.length === 0 ? (
               <span className={styles.flowBoardEmpty}>첫 기록을 기다리는 중</span>

@@ -7,6 +7,7 @@ import { BottomSheet } from '@/features/member-shell';
 import { rpc } from '@/lib/supabase/query';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
 import { encodeRoundsReps } from '@/lib/score';
+import { publishBoardDirty } from '@/features/class-broadcast';
 import styles from './performance.module.css';
 
 const SCORE_TYPES = [
@@ -87,6 +88,8 @@ export function WodRecordSheet({
       return;
     }
     toast.success('오늘의 WOD 기록이 저장되었습니다.');
+    // 같은 수업 TV의 라이브 화이트보드를 즉시 갱신(신호만 — 기록 내용은 싣지 않는다)
+    void publishBoardDirty(sessionId);
     onSaved();
     onClose();
   };

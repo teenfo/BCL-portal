@@ -118,6 +118,10 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 
 ### 4.1 채널·메시지 계약
 - **채널**: `class-console:{facility_id}` — 시설 내 모든 콘솔이 구독. 특정 TV만 제어할 때는 메시지에 `target_console_id` 지정(생략=전체)
+- **보드 갱신 신호 채널**: `wod-board:{session_id}` — 회원 앱이 WOD 기록 저장 직후 `board_dirty`
+  신호만 발행(페이로드는 `ts`뿐, 기록 내용 미포함)하고, 해당 세션을 표시 중인 TV가 기존 anon RPC
+  `fn_get_class_wod_board`로 즉시 재조회한다. **신규 데이터 표면 없음** — 20초 폴링은 백업으로 유지
+  (기획서 2-1 "셀프 로깅 → 즉시 반영")
 - **송신 주체**: 코치 앱(`/coach/schedule` 세션 보드 내 "스크린 제어" 시트 🔄) 및 Admin. 송신은 **인증 클라이언트만**(coach/admin role 검증 후 UI 노출) — 수신(TV)은 anon 구독
 - **메시지 스키마** (정본 = `src/features/class-broadcast/contract.ts`):
 ```jsonc
@@ -200,7 +204,7 @@ wod / live / timer / screen 4개 as-is 화면을 **모드 전환 단일 앱**으
 | `fn_get_class_wod_board` | RPC EXECUTE | 세션 일일 WOD 화이트보드 — 이름+점수+rx 배지+기록시각만(`note`·member_id 미SELECT) | 전체화면 화이트보드 + flow 라이브 스트립(§3.2) 공용 |
 | `session_rotation_states` | 테이블 SELECT | 전행(서킷 상태 — 민감정보 없음) | 현행 의도적 공개 승계 ✅ |
 | `race_events`·`race_teams`·`race_live_state`·`race_records` | 테이블 SELECT | 🔄 anon SELECT 허용(이름·기록 수준) — Race TV 화면 미인증 구동 | as-is는 authenticated 한정이라 TV에 로그인 필요했음(운영 결함) → 공개로 전환. 쓰기는 종전대로 coach/admin/SRK |
-| Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}` | 수신만 | Broadcast는 DB 비경유 |
+| Realtime Broadcast 구독 | `race:{event_id}`, `class-console:{facility_id}`, `hud-sync:{session_id}`, `wod-board:{session_id}` | 수신만(보드 신호는 회원 앱이 발행) | Broadcast는 DB 비경유 — 신호에 기록 내용 미포함 |
 | 시설 컨텍스트 | URL `?facility={id}` + localStorage 고정 | — | 콘솔 설치 시 1회 지정 |
 
 ### 6.2 강제 규칙

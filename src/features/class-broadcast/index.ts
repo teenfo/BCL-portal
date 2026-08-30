@@ -3,7 +3,9 @@ export {
   consoleChannelName,
   hudChannelName,
   raceChannelName,
+  boardChannelName,
   CONSOLE_CMD_EVENT,
+  BOARD_DIRTY_EVENT,
   STALE_CMD_MS,
   isCommandForConsole,
   isCommandStale,
@@ -21,3 +23,4 @@ export { useConsoleChannel } from './useConsoleChannel';
 export type { RealtimeStatus } from './useConsoleChannel';
 export { createConsolePublisher } from './publish';
 export type { ConsolePublisher } from './publish';
+export { publishBoardDirty, useBoardSignal } from './board-signal';
