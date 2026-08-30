@@ -16,12 +16,15 @@ import {
   consoleChannelName,
   type ConsoleCommandPayload,
   type ConsoleMode,
+  type FlowCommand,
   type TimerCommand,
 } from './contract';
 
 export interface ConsolePublisher {
   setMode: (mode: ConsoleMode, targetConsoleId?: string | null) => Promise<void>;
   timer: (cmd: TimerCommand, targetConsoleId?: string | null) => Promise<void>;
+  /** 수업 플로우(세그먼트 타임라인) 상태 발행 — 전체 플랜+인덱스 통째 재전송(멱등) */
+  flow: (cmd: FlowCommand, targetConsoleId?: string | null) => Promise<void>;
   refresh: (targetConsoleId?: string | null) => Promise<void>;
   identify: (targetConsoleId?: string | null) => Promise<void>;
   /** 콘솔을 해당 이벤트의 레이스 관전 화면으로 전환(§4b) — DB 미경유, 화면 전환만 */
@@ -47,6 +50,7 @@ export function createConsolePublisher(
     setMode: (mode, target = null) =>
       send({ cmd: 'set_mode', mode, target_console_id: target }),
     timer: (cmd, target = null) => send({ cmd: 'timer', timer: cmd, target_console_id: target }),
+    flow: (cmd, target = null) => send({ cmd: 'flow', flow: cmd, target_console_id: target }),
     refresh: (target = null) => send({ cmd: 'refresh', target_console_id: target }),
     identify: (target = null) => send({ cmd: 'identify', target_console_id: target }),
     openRace: (eventId, target = null) =>

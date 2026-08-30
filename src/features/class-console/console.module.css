@@ -8,6 +8,8 @@
   font-family: var(--bcl-font);
   font-variant-numeric: tabular-nums;
   overflow: hidden;
+  /* flow 모드 세그먼트 스트립 높이 — flowStrip/flowLeft/timerSlot[flow]가 공유(형제 셀렉터 공통 조상) */
+  --flow-strip-h: 96px;
 }
 
 /* ── 모드 크로스페이드 스택 ── */
@@ -285,6 +287,10 @@
 .timerRoot[data-phase='emom'] {
   background: var(--bcl-accent-soft);
 }
+/* 프리 카운트다운(READY 3-2-1-GO) — 시작 전 준비 신호는 경고색 */
+.timerRoot[data-phase='pre'] {
+  background: var(--bcl-warning-soft);
+}
 .timerLabel {
   font-size: 72px;
   font-weight: 800;
@@ -329,6 +335,21 @@
 }
 .timerSlot[data-slot='split'] .timerLabel {
   font-size: 52px;
+}
+/* flow 우측 페인 — 세그먼트 스트립 높이만큼 내려온 우측 반쪽 */
+.timerSlot[data-slot='flow'] {
+  top: var(--flow-strip-h, 96px);
+  bottom: 0;
+  left: 50%;
+  right: 0;
+  opacity: 1;
+  pointer-events: auto;
+}
+.timerSlot[data-slot='flow'] .timerTime {
+  font-size: 190px;
+}
+.timerSlot[data-slot='flow'] .timerLabel {
+  font-size: 48px;
 }
 
 /* 좌측 페인 — WOD 보드 + 하단 레이스 배정 패널 */
@@ -459,4 +480,170 @@
 .prIdle {
   font-size: 40px;
   color: var(--bcl-text-muted);
+}
+
+/* ── FLOW 모드 (수업 진행 세그먼트 타임라인) ── */
+/* 상단 스트립 = 세그먼트 칩 행 + 체크인 수. 좌측 = WOD(+라이브 화이트보드), 우측 = timerSlot(flow) */
+.flowRoot {
+  position: absolute;
+  inset: 0;
+}
+.flowStrip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--flow-strip-h, 96px);
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-6);
+  padding: 0 var(--bcl-space-8);
+  border-bottom: 2px solid var(--bcl-border);
+  background: var(--bcl-surface);
+}
+.flowSegList {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
+  flex: 1 1 auto;
+}
+.flowSeg {
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-2);
+  padding: var(--bcl-space-2) var(--bcl-space-4);
+  border-radius: var(--bcl-radius-lg);
+  border: 2px solid var(--bcl-border);
+  color: var(--bcl-text-muted);
+  white-space: nowrap;
+}
+.flowSeg[data-state='done'] {
+  opacity: 0.45;
+}
+.flowSeg[data-state='active'] {
+  border-color: var(--bcl-accent);
+  background: var(--bcl-accent-soft);
+  color: var(--bcl-text);
+}
+.flowSegNo {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+  font-variant-numeric: tabular-nums;
+}
+.flowSeg[data-state='todo'] .flowSegNo {
+  color: var(--bcl-text-muted);
+}
+.flowSegName {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.flowCheckin {
+  flex: 0 0 auto;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--bcl-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.flowLeft {
+  position: absolute;
+  top: var(--flow-strip-h, 96px);
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  display: flex;
+  flex-direction: column;
+  border-right: 2px solid var(--bcl-border);
+}
+.flowWodPane {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: var(--bcl-space-6) var(--bcl-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-4);
+}
+
+/* 라이브 화이트보드 스트립 — 기록 세그먼트(showBoard)에서만 좌측 하단 표시 */
+.flowBoard {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--bcl-space-4);
+  padding: var(--bcl-space-4) var(--bcl-space-8);
+  border-top: 4px solid var(--bcl-accent);
+  background: var(--bcl-surface);
+  overflow: hidden;
+}
+.flowBoardTag {
+  flex: 0 0 auto;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--bcl-accent);
+}
+.flowBoardEmpty {
+  font-size: 28px;
+  color: var(--bcl-text-muted);
+}
+.flowBoardList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--bcl-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.flowBoardRow {
+  display: flex;
+  align-items: baseline;
+  gap: var(--bcl-space-3);
+  font-size: 28px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.flowBoardRank {
+  flex: 0 0 auto;
+  min-width: 1.4em;
+  font-weight: 800;
+  color: var(--bcl-accent-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.flowBoardName {
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.flowBoardRx {
+  flex: 0 0 auto;
+  font-size: 20px;
+  font-weight: 800;
+  padding: 0 var(--bcl-space-2);
+  border-radius: var(--bcl-radius-sm);
+  color: var(--bcl-bg);
+  background: var(--bcl-success);
+}
+.flowBoardRx[data-rx='rx_plus'] {
+  background: var(--bcl-accent);
+}
+.flowBoardRx[data-rx='scaled'] {
+  background: var(--bcl-text-muted);
+}
+.flowBoardScore {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }

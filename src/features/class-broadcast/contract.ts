@@ -36,28 +36,58 @@ export const STALE_CMD_MS = 5_000;
 
 // ── 명령 페이로드 계약 ──────────────────────────────────────────────────────
 
-export type ConsoleMode = 'wod' | 'live' | 'timer' | 'screen' | 'split';
+export type ConsoleMode = 'wod' | 'live' | 'timer' | 'screen' | 'split' | 'flow';
 
-export type TimerMode = 'countdown' | 'countup' | 'emom' | 'tabata';
+export type TimerMode = 'countdown' | 'countup' | 'emom' | 'tabata' | 'interval';
 
 export interface TimerCommand {
   action: 'configure' | 'start' | 'pause' | 'reset';
   mode?: TimerMode;
   /** countdown: 총 초 */
   seconds?: number;
+  /** countup: 자동 종료 타임캡 초(미지정/0 = 무제한) */
+  capSeconds?: number;
   /** emom: 인터벌 초 */
   intervalSeconds?: number;
-  /** emom: 총 라운드 */
+  /** emom·interval: 총 라운드 */
   totalRounds?: number;
-  /** tabata: work 초 */
+  /** tabata·interval: work 초 */
   workSeconds?: number;
-  /** tabata: rest 초 */
+  /** tabata·interval: rest 초 */
   restSeconds?: number;
   /** tabata: 세트 수(옵션) */
   totalSets?: number;
+  /** 시작 전 준비 카운트다운 초(미지정/0 = 즉시 본 타이머) — "READY 3-2-1-GO" */
+  preSeconds?: number;
 }
 
-export type ConsoleCmd = 'set_mode' | 'timer' | 'refresh' | 'identify' | 'open_race';
+// ── 수업 플로우(세그먼트 타임라인) — docs/05 §3.2 flow 모드 ──────────────────
+//   코치가 세그먼트 배열+현재 인덱스를 통째로 재전송한다(멱등 — TV는 수신 상태만
+//   렌더, 중간 합류/재접속 TV도 다음 명령에서 동기화). 플랜 영속은 session_wods.segments.
+
+export interface FlowSegment {
+  /** 표시 이름(예: 브리핑·웜업·METCON·쿨다운) */
+  name: string;
+  /** 세그먼트 진입 시 적용할 타이머 구성(action은 무시하고 configure로 적용). null=시계 유지 */
+  timer?: TimerCommand | null;
+  /** 타이머 자동 시작 여부(기본 true — 진입 즉시 preSeconds 카운트다운부터 구동) */
+  autoStart?: boolean;
+  /** 라이브 화이트보드(기록 랭킹 스트립) 표시 여부(기본 false — 기록 세그먼트에서만) */
+  showBoard?: boolean;
+}
+
+export interface FlowCommand {
+  /** start=플로우 개시(첫 세그먼트) · set=세그먼트 이동/재동기 · stop=플로우 종료 */
+  action: 'start' | 'set' | 'stop';
+  /** start·set: 전체 세그먼트 플랜(통째 재전송 — TV 무상태 수신) */
+  segments?: FlowSegment[];
+  /** start·set: 현재 세그먼트 인덱스(start 미지정 시 0) */
+  index?: number;
+  /** 화이트보드 조회 대상 세션(showBoard 세그먼트에서 fn_get_class_wod_board 호출용) */
+  session_id?: string | null;
+}
+
+export type ConsoleCmd = 'set_mode' | 'timer' | 'flow' | 'refresh' | 'identify' | 'open_race';
 
 export interface ConsoleCommandPayload {
   cmd: ConsoleCmd;
@@ -67,6 +97,8 @@ export interface ConsoleCommandPayload {
   mode?: ConsoleMode;
   /** cmd=timer */
   timer?: TimerCommand;
+  /** cmd=flow — 수업 플로우 상태(전체 플랜+인덱스) */
+  flow?: FlowCommand;
   /** cmd=open_race — 관전할 race_events.id (콘솔이 관전 화면으로 전환) */
   event_id?: string;
   /** 발행 시각(ms epoch) — 스테일 판정 기준 */
